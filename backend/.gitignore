@@ -1,0 +1,29 @@
+# Build and Output Directories
+.gradle/
+build/
+bin/
+out/
+target/
+
+# Environment and Secret Files
+.env
+!.env.example
+
+# IDE and Editor Files
+.idea/
+.vscode/
+*.workspace
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+
+# Logs
+*.log
+logs/
+
+# OS Generated Files
+.DS_Store
+Thumbs.db

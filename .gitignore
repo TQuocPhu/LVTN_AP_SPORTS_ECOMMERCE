@@ -1,0 +1,26 @@
+# OS Metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backend Build & Sensitive Files
+backend/.gradle/
+backend/build/
+backend/bin/
+backend/.env
+
+# Frontend Dependencies & Build Output
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.*.local
+
+# Logs
+*.log

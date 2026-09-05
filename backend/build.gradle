@@ -1,0 +1,65 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.3.5'
+	id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.web.ap_sports'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Web & REST API
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	
+	// Realtime WebSocket
+	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	
+	// Persistence & ORM
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	
+	// Redis (Caching, Sessions, Pub/Sub)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	
+	// Security & Auth
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	
+	// Input Validation
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	
+	// Dev Tools (Hot reload)
+	developmentOnly 'org.springframework.boot:spring-boot-devtools'
+	
+	// Database Drivers (PostgreSQL & MySQL & H2)
+	runtimeOnly 'org.postgresql:postgresql'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	runtimeOnly 'com.h2database:h2'
+	
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	
+	// Testing
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
