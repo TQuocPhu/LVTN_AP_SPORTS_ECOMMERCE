@@ -6,6 +6,7 @@
 > 1. Bảo tồn **100% tất cả các trường (columns) gốc** từ 21 Laravel Migrations của FreshHome. Mọi tính năng Enterprise được triển khai theo hướng **BỔ SUNG THÊM (Add-on)** trường/bảng mới, tuyệt đối **KHÔNG XÓA** bất kỳ trường nào của hệ thống CSDL gốc.
 > 2. **QUY TẮC PHÁT TRIỂN DÀNH CHO AI**: AI **BẮT BUỘC** phải đọc qua các tệp tài liệu (`.docx`, `.md`, `PROJECT_SPECIFICATION.md`, `rules/`) trước khi đọc hay can thiệp vào tệp mã nguồn. Khi chưa có lệnh yêu cầu viết code trực tiếp từ người dùng, AI **CHỈ GIẢI THÍCH VÀ LÊN KẾ HOẠCH**, tuyệt đối **KHÔNG TỰ Ý SỬA/VIẾT CODE**.
 > 3. **QUY TẮC BẢO MẬT TOKEN CLIENT**: **TUYỆT ĐỐI CẤM `localStorage` / `sessionStorage`** trong toàn bộ dự án. Tất cả JWT Tokens (`accessToken`, `refreshToken`) và dữ liệu lưu trữ phía Client **BẮT BUỘC CHỈ ĐƯỢC DÙNG COOKIES** (`HttpOnly Cookies` từ Backend hoặc Secure Client Cookies).
+> 4. **QUY TẮC QUẢN LÝ GIT**: AI thực hiện `git add` và `git commit` chia theo **TỪNG CỤM TÍNH NĂNG LOGIC**, với **Commit Message bằng TIẾNG VIỆT** chuẩn Conventional Commits (VD: `docs: cập nhật tài liệu...`, `feat(backend): bổ sung cấu hình...`). AI **TUYỆT ĐỐI KHÔNG THỰC HIỆN LỆNH `git push`** (Người dùng sẽ tự thực hiện push).
 
 ---
 

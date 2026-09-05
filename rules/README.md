@@ -5,6 +5,8 @@ Thư mục `rules/` này chứa toàn bộ các quy chuẩn mã nguồn, kiến 
 > ⚠️ **QUY TẮC LÀM VIỆC TỐI CAO DÀNH CHO AI**:
 > 1. **BẮT BUỘC ĐỌC DOCS TRƯỚC**: AI **BẮT BUỘC** phải đọc các tệp tài liệu (`.docx`, `.md`, `PROJECT_SPECIFICATION.md`, `rules/`) trước khi xem hoặc can thiệp vào mã nguồn.
 > 2. **CHỈ CODE KHI CÓ YÊU CẦU CỤ THỂ**: Khi chưa có lệnh yêu cầu viết code trực tiếp từ người dùng, AI **CHỈ GIẢI THÍCH VÀ LÊN KẾ HOẠCH**, tuyệt đối **KHÔNG TỰ Ý SỬA HOẶC VIẾT CODE**.
+> 3. **QUY TẮC BẢO MẬT TOKEN CLIENT**: **TUYỆT ĐỐI CẤM `localStorage`** trong toàn bộ dự án. Tất cả JWT Tokens (`accessToken`, `refreshToken`) và dữ liệu lưu trữ phía Client **BẮT BUỘC CHỈ ĐƯỢC DÙNG COOKIES** (`HttpOnly Cookies` từ Backend hoặc Secure Client Cookies).
+> 4. **QUY TẮC QUẢN LÝ GIT**: Thực hiện `git add` và `git commit` chia theo **TỪNG CỤM TÍNH NĂNG LOGIC**, với **Commit Message bằng TIẾNG VIỆT** chuẩn Conventional Commits (VD: `docs: cập nhật tài liệu...`, `feat(backend): bổ sung cấu hình...`). **TUYỆT ĐỐI KHÔNG THỰC HIỆN LỆNH `git push`**.
 
 ---
 
