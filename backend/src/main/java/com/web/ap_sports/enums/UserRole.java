@@ -1,7 +1,8 @@
 package com.web.ap_sports.enums;
 
 public enum UserRole {
-    ROLE_USER,
-    ROLE_ADMIN,
-    ROLE_MANAGER
+    ADMIN,
+    STAFF,
+    WAREHOUSE_MANAGER,
+    CUSTOMER
 }

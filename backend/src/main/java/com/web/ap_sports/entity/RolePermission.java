@@ -13,15 +13,16 @@ import java.time.LocalDateTime;
 @Builder
 public class RolePermission {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @EmbeddedId
+    private RolePermissionId id;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("roleId")
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @MapsId("permissionId")
     @JoinColumn(name = "permission_id", nullable = false)
     private Permission permission;
 

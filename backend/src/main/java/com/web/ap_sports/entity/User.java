@@ -1,6 +1,9 @@
 package com.web.ap_sports.entity;
 
+import com.web.ap_sports.enums.UserStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.web.ap_sports.enums.UserStatus;
+
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -28,8 +31,9 @@ public class User {
     @JsonIgnore
     private String password;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status; // pending, active, banned, deleted
+    private UserStatus status; // pending, active, banned, deleted
 
     @Column(name = "phone_number")
     private String phoneNumber;
@@ -61,7 +65,7 @@ public class User {
 
     @PrePersist
     protected void onCreate() {
-        if (status == null) status = "pending";
+        if (status == null) status = UserStatus.pending;
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }

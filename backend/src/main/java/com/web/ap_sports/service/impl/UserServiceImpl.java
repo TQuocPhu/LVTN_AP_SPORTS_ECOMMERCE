@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import com.web.ap_sports.enums.UserStatus;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -38,7 +40,7 @@ public class UserServiceImpl implements UserService {
                 .phoneNumber(request.phoneNumber())
                 .address(request.address())
                 .role(customerRole)
-                .status("active")
+                .status(UserStatus.active)
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -68,7 +70,7 @@ public class UserServiceImpl implements UserService {
                 user.getName(),
                 user.getEmail(),
                 user.getRole() != null ? user.getRole().getName() : "CUSTOMER",
-                user.getStatus(),
+                user.getStatus() != null ? user.getStatus().name() : "active",
                 user.getPhoneNumber(),
                 user.getAvatar(),
                 user.getEmployeeCode(),

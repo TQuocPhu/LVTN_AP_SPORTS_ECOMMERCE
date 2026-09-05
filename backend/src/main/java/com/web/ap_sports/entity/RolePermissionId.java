@@ -1,5 +1,6 @@
 package com.web.ap_sports.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.*;
 import java.io.Serializable;
@@ -11,6 +12,10 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class RolePermissionId implements Serializable {
+
+    @Column(name = "role_id")
     private Long roleId;
+
+    @Column(name = "permission_id")
     private Long permissionId;
 }
