@@ -13,18 +13,21 @@
 
 ---
 
-## 🚀 2. Khởi Chạy Dự Án Nhanh
+## 🚀 2. Các Lệnh Khởi Chạy Siêu Dễ Nhớ
 
-### Backend (Spring Boot):
+### Cách 1: Sử dụng npm ở thư mục gốc (`d:\LVTN`):
 ```bash
-cd backend
-./gradlew bootRun
+# Khởi chạy Backend Spring Boot
+npm run backend
+
+# Khởi chạy Frontend Next.js
+npm run frontend
 ```
 
-### Frontend (Next.js):
+### Cách 2: Sử dụng file lệnh ngắn trong thư mục `backend/`:
 ```bash
-cd frontend
-npm run dev
+cd backend
+.\run
 ```
 
 ---

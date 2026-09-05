@@ -1,6 +1,6 @@
 # 🏗️ Quy Tắc Cấu Trúc Mã Nguồn & Luồng Dữ Liệu (Clean Architecture Rules for AI)
 
-Tài liệu này quy định cấu trúc thư mục, luồng dữ liệu bắt buộc và nguyên tắc bảo mật DTO dành cho AI khi phát triển dự án Full-stack này.
+Tài liệu này quy định cấu trúc thư mục, luồng dữ liệu bắt buộc, nguyên tắc bảo mật DTO và quy định lưu trữ Token client dành cho AI khi phát triển dự án Full-stack này.
 
 ---
 
@@ -27,19 +27,27 @@ Mọi tính năng tương tác từ Frontend xuống Backend và Database **BẮ
 ## 🛡️ 2. Quy Tắc Bảo Mật DTO (TUYỆT ĐỐI KHÔNG TRẢ ENTITY / PASSWORD CHO FRONTEND)
 
 1. **Cấm dùng trực tiếp Entity**:
-   - Controller **KHÔNG ĐƯỢC PHÉP** nhận hoặc trả về trực tiếp JPA Entity (`UserEntity`, `AccountEntity`).
+   - Controller **KHÔNG ĐƯỢC PHÉP** nhận hoặc trả về trực tiếp JPA Entity.
    - Mọi request gửi lên phải dùng **Request DTO** (`UserCreateRequest`).
    - Mọi response gửi về Frontend phải dùng **Response DTO** (`UserResponse`).
 
 2. **Cấm rò rỉ dữ liệu nhạy cảm (Password/Secrets)**:
    - Các trường như `password`, `tokenSecret`, `salt` trong Database **TUYỆT ĐỐI KHÔNG BỎ VÀO RESPONSE DTO**.
-   - DTO trả về cho Frontend chỉ chứa các thông tin công khai an toàn (`id`, `username`, `email`, `fullName`, `role`, `status`).
+   - DTO trả về cho Frontend chỉ chứa các thông tin công khai an toàn (ví dụ: `id`, `username`, `email`, `fullName`, `role`, `status` mà không trả lại các trường nhạy cảm như `password`).
 
 ---
 
-## 📁 3. File Môi Trường (.env & .env.example)
+## 🍪 3. Quy Tắc Bảo Mật Token Client (TUYỆT ĐỐI CẤM localStorage / CHỈ DÙNG COOKIES)
 
-- **Backend**:
-  - `backend/.env` & `backend/.env.example`: Lưu biến `SERVER_PORT`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST`, `CORS_ALLOWED_ORIGINS`.
-- **Frontend**:
-  - `frontend/.env.local` & `frontend/.env.example`: Lưu biến `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`.
+1. **CẤM `localStorage`**:
+   - **TUYỆT ĐỐI KHÔNG** lưu JWT Tokens (`accessToken`, `refreshToken`) hoặc bất kỳ thông tin nhạy cảm nào vào `localStorage`.
+2. **CHỈ DÙNG COOKIES**:
+   - Mọi lưu trữ và trích xuất token tại Client **BẮT BUỘC SỬ DỤNG COOKIES** (`HttpOnly Cookies` từ Backend hoặc Secure Cookies từ helper `getCookie`/`setCookie` trong `api-client.ts`).
+   - Tất cả các request `fetch` phải có `credentials: 'include'`.
+
+---
+
+## 📁 4. File Môi Trường (.env & .env.example)
+
+- **Backend**: `backend/.env` & `backend/.env.example`
+- **Frontend**: `frontend/.env.local` & `frontend/.env.example`
