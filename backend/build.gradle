@@ -42,6 +42,14 @@ dependencies {
 	// Input Validation
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	
+	// Spring Mail (Sending activation & contact response emails)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+	
+	// JJWT (JSON Web Token Access & Refresh Tokens)
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	
 	// Dev Tools (Hot reload)
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	

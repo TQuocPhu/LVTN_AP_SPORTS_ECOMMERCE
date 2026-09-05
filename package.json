@@ -1,0 +1,12 @@
+{
+  "name": "lvtn-ap-sports-ecommerce",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AP Sports Ecommerce Full-Stack System",
+  "scripts": {
+    "backend": "cd backend && gradlew.bat bootRun",
+    "frontend": "cd frontend && npm run dev",
+    "build:backend": "cd backend && gradlew.bat build",
+    "build:frontend": "cd frontend && npm run build"
+  }
+}
