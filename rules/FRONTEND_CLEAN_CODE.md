@@ -27,6 +27,15 @@ src/
 
 ---
 
+## 📄 1.1. Quy Tắc Clean Page (Routing Pages vs UI Components)
+
+- Tệp trang Router (`src/app/.../page.tsx`) **CHỈ ĐƯỢC PHÉP KHAI BÁO METADATA/SEO VÀ KHỞI TẠO ROUTE**, sau đó gọi duy nhất Component UI chính tương ứng (ví dụ: `<RegisterForm />` hoặc `<LoginPage />`).
+- **CẤM HOÀN TOÀN**:
+  - Không viết trực tiếp JSX giao diện Form/Layout dài dòng trong `page.tsx`.
+  - Không khai báo `useState`, `useEffect` hay gọi API handler trực tiếp trong `page.tsx`. Mọi logic tương tác người dùng phải đưa vào Component UI (`src/components/`) hoặc Custom Hook (`src/hooks/`).
+
+---
+
 ## 🔒 2. Quy Tắc Bảo Mật Token & Lưu Trữ Client (CHỈ DÙNG COOKIES)
 
 1. **Cấm `localStorage` / `sessionStorage`**:
