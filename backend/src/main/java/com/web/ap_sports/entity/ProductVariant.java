@@ -42,6 +42,10 @@ public class ProductVariant {
     @Version
     private Long version;
 
+    @OneToMany(mappedBy = "variant", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private java.util.List<ProductImage> images = new java.util.ArrayList<>();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -144,9 +144,10 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
    - `stock_quantity`: INT DEFAULT 0
    - `version`: BIGINT DEFAULT 0 (JPA `@Version` Optimistic Lock)
    - `created_at`, `updated_at`: TIMESTAMP
-10. **`product_images`** *(Giữ nguyên 100% gốc + Bổ sung 1 trường)*:
+10. **`product_images`** *(Giữ nguyên 100% gốc + Bổ sung 2 trường)*:
     - `id`: BIGINT (Primary Key)
     - `product_id`: BIGINT (FK -> `products.id` ON DELETE CASCADE) *(Gốc)*
+    - `variant_id`: BIGINT (Nullable - FK -> `product_variants.id` ON DELETE CASCADE cho bộ ảnh riêng theo biến thể) `[Bổ sung thêm]`
     - `image_path`: VARCHAR(500) (Cloudinary/MinIO Image URL) *(Gốc)*
     - `is_primary`: BOOLEAN DEFAULT FALSE `[Bổ sung thêm]`
     - `created_at`, `updated_at`: TIMESTAMP *(Gốc)*
