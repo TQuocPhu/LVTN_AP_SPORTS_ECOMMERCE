@@ -1,9 +1,13 @@
 package com.web.ap_sports.service.customer.impl;
 
+import com.web.ap_sports.config.JwtTokenProvider;
 import com.web.ap_sports.dto.request.customer.ChangePasswordRequest;
 import com.web.ap_sports.dto.request.customer.UpdateProfileRequest;
+import com.web.ap_sports.dto.response.customer.AuthTokens;
 import com.web.ap_sports.dto.response.customer.UserProfileResponse;
+import com.web.ap_sports.entity.RefreshToken;
 import com.web.ap_sports.entity.User;
+import com.web.ap_sports.repository.RefreshTokenRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.common.CloudinaryService;
 import com.web.ap_sports.service.common.impl.CloudinaryServiceImpl.CloudinaryUploadResult;
@@ -15,12 +19,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
+
 /**
  * Lớp triển khai logic nghiệp vụ quản lý Hồ sơ cá nhân Khách hàng.
  *
  * Bảo mật được tích hợp:
  *  - Avatar: validate file (size/MIME) trước khi upload, xóa ảnh cũ sau khi upload mới
- *  - Đổi mật khẩu: tăng @Size(min=8) ở DTO, revoke refresh tokens sau khi đổi thành công
+ *  - Đổi mật khẩu: tăng @Size(min=8) ở DTO, revoke refresh tokens cũ & cấp token mới ngay cho phiên hiện tại (Seamless UX)
  */
 @Service
 @RequiredArgsConstructor
@@ -28,7 +34,9 @@ import org.springframework.web.multipart.MultipartFile;
 public class CustomerProfileServiceImpl implements CustomerProfileService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
     private final CloudinaryService cloudinaryService;
 
     private static final String AVATAR_FOLDER = "ap-sports-e-commerce/avatars";
@@ -91,15 +99,12 @@ public class CustomerProfileServiceImpl implements CustomerProfileService {
     }
 
     /**
-     * Đổi mật khẩu và thu hồi tất cả Refresh Token cũ của user (buộc đăng nhập lại trên mọi thiết bị).
-     *
-     * Lý do revoke: nếu mật khẩu bị đổi do nghi ngờ bị lộ tài khoản, các phiên đăng nhập cũ
-     * trên thiết bị khác phải bị vô hiệu hoá ngay — chỉ giữ lại access token hiện tại
-     * (tự hết hạn trong 15-30 phút, không làm gián đoạn UX request hiện tại).
+     * Đổi mật khẩu, thu hồi toàn bộ Refresh Token cũ (vô hiệu các phiên ở thiết bị khác)
+     * và cấp cặp Access Token & Refresh Token mới cho phiên hiện tại (Seamless UX).
      */
     @Override
     @Transactional
-    public void changePassword(String email, ChangePasswordRequest request) {
+    public AuthTokens changePassword(String email, ChangePasswordRequest request) {
         User user = getUserByEmail(email);
 
         // 1. Kiểm tra xác nhận mật khẩu mới trùng khớp
@@ -117,12 +122,27 @@ public class CustomerProfileServiceImpl implements CustomerProfileService {
         userRepository.save(user);
         log.info("Thay đổi mật khẩu thành công cho user ID: {}", user.getId());
 
-        // 4. TODO: Revoke tất cả Refresh Token cũ của user trong Redis/DB
-        //    Khi module Token Revocation được triển khai, gọi:
-        //    refreshTokenService.revokeAllByUserId(user.getId());
-        //    Access token hiện tại vẫn hợp lệ tới khi hết hạn tự nhiên (15-30 phút)
-        //    để không làm gián đoạn response request đang xử lý.
-        log.info("[TODO] Refresh token revocation cho user ID: {} sẽ được triển khai ở Sprint Token Module", user.getId());
+        // 4. Vô hiệu hóa toàn bộ Refresh Token cũ của user này
+        refreshTokenRepository.revokeAllUserTokens(user);
+        log.info("Đã thu hồi tất cả Refresh Token cũ của user ID: {}", user.getId());
+
+        // 5. Sinh cặp Token mới cho phiên làm việc hiện tại (Seamless UX)
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().getName());
+        String newRawRefreshToken = jwtTokenProvider.generateRawRefreshToken();
+        String newHashedRefreshToken = jwtTokenProvider.hashRefreshToken(newRawRefreshToken);
+
+        RefreshToken newRefreshTokenEntity = RefreshToken.builder()
+                .user(user)
+                .token(newHashedRefreshToken)
+                .expiresAt(LocalDateTime.now().plusWeeks(1))
+                .revoked(false)
+                .build();
+        refreshTokenRepository.save(newRefreshTokenEntity);
+
+        return AuthTokens.builder()
+                .accessToken(newAccessToken)
+                .rawRefreshToken(newRawRefreshToken)
+                .build();
     }
 
     private User getUserByEmail(String email) {

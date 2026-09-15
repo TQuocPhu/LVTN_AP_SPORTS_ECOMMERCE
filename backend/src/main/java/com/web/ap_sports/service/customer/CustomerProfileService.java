@@ -2,6 +2,7 @@ package com.web.ap_sports.service.customer;
 
 import com.web.ap_sports.dto.request.customer.ChangePasswordRequest;
 import com.web.ap_sports.dto.request.customer.UpdateProfileRequest;
+import com.web.ap_sports.dto.response.customer.AuthTokens;
 import com.web.ap_sports.dto.response.customer.UserProfileResponse;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,6 +28,7 @@ public interface CustomerProfileService {
 
     /**
      * Thay đổi mật khẩu tài khoản (Kiểm tra mật khẩu cũ & mật khẩu mới).
+     * Thu hồi tất cả Refresh Token cũ và cấp cặp Access Token & Refresh Token mới cho phiên hiện tại (Seamless UX).
      */
-    void changePassword(String email, ChangePasswordRequest request);
+    AuthTokens changePassword(String email, ChangePasswordRequest request);
 }

@@ -22,6 +22,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.web.ap_sports.util.CookieUtils;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -137,8 +139,8 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         refreshTokenRepository.save(refreshTokenEntity);
 
         // 7. Thiết lập Cookies an toàn gửi về Client (credentials: 'include')
-        addTokenCookie(response, "accessToken", accessToken, 1800); // 30 phút
-        addTokenCookie(response, "refreshToken", rawRefreshToken, 604800); // 7 ngày
+        CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, accessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
+        CookieUtils.addTokenCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, rawRefreshToken, CookieUtils.REFRESH_TOKEN_MAX_AGE);
 
         return mapToUserResponse(user);
     }
@@ -147,27 +149,23 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     @Transactional
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         // 1. Đọc RefreshToken gốc từ Cookies nếu có để thu hồi trong DB
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("refreshToken".equals(cookie.getName())) {
-                    String rawToken = cookie.getValue();
-                    String hashedToken = jwtTokenProvider.hashRefreshToken(rawToken);
-                    refreshTokenRepository.findByToken(hashedToken).ifPresent(refreshToken -> {
-                        refreshToken.setRevoked(true);
-                        refreshTokenRepository.save(refreshToken);
-                    });
-                }
-            }
+        String rawToken = CookieUtils.extractCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+        if (rawToken != null) {
+            String hashedToken = jwtTokenProvider.hashRefreshToken(rawToken);
+            refreshTokenRepository.findByToken(hashedToken).ifPresent(refreshToken -> {
+                refreshToken.setRevoked(true);
+                refreshTokenRepository.save(refreshToken);
+            });
         }
 
         // 2. Thu hồi Cookies trên Client
-        deleteCookie(response, "accessToken");
-        deleteCookie(response, "refreshToken");
+        CookieUtils.deleteCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME);
+        CookieUtils.deleteCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
     }
 
     @Override
     public UserResponse getCurrentUser(HttpServletRequest request) {
-        String accessToken = extractCookieValue(request, "accessToken");
+        String accessToken = CookieUtils.extractCookieValue(request, CookieUtils.ACCESS_TOKEN_COOKIE_NAME);
         if (accessToken == null || !jwtTokenProvider.validateToken(accessToken)) {
             throw new SecurityException("Chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
         }
@@ -180,34 +178,6 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     }
 
     // --- Helper Methods ---
-
-    private void addTokenCookie(HttpServletResponse response, String name, String value, int maxAgeSeconds) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // Đặt true khi chạy HTTPS Production
-        cookie.setPath("/");
-        cookie.setMaxAge(maxAgeSeconds);
-        response.addCookie(cookie);
-    }
-
-    private void deleteCookie(HttpServletResponse response, String name) {
-        Cookie cookie = new Cookie(name, null);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
-    }
-
-    private String extractCookieValue(HttpServletRequest request, String cookieName) {
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if (cookieName.equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
-        }
-        return null;
-    }
 
     private UserResponse mapToUserResponse(User user) {
         return UserResponse.builder()
