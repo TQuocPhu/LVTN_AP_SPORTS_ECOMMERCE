@@ -356,6 +356,75 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
   - Tích hợp Fallback In-Memory (`ConcurrentHashMap`) đảm bảo zero-downtime nếu Redis gián đoạn.
   - Áp dụng `@RateLimit` cho `/change-password` (3 lần/15 phút) và `/avatar` (5 lần/10 phút), trả về `HTTP 429 Too Many Requests`.
 
+
+---
+
+### 🐛 4.11. Phiên Đăng Nhập — Lịch Sử Lỗi & Quyết Định Kiến Trúc (Session Management Bug History)
+
+> **Trạng thái:** ✅ Đã giải quyết hoàn toàn (15/09/2026)
+
+#### Vấn đề: Bị Đăng Xuất Tự Động Sau 30 Phút Dù `refreshToken` Chưa Hết Hạn
+
+**Triệu chứng quan sát được:**
+- Người dùng đăng nhập bình thường → sau hơn 30 phút bị văng ra ngoài.
+- Kiểm tra `refresh_tokens` DB: `revoked = false` → Refresh Token **hoàn toàn còn hiệu lực**.
+- Lỗi xuất hiện tại: `useAddresses.ts`, `useProfile.ts` với thông báo *"Chưa đăng nhập hoặc phiên làm việc hết hạn"*.
+
+**3 Nguyên Nhân Gốc Rễ Được Xác Định:**
+
+| # | Lỗi | Vị Trí | Mô Tả |
+|---|-----|--------|--------|
+| 1 | `fetchCurrentUser()` ≠ Refresh | `AuthContext.tsx` | Interval & focus listener gọi `/auth/me` (chỉ đọc token) thay vì `/auth/refresh` (cấp lại token). Khi tab bị ẩn, browser throttle setInterval → interval 15p không chạy đúng giờ. |
+| 2 | Không refresh trước khi khởi động | `AuthContext.tsx` | Khi page load sau idle, `fetchCurrentUser()` gọi `/auth/me` với token đã hết hạn → race condition trong retry mechanism |
+| 3 | `/auth/me` là `permitAll()` + tự kiểm tra cookie | `SecurityConfig.java` + `CustomerAuthServiceImpl.java` | Service tự đọc cookie bỏ qua SecurityContext → thiết kế không nhất quán, dễ sai, khó debug |
+
+**Giải Pháp Kiến Trúc Production Cuối Cùng:**
+
+1. **`initialize()` trong `AuthContext`**: Chỉ gọi `fetchCurrentUser()` (`GET /auth/me`) khi app boot. Không ép buộc `/auth/refresh` mù quáng.
+   - Nếu Access Token còn hạn → trả 200 OK ngay (0 overhead refresh, 0 ghi DB).
+   - Nếu Access Token hết hạn → `apiClient` tự động bắt 401 và Silent Refresh 1 lần duy nhất an toàn.
+   - Nếu là Khách / Incognito → trả 401, dừng ngay lập tức, `user = null`, `loading = false` → web tải mượt không bị đơ/treo.
+
+2. **`proactiveRefresh()`**: Hàm làm mới phiên ngầm, bọc bảo vệ bởi `if (!user) return;` (chỉ dành cho user đã đăng nhập), có debounce 60s:
+   - `visibilitychange` (khi quay lại tab) → `proactiveRefresh()` (nếu `user !== null`).
+   - `setInterval` 20 phút → `proactiveRefresh()` (nếu `user !== null`).
+
+3. **`SecurityConfig`**: Tách `/auth/me` khỏi wildcard `permitAll()`, chuyển sang `hasRole("CUSTOMER")` → Spring Security xử lý 401 chuẩn qua `AuthenticationEntryPoint`.
+
+4. **`CustomerAuthServiceImpl.getCurrentUser()`**: Đọc từ `SecurityContextHolder` thay vì tự parse cookie thủ công — nhất quán với kiến trúc Filter → SecurityContext → Service.
+
+**Quy tắc bất biến rút ra (áp dụng cho toàn dự án):**
+- ✅ **Lazy Refresh qua Interceptor** — Để `apiClient` 401 interceptor xử lý refresh tự động khi cần; không ép buộc refresh trên mọi F5 / boot app để tránh xoay token quá mức.
+- ✅ **Bảo vệ guest flow** — Kiểm tra `if (!user) return;` trước mọi hành động refresh ngầm, tránh gây 401 liên tục cho người dùng ẩn danh/chưa đăng nhập.
+- ✅ **Không tự validate token trong Service** — Để Spring Security và `JwtAuthenticationFilter` làm việc đó; Service chỉ đọc `SecurityContext`.
+- ✅ **`permitAll()` chỉ dành cho endpoints không cần auth** — Login, Register, Activate, Logout, Refresh là public; `/auth/me` phải `hasRole`.
+- ✅ **Không tin vào `setInterval` cho mục đích bảo mật** — Browser có thể suspend hoặc throttle background tabs; phải kết hợp cả `visibilitychange` + interval.
+
+---
+
+### 🔒 4.12. Quy Trình Quên & Đặt Lại Mật Khẩu (Forgot & Reset Password Flow)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (15/09/2026)
+
+**Đặc tả Kiến trúc:**
+1. **Quên Mật Khẩu (`POST /customer/auth/forgot-password`)**:
+   - Yêu cầu Email -> Kiểm tra tồn tại trong DB.
+   - Sinh token ngẫu nhiên 64 ký tự -> Lưu vào bảng `password_reset_tokens` (TTL 15 phút).
+   - Gửi HTML Email qua SMTP Server -> Chứa nút bấm và link `http://localhost:3000/reset-password?token=...&email=...`.
+   - Bảo vệ Rate Limit: **3 lần / 10 phút** per IP.
+
+2. **Đặt Lại Mật Khẩu (`POST /customer/auth/reset-password`)**:
+   - Kiểm tra Token & Email hợp lệ trong CSDL & chưa hết hạn 15 phút.
+   - Kiểm tra Mật khẩu mới khớp với Xác nhận mật khẩu & đạt độ mạnh (min 8 ký tự, có chữ & số).
+   - Mã hóa BCrypt mật khẩu mới -> Cập nhật `User`.
+   - Xóa token khỏi `password_reset_tokens` -> Thu hồi tất cả Refresh Token cũ của user (`revoked = true`).
+   - Bảo vệ Rate Limit: **5 lần / 10 phút** per IP.
+
+3. **Frontend Clean Architecture & Custom Hooks**:
+   - Tách biệt 100% Logic ra `useForgotPassword.ts` và `useResetPassword.ts`.
+   - Components `ForgotPasswordForm.tsx` & `ResetPasswordForm.tsx` là Pure UI Component.
+   - Routes: `/forgot-password` và `/reset-password` (bọc `<Suspense>`).
+
 ---
 
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL của và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
