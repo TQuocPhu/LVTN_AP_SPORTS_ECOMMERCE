@@ -24,3 +24,7 @@ frontend/.env.*.local
 
 # Logs
 *.log
+
+# Work Diary (Ignored in Git)
+diary/
+

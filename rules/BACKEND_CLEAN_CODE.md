@@ -15,6 +15,7 @@ Mọi module nghiệp vụ trong `src/main/java/com/web/ap_sports/` phải phân
 ```
 com.web.ap_sports/
 ├── config/                     # Class cấu hình (Security, Redis, WebSocket, Storage)
+├── seed/                       # Class nạp dữ liệu CSDL ban đầu (DataInitializer.java)
 ├── entity/                     # 25 JPA Entities dùng chung đại diện các bảng DB
 ├── repository/                 # Spring Data JPA Repositories dùng chung
 ├── exception/                  # Global Exception Handler (@ControllerAdvice)
@@ -45,6 +46,15 @@ com.web.ap_sports/
     ├── customer/               # Business logic phục vụ Khách mua hàng
     └── common/                 # Core shared services (AuthService, CloudStorageService)
 ```
+
+---
+
+## 🏛️ 1.1. Quy Tắc Tách Interface Và Impl Cho Tầng Service (Service Layer Architecture)
+
+- **Bắt buộc áp dụng Interface cho Tầng Service**:
+  - Mọi tệp trong `service/common/`, `service/customer/`, `service/admin/`, `service/staff/`, `service/warehouse/` **CHỈ ĐƯỢC LÀ INTERFACE** định nghĩa danh sách hàm và JavaDoc (Ví dụ: `CustomerAuthService.java`, `EmailService.java`).
+  - Toàn bộ mã nguồn triển khai thực tế (Class xử lý logic nghiệp vụ) **BẮT BUỘC ĐẶT NẰM TRONG THƯ MỤC CON `impl/` TƯƠNG ỨNG** và đặt tên kết thúc bằng `ServiceImpl` (Ví dụ: `service/customer/impl/CustomerAuthServiceImpl.java`, `service/common/impl/EmailServiceImpl.java`).
+  - Lớp Impl được gắn `@Service` và `@RequiredArgsConstructor`, implement trực tiếp Interface tương ứng.
 
 ---
 

@@ -75,3 +75,22 @@ Next.js App Router coi **mọi component mặc định là React Server Componen
 2. **Semantic Shell**: Bao bọc bởi `<main className="...">`, dùng `<section>` cho từng Widget/Stats Card.
 3. **Core Web Vitals**: Sử dụng phông chữ tối ưu qua `next/font`, xử lý Skeleton Loading State khi fetch client-side.
 4. **Unique ID**: Tất cả button, input, thẻ hành động phải gắn `id="..."` độc nhất.
+
+---
+
+## 🎨 6. Quy Tắc Phối Màu & Tính Toán Dark / Light Mode (Color & Theme Calculation Rules)
+
+1. **Phải Tính Toán Cả 2 Chế Độ Light/Dark Trước Khi Định Mã Màu**:
+   - Trước khi khai báo mã màu sắc cụ thể (Hex, RGB, Gradient hay các Utility class Tailwind như `from-white`, `text-white`, `bg-slate-950`), **BẮT BUỘC PHẢI ĐỌC QUA VÀ TÍNH TOÁN ĐỘ TƯƠNG PHẢN & HÀI HOÀ Ở CẢ 2 CHẾ ĐỘ SÁNG (LIGHT MODE) VÀ TỐI (DARK MODE)**.
+   - Không được gắn cứng mã màu sáng/tối lên phần tử dùng chung nếu chưa tính toán xem khi chuyển sang chế độ ngược lại có bị tàng hình chữ, lóa hình hay mất dải màu thương hiệu hay không.
+
+2. **Cách Ly Vùng Media, Slider & Lớp Phủ Banner (Media Protection)**:
+   - Các vùng chứa ảnh Slider, Banner quảng cáo và các Nút bấm nổi bật (`bg-orange-500`) bắt buộc phải duy trì lớp phủ tối (Dark Overlay) và chữ màu trắng tương phản cao ở CẢ 2 CHẾ ĐỘ để đảm bảo hình ảnh và nội dung truyền thông không bị mờ hay lóa lún.
+
+3. **Tính Toán Màu Sắc Thương Hiệu & Logo Text (Brand Logo Calculation)**:
+   - Các phần tử nhận diện thương hiệu dạng chữ (như dải gradient logo `AP SPORTS`) phải được tính toán riêng ở Light Mode (chuyển sang dải gradient từ xám đậm sang cam `#0f172a` -> `#ea580c`) để nổi bật tuyệt đối trên nền header trắng mờ.
+
+4. **Đồng Bộ Nền Card, Văn Bản & Icon**:
+   - **Nền trang & Thẻ Card**: Chuyển từ xám đen Slate-950 / Slate-900 sang phông trắng sáng kem (`#f8fafc` & `#ffffff`) với đường viền mảnh dịu nhẹ (`#e2e8f0`).
+   - **Chữ văn bản**: Chuyển từ chữ trắng Slate-100 sang xám đậm tương phản cao (`#0f172a` & `#334155`), giữ sắc nét tuyệt đối trên nền sáng.
+

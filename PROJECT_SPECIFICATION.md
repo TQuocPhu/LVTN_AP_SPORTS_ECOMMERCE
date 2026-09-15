@@ -36,6 +36,7 @@
 ```
 com.web.ap_sports/
 ├── config/                     # Class cấu hình (Security, Redis, WebSocket, Storage)
+├── seed/                       # Class nạp dữ liệu CSDL ban đầu (DataInitializer.java)
 ├── entity/                     # 25 JPA Entities dùng chung đại diện các bảng DB
 ├── repository/                 # Spring Data JPA Repositories dùng chung
 ├── exception/                  # Global Exception Handler (@ControllerAdvice)
@@ -60,11 +61,16 @@ com.web.ap_sports/
 │   └── customer/               # Storefront Customer Controllers (/api/v1/customer/...)
 │
 └── service/
-    ├── admin/                  # Business logic dành riêng cho Admin Management
-    ├── staff/                  # Business logic dành riêng cho Staff Operations
-    ├── warehouse/              # Business logic đặc thù cho Kho (Nhập/Xuất/Tồn)
-    ├── customer/               # Business logic phục vụ Khách mua hàng
-    └── common/                 # Core shared services (AuthService, CloudStorageService)
+    ├── admin/                  # Interfaces dành riêng cho Admin Management
+    │   └── impl/               # Class triển khai (AdminServiceImpl)
+    ├── staff/                  # Interfaces dành riêng cho Staff Operations
+    │   └── impl/               # Class triển khai (StaffServiceImpl)
+    ├── warehouse/              # Interfaces đặc thù cho Kho (Nhập/Xuất/Tồn)
+    │   └── impl/               # Class triển khai (WarehouseServiceImpl)
+    ├── customer/               # Interfaces phục vụ Khách mua hàng
+    │   └── impl/               # Class triển khai (CustomerAuthServiceImpl)
+    └── common/                 # Core shared Interfaces (AuthService, EmailService)
+        └── impl/               # Class triển khai (EmailServiceImpl)
 ```
 
 ---
@@ -324,6 +330,21 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 - Redis Key Naming: `lvtn:prod:<module>:<entity>:<id>`
 - Caching Product Catalog (bao gồm `product_categories`), Session, Refresh Tokens, Rate Limiting.
 
+### 🌗 4.8. Hệ Thống Chuyển Đổi Giao Diện Sáng / Tối (Light / Dark Mode Engine & UI Guidelines)
+- **Quản lý State & Persistent**: Tích hợp `ThemeContext` lưu cấu hình giao diện `light` / `dark` vào **Cookie client 30 ngày**, khởi tạo đồng bộ giữa SSR và CSR.
+- **Quy tắc Media Protection**: Vùng Slider Banner trang chủ, các khung Media truyền thông và các Nút hành động chính (`bg-orange-500`) **bắt buộc duy trì lớp phủ tối (Dark Overlay)** và chữ màu trắng tương phản sắc nét ở cả 2 chế độ Sáng và Tối.
+- **Biến Đổi Màu Nhận Diện Brand**: Dải màu logo chữ `AP SPORTS` được tính toán chuyển từ dải màu sáng (`from-white via-slate-100 to-orange-400`) ở Dark Mode sang dải màu xám đậm tương phản (`from-slate-900 via-slate-800 to-orange-600`) ở Light Mode để không bị chìm trên nền header trắng mờ.
+
+### 🔌 4.9. Định Hướng & Ứng Dụng WebSocket Real-time (Roadmap Tích Hợp)
+- **Hạ tầng hiện tại**: Backend đã dựng sẵn `WebSocketConfig.java` (`/ws` endpoint STOMP, SockJS) và `WebSocketAuthInterceptor.java` (JWT STOMP Handshake).
+- **Các kịch bản ứng dụng sắp triển khai**:
+  1. **Push Notifications Real-time (Ưu tiên P1)**: Tải thông báo đơn hàng mới cho Admin/Staff (`/topic/admin/orders`) và thông báo chuyển trạng thái đơn hàng tới Khách hàng (`/topic/notifications/{userId}`) mà không cần F5.
+  2. **Live Chat CSKH 1-1 (Ưu tiên P2)**: Hỗ trợ chat trực tiếp giữa Khách hàng và Staff online (`/queue/chat/{sessionId}`), kèm Typing Indicator và Read Receipt.
+  3. **Order Tracking Real-time**: Cập nhật trạng thái đơn & tọa độ GPS vận chuyển trực tiếp trên UI Timeline chi tiết đơn hàng.
+  4. **Tồn Kho & Cảnh Báo Cháy Hàng Real-time**: Nhảy số tồn kho ngay khi phát sinh đơn trên Dashboard Kho & hiển thị "Out of Stock" tức thì ở Storefront.
+  5. **Admin Dashboard Live Analytics**: Tự động nhảy số Doanh thu & Tổng đơn hôm nay trên các biểu đồ Recharts khi có giao dịch thành công.
+
 ---
 
-*Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc của FreshHome và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+*Tài liệu này cam kết bảo tồn 100% các trường CSDL của và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+
