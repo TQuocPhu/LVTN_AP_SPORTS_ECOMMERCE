@@ -35,4 +35,19 @@ public interface CustomerAuthService {
      * Lấy thông tin User hiện tại từ JWT Access Token trong Cookie.
      */
     UserResponse getCurrentUser(HttpServletRequest request);
+
+    /**
+     * Xử lý Làm mới Access Token từ Refresh Token Cookie (Silent Refresh).
+     */
+    void refreshToken(HttpServletRequest request, HttpServletResponse response);
+
+    /**
+     * Xử lý Yêu cầu Quên Mật Khẩu -> Sinh Token & Gửi Email.
+     */
+    void forgotPassword(com.web.ap_sports.dto.request.customer.ForgotPasswordRequest request);
+
+    /**
+     * Xử lý Đặt Lại Mật Khẩu Mới với Token xác nhận.
+     */
+    void resetPassword(com.web.ap_sports.dto.request.customer.ResetPasswordRequest request);
 }

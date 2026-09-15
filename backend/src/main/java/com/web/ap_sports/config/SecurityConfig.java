@@ -74,7 +74,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 1. PermitAll: Auth Endpoints, Public Catalog, Handshake WebSocket /ws/**, H2 Console
                 .requestMatchers(
-                        "/api/v1/customer/auth/**",
+                        "/api/v1/customer/auth/register",
+                        "/api/v1/customer/auth/activate",
+                        "/api/v1/customer/auth/login",
+                        "/api/v1/customer/auth/logout",
+                        "/api/v1/customer/auth/refresh",
+                        "/api/v1/customer/auth/forgot-password",
+                        "/api/v1/customer/auth/reset-password",
                         "/api/v1/auth/**",
                         "/api/v1/products/**",
                         "/api/v1/categories/**",
@@ -83,6 +89,7 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // 2. Protected Routes theo Role (Đồng bộ 100% với UserRole enum & DB roles)
+                .requestMatchers("/api/v1/customer/auth/me").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/customer/profile/**", "/api/v1/customer/addresses/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/warehouse/**").hasRole("WAREHOUSE_MANAGER")

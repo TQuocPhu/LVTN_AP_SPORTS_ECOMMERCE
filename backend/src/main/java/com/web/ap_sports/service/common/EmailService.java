@@ -13,4 +13,13 @@ public interface EmailService {
      * @param activationToken Mã kích hoạt 64 ký tự
      */
     void sendActivationEmail(String toEmail, String userName, String activationToken);
+
+    /**
+     * Gửi Email chứa đường dẫn Đặt lại mật khẩu cho Khách hàng.
+     * 
+     * @param toEmail Email người nhận
+     * @param userName Tên người nhận
+     * @param resetToken Mã xác nhận đặt lại mật khẩu
+     */
+    void sendPasswordResetEmail(String toEmail, String userName, String resetToken);
 }

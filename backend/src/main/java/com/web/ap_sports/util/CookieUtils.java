@@ -5,7 +5,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Utility class chuyên trách quản lý HttpOnly Cookies cho toàn bộ hệ thống AP Sports.
+ * Utility class chuyên trách quản lý HttpOnly Cookies cho toàn bộ hệ thống AP
+ * Sports.
  * Đảm bảo đồng bộ 100% thuộc tính cấu hình an toàn (HttpOnly, Path, Max-Age).
  */
 public class CookieUtils {

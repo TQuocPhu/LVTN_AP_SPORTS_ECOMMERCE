@@ -18,8 +18,10 @@ import java.util.HexFormat;
 import java.util.UUID;
 
 /**
- * Utility Component phát hành, băm HASH HMAC-SHA256 và kiểm tra tính hợp lệ của JWT Tokens.
- * Sử dụng cặp khóa RSA 2048-bit (RS256) cho Access Token và HMAC-SHA256 cho Refresh Token Hash.
+ * Utility Component phát hành, băm HASH HMAC-SHA256 và kiểm tra tính hợp lệ của
+ * JWT Tokens.
+ * Sử dụng cặp khóa RSA 2048-bit (RS256) cho Access Token và HMAC-SHA256 cho
+ * Refresh Token Hash.
  */
 @Component
 @RequiredArgsConstructor
@@ -38,11 +40,12 @@ public class JwtTokenProvider {
     private String jwtRefreshSecret;
 
     /**
-     * Sinh JWT Access Token ngắn hạn cho người dùng bằng thuật toán RS256 với RSA Private Key.
+     * Sinh JWT Access Token ngắn hạn cho người dùng bằng thuật toán RS256 với RSA
+     * Private Key.
      * 
      * @param userId ID của người dùng
-     * @param email Email đăng nhập
-     * @param role Tên vai trò (VD: CUSTOMER, ADMIN)
+     * @param email  Email đăng nhập
+     * @param role   Tên vai trò (VD: CUSTOMER, ADMIN)
      * @return Chuỗi JWT Access Token
      */
     public String generateAccessToken(Long userId, String email, String role) {
@@ -67,7 +70,8 @@ public class JwtTokenProvider {
     }
 
     /**
-     * Băm HASH chuỗi Refresh Token gốc bằng thuật toán HMAC-SHA256 với khóa bí mật JWT_REFRESH_SECRET.
+     * Băm HASH chuỗi Refresh Token gốc bằng thuật toán HMAC-SHA256 với khóa bí mật
+     * JWT_REFRESH_SECRET.
      * 
      * @param rawToken Chuỗi token gốc từ Client
      * @return Chuỗi Hex Hash an toàn để lưu vào CSDL
@@ -126,9 +130,9 @@ public class JwtTokenProvider {
     public boolean validateToken(String token) {
         try {
             Jwts.parser()
-                .verifyWith(jwtKeyConfig.getPublicKey())
-                .build()
-                .parseSignedClaims(token);
+                    .verifyWith(jwtKeyConfig.getPublicKey())
+                    .build()
+                    .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             log.warn("Kiểm tra tính hợp lệ JWT thất bại: {}", e.getMessage());
@@ -140,4 +144,3 @@ public class JwtTokenProvider {
         return jwtRefreshExpirationMs;
     }
 }
-

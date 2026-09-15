@@ -1,23 +1,28 @@
 package com.web.ap_sports.service.customer.impl;
 
 import com.web.ap_sports.config.JwtTokenProvider;
+import com.web.ap_sports.dto.request.customer.ForgotPasswordRequest;
 import com.web.ap_sports.dto.request.customer.LoginCustomerRequest;
 import com.web.ap_sports.dto.request.customer.RegisterCustomerRequest;
+import com.web.ap_sports.dto.request.customer.ResetPasswordRequest;
 import com.web.ap_sports.dto.response.customer.UserResponse;
+import com.web.ap_sports.entity.PasswordResetToken;
 import com.web.ap_sports.entity.RefreshToken;
 import com.web.ap_sports.entity.Role;
 import com.web.ap_sports.entity.User;
 import com.web.ap_sports.enums.UserStatus;
+import com.web.ap_sports.repository.PasswordResetTokenRepository;
 import com.web.ap_sports.repository.RefreshTokenRepository;
 import com.web.ap_sports.repository.RoleRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.common.EmailService;
 import com.web.ap_sports.service.customer.CustomerAuthService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +34,7 @@ import java.util.UUID;
 
 /**
  * Lớp triển khai (Implementation) của CustomerAuthService.
- * Quản lý toàn bộ logic Đăng ký, Kích hoạt, Đăng nhập (Cookies & HMAC-SHA256 Refresh Token) và Đăng xuất.
+ * Quản lý toàn bộ logic Đăng ký, Kích hoạt, Đăng nhập (Cookies & HMAC-SHA256 Refresh Token), Đăng xuất, Quên & Đặt lại mật khẩu.
  */
 @Service
 @RequiredArgsConstructor
@@ -39,6 +44,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final EmailService emailService;
@@ -165,16 +171,154 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
     @Override
     public UserResponse getCurrentUser(HttpServletRequest request) {
-        String accessToken = CookieUtils.extractCookieValue(request, CookieUtils.ACCESS_TOKEN_COOKIE_NAME);
-        if (accessToken == null || !jwtTokenProvider.validateToken(accessToken)) {
+        // Đọc email từ SecurityContext — đã được xác thực bởi JwtAuthenticationFilter
+        // Nếu không có authentication (token null hoặc hết hạn), Spring Security đã trả 401
+        // trước khi vào đây (do SecurityConfig yêu cầu hasRole CUSTOMER cho /auth/me)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || 
+                "anonymousUser".equals(authentication.getPrincipal())) {
             throw new SecurityException("Chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
         }
 
-        Long userId = jwtTokenProvider.getUserIdFromToken(accessToken);
-        User user = userRepository.findById(userId)
+        String email = (String) authentication.getPrincipal();
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin người dùng."));
 
         return mapToUserResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public void refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        String rawRefreshToken = CookieUtils.extractCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+        if (rawRefreshToken == null) {
+            throw new SecurityException("Refresh Token không tồn tại trong Cookie.");
+        }
+
+        String hashedToken = jwtTokenProvider.hashRefreshToken(rawRefreshToken);
+        
+        // 1. Tìm theo Token chính hiện tại
+        RefreshToken refreshTokenEntity = refreshTokenRepository.findByToken(hashedToken).orElse(null);
+        boolean isWithinGracePeriod = false;
+
+        if (refreshTokenEntity == null) {
+            // 2. Dự phòng: Tìm theo Previous Token trong Cửa sổ Gia hạn 30 giây (Grace Window 30s)
+            refreshTokenEntity = refreshTokenRepository.findByPreviousToken(hashedToken).orElse(null);
+            if (refreshTokenEntity != null && refreshTokenEntity.getLastRotatedAt() != null) {
+                if (refreshTokenEntity.getLastRotatedAt().isAfter(LocalDateTime.now().minusSeconds(30))) {
+                    isWithinGracePeriod = true;
+                    log.info("Xử lý request Refresh Token trong cửa sổ gia hạn (Grace Window 30s) cho user ID: {}", refreshTokenEntity.getUser().getId());
+                } else {
+                    // Phát hiện dùng lại Token quá thời gian gia hạn -> Thu hồi toàn bộ session để bảo mật
+                    refreshTokenEntity.setRevoked(true);
+                    refreshTokenRepository.save(refreshTokenEntity);
+                    throw new SecurityException("Refresh Token cũ đã hết thời gian gia hạn.");
+                }
+            }
+        }
+
+        if (refreshTokenEntity == null) {
+            throw new SecurityException("Refresh Token không hợp lệ hoặc đã bị thu hồi.");
+        }
+
+        if (refreshTokenEntity.isRevoked()) {
+            throw new SecurityException("Refresh Token đã bị thu hồi.");
+        }
+
+        if (refreshTokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new SecurityException("Refresh Token đã hết hạn.");
+        }
+
+        User user = refreshTokenEntity.getUser();
+        if (user.getStatus() != UserStatus.active) {
+            throw new SecurityException("Tài khoản người dùng không hoạt động.");
+        }
+
+        // 3. Sinh AccessToken mới
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().getName());
+
+        if (isWithinGracePeriod) {
+            // Nếu nằm trong 30s Grace Period, chỉ trả về AccessToken mới và giữ nguyên cặp cookie
+            CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, newAccessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
+            return;
+        }
+
+        // 4. Nếu là đợt Refresh mới hoàn toàn -> Rotate RefreshToken & lưu PreviousToken Hash + LastRotatedAt
+        String newRawRefreshToken = jwtTokenProvider.generateRawRefreshToken();
+        String newHashedRefreshToken = jwtTokenProvider.hashRefreshToken(newRawRefreshToken);
+
+        refreshTokenEntity.setPreviousToken(hashedToken);
+        refreshTokenEntity.setLastRotatedAt(LocalDateTime.now());
+        refreshTokenEntity.setToken(newHashedRefreshToken);
+        refreshTokenEntity.setExpiresAt(LocalDateTime.now().plusWeeks(1));
+        refreshTokenRepository.save(refreshTokenEntity);
+
+        // 5. Đẩy cặp Cookies mới vào Response
+        CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, newAccessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
+        CookieUtils.addTokenCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, newRawRefreshToken, CookieUtils.REFRESH_TOKEN_MAX_AGE);
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail().trim().toLowerCase();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Địa chỉ email không tồn tại trong hệ thống."));
+
+        if (user.getStatus() != UserStatus.active) {
+            throw new SecurityException("Tài khoản chưa được kích hoạt hoặc đã bị khóa.");
+        }
+
+        // Sinh token ngẫu nhiên 64 ký tự (UUID x2)
+        String resetToken = (UUID.randomUUID().toString() + UUID.randomUUID().toString()).replace("-", "");
+
+        // Xóa token cũ của email này nếu có và lưu token mới
+        passwordResetTokenRepository.deleteByEmail(email);
+
+        PasswordResetToken tokenEntity = PasswordResetToken.builder()
+                .email(email)
+                .token(resetToken)
+                .build();
+        passwordResetTokenRepository.save(tokenEntity);
+
+        // Gửi email chứa link đặt lại mật khẩu
+        emailService.sendPasswordResetEmail(email, user.getName() != null ? user.getName() : email, resetToken);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Mật khẩu mới và xác nhận mật khẩu không trùng khớp.");
+        }
+
+        String email = request.getEmail().trim().toLowerCase();
+        String token = request.getToken().trim();
+
+        PasswordResetToken tokenEntity = passwordResetTokenRepository.findByTokenAndEmail(token, email)
+                .orElseThrow(() -> new IllegalArgumentException("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã bị hủy."));
+
+        // Kiểm tra thời gian hết hạn (15 phút TTL)
+        if (tokenEntity.getCreatedAt() != null && tokenEntity.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(15))) {
+            passwordResetTokenRepository.delete(tokenEntity);
+            throw new SecurityException("Liên kết đặt lại mật khẩu đã hết hạn (quá 15 phút). Vui lòng gửi lại yêu cầu mới.");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin người dùng."));
+
+        // Cập nhật mật khẩu mới mã hóa BCrypt
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Xóa token đã sử dụng
+        passwordResetTokenRepository.delete(tokenEntity);
+
+        // Thu hồi toàn bộ RefreshToken hiện có của người dùng này để đảm bảo an toàn
+        refreshTokenRepository.revokeAllUserTokens(user);
+
+        log.info("Đặt lại mật khẩu thành công cho tài khoản email: {}", email);
     }
 
     // --- Helper Methods ---

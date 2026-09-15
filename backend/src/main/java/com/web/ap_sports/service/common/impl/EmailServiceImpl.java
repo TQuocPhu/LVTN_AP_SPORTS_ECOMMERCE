@@ -71,4 +71,51 @@ public class EmailServiceImpl implements EmailService {
             log.warn("Không thể gửi email kích hoạt qua SMTP server ({}), tuy nhiên token đã được tạo. Bạn có thể sử dụng link kích hoạt từ log server: {}", e.getMessage(), activationUrl);
         }
     }
+
+    @Override
+    public void sendPasswordResetEmail(String toEmail, String userName, String resetToken) {
+        String resetUrl = "http://localhost:3000/reset-password?token=" + resetToken + "&email=" + toEmail;
+
+        log.info("==================================================================");
+        log.info("🔒 AP SPORTS PASSWORD RESET LINK FOR {}:", toEmail);
+        log.info("{}", resetUrl);
+        log.info("==================================================================");
+
+        String htmlContent = """
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #ffffff;">
+                <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #ff5722;">
+                    <h2 style="color: #111827; margin: 0;">🔒 AP SPORTS E-COMMERCE</h2>
+                </div>
+                <div style="padding: 20px 0;">
+                    <p style="font-size: 16px; color: #374151;">Xin chào <strong>%s</strong>,</p>
+                    <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>AP Sports</strong> của bạn. Vui lòng bấm vào nút bên dưới để thiết lập mật khẩu mới (liên kết có hiệu lực trong 15 phút):</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="%s" style="background-color: #ff5722; color: #ffffff; padding: 14px 28px; text-decoration: none; font-size: 16px; font-weight: bold; border-radius: 6px; display: inline-block; box-shadow: 0 4px 6px rgba(255, 87, 34, 0.3);">
+                            🔒 ĐẶT LẠI MẬT KHẨU MỚI
+                        </a>
+                    </div>
+                    <p style="font-size: 13px; color: #6b7280;">Hoặc sao chép đường dẫn sau dán vào trình duyệt: <br><a href="%s" style="color: #ff5722;">%s</a></p>
+                </div>
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
+                    <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này để bảo vệ tài khoản.</p>
+                    <p>© 2026 AP Sports Enterprise. All rights reserved.</p>
+                </div>
+            </div>
+            """.formatted(userName, resetUrl, resetUrl, resetUrl);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("🔒 AP Sports - Đặt Lại Mật Khẩu Tài Khoản");
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Đã gửi email đặt lại mật khẩu thành công đến địa chỉ: {}", toEmail);
+        } catch (Exception e) {
+            log.warn("Không thể gửi email đặt lại mật khẩu qua SMTP server ({}), tuy nhiên token đã được tạo. Bạn có thể sử dụng link đặt lại mật khẩu từ log server: {}", e.getMessage(), resetUrl);
+        }
+    }
 }

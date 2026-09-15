@@ -32,6 +32,12 @@ public class RefreshToken {
     @Column(nullable = false, unique = true, length = 500)
     private String token;
 
+    @Column(name = "previous_token", length = 500)
+    private String previousToken;
+
+    @Column(name = "last_rotated_at")
+    private LocalDateTime lastRotatedAt;
+
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
