@@ -85,68 +85,74 @@ export default function ShippingAddressesTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {addresses.map((addr) => (
-            <div
-              key={addr.id}
-              className={`p-5 rounded-2xl border transition-all space-y-3 ${
-                addr.isDefault
-                  ? 'bg-slate-950/80 border-red-500/50 shadow-md shadow-red-500/5'
-                  : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="font-semibold text-white text-base flex items-center gap-1.5">
-                    <User className="w-4 h-4 text-red-500" />
-                    {addr.fullName}
-                  </span>
-                  <span className="text-slate-400 text-sm flex items-center gap-1">
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    {addr.phone}
-                  </span>
-                  {addr.isDefault && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-semibold">
-                      <CheckCircle className="w-3 h-3" />
-                      Mặc định
+          {addresses.map((addr) => {
+            const isDefaultAddr = Boolean(addr.isDefault || addr.default);
+
+            return (
+              <div
+                key={addr.id}
+                className={`p-5 rounded-2xl border transition-all space-y-3 ${
+                  isDefaultAddr
+                    ? 'bg-slate-950/80 border-red-500/50 shadow-md shadow-red-500/10'
+                    : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/60 pb-3">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-semibold text-white text-base flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-red-500" />
+                      {addr.fullName}
                     </span>
-                  )}
-                </div>
+                    <span className="text-slate-400 text-sm flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      {addr.phone}
+                    </span>
+                  </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto">
-                  {!addr.isDefault && (
+                  <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                    {isDefaultAddr ? (
+                      <span
+                        id={`badge-default-address-${addr.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/15 text-red-400 border border-red-500/30 text-xs font-bold"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 text-red-500" />
+                        Mặc định
+                      </span>
+                    ) : (
+                      <button
+                        id={`btn-set-default-address-${addr.id}`}
+                        onClick={() => onSetDefaultAddress(addr.id)}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors border border-slate-700/60 hover:border-slate-600"
+                      >
+                        Thiết lập mặc định
+                      </button>
+                    )}
                     <button
-                      id={`btn-set-default-address-${addr.id}`}
-                      onClick={() => onSetDefaultAddress(addr.id)}
-                      className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition-colors"
+                      id={`btn-edit-address-${addr.id}`}
+                      onClick={() => handleOpenEditModal(addr)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                      title="Chỉnh sửa địa chỉ"
                     >
-                      Thiết lập mặc định
+                      <Edit3 className="w-4 h-4" />
                     </button>
-                  )}
-                  <button
-                    id={`btn-edit-address-${addr.id}`}
-                    onClick={() => handleOpenEditModal(addr)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                    title="Chỉnh sửa địa chỉ"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    id={`btn-delete-address-${addr.id}`}
-                    onClick={() => handleDelete(addr.id)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    title="Xóa địa chỉ"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <button
+                      id={`btn-delete-address-${addr.id}`}
+                      onClick={() => handleDelete(addr.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      title="Xóa địa chỉ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-sm text-slate-300 space-y-1">
+                  <p className="font-medium text-slate-200">{addr.address}</p>
+                  <p className="text-slate-400 text-xs">{addr.city}</p>
                 </div>
               </div>
-
-              <div className="text-sm text-slate-300 space-y-1">
-                <p className="font-medium text-slate-200">{addr.address}</p>
-                <p className="text-slate-400 text-xs">{addr.city}</p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

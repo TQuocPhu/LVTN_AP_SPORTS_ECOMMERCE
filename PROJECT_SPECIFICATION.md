@@ -344,6 +344,18 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
   4. **Tồn Kho & Cảnh Báo Cháy Hàng Real-time**: Nhảy số tồn kho ngay khi phát sinh đơn trên Dashboard Kho & hiển thị "Out of Stock" tức thì ở Storefront.
   5. **Admin Dashboard Live Analytics**: Tự động nhảy số Doanh thu & Tổng đơn hôm nay trên các biểu đồ Recharts khi có giao dịch thành công.
 
+### 🛡️ 4.10. Quản Lý Cookie Tập Trung, Seamless Token Revocation & AOP Rate Limiting
+- **CookieUtils Manager**: Đồng bộ 100% thuộc tính an toàn `HttpOnly=true`, `SameSite=Lax`, `Path=/`, `Max-Age` (30 phút cho `accessToken`, 7 ngày cho `refreshToken`) dùng chung cho cả Login, Refresh, Logout và Change Password.
+- **Seamless Token Revocation khi Đổi Mật Khẩu**:
+  - Thực thi `@Transactional` bảo toàn giao dịch.
+  - Vô hiệu hóa toàn bộ Refresh Token cũ (`revoked = true`) để ngắt kết nối lập tức các thiết bị lạ/tiệm net khác.
+  - Sinh ngay cặp Access Token & Refresh Token mới đính kèm Cookie HttpOnly cho thiết bị hiện tại ➡️ Trải nghiệm Seamless UX, người dùng không bị văng ra ngoài, không cần gõ lại mật khẩu.
+- **Spring AOP + Redis Rate Limiting**:
+  - Khai báo Custom Annotation `@RateLimit(key, maxRequests, windowSeconds)`.
+  - Tự động kiểm tra lượt qua Redis key `lvtn:rate:<key>:<userOrIp>` kèm TTL.
+  - Tích hợp Fallback In-Memory (`ConcurrentHashMap`) đảm bảo zero-downtime nếu Redis gián đoạn.
+  - Áp dụng `@RateLimit` cho `/change-password` (3 lần/15 phút) và `/avatar` (5 lần/10 phút), trả về `HTTP 429 Too Many Requests`.
+
 ---
 
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL của và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*

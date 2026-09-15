@@ -8,6 +8,7 @@ export interface ShippingAddress {
   districtId?: number;
   wardCode?: string;
   isDefault: boolean;
+  default?: boolean;
   createdAt: string;
   updatedAt: string;
 }

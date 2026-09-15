@@ -1,5 +1,6 @@
 package com.web.ap_sports.dto.response.customer;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,7 +22,10 @@ public class ShippingAddressResponse {
     private Integer provinceId;
     private Integer districtId;
     private String wardCode;
+
+    @JsonProperty("isDefault")
     private boolean isDefault;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
