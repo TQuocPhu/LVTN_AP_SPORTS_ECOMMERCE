@@ -1,26 +1,295 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #090d16;
+  --foreground: #f8fafc;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+/* ====================================================
+   SMART & TARGETED LIGHT MODE STYLING
+   ==================================================== */
+
+/* 1. Page Body & Main Section Backgrounds */
+html.light body,
+html.light main {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* 2. Navbar Header & Dropdown Menus */
+html.light header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .brand-title {
+  background-image: linear-gradient(to right, #0f172a 0%, #1e293b 45%, #ea580c 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  color: transparent !important;
+}
+
+html.light header nav a,
+html.light header button {
+  color: #334155 !important;
+}
+
+html.light header nav a:hover,
+html.light header button:hover {
+  color: #f97316 !important;
+}
+
+html.light header .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light header .hover\:bg-slate-800\/80:hover,
+html.light header .hover\:bg-slate-800:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html.light header .text-white {
+  color: #0f172a !important;
+}
+
+html.light header .text-slate-100,
+html.light header .text-slate-200,
+html.light header .text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light header .text-slate-400 {
+  color: #64748b !important;
+}
+
+/* 3. Section Titles & Headings */
+html.light section h2.text-white,
+html.light section h2.text-2xl,
+html.light section h2.text-3xl,
+html.light section h2.text-4xl {
+  color: #0f172a !important;
+}
+
+/* 4. ServiceFeatures Component Fixes */
+html.light div.border-b.border-slate-800\/60.bg-slate-900\/40,
+html.light .service-features-container {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.flex.items-center.p-4.rounded-2xl.bg-slate-900\/60 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light div.flex.items-center.p-4.rounded-2xl.bg-slate-900\/60 h4 {
+  color: #0f172a !important;
+}
+
+html.light div.flex.items-center.p-4.rounded-2xl.bg-slate-900\/60 p {
+  color: #475569 !important;
+}
+
+/* 5. CategoryGrid Section */
+html.light section.bg-slate-950 {
+  background-color: #f8fafc !important;
+}
+
+html.light section .border-b.border-slate-800 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Ensure category cards keep dark image overlays so text on top stays sharp */
+html.light section div.group.relative.h-80.rounded-2xl.bg-slate-900 {
+  background-color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* 6. FeaturedProducts Section & Product Cards */
+html.light section.bg-slate-900\/50 {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.group.relative.bg-slate-900.border.border-slate-800 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Product image container stays clean neutral light background */
+html.light div.group.relative.bg-slate-900 div.relative.w-full.h-56.bg-slate-950 {
+  background-color: #f1f5f9 !important;
+}
+
+html.light div.group.relative.bg-slate-900 div.relative.w-full.h-56.bg-slate-950 div.bg-slate-950\/20 {
+  background-color: transparent !important;
+}
+
+/* Product Card Text Colors */
+html.light div.group.relative.bg-slate-900 h3.text-white,
+html.light div.group.relative.bg-slate-900 div.text-white {
+  color: #0f172a !important;
+}
+
+html.light div.group.relative.bg-slate-900 div.border-t.border-slate-800\/80 {
+  border-color: #f1f5f9 !important;
+}
+
+/* 7. Footer Layout Fixes */
+html.light footer {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light footer h3,
+html.light footer h4,
+html.light footer .text-white {
+  color: #0f172a !important;
+}
+
+html.light footer p,
+html.light footer a,
+html.light footer span.text-slate-300,
+html.light footer span.text-slate-400 {
+  color: #475569 !important;
+}
+
+html.light footer a:hover {
+  color: #f97316 !important;
+}
+
+html.light footer div.border-t.border-slate-800\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+/* 8. Hero Banner Protection: HERO BANNER OVERLAYS REMAIN 100% DARK & SHARP */
+html.light section.relative.w-full.min-h-\[60vh\] {
+  background-color: #090d16 !important;
+}
+
+html.light section.relative.w-full.min-h-\[60vh\] h1.text-white\/90,
+html.light section.relative.w-full.min-h-\[60vh\] h1 {
+  color: #ffffff !important;
+}
+
+html.light section.relative.w-full.min-h-\[60vh\] p {
+  color: rgba(226, 232, 240, 0.85) !important;
+}
+
+html.light section.relative.w-full.min-h-\[60vh\] div.bg-gradient-to-r.from-slate-950\/90 {
+  background-image: linear-gradient(to right, rgba(9, 13, 22, 0.92), rgba(9, 13, 22, 0.7), transparent) !important;
+}
+
+html.light section.relative.w-full.min-h-\[60vh\] div.bg-gradient-to-t.from-slate-950 {
+  background-image: linear-gradient(to top, rgba(9, 13, 22, 0.95), transparent, rgba(9, 13, 22, 0.4)) !important;
+}
+
+/* 9. Preserve Orange Action Buttons Across Entire App */
+html.light .bg-orange-500,
+html.light .bg-gradient-to-r.from-orange-500,
+html.light button.bg-gradient-to-r.from-orange-500 {
+  color: #ffffff !important;
+}
+
+html.light .bg-orange-500 span,
+html.light .bg-gradient-to-r.from-orange-500 span,
+html.light button.bg-gradient-to-r.from-orange-500 span {
+  color: #ffffff !important;
+}
+
+/* 10. Profile Page – Light Mode Panel & Form Overrides */
+
+/* Sidebar nav panel */
+html.light .profile-sidebar-nav {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Content panels (rounded-3xl glassmorphism cards) */
+html.light div.rounded-3xl.bg-slate-900\/80,
+html.light div.rounded-3xl.bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
+}
+
+html.light div.rounded-3xl.bg-slate-900\/80 h2,
+html.light div.rounded-3xl.bg-slate-900 h2 {
+  color: #0f172a !important;
+}
+
+html.light div.rounded-3xl.bg-slate-900\/80 p,
+html.light div.rounded-3xl.bg-slate-900 p {
+  color: #475569 !important;
+}
+
+html.light div.rounded-3xl.bg-slate-900\/80 .border-b,
+html.light div.rounded-3xl.bg-slate-900 .border-b {
+  border-color: #e2e8f0 !important;
+}
+
+/* Inner dark sub-panels inside profile cards */
+html.light div.rounded-2xl.bg-slate-950\/60,
+html.light div.rounded-2xl.bg-slate-950 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+html.light div.rounded-2xl.bg-slate-950\/60 *,
+html.light div.rounded-2xl.bg-slate-950 * {
+  color: #334155;
+}
+
+/* Avatar section background */
+html.light div.rounded-2xl.bg-slate-950\/60.border {
+  background-color: #f1f5f9 !important;
+}
+
+/* Form inputs inside profile page */
+html.light input.bg-slate-950,
+html.light textarea.bg-slate-950 {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input.bg-slate-950\/40 {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+}
+
+html.light input.bg-slate-950::placeholder,
+html.light textarea.bg-slate-950::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light input.bg-slate-950:focus {
+  border-color: #ef4444 !important;
+  outline: none !important;
+}
+
+/* Labels inside profile forms */
+html.light label.text-slate-300,
+html.light label.text-slate-400 {
+  color: #475569 !important;
+}
+
+/* PageHeaderBanner: stays dark regardless of theme — handled by bg-slate-950 in component itself */

@@ -13,10 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LVTN Fullstack Platform - Next.js & Spring Boot 3",
-  description: "Hệ thống Fullstack hiện đại sử dụng Next.js (App Router, TypeScript, Tailwind CSS) kết hợp Spring Boot 3.3.5 (Java 21, Gradle, Redis, WebSocket, Security).",
-  keywords: ["Next.js", "Spring Boot 3", "Java 21", "TypeScript", "Tailwind CSS", "LVTN"],
-  authors: [{ name: "LVTN Team" }],
+  title: "AP Sports - Trang Thiết Bị Thể Thao Nguyên Bản Chuyên Nghiệp",
+  description: "Hệ thống mua sắm trang thiết bị, dụng cụ thể thao cao cấp chính hãng 100%.",
+  keywords: ["AP Sports", "Đồ thể thao", "Giày bóng đá", "Vợt cầu lông", "Bóng rổ", "Dụng cụ Gym"],
+  icons: {
+    icon: "/images/ap-sports_fav.png",
+    shortcut: "/images/ap-sports_fav.png",
+    apple: "/images/ap-sports_fav.png",
+  },
+  authors: [{ name: "AP Sports Team" }],
   robots: {
     index: true,
     follow: true,
@@ -28,19 +33,25 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "LVTN Fullstack Platform - Next.js & Spring Boot 3",
-    description: "Hệ thống Fullstack hiện đại sử dụng Next.js (App Router) & Spring Boot 3 (Java 21).",
+    title: "AP Sports - Trang Thiết Bị Thể Thao Nguyên Bản Chuyên Nghiệp",
+    description: "Hệ thống mua sắm trang thiết bị, dụng cụ thể thao cao cấp chính hãng 100%.",
     url: "http://localhost:3000",
-    siteName: "LVTN Workspace",
+    siteName: "AP Sports Storefront",
     locale: "vi_VN",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "LVTN Fullstack Platform - Next.js & Spring Boot 3",
-    description: "Hệ thống Fullstack hiện đại sử dụng Next.js (App Router) & Spring Boot 3 (Java 21).",
+    title: "AP Sports - Trang Thiết Bị Thể Thao Nguyên Bản Chuyên Nghiệp",
+    description: "Hệ thống mua sắm trang thiết bị, dụng cụ thể thao cao cấp chính hãng 100%.",
   },
 };
+
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { AuthProvider } from "@/context/AuthContext";
+import ToastProvider from "@/components/providers/ToastProvider";
 
 export default function RootLayout({
   children,
@@ -50,9 +61,32 @@ export default function RootLayout({
   return (
     <html
       lang="vi"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100">{children}</body>
+      <head>
+        <link rel="icon" href="/images/ap-sports_fav.png" type="image/png" sizes="any" />
+        <link rel="shortcut icon" href="/images/ap-sports_fav.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/images/ap-sports_fav.png" />
+      </head>
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-slate-950 text-slate-100 transition-colors duration-300">
+        <ThemeProvider>
+          {/* Global Auth State Provider – chia sẻ user state toàn app */}
+          <AuthProvider>
+            {/* Top-Right Sonner Toast Notification Container */}
+            <ToastProvider />
+
+            {/* Master Shell Navbar Header */}
+            <Navbar />
+
+            {/* Main Application Page Content */}
+            <div className="flex-1 flex flex-col">{children}</div>
+
+            {/* Master Shell Footer */}
+            <Footer />
+          </AuthProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
