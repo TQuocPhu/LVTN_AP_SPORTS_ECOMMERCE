@@ -59,16 +59,58 @@ export function eraseCookie(name: string): void {
   document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
 }
 
-let isRefreshing = false;
-let refreshSubscribers: ((token: string | null) => void)[] = [];
+export class ApiError extends Error {
+  status: number;
+  fieldErrors?: Record<string, string>;
+  isApiError: boolean = true;
 
-function subscribeTokenRefresh(cb: (token: string | null) => void) {
-  refreshSubscribers.push(cb);
+  constructor(message: string, status: number = 400, fieldErrors?: Record<string, string>) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.fieldErrors = fieldErrors;
+    this.isApiError = true;
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
 }
 
-function onRefreshed(newToken: string | null) {
-  refreshSubscribers.forEach((cb) => cb(newToken));
+export function isApiError(err: unknown): err is ApiError {
+  if (!err || typeof err !== 'object') return false;
+  if (err instanceof ApiError) return true;
+  const obj = err as Record<string, unknown>;
+  return (
+    obj.name === 'ApiError' ||
+    obj.isApiError === true ||
+    ('fieldErrors' in obj && typeof obj.status === 'number')
+  );
+}
+
+let isRefreshing = false;
+let refreshSubscribers: ((success: boolean) => void)[] = [];
+
+function subscribeTokenRefresh(): Promise<boolean> {
+  return new Promise((resolve) => {
+    // Safety timeout (10s) để ngăn đơ/treo trang UI trong mọi trường hợp
+    const timer = setTimeout(() => {
+      resolve(false);
+    }, 10000);
+
+    refreshSubscribers.push((success: boolean) => {
+      clearTimeout(timer);
+      resolve(success);
+    });
+  });
+}
+
+function onRefreshed(success: boolean) {
+  refreshSubscribers.forEach((cb) => cb(success));
   refreshSubscribers = [];
+}
+
+export interface ApiClientOptions extends RequestInit {
+  showSuccessToast?: boolean;
+  suppressErrorToast?: boolean;
+  timeoutMs?: number;
 }
 
 /**
@@ -76,14 +118,16 @@ function onRefreshed(newToken: string | null) {
  * 
  * @template T - Kiểu dữ liệu nhận về trong trường `data` của ApiResponse
  * @param {string} endpoint - Đường dẫn API (Ví dụ: '/auth/login', '/products')
- * @param {RequestInit} options - Cấu hình tùy chọn cho fetch (method, body, headers...)
+ * @param {ApiClientOptions} options - Cấu hình tùy chọn cho fetch (method, body, headers...)
+ * @param {boolean} isRetry - Tránh lặp vô tận (Infinite loop) khi retry request
  * @returns {Promise<ApiResponse<T>>} Phản hồi chuẩn hóa từ server
  */
 export async function apiClient<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiClientOptions = {},
+  isRetry: boolean = false
 ): Promise<ApiResponse<T>> {
-  // 1. Tự động lấy Access Token từ COOKIE (TUYỆT ĐỐI KHÔNG DÙNG localStorage)
+  // 1. Tự động lấy Access Token từ COOKIE nếu có (ví dụ môi trường không HttpOnly)
   const token = getCookie('accessToken');
 
   // 2. Thiết lập HTTP Headers mặc định (JSON format + Bearer JWT Token từ Cookie nếu có)
@@ -94,19 +138,35 @@ export async function apiClient<T>(
     ...options.headers,
   };
 
-  // 3. Đóng gói cấu hình request (bật credentials: 'include' để truyền Cookie tự động sang Backend)
+  // 3. Tự động ngắt request (Abort) sau timeout (Mặc định: 8s, hoặc truyền qua options)
+  const timeoutMs = options.timeoutMs ?? 8000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const config: RequestInit = {
     credentials: 'include',
+    signal: options.signal || controller.signal,
     ...options,
     headers,
   };
 
-  // 4. Thực thi request đến Spring Boot Backend
-  let response = await fetch(`${BASE_URL}${endpoint}`, config);
+  // 4. Thực thi request đến Spring Boot Backend có timeout bảo vệ
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${endpoint}`, config);
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Kết nối máy chủ Backend quá thời gian quy định (Timeout).');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // 5. Xử lý khi HTTP Status 401 Unauthorized -> Thực hiện Silent Refresh tự động
   if (
     response.status === 401 &&
+    !isRetry &&
     !endpoint.includes('/auth/login') &&
     !endpoint.includes('/auth/refresh') &&
     !endpoint.includes('/auth/logout')
@@ -119,34 +179,34 @@ export async function apiClient<T>(
           credentials: 'include',
         });
         if (refreshRes.ok) {
-          const newToken = getCookie('accessToken');
-          isRefreshing = false;
-          onRefreshed(newToken);
-          const updatedHeaders: HeadersInit = {
-            ...headers,
-            ...(newToken ? { Authorization: `Bearer ${newToken}` } : {}),
-          };
-          response = await fetch(`${BASE_URL}${endpoint}`, { ...config, headers: updatedHeaders });
+          onRefreshed(true);
+          // Retry request ban đầu với HttpOnly cookie mới tự động đính kèm qua credentials: 'include'
+          response = await fetch(`${BASE_URL}${endpoint}`, { ...config, headers });
         } else {
-          isRefreshing = false;
-          onRefreshed(null);
+          onRefreshed(false);
           eraseCookie('accessToken');
+          eraseCookie('refreshToken');
+          if (typeof window !== 'undefined' && !endpoint.includes('/auth/me')) {
+            const isProtectedRoute = ['/profile', '/account', '/orders', '/checkout'].some((p) =>
+              window.location.pathname.startsWith(p)
+            );
+            if (isProtectedRoute) {
+              window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+            }
+          }
         }
       } catch {
-        isRefreshing = false;
-        onRefreshed(null);
+        onRefreshed(false);
         eraseCookie('accessToken');
+        eraseCookie('refreshToken');
+      } finally {
+        isRefreshing = false;
       }
     } else {
-      const newToken = await new Promise<string | null>((resolve) => {
-        subscribeTokenRefresh((t) => resolve(t));
-      });
-      if (newToken) {
-        const updatedHeaders: HeadersInit = {
-          ...headers,
-          Authorization: `Bearer ${newToken}`,
-        };
-        response = await fetch(`${BASE_URL}${endpoint}`, { ...config, headers: updatedHeaders });
+      // Đợi request refresh token đang diễn ra hoàn thành
+      const isRefreshed = await subscribeTokenRefresh();
+      if (isRefreshed) {
+        response = await fetch(`${BASE_URL}${endpoint}`, { ...config, headers });
       }
     }
   }
@@ -155,14 +215,19 @@ export async function apiClient<T>(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     const errorMessage = errorData.message || `Lỗi phản hồi hệ thống (${response.status})`;
+    const fieldErrors: Record<string, string> | undefined =
+      errorData.data && typeof errorData.data === 'object' && !Array.isArray(errorData.data)
+        ? (errorData.data as Record<string, string>)
+        : undefined;
+
     const shouldSuppressError =
       (options as ApiClientOptions).suppressErrorToast ??
-      (endpoint.includes('/auth/me') || endpoint.includes('/auth/refresh'));
+      (endpoint.includes('/auth/me') || endpoint.includes('/auth/refresh') || response.status === 401);
 
     if (typeof window !== 'undefined' && !shouldSuppressError) {
       toast.error(errorMessage);
     }
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status, fieldErrors);
   }
 
   // 7. Trả về kết quả JSON đã đóng gói chuẩn ApiResponse<T>

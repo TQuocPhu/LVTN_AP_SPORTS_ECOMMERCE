@@ -6,11 +6,11 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ShieldCheck, Flame, ArrowRight } from 'lucide-react';
 
 const SLIDE_IMAGES = [
-  '/images/banners/sub_karate_basketball_banner.png',
-  '/images/banners/sub_football_banner.png',
-  '/images/banners/page_header_banner.png',
-  '/images/banners/sub_badminton_volleyball_banner.png',
-  '/images/banners/hero_worldcup_banner.png',
+  '/images/banners/hero_banner_1.png',
+  '/images/banners/hero_banner_2.png',
+  '/images/banners/hero_banner_3.png',
+  '/images/banners/hero_banner_4.png',
+  '/images/banners/hero_banner_6.png',
 ];
 
 export default function HeroBannerSlider() {
@@ -32,8 +32,8 @@ export default function HeroBannerSlider() {
   };
 
   return (
-    <section className="relative w-full min-h-[60vh] md:min-h-[70vh] flex items-center justify-center overflow-hidden bg-slate-950 border-b border-slate-800">
-      {/* Background Slides */}
+    <section id="hero-banner-slider" className="hero-banner-slider-container relative w-full h-[320px] sm:h-[440px] md:h-[540px] lg:h-[600px] flex items-center justify-center overflow-hidden bg-slate-950 border-b border-slate-800">
+      {/* Background Slides - Full Edge-to-Edge Coverage */}
       {SLIDE_IMAGES.map((imgSrc, idx) => (
         <div
           key={imgSrc}
@@ -46,16 +46,17 @@ export default function HeroBannerSlider() {
             alt="AP Sports Banner"
             fill
             priority={idx === 0}
-            className="object-cover object-center transform scale-105 transition-transform duration-7000"
+            sizes="100vw"
+            className="object-cover object-center w-full h-full"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/30" />
         </div>
       ))}
 
       {/* Single Fixed Overlay Content */}
-      <div className="relative z-20 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-        <div className="max-w-xl space-y-4">
+      <div className="relative z-20 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 md:py-16">
+        <div className="max-w-xl space-y-3 sm:space-y-4">
           {/* Tag */}
           <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900/70 border border-orange-500/30 text-orange-400/90 text-[11px] font-bold uppercase tracking-wider backdrop-blur-md">
             <Flame className="w-3.5 h-3.5 text-orange-400 animate-bounce" />
@@ -64,12 +65,12 @@ export default function HeroBannerSlider() {
 
           {/* Single Title */}
           <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white/90 uppercase tracking-tight leading-tight drop-shadow-md">
-            TRANG THIẾT BỊ THỂ THAO NGUYÊN BẢN CHUYÊN NGHIỆP
+            DỤNG CỤ THỂ THAO CHUYÊN NGHIỆP
           </h1>
 
           {/* Single Sentence Subtitle */}
           <p className="text-xs sm:text-sm text-slate-300/80 leading-relaxed font-medium max-w-lg drop-shadow">
-            Khám phá bộ sưu tập trang thiết bị thể thao cao cấp chính hãng 100%, bảo hành uy tín và hỗ trợ giao hàng tốc độ toàn quốc.
+            Khám phá bộ sưu tập dụng cụ thể thao chính hãng, bảo hành uy tín và hỗ trợ giao hàng tốc độ toàn quốc.
           </p>
 
           {/* Action Buttons */}

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { ShippingAddress, ShippingAddressRequest } from '@/types/address';
-import { X, MapPin, User, Phone, Save, Loader2 } from 'lucide-react';
+import { ApiError, isApiError } from '@/services/api-client';
+import { X, MapPin, User, Phone, Save, Loader2, AlertCircle } from 'lucide-react';
 
 interface AddressModalProps {
   isOpen: boolean;
@@ -22,9 +23,11 @@ export default function AddressModal({
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    setFieldErrors({});
     if (addressToEdit) {
       setFullName(addressToEdit.fullName || '');
       setPhone(addressToEdit.phone || '');
@@ -44,6 +47,8 @@ export default function AddressModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setFieldErrors({});
+
     try {
       setIsSubmitting(true);
       await onSave({
@@ -54,12 +59,22 @@ export default function AddressModal({
         isDefault,
       });
       onClose();
-    } catch (err) {
-      console.error('Lỗi lưu địa chỉ:', err);
+    } catch (err: unknown) {
+      if (isApiError(err) && err.fieldErrors) {
+        setFieldErrors(err.fieldErrors);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const hasChanged = addressToEdit
+    ? fullName.trim() !== (addressToEdit.fullName || '').trim() ||
+      phone.trim() !== (addressToEdit.phone || '').trim() ||
+      city.trim() !== (addressToEdit.city || '').trim() ||
+      address.trim() !== (addressToEdit.address || '').trim() ||
+      isDefault !== (addressToEdit.isDefault || false)
+    : Boolean(fullName.trim() && phone.trim() && city.trim() && address.trim());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -94,10 +109,21 @@ export default function AddressModal({
               type="text"
               required
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                if (fieldErrors.fullName) setFieldErrors((prev) => ({ ...prev, fullName: '' }));
+              }}
               placeholder="Nhập họ và tên người nhận hàng"
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500 text-sm"
+              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
+                fieldErrors.fullName ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
+              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm`}
             />
+            {fieldErrors.fullName && (
+              <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
+                <span>{fieldErrors.fullName}</span>
+              </p>
+            )}
           </div>
 
           {/* Số điện thoại */}
@@ -111,10 +137,21 @@ export default function AddressModal({
               type="tel"
               required
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                setPhone(e.target.value);
+                if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: '' }));
+              }}
               placeholder="Nhập số điện thoại giao hàng"
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500 text-sm"
+              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
+                fieldErrors.phone ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
+              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm`}
             />
+            {fieldErrors.phone && (
+              <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
+                <span>{fieldErrors.phone}</span>
+              </p>
+            )}
           </div>
 
           {/* Tỉnh/Thành phố & Quận/Huyện */}
@@ -127,10 +164,21 @@ export default function AddressModal({
               type="text"
               required
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                setCity(e.target.value);
+                if (fieldErrors.city) setFieldErrors((prev) => ({ ...prev, city: '' }));
+              }}
               placeholder="Ví dụ: TP. Hồ Chí Minh, Quận 1, Phường Bến Nghé"
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500 text-sm"
+              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
+                fieldErrors.city ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
+              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm`}
             />
+            {fieldErrors.city && (
+              <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
+                <span>{fieldErrors.city}</span>
+              </p>
+            )}
           </div>
 
           {/* Địa chỉ chi tiết */}
@@ -143,10 +191,21 @@ export default function AddressModal({
               required
               rows={2}
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                if (fieldErrors.address) setFieldErrors((prev) => ({ ...prev, address: '' }));
+              }}
               placeholder="Nhập số nhà, ngõ ngách, tên tòa nhà..."
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500 text-sm resize-none"
+              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
+                fieldErrors.address ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
+              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm resize-none`}
             />
+            {fieldErrors.address && (
+              <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
+                <span>{fieldErrors.address}</span>
+              </p>
+            )}
           </div>
 
           {/* Checkbox Mặc định */}
@@ -176,8 +235,8 @@ export default function AddressModal({
             <button
               id="btn-save-address-modal"
               type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-all shadow-lg shadow-red-600/30 disabled:opacity-50"
+              disabled={isSubmitting || !hasChanged}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-all shadow-lg shadow-red-600/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Lưu Địa Chỉ

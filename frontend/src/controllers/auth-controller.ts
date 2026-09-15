@@ -1,8 +1,8 @@
 import { apiClient } from '@/services/api-client';
-import { ApiResponse, LoginRequest, RegisterRequest, UserResponse } from '@/types/auth';
+import { ApiResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UserResponse } from '@/types/auth';
 
 /**
- * Frontend Controller xử lý các lệnh gọi API Đăng ký, Kích hoạt, Đăng nhập, Đăng xuất qua Cookie.
+ * Frontend Controller xử lý các lệnh gọi API Đăng ký, Kích hoạt, Đăng nhập, Đăng xuất, Quên & Đặt lại mật khẩu.
  * Tuân thủ Clean Architecture Layering (Component -> Hook -> FE Controller -> REST API).
  */
 export const authController = {
@@ -35,9 +35,23 @@ export const authController = {
   },
 
   /**
-   * Lấy thông tin User hiện tại từ Session Cookie (ẩn toast lỗi nếu chưa đăng nhập).
+   * Lấy thông tin User hiện tại từ Session Cookie (ẩn toast lỗi nếu chưa đăng nhập, timeout 4s).
    */
   async getCurrentUser(): Promise<ApiResponse<UserResponse>> {
-    return apiClient.get<ApiResponse<UserResponse>>('/customer/auth/me', { suppressErrorToast: true });
+    return apiClient.get<ApiResponse<UserResponse>>('/customer/auth/me', { suppressErrorToast: true, timeoutMs: 4000 });
+  },
+
+  /**
+   * Gửi yêu cầu Quên Mật Khẩu qua Email.
+   */
+  async forgotPassword(email: string): Promise<ApiResponse<void>> {
+    return apiClient.post<ApiResponse<void>>('/customer/auth/forgot-password', { email } as ForgotPasswordRequest);
+  },
+
+  /**
+   * Gửi yêu cầu Đặt Lại Mật Khẩu mới với Token xác nhận.
+   */
+  async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<void>> {
+    return apiClient.post<ApiResponse<void>>('/customer/auth/reset-password', data);
   },
 };

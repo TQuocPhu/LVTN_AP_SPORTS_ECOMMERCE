@@ -86,6 +86,7 @@ export default function FeaturedProducts() {
                   src={prod.image}
                   alt={prod.name}
                   fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover object-center group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-slate-950/20 group-hover:bg-slate-950/0 transition-colors" />

@@ -78,6 +78,7 @@ export default function CategoryGrid() {
                 src={cat.image}
                 alt={cat.title}
                 fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                 className="object-cover object-center group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />

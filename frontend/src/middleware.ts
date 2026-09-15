@@ -40,6 +40,7 @@ interface JwtPayloadCustom {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('accessToken')?.value;
+  const hasRefreshToken = !!request.cookies.get('refreshToken')?.value;
 
   let isValidToken = false;
   let userRole: string | undefined = undefined;
@@ -61,6 +62,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Session được coi là Active nếu AccessToken hợp lệ HOẶC có RefreshToken Cookie để FE thực hiện Silent Refresh
+  const isSessionActive = isValidToken || hasRefreshToken;
+
   // Danh sách các nhóm Route
   const isCustomerRoute = ['/profile', '/account', '/orders', '/checkout'].some((path) =>
     pathname.startsWith(path)
@@ -72,7 +76,7 @@ export async function middleware(request: NextRequest) {
 
   // 1. Trang bắt buộc đăng nhập (Customer Routes)
   if (isCustomerRoute) {
-    if (!isValidToken) {
+    if (!isSessionActive) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       loginUrl.searchParams.set('reason', 'login_required');
@@ -82,49 +86,55 @@ export async function middleware(request: NextRequest) {
 
   // 2. Trang Quản trị Admin
   if (isAdminRoute) {
-    if (!isValidToken) {
+    if (!isSessionActive) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       loginUrl.searchParams.set('reason', 'login_required');
       return NextResponse.redirect(loginUrl, 307);
     }
-    const normalizedRole = userRole?.replace(/^ROLE_/, '');
-    if (normalizedRole !== 'ADMIN') {
-      const forbiddenUrl = new URL('/403', request.url);
-      forbiddenUrl.searchParams.set('reason', 'unauthorized');
-      return NextResponse.redirect(forbiddenUrl, 307);
+    if (isValidToken) {
+      const normalizedRole = userRole?.replace(/^ROLE_/, '');
+      if (normalizedRole !== 'ADMIN') {
+        const forbiddenUrl = new URL('/403', request.url);
+        forbiddenUrl.searchParams.set('reason', 'unauthorized');
+        return NextResponse.redirect(forbiddenUrl, 307);
+      }
     }
   }
 
   // 3. Trang Quản lý Kho
   if (isWarehouseRoute) {
-    if (!isValidToken) {
+    if (!isSessionActive) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       loginUrl.searchParams.set('reason', 'login_required');
       return NextResponse.redirect(loginUrl, 307);
     }
-    const normalizedRole = userRole?.replace(/^ROLE_/, '');
-    if (normalizedRole !== 'ADMIN' && normalizedRole !== 'WAREHOUSE') {
-      const forbiddenUrl = new URL('/403', request.url);
-      forbiddenUrl.searchParams.set('reason', 'unauthorized');
-      return NextResponse.redirect(forbiddenUrl, 307);
+    if (isValidToken) {
+      const normalizedRole = userRole?.replace(/^ROLE_/, '');
+      if (normalizedRole !== 'ADMIN' && normalizedRole !== 'WAREHOUSE') {
+        const forbiddenUrl = new URL('/403', request.url);
+        forbiddenUrl.searchParams.set('reason', 'unauthorized');
+        return NextResponse.redirect(forbiddenUrl, 307);
+      }
     }
   }
 
   // 4. Trang Bán hàng / CSKH
   if (isSaleRoute) {
-    if (!isValidToken) {
+    if (!isSessionActive) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       loginUrl.searchParams.set('reason', 'login_required');
       return NextResponse.redirect(loginUrl, 307);
     }
-    const normalizedRole = userRole?.replace(/^ROLE_/, '');
-    if (normalizedRole !== 'ADMIN' && normalizedRole !== 'SALE') {
-      const forbiddenUrl = new URL('/403', request.url);
-      forbiddenUrl.searchParams.set('reason', 'unauthorized');
-      return NextResponse.redirect(forbiddenUrl, 307);
+    if (isValidToken) {
+      const normalizedRole = userRole?.replace(/^ROLE_/, '');
+      if (normalizedRole !== 'ADMIN' && normalizedRole !== 'SALE') {
+        const forbiddenUrl = new URL('/403', request.url);
+        forbiddenUrl.searchParams.set('reason', 'unauthorized');
+        return NextResponse.redirect(forbiddenUrl, 307);
+      }
     }
   }
 

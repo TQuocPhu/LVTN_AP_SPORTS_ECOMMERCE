@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { profileController } from '@/controllers/profile-controller';
 import { UserProfile, UpdateProfileRequest, ChangePasswordRequest } from '@/types/profile';
 import { useAuth } from '@/hooks/useAuth';
+import { isApiError } from '@/services/api-client';
 
 export function useProfile() {
   const { refetchUser } = useAuth();
@@ -23,7 +24,9 @@ export function useProfile() {
         }
       }
     } catch (err) {
-      console.error('Lỗi lấy hồ sơ cá nhân:', err);
+      if (!(isApiError(err) && err.status === 401)) {
+        console.error('Lỗi lấy hồ sơ cá nhân:', err);
+      }
     } finally {
       setLoading(false);
     }

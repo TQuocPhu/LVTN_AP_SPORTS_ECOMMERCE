@@ -136,23 +136,28 @@ export default function LoginForm() {
         </div>
 
         {/* Nút Submit */}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>ĐANG XỬ LÝ...</span>
-            </>
-          ) : (
-            <>
-              <span>ĐĂNG NHẬP</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </>
-          )}
-        </button>
+        {(() => {
+          const hasInput = Boolean(formData.email.trim() && formData.password.trim());
+          return (
+            <button
+              type="submit"
+              disabled={loading || !hasInput}
+              className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>ĐANG XỬ LÝ...</span>
+                </>
+              ) : (
+                <>
+                  <span>ĐĂNG NHẬP</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+          );
+        })()}
       </form>
 
       {/* Footer Chuyển hướng */}

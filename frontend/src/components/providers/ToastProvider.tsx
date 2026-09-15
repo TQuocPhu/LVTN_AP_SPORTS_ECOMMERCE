@@ -1,16 +1,18 @@
 'use client';
 
 import { Toaster, toast } from 'sonner';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, Suspense } from 'react';
 
 function ToastReasonListener() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   // Track the last reason we already showed to prevent StrictMode double-fire
   const shownReasonRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const reason = searchParams.get('reason');
+    const reason = searchParams?.get('reason');
     if (!reason) return;
     // Already showed a toast for this reason — skip
     if (shownReasonRef.current === reason) return;
@@ -30,13 +32,21 @@ function ToastReasonListener() {
       });
     }
 
-    // Clear query param without full page reload
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.delete('reason');
-    window.history.replaceState({}, '', newUrl.toString());
-    // Reset ref so future navigations with a reason param work correctly
-    setTimeout(() => { shownReasonRef.current = null; }, 500);
-  }, [searchParams]);
+    // Clear query param safely using Next.js router after hydration initialization completes
+    const timer = setTimeout(() => {
+      try {
+        const currentParams = new URLSearchParams(searchParams.toString());
+        currentParams.delete('reason');
+        const newSearch = currentParams.toString();
+        const targetUrl = newSearch ? `${pathname}?${newSearch}` : pathname;
+        router.replace(targetUrl, { scroll: false });
+      } catch (err) {
+        console.warn('ToastReasonListener router replace ignored:', err);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [searchParams, router, pathname]);
 
   return null;
 }

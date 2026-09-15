@@ -9,7 +9,7 @@ export const profileController = {
    * Lấy thông tin hồ sơ cá nhân.
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
-    return apiClient.get<ApiResponse<UserProfile>>('/customer/profile/me');
+    return apiClient.get<ApiResponse<UserProfile>>('/customer/profile/me', { suppressErrorToast: true });
   },
 
   /**

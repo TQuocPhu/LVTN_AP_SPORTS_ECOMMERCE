@@ -179,26 +179,30 @@ html.light footer div.border-t.border-slate-800\/80 {
   border-color: #e2e8f0 !important;
 }
 
-/* 8. Hero Banner Protection: HERO BANNER OVERLAYS REMAIN 100% DARK & SHARP */
-html.light section.relative.w-full.min-h-\[60vh\] {
+/* 8. Hero Banner & Subpage Banner Protection: OVERLAYS REMAIN 100% DARK & SHARP IN ALL THEMES */
+.hero-banner-slider-container,
+.page-header-banner-container,
+#hero-banner-slider,
+#page-header-banner,
+html.light .hero-banner-slider-container,
+html.light .page-header-banner-container,
+html.light #hero-banner-slider,
+html.light #page-header-banner {
   background-color: #090d16 !important;
 }
 
-html.light section.relative.w-full.min-h-\[60vh\] h1.text-white\/90,
-html.light section.relative.w-full.min-h-\[60vh\] h1 {
+html.light .hero-banner-slider-container h1,
+html.light .page-header-banner-container h1,
+html.light #hero-banner-slider h1,
+html.light #page-header-banner h1 {
   color: #ffffff !important;
 }
 
-html.light section.relative.w-full.min-h-\[60vh\] p {
+html.light .hero-banner-slider-container p,
+html.light .page-header-banner-container p,
+html.light #hero-banner-slider p,
+html.light #page-header-banner p {
   color: rgba(226, 232, 240, 0.85) !important;
-}
-
-html.light section.relative.w-full.min-h-\[60vh\] div.bg-gradient-to-r.from-slate-950\/90 {
-  background-image: linear-gradient(to right, rgba(9, 13, 22, 0.92), rgba(9, 13, 22, 0.7), transparent) !important;
-}
-
-html.light section.relative.w-full.min-h-\[60vh\] div.bg-gradient-to-t.from-slate-950 {
-  background-image: linear-gradient(to top, rgba(9, 13, 22, 0.95), transparent, rgba(9, 13, 22, 0.4)) !important;
 }
 
 /* 9. Preserve Orange Action Buttons Across Entire App */

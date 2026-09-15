@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { addressController } from '@/controllers/address-controller';
 import { ShippingAddress, ShippingAddressRequest } from '@/types/address';
+import { isApiError } from '@/services/api-client';
 
 export function useAddresses() {
   const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
@@ -16,7 +17,9 @@ export function useAddresses() {
         setAddresses(res.data);
       }
     } catch (err) {
-      console.error('Lỗi lấy danh sách địa chỉ:', err);
+      if (!(isApiError(err) && err.status === 401)) {
+        console.error('Lỗi lấy danh sách địa chỉ:', err);
+      }
     } finally {
       setLoading(false);
     }

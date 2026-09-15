@@ -9,7 +9,7 @@ export const addressController = {
    * Lấy danh sách địa chỉ giao hàng.
    */
   async getAddresses(): Promise<ApiResponse<ShippingAddress[]>> {
-    return apiClient.get<ApiResponse<ShippingAddress[]>>('/customer/addresses');
+    return apiClient.get<ApiResponse<ShippingAddress[]>>('/customer/addresses', { suppressErrorToast: true });
   },
 
   /**
