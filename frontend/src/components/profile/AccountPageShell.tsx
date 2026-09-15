@@ -21,11 +21,14 @@ import {
   Loader2,
 } from 'lucide-react';
 
+import ConfirmLogoutModal from '@/components/ui/ConfirmLogoutModal';
+
 type ActiveTab = 'overview' | 'info' | 'password' | 'addresses';
 
 export default function AccountPageShell() {
   const router = useRouter();
   const { user, logout, loading: authLoading } = useAuth();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const {
     profile,
     loading: profileLoading,
@@ -52,7 +55,6 @@ export default function AccountPageShell() {
    * HTTP mới, đảm bảo middleware Edge nhận diện cookie đã bị xóa ngay.
    */
   const handleLogout = async () => {
-    if (!confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) return;
     await logout();
     window.location.href = '/';
   };
@@ -142,7 +144,7 @@ export default function AccountPageShell() {
                   >
                     <button
                       id="tab-nav-logout"
-                      onClick={handleLogout}
+                      onClick={() => setIsLogoutModalOpen(true)}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all text-left"
                     >
                       <LogOut className="w-4 h-4 text-red-500 flex-shrink-0" />
@@ -186,6 +188,13 @@ export default function AccountPageShell() {
           )}
         </div>
       </div>
+
+      {/* Modern Glassmorphic Logout Confirmation Modal */}
+      <ConfirmLogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleLogout}
+      />
     </div>
   );
 }

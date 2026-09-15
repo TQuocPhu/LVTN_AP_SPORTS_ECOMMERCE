@@ -24,6 +24,7 @@ import {
   Moon,
 } from 'lucide-react';
 import MiniCartDrawer from './MiniCartDrawer';
+import ConfirmLogoutModal from '@/components/ui/ConfirmLogoutModal';
 
 import { useTheme } from '@/context/ThemeContext';
 
@@ -38,6 +39,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -255,7 +257,10 @@ export default function Navbar() {
                           <span>Sản phẩm yêu thích</span>
                         </Link>
                         <button
-                          onClick={handleLogout}
+                          onClick={() => {
+                            setIsUserDropdownOpen(false);
+                            setIsLogoutModalOpen(true);
+                          }}
                           className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
                         >
                           <LogOut className="w-4 h-4" />
@@ -340,6 +345,13 @@ export default function Navbar() {
 
       {/* Slide-Over Mini Cart Drawer Component */}
       <MiniCartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+
+      {/* Modern Glassmorphic Logout Confirmation Modal */}
+      <ConfirmLogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleLogout}
+      />
     </>
   );
 }
