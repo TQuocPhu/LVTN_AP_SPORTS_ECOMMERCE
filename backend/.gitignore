@@ -8,6 +8,7 @@ target/
 # Environment and Secret Files
 .env
 !.env.example
+src/main/resources/keys/*.pem
 
 # IDE and Editor Files
 .idea/

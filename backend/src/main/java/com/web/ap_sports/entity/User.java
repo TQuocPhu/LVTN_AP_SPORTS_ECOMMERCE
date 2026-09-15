@@ -2,7 +2,6 @@ package com.web.ap_sports.entity;
 
 import com.web.ap_sports.enums.UserStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.web.ap_sports.enums.UserStatus;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -39,6 +38,9 @@ public class User {
     private String phoneNumber;
 
     private String avatar;
+
+    @Column(name = "avatar_public_id")
+    private String avatarPublicId;
 
     @Column(columnDefinition = "TEXT")
     private String address;

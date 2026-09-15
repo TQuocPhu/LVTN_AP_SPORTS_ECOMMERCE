@@ -45,6 +45,9 @@ dependencies {
 	// Spring Mail (Sending activation & contact response emails)
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 	
+	// Cloudinary (Cloud Image Storage)
+	implementation 'com.cloudinary:cloudinary-http44:1.39.0'
+	
 	// JJWT (JSON Web Token Access & Refresh Tokens)
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
