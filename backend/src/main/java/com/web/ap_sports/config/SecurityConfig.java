@@ -41,15 +41,16 @@ public class SecurityConfig {
 
     /**
      * Khai báo static Bean cho RoleHierarchy để tránh vướng premature proxying trong Spring Security 6.x.
+     * Đồng bộ 100% tên vai trò với UserRole enum (ADMIN, STAFF, WAREHOUSE_MANAGER, CUSTOMER).
      */
     @Bean
     public static RoleHierarchy roleHierarchy() {
         return RoleHierarchyImpl.fromHierarchy(
-                "ROLE_ADMIN > ROLE_WAREHOUSE\n" +
-                "ROLE_ADMIN > ROLE_SALE\n" +
+                "ROLE_ADMIN > ROLE_WAREHOUSE_MANAGER\n" +
+                "ROLE_ADMIN > ROLE_STAFF\n" +
                 "ROLE_ADMIN > ROLE_CUSTOMER\n" +
-                "ROLE_WAREHOUSE > ROLE_CUSTOMER\n" +
-                "ROLE_SALE > ROLE_CUSTOMER"
+                "ROLE_WAREHOUSE_MANAGER > ROLE_CUSTOMER\n" +
+                "ROLE_STAFF > ROLE_CUSTOMER"
         );
     }
 
@@ -81,11 +82,11 @@ public class SecurityConfig {
                         "/h2-console/**"
                 ).permitAll()
 
-                // 2. Protected Routes theo Role
+                // 2. Protected Routes theo Role (Đồng bộ 100% với UserRole enum & DB roles)
                 .requestMatchers("/api/v1/customer/profile/**", "/api/v1/customer/addresses/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/v1/warehouse/**").hasRole("WAREHOUSE")
-                .requestMatchers("/api/v1/sale/**").hasRole("SALE")
+                .requestMatchers("/api/v1/warehouse/**").hasRole("WAREHOUSE_MANAGER")
+                .requestMatchers("/api/v1/staff/**").hasRole("STAFF")
 
                 // 3. Mặc định tất cả các request khác phải được xác thực
                 .anyRequest().authenticated()
