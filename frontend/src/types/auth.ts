@@ -11,6 +11,7 @@ export interface UserResponse {
   avatar?: string;
   address?: string;
   roleName: string;
+  permissions?: string[];
   emailVerifiedAt?: string;
   createdAt: string;
 }
@@ -23,6 +24,11 @@ export interface RegisterRequest {
 }
 
 export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AdminLoginRequest {
   email: string;
   password: string;
 }
