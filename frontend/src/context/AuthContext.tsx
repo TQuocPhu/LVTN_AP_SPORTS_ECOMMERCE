@@ -81,7 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       setError(null);
       const res = await authController.getCurrentUser();
-      setUser(res?.data ?? null);
+      if (res?.data && res.data.roleName === 'CUSTOMER') {
+        setUser(res.data);
+      } else {
+        setUser(null);
+      }
     } catch {
       setUser(null);
     } finally {

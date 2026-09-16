@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Zap } from 'lucide-react';
 import ServiceFeatures from '../ui/ServiceFeatures';
 
@@ -8,6 +11,12 @@ import ServiceFeatures from '../ui/ServiceFeatures';
  * Nhúng ServiceFeatures (4 cam kết dịch vụ) độc lập và thông tin doanh nghiệp.
  */
 export default function Footer() {
+  const pathname = usePathname();
+
+  // Không hiển thị Footer trang bán hàng khi ở các route quản trị /admin
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
   return (
     <footer className="w-full bg-slate-950 border-t border-slate-800/80 text-slate-400 text-sm">
       {/* 1. Thanh Cam Kết Dịch Vụ Độc Lập (Service Features Component) */}

@@ -85,8 +85,36 @@ export function isApiError(err: unknown): err is ApiError {
   );
 }
 
-let isRefreshing = false;
-let refreshSubscribers: ((success: boolean) => void)[] = [];
+/**
+ * State quản lý silent refresh được lưu trên window thay vì module-level variable.
+ * Lý do: Trong dev mode, Next.js HMR re-evaluate module nhiều lần khi có thay đổi,
+ * khiến biến module bị reset về giá trị khởi tạo trong khi request đang chạy.
+ * Lưu trên window giúp state tồn tại qua các HMR reload → không bị race condition.
+ */
+declare global {
+  interface Window {
+    __apiIsRefreshing__: boolean;
+    __apiRefreshSubscribers__: ((success: boolean) => void)[];
+  }
+}
+
+function getIsRefreshing(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.__apiIsRefreshing__ ?? false;
+}
+
+function setIsRefreshing(value: boolean): void {
+  if (typeof window === 'undefined') return;
+  window.__apiIsRefreshing__ = value;
+}
+
+function getRefreshSubscribers(): ((success: boolean) => void)[] {
+  if (typeof window === 'undefined') return [];
+  if (!Array.isArray(window.__apiRefreshSubscribers__)) {
+    window.__apiRefreshSubscribers__ = [];
+  }
+  return window.__apiRefreshSubscribers__;
+}
 
 function subscribeTokenRefresh(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -95,7 +123,7 @@ function subscribeTokenRefresh(): Promise<boolean> {
       resolve(false);
     }, 10000);
 
-    refreshSubscribers.push((success: boolean) => {
+    getRefreshSubscribers().push((success: boolean) => {
       clearTimeout(timer);
       resolve(success);
     });
@@ -103,8 +131,11 @@ function subscribeTokenRefresh(): Promise<boolean> {
 }
 
 function onRefreshed(success: boolean) {
-  refreshSubscribers.forEach((cb) => cb(success));
-  refreshSubscribers = [];
+  const subscribers = getRefreshSubscribers();
+  subscribers.forEach((cb) => cb(success));
+  if (typeof window !== 'undefined') {
+    window.__apiRefreshSubscribers__ = [];
+  }
 }
 
 export interface ApiClientOptions extends RequestInit {
@@ -164,6 +195,10 @@ export async function apiClient<T>(
   }
 
   // 5. Xử lý khi HTTP Status 401 Unauthorized -> Thực hiện Silent Refresh tự động
+  // Luồng đúng:
+  //   - AT còn hạn → 200 OK ngay, 0 overhead
+  //   - AT hết hạn (30 phút) → 401 → silent refresh → new AT → retry → user vẫn login 
+  //   - Khách / Incognito (không có RT) → /auth/refresh cũng 401 → onRefreshed(false) → user=null 
   if (
     response.status === 401 &&
     !isRetry &&
@@ -171,8 +206,8 @@ export async function apiClient<T>(
     !endpoint.includes('/auth/refresh') &&
     !endpoint.includes('/auth/logout')
   ) {
-    if (!isRefreshing) {
-      isRefreshing = true;
+    if (!getIsRefreshing()) {
+      setIsRefreshing(true);
       try {
         const refreshRes = await fetch(`${BASE_URL}/customer/auth/refresh`, {
           method: 'POST',
@@ -200,12 +235,12 @@ export async function apiClient<T>(
         eraseCookie('accessToken');
         eraseCookie('refreshToken');
       } finally {
-        isRefreshing = false;
+        setIsRefreshing(false);
       }
     } else {
       // Đợi request refresh token đang diễn ra hoàn thành
-      const isRefreshed = await subscribeTokenRefresh();
-      if (isRefreshed) {
+      const succeeded = await subscribeTokenRefresh();
+      if (succeeded) {
         response = await fetch(`${BASE_URL}${endpoint}`, { ...config, headers });
       }
     }
@@ -244,10 +279,7 @@ export async function apiClient<T>(
   return data;
 }
 
-export interface ApiClientOptions extends RequestInit {
-  showSuccessToast?: boolean;
-  suppressErrorToast?: boolean;
-}
+// (ApiClientOptions đã được khai báo ở trên dòng 141 — xóa khai báo trùng lặp này)
 
 /**
  * Mở rộng các hàm tiện ích HTTP Methods (get, post, put, delete) cho apiClient
