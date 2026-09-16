@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
+import com.web.ap_sports.exception.AppException;
+import org.springframework.http.HttpStatus;
+
 /**
  * Triển khai dịch vụ upload & quản lý ảnh Cloudinary.
  *
@@ -85,6 +88,34 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         } catch (Exception e) {
             log.warn("Không thể xóa ảnh cũ Cloudinary public_id='{}': {}", publicId, e.getMessage());
         }
+    }
+
+    @Override
+    public String uploadBase64OrUrl(String source, String folder) {
+        if (source == null || source.isBlank()) return source;
+        String trimmed = source.trim();
+        
+        // Kiểm tra nếu là chuỗi Base64 Data URL hoặc chuỗi ảnh dài không phải là HTTP URL
+        if (trimmed.startsWith("data:") || (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && trimmed.length() > 200)) {
+            try {
+                log.info("Đang tải ảnh Base64 lên Cloudinary thư mục: {}", folder);
+                Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                        trimmed,
+                        ObjectUtils.asMap(
+                                "folder", folder,
+                                "overwrite", false,
+                                "resource_type", "auto"
+                        )
+                );
+                String secureUrl = (String) uploadResult.get("secure_url");
+                log.info("Tải ảnh Base64 lên Cloudinary thành công: {}", secureUrl);
+                return secureUrl;
+            } catch (Exception e) {
+                log.error("Lỗi khi tải ảnh Base64 lên Cloudinary:", e);
+                throw new AppException("Không thể tải ảnh sản phẩm lên Cloudinary: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+            }
+        }
+        return trimmed;
     }
 
     // ─────────────────────────────────────────────────────────────

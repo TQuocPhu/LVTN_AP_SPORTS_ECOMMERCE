@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Response DTO an toàn trả về thông tin Người dùng cho Frontend (TUYỆT ĐỐI KHÔNG CHỨA PASSWORD).
@@ -25,6 +26,7 @@ public class UserResponse {
     private String avatar;
     private String address;
     private String roleName;
+    private List<String> permissions;
     private LocalDateTime emailVerifiedAt;
     private LocalDateTime createdAt;
 }

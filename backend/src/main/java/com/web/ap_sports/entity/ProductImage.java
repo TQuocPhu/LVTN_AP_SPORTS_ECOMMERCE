@@ -25,8 +25,8 @@ public class ProductImage {
     @JoinColumn(name = "variant_id", nullable = true)
     private ProductVariant variant;
 
-    @Column(name = "image_path", nullable = false, length = 500)
-    private String imagePath; // Cloudinary or MinIO URL
+    @Column(name = "image_path", nullable = false, columnDefinition = "TEXT")
+    private String imagePath; // Cloudinary or MinIO URL or Base64 data URL
 
     @Column(name = "is_primary")
     private boolean isPrimary;

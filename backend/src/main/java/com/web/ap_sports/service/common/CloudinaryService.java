@@ -27,4 +27,14 @@ public interface CloudinaryService {
      * @param publicId public_id Cloudinary trả về lúc upload (VD: "ap-sports-e-commerce/avatars/abc123")
      */
     void deleteImage(String publicId);
+
+    /**
+     * Tải ảnh dạng chuỗi Base64 Data URL (data:image/...) lên Cloudinary.
+     * Nếu chuỗi đã là URL (http:// / https://) thì giữ nguyên.
+     *
+     * @param source Chuỗi ảnh (Base64 data URL hoặc HTTP URL)
+     * @param folder Thư mục lưu trên Cloudinary (VD: "ap-sports-e-commerce/products")
+     * @return URL bảo mật (HTTPS) từ Cloudinary
+     */
+    String uploadBase64OrUrl(String source, String folder);
 }
