@@ -425,7 +425,31 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
    - Components `ForgotPasswordForm.tsx` & `ResetPasswordForm.tsx` là Pure UI Component.
    - Routes: `/forgot-password` và `/reset-password` (bọc `<Suspense>`).
 
+### 👑 4.13. Hệ Thống Quản Trị Admin Portal & Quản Lý Sản Phẩm Wizard 4 Bước
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (16/09/2026 - Day 03)
+
+**Đặc tả Kiến trúc & Giao diện:**
+1. **Trang Đăng Nhập Quản Trị (`/admin/login`) & Scoped RBAC**:
+   - Endpoint `POST /api/v1/admin/auth/login`: Xác thực các vai trò quản trị (`ADMIN`, `STAFF`, `WAREHOUSE_MANAGER`).
+   - Cấp cặp Token an toàn qua `HttpOnly Cookies` (`accessToken` RS256, `refreshToken` HMAC-SHA256).
+   - Tích hợp với Edge Middleware (`src/middleware.ts`) bảo mật tuyến trang `/admin/**`.
+
+2. **Trang Quản Trị Nền (Admin Shell Layout & Dashboard)**:
+   - Sidebar Navigation tập trung, Header Bar hiển thị thông tin Admin và công tắc đổi giao diện Sáng/Tối.
+   - Dashboard (`/admin/page.tsx`) hiển thị các thẻ KPI thống kê tổng quan doanh thu, đơn hàng, tồn kho và sản phẩm.
+
+3. **Hệ Thống Quản Lý Sản Phẩm Wizard 4 Bước (`/admin/products`)**:
+   - **Clean Page Architecture**: Tách 100% logic khỏi `page.tsx`, đóng gói vào Custom Hook `useProductForm.ts` và 10 Component chuyên biệt nằm tại `src/components/admin/product/`.
+   - **Bước 1 - Basic Step**: Tên sản phẩm, Ô Slug SEO khóa read-only tự sinh (UID + Timestamp), Giá niêm yết, Chọn đa danh mục và Trạng thái.
+   - **Bước 2 - Description Step**: Soạn thảo mô tả HTML bằng `RichTextEditor` native (Font size 10px-48px, Bold, Italic, Underline, Bullet/Numbered List, chèn ảnh từ máy tính lên Cloudinary folder `ap-sports-e-commerce/products`) và Quản lý thông số kỹ thuật động (Specs Key-Value).
+   - **Bước 3 - Variant Step**: Quản lý nhóm thuộc tính (`VariantAttributeManager`), tự động sinh ma trận tổ hợp biến thể Cartesian Product N chiều, upload nhiều ảnh cho biến thể, tự động tính tổng tồn kho (`sum(stockQuantity)`).
+   - **Bước 4 - Review Step**: Tổng quan thông tin sản phẩm và danh sách biến thể trước khi gửi API.
+   - **Quản lý Danh sách Sản phẩm (`ProductTable.tsx`)**: Đa danh mục badge, tổng tồn kho cảnh báo màu sắc, nút "Xem mô tả" (`ProductDescriptionModal.tsx`), nút mở Drawer biến thể mở rộng `max-w-3xl` (`ProductVariantDrawer.tsx`), công tắc đổi trạng thái nhanh và phân trang linh hoạt (`ProductPagination.tsx`).
+   - **Tự động xuống hàng mượt mà**: Thiết lập `break-words` cho Tên sản phẩm và `break-all` cho Slug, đảm bảo thông tin hiển thị 100% đầy đủ không bị đứt đoạn bằng dấu `...`.
+   - **Khắc phục Lỗi CSDL PostgreSQL**: Nâng cấp kiểu dữ liệu cột `product_images.image_path` thành `TEXT` tại `DataInitializer.java`, xử lý triệt để lỗi `value too long for type character varying(500)`.
+
 ---
 
-*Tài liệu này cam kết bảo tồn 100% các trường CSDL của và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+*Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
