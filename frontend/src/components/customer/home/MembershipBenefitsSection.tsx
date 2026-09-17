@@ -6,10 +6,10 @@ import { Award, Zap, RefreshCw, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export default function MembershipBenefitsSection() {
   return (
-    <section className="py-16 bg-slate-950">
+    <section className="py-16 transition-colors duration-300 ap-membership-section">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="relative rounded-3xl overflow-hidden border border-slate-800 bg-slate-900/90 shadow-2xl">
-          {/* Background Image Banner */}
+        <div className="relative rounded-3xl overflow-hidden border shadow-2xl ap-membership-card">
+          {/* Background Image Banner — always dark overlay */}
           <div className="absolute inset-0 z-0">
             <Image
               src="/images/banners/membership_benefits_banner.png"
@@ -40,7 +40,7 @@ export default function MembershipBenefitsSection() {
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="flex items-start space-x-3 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 backdrop-blur">
+                <div className="card-sub-item flex items-start space-x-3 p-3.5 rounded-xl border backdrop-blur">
                   <ShieldCheck className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold text-white text-xs uppercase">100% CHÍNH HÃNG</h4>
@@ -48,7 +48,7 @@ export default function MembershipBenefitsSection() {
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-3 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 backdrop-blur">
+                <div className="card-sub-item flex items-start space-x-3 p-3.5 rounded-xl border backdrop-blur">
                   <RefreshCw className="w-6 h-6 text-orange-400 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="font-bold text-white text-xs uppercase">30 NGÀY ĐỔI TRẢ</h4>
@@ -74,7 +74,7 @@ export default function MembershipBenefitsSection() {
               </div>
             </div>
 
-            {/* Right Graphic Card */}
+            {/* Right: Platinum Card Graphic — always dark */}
             <div className="hidden lg:block">
               <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 relative overflow-hidden backdrop-blur-xl">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl" />

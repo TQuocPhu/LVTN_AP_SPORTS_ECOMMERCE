@@ -45,15 +45,15 @@ const CATEGORIES = [
 
 export default function CategoryGrid() {
   return (
-    <section className="py-16 bg-slate-950">
+    <section className="py-16 transition-colors duration-300" style={{ backgroundColor: 'var(--section-alt-bg)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 pb-4 border-b border-slate-800">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 pb-4 border-b ap-section-border" style={{ borderColor: 'var(--bg-border)' }}>
           <div>
             <div className="text-orange-500 font-bold text-xs uppercase tracking-widest mb-1">
               DANH MỤC THỂ THAO CHUYÊN SÂU
             </div>
-            <h2 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tight">
+            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight ap-section-heading" style={{ color: 'var(--text-primary)' }}>
               KHÁM PHÁ THEO BỘ MÔN
             </h2>
           </div>
@@ -66,13 +66,13 @@ export default function CategoryGrid() {
           </Link>
         </div>
 
-        {/* Grid */}
+        {/* Grid — Category cards always stay dark (image overlay) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {CATEGORIES.map((cat) => (
             <Link
               key={cat.id}
               href={cat.link}
-              className="group relative h-80 rounded-2xl overflow-hidden border border-slate-800 hover:border-orange-500/50 transition-all duration-300 shadow-xl bg-slate-900 flex flex-col justify-end p-6"
+              className="ap-category-card group relative h-80 rounded-2xl overflow-hidden border border-slate-800 hover:border-orange-500/50 transition-all duration-300 shadow-xl flex flex-col justify-end p-6"
             >
               <Image
                 src={cat.image}
@@ -83,21 +83,20 @@ export default function CategoryGrid() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
 
-              {/* Top Badge */}
+              {/* Badge */}
               <div className="absolute top-4 left-4 z-10">
                 <span className="px-3 py-1 rounded-full bg-orange-500 text-white font-black text-[10px] uppercase tracking-wider shadow-md">
                   {cat.badge}
                 </span>
               </div>
 
-              {/* Bottom Content */}
+              {/* Content */}
               <div className="relative z-10 space-y-2">
                 <div className="text-xs font-semibold text-slate-400">{cat.count}</div>
                 <h3 className="text-xl font-extrabold text-white uppercase group-hover:text-orange-400 transition-colors">
                   {cat.title}
                 </h3>
                 <p className="text-xs text-slate-300 line-clamp-2">{cat.subtitle}</p>
-
                 <div className="pt-2 flex items-center space-x-1 text-xs font-bold text-orange-400 group-hover:underline">
                   <span>KHÁM PHÁ NGAY</span>
                   <ArrowUpRight className="w-4 h-4" />

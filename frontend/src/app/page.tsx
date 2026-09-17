@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+    <main className="min-h-screen flex flex-col font-sans selection:bg-orange-500 selection:text-white transition-colors duration-300" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
       {/* 1. Hero Master Banner Slider */}
       <HeroBannerSlider />
 
