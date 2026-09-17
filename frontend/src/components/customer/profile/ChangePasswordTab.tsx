@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { ChangePasswordRequest } from '@/types/profile';
-import { ApiError, isApiError } from '@/services/api-client';
+import { isApiError } from '@/services/api-client';
 import { Lock, Eye, EyeOff, Save, Loader2, AlertCircle } from 'lucide-react';
 
 interface ChangePasswordTabProps {
@@ -32,12 +32,7 @@ export default function ChangePasswordTab({ onChangePassword }: ChangePasswordTa
 
     try {
       setIsSubmitting(true);
-      await onChangePassword({
-        oldPassword,
-        newPassword,
-        confirmPassword,
-      });
-      // Reset form on success
+      await onChangePassword({ oldPassword, newPassword, confirmPassword });
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -52,17 +47,22 @@ export default function ChangePasswordTab({ onChangePassword }: ChangePasswordTa
 
   const hasInput = Boolean(oldPassword.trim() && newPassword.trim() && confirmPassword.trim());
 
+  const inputBase = 'w-full px-4 py-3 rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-colors pr-12';
+  const inputNormal = 'border-slate-300 dark:border-slate-800 focus:border-red-500 dark:focus:border-red-500';
+  const inputError = 'border-red-500 focus:border-red-500';
+  const labelClass = 'text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2';
+
   return (
-    <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-xl space-y-6 max-w-2xl">
-      <div className="border-b border-slate-800 pb-4">
-        <h2 className="text-xl font-bold text-white tracking-tight">Thay Đổi Mật Khẩu</h2>
-        <p className="text-sm text-slate-400 mt-1">Bảo vệ tài khoản của bạn bằng cách cập nhật mật khẩu định kỳ</p>
+    <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6 max-w-2xl">
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-4">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Thay Đổi Mật Khẩu</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Bảo vệ tài khoản của bạn bằng cách cập nhật mật khẩu định kỳ</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mật khẩu hiện tại */}
         <div className="space-y-2">
-          <label htmlFor="input-old-password" className="text-sm font-medium text-slate-300 flex items-center gap-2">
+          <label htmlFor="input-old-password" className={labelClass}>
             <Lock className="w-4 h-4 text-red-500" />
             Mật khẩu hiện tại
           </label>
@@ -72,35 +72,24 @@ export default function ChangePasswordTab({ onChangePassword }: ChangePasswordTa
               type={showOld ? 'text' : 'password'}
               required
               value={oldPassword}
-              onChange={(e) => {
-                setOldPassword(e.target.value);
-                if (fieldErrors.oldPassword) setFieldErrors((prev) => ({ ...prev, oldPassword: '' }));
-              }}
+              onChange={(e) => { setOldPassword(e.target.value); if (fieldErrors.oldPassword) setFieldErrors((p) => ({ ...p, oldPassword: '' })); }}
               placeholder="Nhập mật khẩu hiện tại"
-              className={`w-full px-4 py-3 rounded-xl bg-slate-950 border ${
-                fieldErrors.oldPassword ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none transition-colors pr-12`}
+              className={`${inputBase} ${fieldErrors.oldPassword ? inputError : inputNormal}`}
             />
-            <button
-              id="btn-toggle-old-pwd"
-              type="button"
-              onClick={() => setShowOld(!showOld)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-            >
+            <button id="btn-toggle-old-pwd" type="button" onClick={() => setShowOld(!showOld)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
               {showOld ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           {fieldErrors.oldPassword && (
-            <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
-              <span>{fieldErrors.oldPassword}</span>
+            <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /><span>{fieldErrors.oldPassword}</span>
             </p>
           )}
         </div>
 
         {/* Mật khẩu mới */}
         <div className="space-y-2">
-          <label htmlFor="input-new-password" className="text-sm font-medium text-slate-300 flex items-center gap-2">
+          <label htmlFor="input-new-password" className={labelClass}>
             <Lock className="w-4 h-4 text-red-500" />
             Mật khẩu mới
           </label>
@@ -111,35 +100,24 @@ export default function ChangePasswordTab({ onChangePassword }: ChangePasswordTa
               required
               minLength={6}
               value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value);
-                if (fieldErrors.newPassword) setFieldErrors((prev) => ({ ...prev, newPassword: '' }));
-              }}
+              onChange={(e) => { setNewPassword(e.target.value); if (fieldErrors.newPassword) setFieldErrors((p) => ({ ...p, newPassword: '' })); }}
               placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
-              className={`w-full px-4 py-3 rounded-xl bg-slate-950 border ${
-                fieldErrors.newPassword ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none transition-colors pr-12`}
+              className={`${inputBase} ${fieldErrors.newPassword ? inputError : inputNormal}`}
             />
-            <button
-              id="btn-toggle-new-pwd"
-              type="button"
-              onClick={() => setShowNew(!showNew)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-            >
+            <button id="btn-toggle-new-pwd" type="button" onClick={() => setShowNew(!showNew)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
               {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           {fieldErrors.newPassword && (
-            <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
-              <span>{fieldErrors.newPassword}</span>
+            <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /><span>{fieldErrors.newPassword}</span>
             </p>
           )}
         </div>
 
         {/* Xác nhận mật khẩu mới */}
         <div className="space-y-2">
-          <label htmlFor="input-confirm-password" className="text-sm font-medium text-slate-300 flex items-center gap-2">
+          <label htmlFor="input-confirm-password" className={labelClass}>
             <Lock className="w-4 h-4 text-red-500" />
             Xác nhận mật khẩu mới
           </label>
@@ -149,28 +127,17 @@ export default function ChangePasswordTab({ onChangePassword }: ChangePasswordTa
               type={showConfirm ? 'text' : 'password'}
               required
               value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }));
-              }}
+              onChange={(e) => { setConfirmPassword(e.target.value); if (fieldErrors.confirmPassword) setFieldErrors((p) => ({ ...p, confirmPassword: '' })); }}
               placeholder="Nhập lại mật khẩu mới"
-              className={`w-full px-4 py-3 rounded-xl bg-slate-950 border ${
-                fieldErrors.confirmPassword ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none transition-colors pr-12`}
+              className={`${inputBase} ${fieldErrors.confirmPassword ? inputError : inputNormal}`}
             />
-            <button
-              id="btn-toggle-confirm-pwd"
-              type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-            >
+            <button id="btn-toggle-confirm-pwd" type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
           {fieldErrors.confirmPassword && (
-            <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
-              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-400" />
-              <span>{fieldErrors.confirmPassword}</span>
+            <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /><span>{fieldErrors.confirmPassword}</span>
             </p>
           )}
         </div>

@@ -78,19 +78,19 @@ export default function AddressModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl rounded-3xl bg-slate-900 border border-slate-700 shadow-2xl p-6 sm:p-8 space-y-6 relative">
+      <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl p-6 sm:p-8 space-y-6 relative">
         {/* Close Button */}
         <button
           id="btn-close-address-modal"
           onClick={onClose}
-          className="absolute top-6 right-6 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800 transition-colors"
+          className="absolute top-6 right-6 text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Title */}
-        <div className="border-b border-slate-700 pb-4">
-          <h3 className="text-xl font-bold flex items-center gap-2" style={{ color: '#ffffff' }}>
+        <div className="border-b border-slate-200 dark:border-slate-700 pb-4">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
             {addressToEdit ? 'Chỉnh Sửa Địa Chỉ Giao Hàng' : 'Thêm Địa Chỉ Giao Hàng Mới'}
           </h3>
@@ -114,9 +114,9 @@ export default function AddressModal({
                 if (fieldErrors.fullName) setFieldErrors((prev) => ({ ...prev, fullName: '' }));
               }}
               placeholder="Nhập họ và tên người nhận hàng"
-              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
-                fieldErrors.fullName ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm`}
+              className={`w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-950 border ${
+                fieldErrors.fullName ? 'border-red-500 focus:border-red-500' : 'border-slate-300 dark:border-slate-800 focus:border-red-500'
+              } text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none text-sm`}
             />
             {fieldErrors.fullName && (
               <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
@@ -128,7 +128,7 @@ export default function AddressModal({
 
           {/* Số điện thoại */}
           <div className="space-y-1.5">
-            <label htmlFor="input-address-phone" className="text-sm font-medium text-slate-300 flex items-center gap-1.5">
+            <label htmlFor="input-address-phone" className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Phone className="w-4 h-4 text-slate-400" />
               Số điện thoại người nhận
             </label>
@@ -142,9 +142,9 @@ export default function AddressModal({
                 if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: '' }));
               }}
               placeholder="Nhập số điện thoại giao hàng"
-              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
-                fieldErrors.phone ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm`}
+              className={`w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-950 border ${
+                fieldErrors.phone ? 'border-red-500 focus:border-red-500' : 'border-slate-300 dark:border-slate-800 focus:border-red-500'
+              } text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none text-sm`}
             />
             {fieldErrors.phone && (
               <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
@@ -156,7 +156,7 @@ export default function AddressModal({
 
           {/* Tỉnh/Thành phố & Quận/Huyện */}
           <div className="space-y-1.5">
-            <label htmlFor="input-address-city" className="text-sm font-medium text-slate-300">
+            <label htmlFor="input-address-city" className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Tỉnh/Thành phố, Quận/Huyện, Phường/Xã
             </label>
             <input
@@ -169,9 +169,9 @@ export default function AddressModal({
                 if (fieldErrors.city) setFieldErrors((prev) => ({ ...prev, city: '' }));
               }}
               placeholder="Ví dụ: TP. Hồ Chí Minh, Quận 1, Phường Bến Nghé"
-              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
-                fieldErrors.city ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm`}
+              className={`w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-950 border ${
+                fieldErrors.city ? 'border-red-500 focus:border-red-500' : 'border-slate-300 dark:border-slate-800 focus:border-red-500'
+              } text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none text-sm`}
             />
             {fieldErrors.city && (
               <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
@@ -183,7 +183,7 @@ export default function AddressModal({
 
           {/* Địa chỉ chi tiết */}
           <div className="space-y-1.5">
-            <label htmlFor="input-address-detail" className="text-sm font-medium text-slate-300">
+            <label htmlFor="input-address-detail" className="text-sm font-medium text-slate-700 dark:text-slate-300">
               Địa chỉ chi tiết (Số nhà, tên đường...)
             </label>
             <textarea
@@ -196,9 +196,9 @@ export default function AddressModal({
                 if (fieldErrors.address) setFieldErrors((prev) => ({ ...prev, address: '' }));
               }}
               placeholder="Nhập số nhà, ngõ ngách, tên tòa nhà..."
-              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border ${
-                fieldErrors.address ? 'border-red-500 focus:border-red-500' : 'border-slate-800 focus:border-red-500'
-              } text-slate-100 placeholder-slate-500 focus:outline-none text-sm resize-none`}
+              className={`w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-950 border ${
+                fieldErrors.address ? 'border-red-500 focus:border-red-500' : 'border-slate-300 dark:border-slate-800 focus:border-red-500'
+              } text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none text-sm resize-none`}
             />
             {fieldErrors.address && (
               <p className="text-xs font-semibold text-red-400 mt-1 flex items-center gap-1 animate-fade-in">
@@ -215,20 +215,20 @@ export default function AddressModal({
               type="checkbox"
               checked={isDefault}
               onChange={(e) => setIsDefault(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-red-600 focus:ring-red-500 focus:ring-offset-slate-900"
+              className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-red-600 focus:ring-red-500"
             />
-            <label htmlFor="checkbox-address-default" className="text-sm text-slate-300 cursor-pointer">
+            <label htmlFor="checkbox-address-default" className="text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
               Đặt làm địa chỉ giao hàng mặc định
             </label>
           </div>
 
           {/* Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
             <button
               id="btn-cancel-address-modal"
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium transition-colors"
             >
               Hủy
             </button>

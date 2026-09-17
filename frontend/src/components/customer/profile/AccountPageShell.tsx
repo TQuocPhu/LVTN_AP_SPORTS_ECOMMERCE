@@ -95,10 +95,7 @@ export default function AccountPageShell() {
       />
 
       {/* ── Khu vực nội dung chính ── */}
-      <div
-        className="flex-1"
-        style={{ backgroundColor: 'var(--background)', color: 'var(--foreground)' }}
-      >
+      <div className="flex-1 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12 w-full">
           {authLoading || profileLoading ? (
             <div className="flex justify-center items-center py-20">
@@ -108,13 +105,7 @@ export default function AccountPageShell() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
               {/* ── Sidebar Navigation ── */}
               <div className="lg:col-span-1 space-y-2">
-                <nav
-                  className="p-3 rounded-2xl border backdrop-blur-xl shadow-xl space-y-1"
-                  style={{
-                    backgroundColor: 'color-mix(in srgb, var(--background) 80%, transparent)',
-                    borderColor: 'color-mix(in srgb, var(--foreground) 10%, transparent)',
-                  }}
-                >
+                <nav className="p-3 rounded-2xl dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur-xl shadow-xl space-y-1">
                   {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.key;
@@ -123,10 +114,10 @@ export default function AccountPageShell() {
                         key={item.key}
                         id={item.id}
                         onClick={() => setActiveTab(item.key)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all text-left ${
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all text-left text-slate-700 dark:text-slate-200 ${
                           isActive
-                            ? 'bg-red-600 text-white shadow-md shadow-red-600/30'
-                            : 'opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/5'
+                            ? 'bg-red-600 !text-white shadow-md shadow-red-600/30'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                       >
                         <Icon
@@ -138,10 +129,7 @@ export default function AccountPageShell() {
                   })}
 
                   {/* Nút Đăng xuất */}
-                  <div
-                    className="border-t mt-2 pt-2"
-                    style={{ borderColor: 'color-mix(in srgb, var(--foreground) 10%, transparent)' }}
-                  >
+                  <div className="border-t border-slate-200 dark:border-slate-800 mt-2 pt-2">
                     <button
                       id="tab-nav-logout"
                       onClick={() => setIsLogoutModalOpen(true)}
