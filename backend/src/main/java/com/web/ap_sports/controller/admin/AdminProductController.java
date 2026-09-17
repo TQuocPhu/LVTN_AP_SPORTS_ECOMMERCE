@@ -1,11 +1,11 @@
 package com.web.ap_sports.controller.admin;
 
 import com.web.ap_sports.dto.request.admin.CreateProductRequest;
-import com.web.ap_sports.dto.request.admin.ProductFilterRequest;
 import com.web.ap_sports.dto.request.admin.UpdateProductRequest;
+import com.web.ap_sports.dto.request.common.ProductFilterRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
-import com.web.ap_sports.dto.response.admin.ProductDetailResponse;
-import com.web.ap_sports.dto.response.admin.ProductResponse;
+import com.web.ap_sports.dto.response.common.ProductDetailResponse;
+import com.web.ap_sports.dto.response.common.ProductResponse;
 import com.web.ap_sports.service.admin.AdminProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

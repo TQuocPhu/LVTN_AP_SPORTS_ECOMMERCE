@@ -20,6 +20,7 @@ public class CategoryResponse {
     private Long parentId;
     private String parentName;
     private Integer level; // 1 = Cấp 1 (Gốc), 2 = Cấp 2, 3 = Cấp 3 (Cấp cuối)
+    private Long productCount; // Tổng số lượng sản phẩm của danh mục (gồm cả các danh mục con)
 
     @Builder.Default
     private List<CategoryResponse> children = new ArrayList<>();

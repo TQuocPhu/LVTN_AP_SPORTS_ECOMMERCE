@@ -83,7 +83,9 @@ public class SecurityConfig {
                         "/api/v1/customer/auth/forgot-password",
                         "/api/v1/customer/auth/reset-password",
                         "/api/v1/auth/**",
+                        "/api/v1/products",
                         "/api/v1/products/**",
+                        "/api/v1/categories",
                         "/api/v1/categories/**",
                         "/ws/**",
                         "/h2-console/**"

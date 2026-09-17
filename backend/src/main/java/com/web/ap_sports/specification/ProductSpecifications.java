@@ -1,6 +1,6 @@
 package com.web.ap_sports.specification;
 
-import com.web.ap_sports.dto.request.admin.ProductFilterRequest;
+import com.web.ap_sports.dto.request.common.ProductFilterRequest;
 import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductVariant;
@@ -57,6 +57,24 @@ public class ProductSpecifications {
             // Unit Filter
             if (StringUtils.hasText(filter.getUnit())) {
                 predicates.add(cb.equal(cb.lower(root.get("unit")), filter.getUnit().trim().toLowerCase()));
+            }
+
+            // Variant Size Filter (Supports multi-select comma separated: "S,M,L")
+            if (StringUtils.hasText(filter.getVariantSize())) {
+                List<String> sizes = List.of(filter.getVariantSize().split(","))
+                        .stream()
+                        .map(s -> s.trim().toLowerCase())
+                        .filter(StringUtils::hasText)
+                        .toList();
+
+                if (!sizes.isEmpty()) {
+                    Subquery<Long> sizeSubquery = query.subquery(Long.class);
+                    Root<ProductVariant> variantRoot = sizeSubquery.from(ProductVariant.class);
+                    sizeSubquery.select(variantRoot.get("product").get("id"))
+                            .where(cb.lower(variantRoot.get("size")).in(sizes));
+
+                    predicates.add(cb.in(root.get("id")).value(sizeSubquery));
+                }
             }
 
             // Price Range Filter
