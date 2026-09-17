@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getCookie, setCookie } from '@/services/api-client';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { getCookie, setCookie } from "@/services/api-client";
 
-type ThemeMode = 'dark' | 'light';
+type ThemeMode = "dark" | "light";
 
 interface ThemeContextType {
   theme: ThemeMode;
@@ -11,49 +11,47 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'dark',
+  theme: "dark",
   toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
-  // Đọc cấu hình Theme từ Cookie hoặc hệ thống khi mount
+  // Đọc cấu hình Theme từ Cookie khi mount — Dark là mặc định
   useEffect(() => {
-    let activeTheme: ThemeMode = 'dark';
+    let activeTheme: ThemeMode = "dark";
     try {
-      const savedTheme = getCookie('theme') as ThemeMode | null;
-      if (savedTheme === 'light' || savedTheme === 'dark') {
+      const savedTheme = getCookie("theme") as ThemeMode | null;
+      if (savedTheme === "light" || savedTheme === "dark") {
         activeTheme = savedTheme;
       }
     } catch {
-      activeTheme = 'dark';
+      activeTheme = "dark";
     }
 
+    applyTheme(activeTheme);
     setTheme(activeTheme);
-    document.documentElement.setAttribute('data-theme', activeTheme);
-    if (activeTheme === 'light') {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme: ThemeMode = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-
-    try {
-      setCookie('theme', nextTheme, 30);
-    } catch (e) {
-      console.warn('Unable to persist theme cookie:', e);
-    }
-
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    if (nextTheme === 'light') {
-      document.documentElement.classList.add('light');
+  function applyTheme(t: ThemeMode) {
+    const root = document.documentElement;
+    if (t === "dark") {
+      root.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('light');
+      root.classList.remove("dark");
+    }
+    root.setAttribute("data-theme", t);
+  }
+
+  const toggleTheme = () => {
+    const nextTheme: ThemeMode = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    applyTheme(nextTheme);
+    try {
+      setCookie("theme", nextTheme, 30);
+    } catch (e) {
+      console.warn("Unable to persist theme cookie:", e);
     }
   };
 

@@ -72,7 +72,7 @@ export default function RootLayout({
     <html
       lang="vi"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <head>
         <link
@@ -90,7 +90,7 @@ export default function RootLayout({
       </head>
       <body
         suppressHydrationWarning
-        className="min-h-full flex flex-col bg-slate-950 text-slate-100 transition-colors duration-300"
+        className="min-h-full flex flex-col text-slate-100 transition-colors duration-300"
       >
         <ThemeProvider>
           {/* Global Auth State Provider – chia sẻ user state toàn app */}
