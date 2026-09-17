@@ -5,6 +5,8 @@ import com.web.ap_sports.dto.request.customer.ForgotPasswordRequest;
 import com.web.ap_sports.dto.request.customer.LoginCustomerRequest;
 import com.web.ap_sports.dto.request.customer.RegisterCustomerRequest;
 import com.web.ap_sports.dto.request.customer.ResetPasswordRequest;
+import com.web.ap_sports.dto.response.customer.CustomerLoginResponse;
+import com.web.ap_sports.dto.response.customer.TokenResponse;
 import com.web.ap_sports.dto.response.customer.UserResponse;
 import com.web.ap_sports.entity.PasswordResetToken;
 import com.web.ap_sports.entity.RefreshToken;
@@ -26,6 +28,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.web.ap_sports.util.CookieUtils;
 
@@ -105,7 +108,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
     @Override
     @Transactional
-    public UserResponse login(LoginCustomerRequest request, HttpServletResponse response) {
+    public CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletResponse response) {
         // 1. Tìm User theo email
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Thông tin đăng nhập không hợp lệ hoặc tài khoản chưa được kích hoạt."));
@@ -144,11 +147,29 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                 .build();
         refreshTokenRepository.save(refreshTokenEntity);
 
-        // 7. Thiết lập Cookies an toàn gửi về Client (credentials: 'include')
+        boolean isMobile = "mobile".equalsIgnoreCase(clientType);
+
+        if (isMobile) {
+            // Đối với Mobile App: Trả về tokens trực tiếp trong JSON Payload (Không set Cookie)
+            TokenResponse tokenResponse = TokenResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(rawRefreshToken)
+                    .expiresIn((long) CookieUtils.ACCESS_TOKEN_MAX_AGE)
+                    .build();
+
+            return CustomerLoginResponse.builder()
+                    .user(mapToUserResponse(user))
+                    .tokens(tokenResponse)
+                    .build();
+        }
+
+        // Đối với Web App: CHỈ thiết lập HttpOnly Cookies, JSON Payload không chứa tokens
         CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, accessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
         CookieUtils.addTokenCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, rawRefreshToken, CookieUtils.REFRESH_TOKEN_MAX_AGE);
 
-        return mapToUserResponse(user);
+        return CustomerLoginResponse.builder()
+                .user(mapToUserResponse(user))
+                .build();
     }
 
     @Override
@@ -189,10 +210,23 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
 
     @Override
     @Transactional
-    public void refreshToken(HttpServletRequest request, HttpServletResponse response) {
-        String rawRefreshToken = CookieUtils.extractCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
-        if (rawRefreshToken == null) {
-            throw new SecurityException("Refresh Token không tồn tại trong Cookie.");
+    public TokenResponse refreshToken(String clientType, String rtFromCookie, String rtFromBody, HttpServletRequest request, HttpServletResponse response) {
+        boolean isMobile = "mobile".equalsIgnoreCase(clientType);
+        String rawRefreshToken;
+
+        if (isMobile) {
+            // Quy tắc Strict Mobile Request Body: Mobile BẮT BUỘC lấy refreshToken từ JSON Request Body
+            // TUYỆT ĐỐI KHÔNG FALLBACK ĐỌC TỪ COOKIE (Ngăn chặn triệt để tấn công giả mạo header XSS)
+            rawRefreshToken = rtFromBody;
+            if (!StringUtils.hasText(rawRefreshToken)) {
+                throw new IllegalArgumentException("Yêu cầu từ ứng dụng Mobile phải cung cấp refreshToken trong Request Body.");
+            }
+        } else {
+            // Web Client: CHỈ lấy refreshToken từ HttpOnly Cookie
+            rawRefreshToken = rtFromCookie;
+            if (!StringUtils.hasText(rawRefreshToken)) {
+                throw new SecurityException("Refresh Token không tồn tại trong Cookie.");
+            }
         }
 
         String hashedToken = jwtTokenProvider.hashRefreshToken(rawRefreshToken);
@@ -209,7 +243,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                     isWithinGracePeriod = true;
                     log.info("Xử lý request Refresh Token trong cửa sổ gia hạn (Grace Window 30s) cho user ID: {}", refreshTokenEntity.getUser().getId());
                 } else {
-                    // Phát hiện dùng lại Token quá thời gian gia hạn -> Thu hồi toàn bộ session để bảo mật
+                    // Phát hiện dùng lại Token quá thời gian gia hạn (Reuse Detection) -> Thu hồi toàn bộ session để bảo mật
                     refreshTokenEntity.setRevoked(true);
                     refreshTokenRepository.save(refreshTokenEntity);
                     throw new SecurityException("Refresh Token cũ đã hết thời gian gia hạn.");
@@ -238,9 +272,16 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), user.getRole().getName());
 
         if (isWithinGracePeriod) {
-            // Nếu nằm trong 30s Grace Period, chỉ trả về AccessToken mới và giữ nguyên cặp cookie
+            if (isMobile) {
+                return TokenResponse.builder()
+                        .accessToken(newAccessToken)
+                        .refreshToken(rawRefreshToken)
+                        .expiresIn((long) CookieUtils.ACCESS_TOKEN_MAX_AGE)
+                        .build();
+            }
+            // Nếu nằm trong 30s Grace Period trên Web, chỉ trả về AccessToken mới và giữ nguyên cặp cookie
             CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, newAccessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
-            return;
+            return null;
         }
 
         // 4. Nếu là đợt Refresh mới hoàn toàn -> Rotate RefreshToken & lưu PreviousToken Hash + LastRotatedAt
@@ -253,9 +294,18 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         refreshTokenEntity.setExpiresAt(LocalDateTime.now().plusWeeks(1));
         refreshTokenRepository.save(refreshTokenEntity);
 
-        // 5. Đẩy cặp Cookies mới vào Response
+        if (isMobile) {
+            return TokenResponse.builder()
+                    .accessToken(newAccessToken)
+                    .refreshToken(newRawRefreshToken)
+                    .expiresIn((long) CookieUtils.ACCESS_TOKEN_MAX_AGE)
+                    .build();
+        }
+
+        // 5. Đẩy cặp Cookies mới vào Response cho Web Client
         CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, newAccessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
         CookieUtils.addTokenCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, newRawRefreshToken, CookieUtils.REFRESH_TOKEN_MAX_AGE);
+        return null;
     }
 
     @Override
