@@ -19,7 +19,7 @@ public class ChangePasswordRequest {
     private String oldPassword;
 
     @NotBlank(message = "Mật khẩu mới không được để trống")
-    @Size(min = 8, message = "Mật khẩu mới phải có tối thiểu 8 ký tự")
+    @Size(min = 8, max = 100, message = "Mật khẩu mới phải từ 8 đến 100 ký tự")
     @Pattern(
         regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$",
         message = "Mật khẩu mới phải chứa ít nhất 1 chữ cái và 1 chữ số"
