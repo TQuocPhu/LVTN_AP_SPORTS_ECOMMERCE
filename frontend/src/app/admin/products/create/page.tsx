@@ -22,7 +22,6 @@ export default function CreateProductPage() {
   const handleFinalSubmit = async () => {
     try {
       await form.submitForm();
-      toast.success('Thêm sản phẩm thành công!');
       router.push('/admin/products');
     } catch (err: any) {
       console.error('Lỗi khi thêm sản phẩm:', err);

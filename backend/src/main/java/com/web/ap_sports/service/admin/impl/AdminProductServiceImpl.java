@@ -86,6 +86,23 @@ public class AdminProductServiceImpl implements AdminProductService {
     @Override
     @Transactional
     public ProductDetailResponse createProduct(CreateProductRequest request) {
+        // Pre-upload all product images to Cloudinary IN PARALLEL before DB transaction logic
+        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
+            if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
+                request.setMainImage(urlMap.get(request.getMainImage().trim()));
+            }
+            if (request.getVariants() != null) {
+                for (VariantRequest vr : request.getVariants()) {
+                    if (vr.getImages() != null && !vr.getImages().isEmpty()) {
+                        List<String> updatedImgs = vr.getImages().stream()
+                                .map(img -> urlMap.getOrDefault(img.trim(), img))
+                                .collect(Collectors.toList());
+                        vr.setImages(updatedImgs);
+                    }
+                }
+            }
+        });
+
         // Validate slug uniqueness
         String slug = StringUtils.hasText(request.getSlug())
                 ? toSlug(request.getSlug())
@@ -157,6 +174,23 @@ public class AdminProductServiceImpl implements AdminProductService {
     @Override
     @Transactional
     public ProductDetailResponse updateProduct(Long id, UpdateProductRequest request) {
+        // Pre-upload all product images to Cloudinary IN PARALLEL before DB transaction logic
+        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
+            if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
+                request.setMainImage(urlMap.get(request.getMainImage().trim()));
+            }
+            if (request.getVariants() != null) {
+                for (VariantRequest vr : request.getVariants()) {
+                    if (vr.getImages() != null && !vr.getImages().isEmpty()) {
+                        List<String> updatedImgs = vr.getImages().stream()
+                                .map(img -> urlMap.getOrDefault(img.trim(), img))
+                                .collect(Collectors.toList());
+                        vr.setImages(updatedImgs);
+                    }
+                }
+            }
+        });
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy sản phẩm với ID: " + id, HttpStatus.NOT_FOUND));
 
@@ -483,5 +517,24 @@ public class AdminProductServiceImpl implements AdminProductService {
                 .replaceAll("Đ", "d")
                 .replaceAll("[^a-z0-9-]", "")
                 .replaceAll("-+", "-");
+    }
+
+    private void uploadProductImagesParallel(String mainImage, List<VariantRequest> variants, java.util.function.Consumer<Map<String, String>> applyUrls) {
+        List<String> allImages = new ArrayList<>();
+        if (StringUtils.hasText(mainImage)) {
+            allImages.add(mainImage);
+        }
+        if (variants != null) {
+            for (VariantRequest vr : variants) {
+                if (vr.getImages() != null) {
+                    allImages.addAll(vr.getImages());
+                }
+            }
+        }
+
+        if (!allImages.isEmpty()) {
+            Map<String, String> uploadedUrlMap = cloudinaryService.uploadBase64OrUrlBatch(allImages, PRODUCT_FOLDER);
+            applyUrls.accept(uploadedUrlMap);
+        }
     }
 }

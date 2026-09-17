@@ -41,14 +41,14 @@ export const adminProductController = {
    * Tạo sản phẩm mới (Multi-step Stepper Form).
    */
   async createProduct(data: CreateProductFormRequest): Promise<ApiResponse<ProductDetail>> {
-    return apiClient.post<ApiResponse<ProductDetail>>('/admin/products', data);
+    return apiClient.post<ApiResponse<ProductDetail>>('/admin/products', data, { timeoutMs: 120000 });
   },
 
   /**
    * Cập nhật sản phẩm.
    */
   async updateProduct(id: number, data: UpdateProductFormRequest): Promise<ApiResponse<ProductDetail>> {
-    return apiClient.put<ApiResponse<ProductDetail>>(`/admin/products/${id}`, data);
+    return apiClient.put<ApiResponse<ProductDetail>>(`/admin/products/${id}`, data, { timeoutMs: 120000 });
   },
 
   /**

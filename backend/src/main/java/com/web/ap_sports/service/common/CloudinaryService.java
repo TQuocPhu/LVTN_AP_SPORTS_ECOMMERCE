@@ -37,4 +37,14 @@ public interface CloudinaryService {
      * @return URL bảo mật (HTTPS) từ Cloudinary
      */
     String uploadBase64OrUrl(String source, String folder);
+
+    /**
+     * Tải danh sách chuỗi ảnh (Base64 hoặc URL) lên Cloudinary SONG SONG (Parallel) qua ThreadPool.
+     * Tự động lọc trùng lặp (Deduplication) để tránh upload cùng 1 ảnh nhiều lần.
+     *
+     * @param sources Danh sách các chuỗi ảnh (Base64 data URL hoặc HTTP URL)
+     * @param folder  Thư mục lưu trên Cloudinary
+     * @return Map ánh xạ từ chuỗi ảnh gốc -> URL Cloudinary đã upload
+     */
+    java.util.Map<String, String> uploadBase64OrUrlBatch(java.util.List<String> sources, String folder);
 }

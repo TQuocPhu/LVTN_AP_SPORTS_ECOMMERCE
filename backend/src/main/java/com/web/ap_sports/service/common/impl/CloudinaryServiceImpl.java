@@ -9,8 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
+import org.springframework.util.StringUtils;
 
 import com.web.ap_sports.exception.AppException;
 import org.springframework.http.HttpStatus;
@@ -29,6 +31,9 @@ import org.springframework.http.HttpStatus;
 public class CloudinaryServiceImpl implements CloudinaryService {
 
     private final Cloudinary cloudinary;
+
+    /** ThreadPool Executor dành riêng cho việc upload ảnh song song lên Cloudinary (10 threads concurrent) */
+    private final ExecutorService uploadExecutor = Executors.newFixedThreadPool(10);
 
     /** Kích thước tối đa cho phép upload: 5 MB */
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024L;
@@ -116,6 +121,50 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             }
         }
         return trimmed;
+    }
+
+    @Override
+    public Map<String, String> uploadBase64OrUrlBatch(List<String> sources, String folder) {
+        if (sources == null || sources.isEmpty()) return Collections.emptyMap();
+
+        // Deduplication & filter blank
+        Set<String> distinctSources = sources.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .collect(Collectors.toSet());
+
+        if (distinctSources.isEmpty()) return Collections.emptyMap();
+
+        log.info("⚡ Đang tải SONG SONG {} ảnh lên Cloudinary thư mục: {}", distinctSources.size(), folder);
+        long startTime = System.currentTimeMillis();
+
+        List<CompletableFuture<Map.Entry<String, String>>> futures = distinctSources.stream()
+                .map(src -> CompletableFuture.supplyAsync(() -> {
+                    String url = uploadBase64OrUrl(src, folder);
+                    return Map.entry(src, url);
+                }, uploadExecutor))
+                .collect(Collectors.toList());
+
+        // Wait for all uploads to complete concurrently
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        Map<String, String> resultMap = new ConcurrentHashMap<>();
+        for (CompletableFuture<Map.Entry<String, String>> future : futures) {
+            try {
+                Map.Entry<String, String> entry = future.join();
+                resultMap.put(entry.getKey(), entry.getValue());
+            } catch (Exception e) {
+                log.error("Lỗi khi join kết quả upload song song:", e);
+                if (e.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException) e.getCause();
+                }
+                throw new AppException("Lỗi khi xử lý tải ảnh song song: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        long duration = System.currentTimeMillis() - startTime;
+        log.info("⚡ Tải SONG SONG {} ảnh lên Cloudinary hoàn tất trong {} ms!", resultMap.size(), duration);
+        return resultMap;
     }
 
     // ─────────────────────────────────────────────────────────────

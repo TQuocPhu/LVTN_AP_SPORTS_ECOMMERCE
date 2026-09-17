@@ -28,6 +28,7 @@ export const profileController = {
     return apiClient<UserProfile>('/customer/profile/avatar', {
       method: 'POST',
       body: formData,
+      timeoutMs: 60000,
     });
   },
 

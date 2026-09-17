@@ -169,8 +169,8 @@ export async function apiClient<T>(
     ...options.headers,
   };
 
-  // 3. Tự động ngắt request (Abort) sau timeout (Mặc định: 8s, hoặc truyền qua options)
-  const timeoutMs = options.timeoutMs ?? 8000;
+  // 3. Tự động ngắt request (Abort) sau timeout (Mặc định: 30s, hoặc truyền qua options)
+  const timeoutMs = options.timeoutMs ?? 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -259,10 +259,16 @@ export async function apiClient<T>(
       (options as ApiClientOptions).suppressErrorToast ??
       (endpoint.includes('/auth/me') || endpoint.includes('/auth/refresh') || response.status === 401);
 
-    if (typeof window !== 'undefined' && !shouldSuppressError) {
-      toast.error(errorMessage);
+    let displayMessage = errorMessage;
+    if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+      const details = Array.from(new Set(Object.values(fieldErrors))).join('; ');
+      displayMessage = `${errorMessage}: ${details}`;
     }
-    throw new ApiError(errorMessage, response.status, fieldErrors);
+
+    if (typeof window !== 'undefined' && !shouldSuppressError) {
+      toast.error(displayMessage);
+    }
+    throw new ApiError(displayMessage, response.status, fieldErrors);
   }
 
   // 7. Trả về kết quả JSON đã đóng gói chuẩn ApiResponse<T>

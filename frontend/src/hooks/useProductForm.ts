@@ -172,7 +172,8 @@ export function useProductForm(productId?: number) {
     if (activeGroups.length === 0) return;
 
     const basePrice = typeof price === 'number' ? price : 0;
-    const baseSkuPrefix = (slug || 'PROD').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const rawPrefix = (slug || 'PROD').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const baseSkuPrefix = rawPrefix.length > 35 ? rawPrefix.substring(0, 35) : rawPrefix;
 
     const cartesian = (args: string[][]): string[][] => {
       const r: string[][] = [];

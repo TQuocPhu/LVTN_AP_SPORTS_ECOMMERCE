@@ -25,7 +25,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const handleFinalSubmit = async () => {
     try {
       await form.submitForm();
-      toast.success('Cập nhật sản phẩm thành công!');
       router.push('/admin/products');
     } catch (err: any) {
       console.error('Lỗi khi cập nhật sản phẩm:', err);
