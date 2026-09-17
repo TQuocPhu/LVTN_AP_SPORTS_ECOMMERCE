@@ -1,13 +1,18 @@
 package com.web.ap_sports.service.customer;
 
+import com.web.ap_sports.dto.request.customer.ForgotPasswordRequest;
 import com.web.ap_sports.dto.request.customer.LoginCustomerRequest;
 import com.web.ap_sports.dto.request.customer.RegisterCustomerRequest;
+import com.web.ap_sports.dto.request.customer.ResetPasswordRequest;
+import com.web.ap_sports.dto.response.customer.CustomerLoginResponse;
+import com.web.ap_sports.dto.response.customer.TokenResponse;
 import com.web.ap_sports.dto.response.customer.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Interface cho dịch vụ Xác thực Khách hàng Storefront (Customer Auth Service).
+ * Hỗ trợ đa nền tảng Web (Next.js - Cookies) & Mobile (React Native - Bearer Header).
  */
 public interface CustomerAuthService {
 
@@ -22,9 +27,9 @@ public interface CustomerAuthService {
     void activateAccount(String token);
 
     /**
-     * Xử lý Đăng nhập Khách hàng -> Cấp Token & Thiết lập Cookies.
+     * Xử lý Đăng nhập Khách hàng -> Cấp Token & Phân nhánh Cookies (Web) / JSON Body (Mobile).
      */
-    UserResponse login(LoginCustomerRequest request, HttpServletResponse response);
+    CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletResponse response);
 
     /**
      * Xử lý Đăng xuất Khách hàng -> Thu hồi Token & Xóa Cookies.
@@ -32,22 +37,22 @@ public interface CustomerAuthService {
     void logout(HttpServletRequest request, HttpServletResponse response);
 
     /**
-     * Lấy thông tin User hiện tại từ JWT Access Token trong Cookie.
+     * Lấy thông tin User hiện tại từ JWT Access Token.
      */
     UserResponse getCurrentUser(HttpServletRequest request);
 
     /**
-     * Xử lý Làm mới Access Token từ Refresh Token Cookie (Silent Refresh).
+     * Xử lý Làm mới Access Token với quy tắc Strict Mobile Request Body.
      */
-    void refreshToken(HttpServletRequest request, HttpServletResponse response);
+    TokenResponse refreshToken(String clientType, String rtFromCookie, String rtFromBody, HttpServletRequest request, HttpServletResponse response);
 
     /**
      * Xử lý Yêu cầu Quên Mật Khẩu -> Sinh Token & Gửi Email.
      */
-    void forgotPassword(com.web.ap_sports.dto.request.customer.ForgotPasswordRequest request);
+    void forgotPassword(ForgotPasswordRequest request);
 
     /**
      * Xử lý Đặt Lại Mật Khẩu Mới với Token xác nhận.
      */
-    void resetPassword(com.web.ap_sports.dto.request.customer.ResetPasswordRequest request);
+    void resetPassword(ResetPasswordRequest request);
 }

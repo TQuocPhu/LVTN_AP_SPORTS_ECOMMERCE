@@ -46,17 +46,18 @@ public class CustomerAuthController {
     }
 
     /**
-     * API Đăng nhập Khách hàng -> Đẩy Cookies (accessToken & refreshToken).
+     * API Đăng nhập Khách hàng -> Hỗ trợ Web (Cookies) và Mobile (JSON Tokens via X-Client-Type).
      * Rate limit: Tối đa 5 lần thử / 1 phút per IP (chống Brute Force dò quét mật khẩu).
      * POST /api/v1/customer/auth/login
      */
     @PostMapping("/login")
     @RateLimit(key = "login", maxRequests = 5, windowSeconds = 60)
-    public ResponseEntity<ApiResponse<UserResponse>> login(
+    public ResponseEntity<ApiResponse<com.web.ap_sports.dto.response.customer.CustomerLoginResponse>> login(
             @Valid @RequestBody LoginCustomerRequest request,
+            @RequestHeader(value = "X-Client-Type", required = false) String clientType,
             HttpServletResponse response) {
-        UserResponse userResponse = customerAuthService.login(request, response);
-        return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công!", userResponse));
+        com.web.ap_sports.dto.response.customer.CustomerLoginResponse loginResponse = customerAuthService.login(request, clientType, response);
+        return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công!", loginResponse));
     }
 
     /**
@@ -80,13 +81,21 @@ public class CustomerAuthController {
     }
 
     /**
-     * API Làm mới Access Token tự động từ Refresh Token Cookie.
+     * API Làm mới Access Token -> Quy tắc Strict Mobile Request Body.
+     * Web Client: Đọc token từ HttpOnly Cookie "refreshToken".
+     * Mobile Client (X-Client-Type: mobile): BẮT BUỘC gửi refreshToken trong Request Body.
      * POST /api/v1/customer/auth/refresh
      */
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<Void>> refreshToken(HttpServletRequest request, HttpServletResponse response) {
-        customerAuthService.refreshToken(request, response);
-        return ResponseEntity.ok(ApiResponse.success("Làm mới token thành công."));
+    public ResponseEntity<ApiResponse<com.web.ap_sports.dto.response.customer.TokenResponse>> refreshToken(
+            @RequestHeader(value = "X-Client-Type", required = false) String clientType,
+            @CookieValue(value = "refreshToken", required = false) String rtFromCookie,
+            @RequestBody(required = false) com.web.ap_sports.dto.request.customer.RefreshTokenRequest mobileBody,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        String rtFromBody = (mobileBody != null) ? mobileBody.getRefreshToken() : null;
+        com.web.ap_sports.dto.response.customer.TokenResponse tokenResponse = customerAuthService.refreshToken(clientType, rtFromCookie, rtFromBody, request, response);
+        return ResponseEntity.ok(ApiResponse.success("Làm mới token thành công.", tokenResponse));
     }
 
     /**
