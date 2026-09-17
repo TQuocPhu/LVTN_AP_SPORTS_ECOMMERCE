@@ -57,7 +57,7 @@ export default function AdminHeader() {
           />
         </div>
         <div className="flex flex-col">
-          <span className="brand-title text-2xl font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-orange-500">
+          <span className="text-2xl font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-slate-800 to-orange-500">
             AP SPORTS
           </span>
           <span className="text-[11px] font-bold text-orange-500 uppercase tracking-widest -mt-1">
