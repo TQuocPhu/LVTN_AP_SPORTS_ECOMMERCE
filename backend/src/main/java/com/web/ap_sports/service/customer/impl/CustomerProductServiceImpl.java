@@ -35,6 +35,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
     private final ProductVariantRepository variantRepository;
     private final ProductImageRepository imageRepository;
     private final HybridSearchEngineService hybridSearchEngineService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -206,6 +207,8 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .distinct()
                 .collect(Collectors.toList());
 
+        Map<String, String> specsMap = deserializeSpecifications(product.getSpecifications());
+
         return ProductDetailResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -219,10 +222,21 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .primaryCategoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .primaryCategoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .categories(catResponses)
+                .specifications(specsMap)
                 .variants(variantResponses)
                 .allImages(allImages)
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
     }
+
+    private Map<String, String> deserializeSpecifications(String json) {
+        if (!StringUtils.hasText(json)) return new HashMap<>();
+        try {
+            return objectMapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+        } catch (Exception e) {
+            return new HashMap<>();
+        }
+    }
 }
+

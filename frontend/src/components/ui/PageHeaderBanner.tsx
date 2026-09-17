@@ -15,7 +15,7 @@ interface PageHeaderBannerProps {
  */
 export default function PageHeaderBanner({ title, subtitle, breadcrumbs }: PageHeaderBannerProps) {
   return (
-    <div id="page-header-banner" className="page-header-banner-container relative w-full h-[260px] sm:h-[320px] md:h-[380px] lg:h-[420px] flex items-center justify-start overflow-hidden bg-slate-950 text-white py-6 sm:py-10 md:py-14 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
+    <div id="page-header-banner" className="page-header-banner-container relative w-full min-h-[260px] sm:min-h-[300px] md:min-h-[360px] flex items-center justify-start overflow-hidden bg-slate-950 text-white pt-24 sm:pt-28 pb-8 sm:pb-12 px-4 sm:px-6 lg:px-8 border-b border-slate-800">
       {/* Background Banner Image - Edge-to-Edge Cover */}
       <div className="absolute inset-0 z-0 opacity-60">
         <Image
