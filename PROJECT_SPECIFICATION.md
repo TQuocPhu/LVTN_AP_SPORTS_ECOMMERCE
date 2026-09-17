@@ -467,5 +467,25 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 🛍️ 4.15. Trang Danh Mục Sản Phẩm Người Dùng (Customer Product Catalog & Interactive Filters)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (17/09/2026 - Day 04)
+
+**Đặc tả Kiến trúc & Giao diện:**
+1. **Public APIs RESTful (`CustomerProductController.java` & `CustomerProductServiceImpl.java`)**:
+   - `/api/v1/products`: Lấy danh sách sản phẩm công khai theo bộ lọc đa tiêu chí (từ khóa `keyword`, danh mục `categoryId`, giá `minPrice`/`maxPrice`, đa size `variantSize`, trạng thái mặc định `in_stock`, phân trang `page`/`size`, sắp xếp `sortBy`/`sortDir`).
+   - `/api/v1/products/{slug}`: Lấy chi tiết sản phẩm theo slug SEO (hoặc ID).
+2. **Bộ Lọc Đa Size & Đếm Sản Phẩm Đệ Quy Theo Cây Danh Mục**:
+   - **Bộ lọc Multi-Size**: Hỗ trợ chọn đồng thời nhiều kích thước (ví dụ `S,M,L`), Backend truy vấn bằng `Specification` với subquery JPA Criteria `variant.size IN (:sizes)`.
+   - **Đếm sản phẩm đệ quy (Recursive Product Counting)**: Backend tự động tính toán tổng số lượng sản phẩm của từng danh mục theo cơ chế cộng dồn từ dưới lên (từ danh mục cháu/con tới danh mục cha/gốc) và hiển thị trên từng nút cây danh mục.
+3. **Cấu Trúc Thư Mục Clean Architecture & Đồng Bộ Giao Diện**:
+   - Quy hoạch đồng bộ toàn bộ component phía người dùng tại `src/components/customer/` (`home`, `profile`, `product`).
+   - **Header Banner Thống Nhất**: Dùng chung component `PageHeaderBanner.tsx` đồng bộ 100% giữa trang Sản phẩm, Profile và Đăng nhập.
+   - **Card Sản Phẩm Chuẩn Hoá (CustomerProductCard.tsx)**: Dùng chung thẻ sản phẩm duy nhất cho cả Trang chủ và Trang danh mục, hiển thị tag danh mục mờ, điểm đánh giá sao, icon Trái tim Wishlist (`<Heart />`) khi hover, và nút *"Thêm vào giỏ"*.
+   - **Nới Rộng Layout Max-W [1536px] & Lưới 4 Cột**: Mở rộng giao diện tối đa 1536px, giới hạn 4 cột sản phẩm/dòng giúp thẻ sản phẩm thoáng đẹp, rộng rãi và tối ưu trên màn hình lớn.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+
 
