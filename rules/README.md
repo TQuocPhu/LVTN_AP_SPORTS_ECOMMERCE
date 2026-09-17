@@ -18,6 +18,7 @@ Thư mục `rules/` này chứa toàn bộ các quy chuẩn mã nguồn, kiến 
 | 🗄️ **[DATABASE_ACID_RULES.md](file:///d:/LVTN/rules/DATABASE_ACID_RULES.md)** | Backend (Spring Data JPA) | Quy tắc xử lý DB chuẩn ACID (Atomicity, Consistency, Isolation, Durability) |
 | ☕ **[BACKEND_CLEAN_CODE.md](file:///d:/LVTN/rules/BACKEND_CLEAN_CODE.md)** | Backend (Spring Boot 3.3.5, Java 21) | Cấu trúc package sub-packages theo Role/Scope, DTO, Exception Handler |
 | ⚛️ **[FRONTEND_CLEAN_CODE.md](file:///d:/LVTN/rules/FRONTEND_CLEAN_CODE.md)** | Frontend (Next.js App Router, TS, Tailwind) | Cấu trúc thư mục `src/`, Server vs Client Components, API Service Layer, Dashboard chuẩn SEO |
+| 📱 **[CROSS_PLATFORM_MOBILE_RULES.md](file:///d:/LVTN/rules/CROSS_PLATFORM_MOBILE_RULES.md)** | Cross-Platform (Web & React Native) | Tư duy phát triển đa nền tảng, tái sử dụng Types/Schema, xác thực X-Client-Type an toàn |
 | 🔴 **[REDIS_AND_CACHE_RULES.md](file:///d:/LVTN/rules/REDIS_AND_CACHE_RULES.md)** | Redis & Caching Strategy | Quy chuẩn đặt tên Redis Key (`app:env:module:entity:id`), Cấu hình TTL, Chống Cache Penetration / Avalanche |
 
 ---
