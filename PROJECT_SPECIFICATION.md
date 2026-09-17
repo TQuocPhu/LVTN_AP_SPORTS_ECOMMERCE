@@ -486,6 +486,37 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 📱 4.16. Mở Rộng Ứng Dụng Di Động React Native & Kiến Trúc Bảo Mật Auth Đa Nền Tảng (Cross-Platform Auth Security)
+
+> **Trạng thái:** ✅ Đã nâng cấp hạ tầng Backend & Frontend Web (17/09/2026 - Day 04)
+
+**Đặc tả Kiến trúc & Quy tắc Bảo mật Doanh nghiệp:**
+1. **Định Hướng Mở Rộng Mobile App (React Native)**:
+   - Phát triển ứng dụng di động cho Khách hàng (`CUSTOMER`) bằng **React Native (TypeScript)**.
+   - **Tái sử dụng 100% Code & Schema**: Sử dụng trực tiếp toàn bộ DTOs, TypeScript Types/Interfaces (`UserResponse`, `Product`, `Order`), API Constants và Validation logic từ Frontend Next.js hiện tại sang React Native mà không cần viết lại.
+   - **Bộ Nhớ Mã Hóa Phần Cứng (Secure Storage)**: Quản lý và lưu trữ `accessToken` & `refreshToken` trên thiết bị di động bằng `react-native-keychain` / `expo-secure-store` (tận dụng iOS KeyChain & Android KeyStore).
+
+2. **Tái Cấu Trúc Mô-đun Frontend Web API Client (`src/services/api/`)**:
+   - Mô-đun hóa `api-client.ts` thành 4 sub-modules chuyên biệt:
+     - `src/services/api/types.ts`: Đóng gói `ApiResponse`, `ApiError`, `isApiError`, `ApiClientOptions`.
+     - `src/services/api/cookies.ts`: Quản lý cookie phía client trình duyệt.
+     - `src/services/api/refresh-state.ts`: Quản lý state silent refresh.
+     - `src/services/api/client.ts`: Core fetch wrapper (tự động đính kèm `X-Client-Type: web`).
+   - **Tương thích ngược 100% (Backward Compatibility)**: File `src/services/api-client.ts` gốc đóng vai trò làm Entry Point re-export nguyên vẹn toàn bộ symbol từ sub-modules. Không gây ảnh hưởng hay sửa đổi bất kỳ file import nào của Web App.
+
+3. **Kiến Trúc Bảo Mật Auth Phân Nhánh Web/Mobile Phía Backend Spring Boot**:
+   - **CORS Policy Chuẩn Sản Xuất**: Khắc phục triệt để lỗ hổng CORS Wildcard. Whitelist chính xác danh sách domain từ `CORS_ALLOWED_ORIGINS` trong `.env` (`http://localhost:3000,http://localhost:3001`), loại bỏ `*` khi `allowCredentials = true`. Bổ sung `X-Client-Type` vào `allowedHeaders`.
+   - **Quy Tắc Strict Mobile Request Body (`/api/v1/customer/auth/refresh`)**:
+     - Khi `X-Client-Type: mobile`: Backend **BẮT BUỘC** đọc `refreshToken` từ JSON Request Body (`@RequestBody RefreshTokenRequest`). **TUYỆT ĐỐI KHÔNG FALLBACK ĐỌC TỪ COOKIE**. Ngăn chặn 100% kịch bản giả mạo header của mã độc XSS từ trình duyệt Web.
+     - Khi `X-Client-Type: web` (hoặc mặc định): Backend **CHỈ** đọc `refreshToken` từ HttpOnly Cookie. Response JSON Body tuyệt đối **KHÔNG chứa Token**.
+   - **Phân Nhánh Đăng Nhập (`/api/v1/customer/auth/login`)**:
+     - Web Client: CHỈ ghi cặp HttpOnly Cookie (`accessToken`, `refreshToken`), JSON Body trả về `user` (không chứa tokens).
+     - Mobile Client (`X-Client-Type: mobile`): Trả về `CustomerLoginResponse` đóng gói `tokens` object (`accessToken`, `refreshToken`, `tokenType: "Bearer"`, `expiresIn`) để React Native lưu Secure Storage.
+   - **Bảo Vệ Refresh Token Rotation (RTR) & Reuse Detection**: Băm băm HMAC-SHA256 Refresh Token, hỗ trợ 30s Grace Window cho các request đồng thời và tự động thu hồi toàn bộ session (`revoked = true`) nếu phát hiện RT cũ bị lạm dụng lại.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+
 
 
