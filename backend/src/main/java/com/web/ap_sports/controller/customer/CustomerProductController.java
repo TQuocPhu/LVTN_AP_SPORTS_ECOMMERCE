@@ -30,4 +30,13 @@ public class CustomerProductController {
         ProductDetailResponse product = customerProductService.getProductBySlugOrId(slug);
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết sản phẩm thành công.", product));
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Page<ProductResponse>>> searchProducts(
+            @RequestParam(value = "keyword", required = false, defaultValue = "") String keyword,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        Page<ProductResponse> result = customerProductService.searchProductsByRelevance(keyword, page, size);
+        return ResponseEntity.ok(ApiResponse.success("Tìm kiếm sản phẩm thành công.", result));
+    }
 }

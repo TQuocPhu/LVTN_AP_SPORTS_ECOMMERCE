@@ -10,4 +10,6 @@ public interface CustomerProductService {
     Page<ProductResponse> getPublicProducts(ProductFilterRequest filterRequest);
 
     ProductDetailResponse getProductBySlugOrId(String slugOrId);
+
+    Page<ProductResponse> searchProductsByRelevance(String keyword, int page, int size);
 }

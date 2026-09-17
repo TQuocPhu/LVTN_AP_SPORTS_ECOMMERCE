@@ -12,6 +12,7 @@ import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ProductRepository;
 import com.web.ap_sports.repository.ProductVariantRepository;
+import com.web.ap_sports.search.HybridSearchEngineService;
 import com.web.ap_sports.service.customer.CustomerProductService;
 import com.web.ap_sports.specification.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
 @Service
 @RequiredArgsConstructor
 public class CustomerProductServiceImpl implements CustomerProductService {
@@ -32,6 +34,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductImageRepository imageRepository;
+    private final HybridSearchEngineService hybridSearchEngineService;
 
     @Override
     @Transactional(readOnly = true)
@@ -75,6 +78,51 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
         return mapToProductDetailResponse(product);
     }
+
+    /**
+     * Tìm kiếm sản phẩm thông minh bằng thuật toán Hybrid (Attribute Matching + TF-IDF Vector Cosine Similarity)
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> searchProductsByRelevance(String keyword, int page, int size) {
+        if (!StringUtils.hasText(keyword) || keyword.trim().length() < 1) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+        }
+
+        int validPage = Math.max(0, page);
+        int validSize = size <= 0 ? 10 : size;
+
+        // BƯỚC 1: Lấy tất cả sản phẩm đang kinh doanh (in_stock) làm tập dữ liệu Corpus
+        List<Product> corpus = productRepository.findAllInStockProductsWithCategories();
+
+        if (corpus.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(validPage, validSize), 0);
+        }
+
+        // BƯỚC 2: Trích xuất danh sách Biến thể (Variants: SKU, Color, Size) của các sản phẩm trong Corpus
+        List<Long> productIds = corpus.stream().map(Product::getId).collect(Collectors.toList());
+        List<ProductVariant> allVariants = variantRepository.findByProductIdIn(productIds);
+        Map<Long, List<ProductVariant>> variantMap = allVariants.stream()
+                .collect(Collectors.groupingBy(v -> v.getProduct().getId()));
+
+        // BƯỚC 3: Thực thi Thuật toán Hybrid Search Engine (Bóc tách từ tiếng Việt, TF-IDF Vector, Cosine Similarity & Ngưỡng lọc THRESHOLD)
+        List<Product> rankedProducts = hybridSearchEngineService.rankProducts(keyword, corpus, variantMap);
+
+        // BƯỚC 4: Xử lý Phân trang (Pagination) trên tập kết quả đã được lọc và sắp xếp giảm dần theo điểm độ phù hợp
+        int totalElements = rankedProducts.size();
+        int fromIndex = Math.min(validPage * validSize, totalElements);
+        int toIndex = Math.min(fromIndex + validSize, totalElements);
+
+        List<Product> pageContent = (fromIndex < toIndex) ? rankedProducts.subList(fromIndex, toIndex) : Collections.emptyList();
+
+        List<ProductResponse> responses = pageContent.stream()
+                .map(this::mapToProductResponse)
+                .collect(Collectors.toList());
+
+        Pageable pageable = PageRequest.of(validPage, validSize);
+        return new PageImpl<>(responses, pageable, totalElements);
+    }
+
 
     private ProductResponse mapToProductResponse(Product product) {
         List<ProductVariant> variants = variantRepository.findByProductId(product.getId());

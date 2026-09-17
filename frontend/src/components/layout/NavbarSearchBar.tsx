@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
+import { toast } from "sonner";
+
 export default function NavbarSearchBar() {
   const [keyword, setKeyword] = useState("");
   const router = useRouter();
@@ -11,11 +13,15 @@ export default function NavbarSearchBar() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const query = keyword.trim();
-    if (query) {
-      router.push(`/products?keyword=${encodeURIComponent(query)}`);
-    } else {
-      router.push("/products");
+    if (!query) {
+      toast.error("Vui lòng nhập từ khóa để tìm kiếm sản phẩm.");
+      return;
     }
+    if (query.length < 2) {
+      toast.error("Từ khóa tìm kiếm phải có ít nhất 2 ký tự.");
+      return;
+    }
+    router.push(`/search?keyword=${encodeURIComponent(query)}`);
   };
 
   const handleClear = () => {
