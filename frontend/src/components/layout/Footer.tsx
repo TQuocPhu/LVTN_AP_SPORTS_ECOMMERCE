@@ -3,28 +3,26 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Zap } from 'lucide-react';
 import ServiceFeatures from '../ui/ServiceFeatures';
 
 /**
  * Component Chân Trang Master Shell Footer.
- * Nhúng ServiceFeatures (4 cam kết dịch vụ) độc lập và thông tin doanh nghiệp.
  */
 export default function Footer() {
   const pathname = usePathname();
 
-  // Không hiển thị Footer trang bán hàng khi ở các route quản trị /admin
   if (pathname?.startsWith('/admin')) {
     return null;
   }
+
   return (
-    <footer className="w-full bg-slate-950 border-t border-slate-800/80 text-slate-400 text-sm">
-      {/* 1. Thanh Cam Kết Dịch Vụ Độc Lập (Service Features Component) */}
+    <footer className="ap-footer w-full border-t text-sm transition-colors duration-300">
+      {/* 1. Service Features Bar */}
       <ServiceFeatures />
 
-      {/* 2. Cột Thông Tin Footer */}
+      {/* 2. Footer Columns */}
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Cột 1: Thông tin Thương Hiệu */}
+        {/* Cột 1: Thương Hiệu */}
         <div className="space-y-4 md:col-span-1">
           <div className="flex items-center space-x-3">
             <Image
@@ -34,54 +32,72 @@ export default function Footer() {
               height={48}
               className="w-12 h-12 object-contain drop-shadow-[0_0_10px_rgba(249,115,22,0.3)]"
             />
-            <span className="text-xl font-black text-white uppercase tracking-wider">AP SPORTS</span>
+            <span className="text-xl font-black uppercase tracking-wider footer-heading" style={{ color: 'var(--text-primary)' }}>
+              AP SPORTS
+            </span>
           </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--footer-text)' }}>
             Hệ thống cung cấp trang thiết bị, dụng cụ bóng đá và thể thao cao cấp chuẩn Enterprise dành cho mọi vận động viên và SME.
           </p>
         </div>
 
-        {/* Cột 2: Danh Mục Thể Thao */}
+        {/* Cột 2: Danh Mục */}
         <div>
-          <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2">
+          <h4 className="text-sm font-bold uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2 footer-heading" style={{ color: 'var(--text-primary)' }}>
             DANH MỤC THỂ THAO
           </h4>
           <ul className="space-y-2.5 text-xs">
-            <li><Link href="/products?category=football" className="hover:text-orange-400 transition-colors">Dụng cụ Bóng Đá</Link></li>
-            <li><Link href="/products?category=badminton-volleyball" className="hover:text-orange-400 transition-colors">Cầu Lông & Bóng Chuyền</Link></li>
-            <li><Link href="/products?category=martial-basketball" className="hover:text-orange-400 transition-colors">Võ Thuật & Bóng Rổ</Link></li>
-            <li><Link href="/products?category=fitness-accessories" className="hover:text-orange-400 transition-colors">Phụ Kiện Tập luyện Fitness</Link></li>
+            {[
+              { href: '/products?category=football', label: 'Dụng cụ Bóng Đá' },
+              { href: '/products?category=badminton-volleyball', label: 'Cầu Lông & Bóng Chuyền' },
+              { href: '/products?category=martial-basketball', label: 'Võ Thuật & Bóng Rổ' },
+              { href: '/products?category=fitness-accessories', label: 'Phụ Kiện Tập luyện Fitness' },
+            ].map((item) => (
+              <li key={item.href}>
+                <Link href={item.href} className="footer-text hover:text-orange-400 transition-colors" style={{ color: 'var(--footer-text)' }}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 
-        {/* Cột 3: Hỗ Trợ Khách Hàng */}
+        {/* Cột 3: Hỗ Trợ */}
         <div>
-          <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2">
+          <h4 className="text-sm font-bold uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2" style={{ color: 'var(--text-primary)' }}>
             HỖ TRỢ KHÁCH HÀNG
           </h4>
           <ul className="space-y-2.5 text-xs">
-            <li><Link href="/faq" className="hover:text-orange-400 transition-colors">Câu hỏi thường gặp (FAQ)</Link></li>
-            <li><Link href="/shipping-policy" className="hover:text-orange-400 transition-colors">Chính sách giao hàng</Link></li>
-            <li><Link href="/return-policy" className="hover:text-orange-400 transition-colors">Chính sách đổi trả 30 ngày</Link></li>
-            <li><Link href="/contact" className="hover:text-orange-400 transition-colors">Gửi liên hệ hỗ trợ</Link></li>
+            {[
+              { href: '/faq', label: 'Câu hỏi thường gặp (FAQ)' },
+              { href: '/shipping-policy', label: 'Chính sách giao hàng' },
+              { href: '/return-policy', label: 'Chính sách đổi trả 30 ngày' },
+              { href: '/contact', label: 'Gửi liên hệ hỗ trợ' },
+            ].map((item) => (
+              <li key={item.href}>
+                <Link href={item.href} className="hover:text-orange-400 transition-colors" style={{ color: 'var(--footer-text)' }}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
 
-        {/* Cột 4: Tổng Đài & Kết Nối */}
+        {/* Cột 4: Tổng Đài */}
         <div>
-          <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2">
+          <h4 className="text-sm font-bold uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2" style={{ color: 'var(--text-primary)' }}>
             TỔNG ĐÀI HỖ TRỢ
           </h4>
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3 text-xs" style={{ color: 'var(--footer-text)' }}>
             <p>Hotline tư vấn: <span className="font-bold text-orange-400 text-sm">1900 - 8888</span></p>
-            <p>Email: <span className="text-slate-300">support@apsports.com</span></p>
-            <p>Địa chỉ: <span className="text-slate-300">Khu Công Nghệ Cao, Q.9, TP. Hồ Chí Minh</span></p>
+            <p>Email: <span style={{ color: 'var(--text-secondary)' }}>support@apsports.com</span></p>
+            <p>Địa chỉ: <span style={{ color: 'var(--text-secondary)' }}>Khu Công Nghệ Cao, Q.9, TP. Hồ Chí Minh</span></p>
           </div>
         </div>
       </div>
 
-      {/* 3. Bản Quyền Copyright */}
-      <div className="border-t border-slate-800/80 py-4 px-4 text-center text-xs text-slate-500 bg-slate-950">
+      {/* 3. Copyright */}
+      <div className="footer-divider border-t py-4 px-4 text-center text-xs" style={{ borderColor: 'var(--footer-border)', color: 'var(--text-faint)' }}>
         <p>© 2026 AP Sports Enterprise Platform. All rights reserved. Đề tài Luận văn Tốt nghiệp.</p>
       </div>
     </footer>

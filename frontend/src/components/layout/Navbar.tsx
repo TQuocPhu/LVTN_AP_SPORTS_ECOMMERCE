@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import MiniCartDrawer from "./MiniCartDrawer";
 import ConfirmLogoutModal from "@/components/ui/ConfirmLogoutModal";
+import NavbarSearchBar from "./NavbarSearchBar";
 
 import { useTheme } from "@/context/ThemeContext";
 
@@ -39,22 +40,20 @@ export default function Navbar() {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   // Không hiển thị Navbar trang bán hàng khi ở các route quản trị /admin
-  // Đặt sau tất cả hooks để tuân thủ React Rules of Hooks
   if (pathname?.startsWith("/admin")) {
     return null;
   }
 
   const handleLogout = async () => {
     await logout();
-    // Hard redirect – ép browser gửi HTTP request mới để middleware Edge bắt kiện
     window.location.href = "/";
   };
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-slate-950/90 backdrop-blur-xl border-b border-slate-800 shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          {/* 1. Phía Trái Cùng: Logo Thương Hiệu AP Sports (Bản nguyên không viền) */}
+      <header className="ap-navbar sticky top-0 z-40 w-full border-b shadow-xl transition-colors duration-300">
+        <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 h-20 flex items-center justify-between">
+          {/* 1. Logo */}
           <Link href="/" className="flex items-center space-x-3 group">
             <div className="relative w-14 h-14 flex items-center justify-center">
               <Image
@@ -67,7 +66,7 @@ export default function Navbar() {
               />
             </div>
             <div className="flex flex-col">
-              <span className="brand-title text-2xl font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-orange-400">
+              <span className="brand-title text-2xl font-black tracking-wider uppercase">
                 AP SPORTS
               </span>
               <span className="text-[11px] font-bold text-orange-500 uppercase tracking-widest -mt-1">
@@ -76,43 +75,39 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* 2. Phần Giữa: Horizontal Navigation Links (Desktop) */}
+          {/* 2. Nav Links (Desktop) */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/"
-              className="text-sm font-bold text-slate-200 hover:text-orange-400 transition-colors py-2"
-            >
-              Trang Chủ
-            </Link>
-
-            <Link
-              href="/products"
-              className="text-sm font-bold text-slate-200 hover:text-orange-400 transition-colors py-2"
-            >
-              Sản Phẩm
-            </Link>
-
-            <Link
-              href="/promotions"
-              className="text-sm font-bold text-slate-200 hover:text-orange-400 transition-colors py-2"
-            >
-              Khuyến Mãi
-            </Link>
-
-            <Link
-              href="/contact"
-              className="text-sm font-bold text-slate-200 hover:text-orange-400 transition-colors py-2"
-            >
-              Liên Hệ
-            </Link>
+            {[
+              { href: "/", label: "Trang Chủ" },
+              { href: "/products", label: "Sản Phẩm" },
+              { href: "/about", label: "Giới Thiệu" },
+              { href: "/contact", label: "Liên Hệ" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`text-sm font-bold transition-colors py-2 nav-link ${
+                  pathname === link.href
+                    ? "text-orange-500"
+                    : "hover:text-orange-400"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
-          {/* 3. Phía Phải: Theme Toggle, Cart Button & User Account Dropdown */}
+          {/* 3. Right Side: Search, Theme, Cart, User */}
           <div className="flex items-center space-x-3 sm:space-x-4">
-            {/* Nút Chuyển Đổi Giao Diện Sáng / Tối (Theme Toggle) */}
+            {/* Search Bar */}
+            <div className="hidden sm:block">
+              <NavbarSearchBar />
+            </div>
+
+            {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-orange-400 transition-colors shadow"
+              className="nav-icon-btn p-2.5 rounded-xl border transition-colors shadow"
               title={
                 theme === "dark"
                   ? "Đang ở chế độ Tối (Dark Mode)"
@@ -120,35 +115,34 @@ export default function Navbar() {
               }
             >
               {theme === "dark" ? (
-                <Moon className="w-5 h-5 fill-amber-400/20" />
+                <Moon className="w-5 h-5 fill-amber-400/20 text-amber-400" />
               ) : (
-                <Sun className="w-5 h-5 text-amber-400 fill-amber-400" />
+                <Sun className="w-5 h-5 text-amber-500 fill-amber-400" />
               )}
             </button>
 
-            {/* Icon Giỏ Hàng (Mở Mini Cart Slide-over) */}
+            {/* Cart Icon */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="relative p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 hover:text-orange-400 transition-colors group"
+              className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group"
               title="Giỏ hàng"
             >
               <ShoppingBag className="w-5 h-5" />
-              <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-950 shadow-md">
+              <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-current shadow-md">
                 2
               </span>
             </button>
 
-            {/* Avatar / User Account Dropdown */}
+            {/* User Account Dropdown */}
             <div
               className="relative py-2"
               onMouseEnter={() => setIsUserDropdownOpen(true)}
               onMouseLeave={() => setIsUserDropdownOpen(false)}
             >
-              <button className="flex items-center space-x-2.5 p-1.5 pl-2.5 pr-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition-colors">
+              <button className="nav-icon-btn flex items-center space-x-2.5 p-1.5 pl-2.5 pr-3 rounded-xl border transition-colors">
                 {user ? (
                   <div className="flex items-center space-x-2">
                     {user.avatar ? (
-                      /* Avatar ảnh thực — cập nhật ngay lập tức qua AuthContext */
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={user.avatar}
@@ -156,62 +150,57 @@ export default function Navbar() {
                         className="w-7 h-7 rounded-full object-cover border border-orange-500/40 shadow-sm"
                       />
                     ) : (
-                      /* Fallback: chữ cái đầu khi chưa có avatar */
                       <div className="w-7 h-7 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/40 flex items-center justify-center font-bold text-xs">
-                        {(user.name || user.email || "U")
-                          .charAt(0)
-                          .toUpperCase()}
+                        {(user.name || user.email || "U").charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <span className="text-sm font-bold max-w-[140px] truncate text-slate-100">
+                    <span className="text-sm font-bold max-w-[140px] truncate">
                       {user.name || user.email}
                     </span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-1.5">
                     <User className="w-5 h-5 text-orange-400" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-300 hidden sm:inline">
+                    <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">
                       Tài Khoản
                     </span>
                   </div>
                 )}
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
               </button>
 
-              {/* Account Dropdown Box (Wraps with top padding to bridge hover gap) */}
+              {/* Dropdown Menu */}
               {isUserDropdownOpen && (
                 <div className="absolute top-full right-0 pt-2 w-56 z-50 animate-fade-in">
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-2 space-y-1">
+                  <div className="nav-dropdown border rounded-2xl shadow-2xl p-2 space-y-1">
                     {user ? (
-                      // Menu khi ĐÃ ĐĂNG NHẬP
                       <>
-                        <div className="px-3 py-2 border-b border-slate-800/80 mb-1">
-                          <p className="text-xs text-slate-400">
-                            Đã đăng nhập với tư cách
-                          </p>
-                          <p className="text-sm font-bold text-orange-400 truncate">
-                            {user.email}
-                          </p>
+                        <div className="px-3 py-2 border-b mb-1" style={{ borderColor: "var(--nav-border)" }}>
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>Đã đăng nhập với tư cách</p>
+                          <p className="text-sm font-bold text-orange-400 truncate">{user.email}</p>
                         </div>
                         <Link
                           href="/profile"
-                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
+                          style={{ color: "var(--nav-text)" }}
                         >
-                          <UserCheck className="w-4 h-4 text-slate-400" />
+                          <UserCheck className="w-4 h-4 opacity-60" />
                           <span>Tài khoản cá nhân</span>
                         </Link>
                         <Link
                           href="/profile/orders"
-                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
+                          style={{ color: "var(--nav-text)" }}
                         >
-                          <PackageCheck className="w-4 h-4 text-slate-400" />
+                          <PackageCheck className="w-4 h-4 opacity-60" />
                           <span>Đơn hàng của tôi</span>
                         </Link>
                         <Link
                           href="/wishlist"
-                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
+                          style={{ color: "var(--nav-text)" }}
                         >
-                          <Heart className="w-4 h-4 text-slate-400" />
+                          <Heart className="w-4 h-4 opacity-60" />
                           <span>Sản phẩm yêu thích</span>
                         </Link>
                         <button
@@ -226,11 +215,11 @@ export default function Navbar() {
                         </button>
                       </>
                     ) : (
-                      // Menu khi CHƯA ĐĂNG NHẬP
                       <>
                         <Link
                           href="/login"
-                          className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-slate-200 hover:bg-slate-800 hover:text-orange-400 transition-colors"
+                          className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-bold hover:text-orange-400 transition-colors"
+                          style={{ color: "var(--nav-text)" }}
                         >
                           <LogIn className="w-4 h-4 text-orange-400" />
                           <span>Đăng Nhập</span>
@@ -249,10 +238,10 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile Hamburger Toggle */}
+            {/* Mobile Hamburger */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300"
+              className="nav-icon-btn md:hidden p-2.5 rounded-xl border"
             >
               {isMobileMenuOpen ? (
                 <X className="w-5 h-5" />
@@ -265,46 +254,34 @@ export default function Navbar() {
 
         {/* 4. Mobile Menu Drawer */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-6 space-y-3">
-            <Link
-              href="/"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-bold text-white py-2"
-            >
-              Trang Chủ
-            </Link>
-            <Link
-              href="/products"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-bold text-white py-2"
-            >
-              Sản Phẩm
-            </Link>
-            <Link
-              href="/promotions"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-bold text-white py-2"
-            >
-              Khuyến Mãi
-            </Link>
-            <Link
-              href="/contact"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block text-base font-bold text-white py-2"
-            >
-              Liên Hệ
-            </Link>
+          <div className="md:hidden border-b px-4 pt-2 pb-6 space-y-3 transition-colors" style={{ backgroundColor: "var(--nav-dropdown-bg)", borderColor: "var(--nav-border)" }}>
+            {[
+              { href: "/", label: "Trang Chủ" },
+              { href: "/products", label: "Sản Phẩm" },
+              { href: "/about", label: "Giới Thiệu" },
+              { href: "/contact", label: "Liên Hệ" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block text-base font-bold py-2 hover:text-orange-400 transition-colors"
+                style={{ color: "var(--nav-text)" }}
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
         )}
       </header>
 
-      {/* Slide-Over Mini Cart Drawer Component */}
+      {/* Mini Cart Drawer */}
       <MiniCartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
       />
 
-      {/* Modern Glassmorphic Logout Confirmation Modal */}
+      {/* Logout Confirmation Modal */}
       <ConfirmLogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}

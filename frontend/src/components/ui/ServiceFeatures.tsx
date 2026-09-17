@@ -2,7 +2,6 @@ import { ShieldCheck, Truck, CreditCard, Headphones } from 'lucide-react';
 
 /**
  * Component Tái Sử Dụng ServiceFeatures (Các Cam Kết Dịch Vụ Hàng Đầu).
- * Tách biệt hoàn toàn thành file riêng để có thể gọi ở Footer, Trang Chủ hoặc Trang Chi Tiết Sản Phẩm.
  */
 export default function ServiceFeatures() {
   const features = [
@@ -29,19 +28,19 @@ export default function ServiceFeatures() {
   ];
 
   return (
-    <div className="border-b border-slate-800/60 bg-slate-900/40 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="ap-service-bar border-b py-8 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
       <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {features.map((item, idx) => {
           const IconComp = item.icon;
           return (
             <div
               key={idx}
-              className="flex items-center space-x-3.5 p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-orange-500/40 transition-colors shadow-sm"
+              className="ap-service-card flex items-center space-x-3.5 p-4 rounded-2xl border hover:border-orange-500/40 transition-colors shadow-sm"
             >
               <IconComp className="w-8 h-8 text-orange-500 shrink-0" />
               <div>
-                <h4 className="text-sm font-bold text-white uppercase tracking-wide">{item.title}</h4>
-                <p className="text-xs text-slate-400 mt-0.5">{item.description}</p>
+                <h4 className="text-sm font-bold uppercase tracking-wide">{item.title}</h4>
+                <p className="text-xs mt-0.5">{item.description}</p>
               </div>
             </div>
           );
