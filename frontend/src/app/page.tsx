@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import HeroBannerSlider from '@/components/home/HeroBannerSlider';
-import CategoryGrid from '@/components/home/CategoryGrid';
-import FeaturedProducts from '@/components/home/FeaturedProducts';
-import MembershipBenefitsSection from '@/components/home/MembershipBenefitsSection';
+import HeroBannerSlider from '@/components/customer/home/HeroBannerSlider';
+import CategoryGrid from '@/components/customer/home/CategoryGrid';
+import FeaturedProducts from '@/components/customer/home/FeaturedProducts';
+import MembershipBenefitsSection from '@/components/customer/home/MembershipBenefitsSection';
 
 export const metadata: Metadata = {
   title: 'AP Sports - Trang Thiết Bị & Dụng Cụ Thể Thao Chính Hãng 100%',

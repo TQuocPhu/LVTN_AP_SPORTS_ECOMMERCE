@@ -17,10 +17,6 @@ import {
   UserPlus,
   Menu,
   X,
-  Zap,
-  Dumbbell,
-  ShieldAlert,
-  Flame,
   Sun,
   Moon,
 } from "lucide-react";
@@ -31,7 +27,7 @@ import { useTheme } from "@/context/ThemeContext";
 
 /**
  * Component Thanh Navigation Header Master Shell Navbar.
- * Đầy đủ Logo AP Sports, Mega Dropdown Sản phẩm, Cart Icon, User Avatar Dropdown và Mobile Responsive.
+ * Đầy đủ Logo AP Sports, Link Sản phẩm trực tiếp, Cart Icon, User Avatar Dropdown và Mobile Responsive.
  */
 export default function Navbar() {
   const pathname = usePathname();
@@ -39,7 +35,6 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
@@ -54,34 +49,6 @@ export default function Navbar() {
     // Hard redirect – ép browser gửi HTTP request mới để middleware Edge bắt kiện
     window.location.href = "/";
   };
-
-  // Danh mục sản phẩm Mega Menu
-  const categories = [
-    {
-      name: "Bóng Đá",
-      href: "/products?category=football",
-      icon: Flame,
-      desc: "Giày đinh FG/TF, bóng thi đấu, găng tay thủ môn",
-    },
-    {
-      name: "Cầu Lông & Bóng Chuyền",
-      href: "/products?category=badminton-volleyball",
-      icon: Zap,
-      desc: "Vợt cầu lông Yonex/Victor, bóng chuyền bãi biển",
-    },
-    {
-      name: "Võ Thuật & Bóng Rổ",
-      href: "/products?category=martial-basketball",
-      icon: ShieldAlert,
-      desc: "Đai võ Karate, giáp tập luyện, bóng rổ da Spolding",
-    },
-    {
-      name: "Phụ Kiện Fitness & Đồ Tập",
-      href: "/products?category=fitness-accessories",
-      icon: Dumbbell,
-      desc: "Túi tập gym, đồng hồ thể thao, dây kháng lực",
-    },
-  ];
 
   return (
     <>
@@ -118,49 +85,12 @@ export default function Navbar() {
               Trang Chủ
             </Link>
 
-            {/* Mega Dropdown Sản Phẩm */}
-            <div
-              className="relative py-2"
-              onMouseEnter={() => setIsCategoryDropdownOpen(true)}
-              onMouseLeave={() => setIsCategoryDropdownOpen(false)}
+            <Link
+              href="/products"
+              className="text-sm font-bold text-slate-200 hover:text-orange-400 transition-colors py-2"
             >
-              <button className="flex items-center space-x-1 text-sm font-bold text-slate-200 hover:text-orange-400 transition-colors">
-                <span>Sản Phẩm</span>
-                <ChevronDown
-                  className={`w-4 h-4 transition-transform ${isCategoryDropdownOpen ? "rotate-180 text-orange-400" : ""}`}
-                />
-              </button>
-
-              {/* Dropdown Menu Box (Wraps with top padding to bridge hover gap) */}
-              {isCategoryDropdownOpen && (
-                <div className="absolute top-full left-0 pt-2 w-80 z-50 animate-fade-in">
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-3 grid grid-cols-1 gap-1">
-                    {categories.map((cat, idx) => {
-                      const IconComp = cat.icon;
-                      return (
-                        <Link
-                          key={idx}
-                          href={cat.href}
-                          className="flex items-start space-x-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
-                        >
-                          <div className="p-2 bg-slate-950 rounded-lg text-orange-500 border border-slate-800 group-hover:border-orange-500/50 group-hover:scale-110 transition-all">
-                            <IconComp className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors">
-                              {cat.name}
-                            </p>
-                            <p className="text-xs text-slate-400 line-clamp-1">
-                              {cat.desc}
-                            </p>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+              Sản Phẩm
+            </Link>
 
             <Link
               href="/promotions"
@@ -343,21 +273,13 @@ export default function Navbar() {
             >
               Trang Chủ
             </Link>
-            <div className="space-y-1 pl-2 border-l-2 border-orange-500/50">
-              <p className="text-xs font-extrabold uppercase text-orange-400 tracking-wider mb-2">
-                Danh mục sản phẩm
-              </p>
-              {categories.map((c, i) => (
-                <Link
-                  key={i}
-                  href={c.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="block text-sm text-slate-300 hover:text-orange-400 py-1.5"
-                >
-                  {c.name}
-                </Link>
-              ))}
-            </div>
+            <Link
+              href="/products"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="block text-base font-bold text-white py-2"
+            >
+              Sản Phẩm
+            </Link>
             <Link
               href="/promotions"
               onClick={() => setIsMobileMenuOpen(false)}

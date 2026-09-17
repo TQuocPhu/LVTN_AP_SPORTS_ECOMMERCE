@@ -7,6 +7,7 @@ export interface CategoryResponse {
   parentId?: number | null;
   parentName?: string | null;
   level?: number;
+  productCount?: number;
   children: CategoryResponse[];
 }
 

@@ -16,6 +16,9 @@ export interface Product {
   name: string;
   slug: string;
   price: number;
+  originalPrice?: number;
+  rating?: number;
+  reviewsCount?: number;
   totalStock: number;
   status: 'in_stock' | 'out_of_stock' | 'discontinued' | string;
   unit: string;
@@ -67,6 +70,8 @@ export interface ProductFilterParams {
   categoryId?: number;
   status?: string;
   unit?: string;
+  variantSize?: string;
+  rating?: number;
   minPrice?: number;
   maxPrice?: number;
   page?: number;

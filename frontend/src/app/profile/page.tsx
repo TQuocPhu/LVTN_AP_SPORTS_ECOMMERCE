@@ -1,4 +1,4 @@
-import AccountPageShell from '@/components/profile/AccountPageShell';
+import AccountPageShell from '@/components/customer/profile/AccountPageShell';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
