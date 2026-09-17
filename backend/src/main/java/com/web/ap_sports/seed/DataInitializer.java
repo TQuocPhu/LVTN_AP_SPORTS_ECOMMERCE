@@ -65,6 +65,9 @@ public class DataInitializer implements CommandLineRunner {
         // 2. Khởi tạo danh sách Quyền Hạn (Permissions) theo từng cụm chức năng
         Permission pUserMgmt = getOrCreatePermission("MANAGE_USERS");
         Permission pProductMgmt = getOrCreatePermission("MANAGE_PRODUCTS");
+        Permission pCategoryMgmt = getOrCreatePermission("MANAGE_CATEGORIES");
+        Permission pReviewMgmt = getOrCreatePermission("MANAGE_REVIEWS");
+        Permission pContactMgmt = getOrCreatePermission("MANAGE_CONTACTS");
         Permission pOrderMgmt = getOrCreatePermission("MANAGE_ORDERS");
         Permission pInventoryMgmt = getOrCreatePermission("MANAGE_INVENTORY");
         Permission pReportMgmt = getOrCreatePermission("VIEW_REPORTS");
@@ -73,14 +76,19 @@ public class DataInitializer implements CommandLineRunner {
         // 3. Phân quyền cho Vai Trò ADMIN (Toàn quyền quản trị)
         assignPermissionToRole(adminRole, pUserMgmt);
         assignPermissionToRole(adminRole, pProductMgmt);
+        assignPermissionToRole(adminRole, pCategoryMgmt);
+        assignPermissionToRole(adminRole, pReviewMgmt);
+        assignPermissionToRole(adminRole, pContactMgmt);
         assignPermissionToRole(adminRole, pOrderMgmt);
         assignPermissionToRole(adminRole, pInventoryMgmt);
         assignPermissionToRole(adminRole, pReportMgmt);
         assignPermissionToRole(adminRole, pCustomerStorefront);
 
-        // 4. Phân quyền cho Vai Trò STAFF (Quản lý đơn hàng, sản phẩm, báo cáo cá nhân)
+        // 4. Phân quyền cho Vai Trò STAFF (Quản lý đơn hàng, sản phẩm, đánh giá, liên hệ, báo cáo cá nhân)
         assignPermissionToRole(staffRole, pOrderMgmt);
         assignPermissionToRole(staffRole, pProductMgmt);
+        assignPermissionToRole(staffRole, pReviewMgmt);
+        assignPermissionToRole(staffRole, pContactMgmt);
         assignPermissionToRole(staffRole, pReportMgmt);
 
         // 5. Phân quyền cho Vai Trò WAREHOUSE_MANAGER (Quản lý kho hàng & nhập xuất)

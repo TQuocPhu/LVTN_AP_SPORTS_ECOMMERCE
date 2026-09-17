@@ -7,6 +7,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import {
   LayoutDashboard,
   Package,
+  FolderTree,
   ShoppingCart,
   Warehouse,
   Users,
@@ -38,6 +39,13 @@ export default function AdminSidebar() {
       icon: Package,
       permission: 'MANAGE_PRODUCTS',
       allowedRoles: ['ADMIN', 'STAFF', 'WAREHOUSE_MANAGER'],
+    },
+    {
+      title: 'Quản Lý Danh Mục',
+      href: '/admin/categories',
+      icon: FolderTree,
+      permission: 'MANAGE_CATEGORIES',
+      allowedRoles: ['ADMIN'],
     },
     {
       title: 'Quản Lý Đơn Hàng',

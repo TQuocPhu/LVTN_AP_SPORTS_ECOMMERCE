@@ -449,6 +449,22 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
    - **Tự động xuống hàng mượt mà**: Thiết lập `break-words` cho Tên sản phẩm và `break-all` cho Slug, đảm bảo thông tin hiển thị 100% đầy đủ không bị đứt đoạn bằng dấu `...`.
    - **Khắc phục Lỗi CSDL PostgreSQL**: Nâng cấp kiểu dữ liệu cột `product_images.image_path` thành `TEXT` tại `DataInitializer.java`, xử lý triệt để lỗi `value too long for type character varying(500)`.
 
+### 🌳 4.14. Chức Năng Quản Lý Danh Mục Sản Phẩm Cây Phân Cấp (Hierarchical Category Management)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (17/09/2026 - Day 04)
+
+**Đặc tả Kiến trúc & Quy tắc Nghiệp vụ:**
+1. **RBAC & Seed Quyền Hạn**:
+   - Khởi tạo 3 Permissions mới: `MANAGE_CATEGORIES` (chỉ dành riêng cho `ADMIN`), `MANAGE_REVIEWS` (`ADMIN` & `STAFF`), `MANAGE_CONTACTS` (`ADMIN` & `STAFF`).
+2. **Cây Phân Cấp Đa Tầng & Giới Hạn Tối Đa 3 Cấp**:
+   - **Phân tầng tối đa 3 cấp**: Gốc Cấp 1 ➔ Cấp 2 ➔ Cấp 3. Thuật toán `getCategoryDepth()` trên Backend tự động ngăn cấm việc tạo thêm danh mục con cho các danh mục đã ở Cấp 3.
+   - **Quy tắc Hình ảnh đại diện**: CHỈ tải/lưu hình ảnh cho **Danh mục gốc (Cấp 1)** lên thư mục Cloudinary `ap-sports-e-commerce/categories`. Danh mục con (Cấp 2 & 3) tự động ẩn ô upload ảnh.
+   - **Quy tắc Ràng buộc Unique & Slug**: Tên danh mục unique 100% trong CSDL PostgreSQL (`existsByName`). Slug tự sinh đính kèm 5 ký tự UUID ngẫu nhiên (`base-slug-[5_char_uuid]`) chống trùng lặp, duy trì 100% slug cũ khi sửa tên để đảm bảo chuẩn SEO Google.
+   - **Chặn Xóa An Toàn 2 Lớp**: Từ chối xóa danh mục nếu đang chứa **danh mục con** hoặc đang có **sản phẩm thuộc danh mục** (`existsByCategoryId` hoặc `existsByCategoriesId`).
+3. **Clean Page Architecture & Hierarchical Tree Table UI**:
+   - Route `src/app/admin/categories/page.tsx` là Pure Wrapper Page.
+   - `CategoryTable.tsx`: Bảng hiển thị dạng **Cây Phân Cấp Mở Rộng / Thu Gọn (Expandable Tree View)** với đường gióng thụt lề trực quan, Badge phân cấp màu sắc, Cột riêng hiển thị Mô tả danh mục, và nút bấm tạo nhanh *"➕ Thêm Cấp X"*.
+
 ---
 
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
