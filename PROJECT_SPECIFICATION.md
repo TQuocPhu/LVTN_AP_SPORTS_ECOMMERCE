@@ -525,6 +525,40 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 📦 4.17. Phân Hệ Quản Lý Kho Enterprise, Tồn Kho, Nhập/Xuất, Kiểm Kê Kho & Quản Lý Nhà Cung Cấp (Enterprise Warehouse & Inventory System)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (18/09/2026 - Day 05)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Quản lý Kho:**
+1. **Quản Lý Nhà Cung Cấp (`suppliers` & `WarehouseSupplierServiceImpl.java`)**:
+   - Quản lý toàn bộ thông tin nhà cung cấp sản phẩm (Tên, Mã NCC Unique, Số điện thoại, Email, Địa chỉ).
+   - Kiểm tra ràng buộc duy nhất mã nhà cung cấp (`existsByCode` & `existsByCodeAndIdNot`) trước khi ghi nhận vào CSDL.
+   - Hỗ trợ API tìm kiếm phân trang và truy vấn nhanh dạng Dropdown select (`getAllSuppliersList`).
+
+2. **Quản Lý Tồn Kho, Cảnh Báo Sắp Hết Hàng & Sidebar Notification Badge (`useAdminSidebar.ts`)**:
+   - Thống kê thời gian thực tổng tồn kho (`totalInStockQuantity`), tổng giá trị vốn lưu kho (`totalInventoryValue`), và số biến thể sắp hết hàng (`lowStockAlertCount`).
+   - Tự động lọc danh sách biến thể có số lượng tồn kho <= 5 (`getLowStockVariants`).
+   - **Tích hợp Notification Badge Sidebar**: Tự động đếm số mặt hàng cần nhập và hiển thị **Badge khung đỏ nhấp nháy (`animate-pulse`)** bên cạnh Menu *"Quản Lý Kho"* ở Sidebar Quản trị.
+
+3. **Giao Dịch Nhập/Xuất/Kiểm Kê Kho Đa Mặt Hàng & Công Thức Tính Giá Vốn Bình Quân (Weighted Average Cost)**:
+   - Hỗ trợ phiếu Nhập Kho / Xuất Kho gom nhóm nhiều mặt hàng (`CreateInventoryTransactionRequest` kèm mảng `items`).
+   - Tự động sinh mã phiếu tiêu chuẩn (`PNK-yyyyMMddHHmmss-XXX`, `PXK-...`, `PCC-...`).
+   - **Công thức tính Giá Vốn Bình Quân (Weighted Average Cost)** tự động cập nhật `costPrice` cho biến thể khi nhập kho:
+     $$\text{CostPrice}_{\text{new}} = \frac{(\text{Stock}_{\text{old}} \times \text{CostPrice}_{\text{old}}) + (\text{Quantity}_{\text{import}} \times \text{UnitCost}_{\text{import}})}{\text{Stock}_{\text{old}} + \text{Quantity}_{\text{import}}}$$
+   - Đồng bộ tổng tồn kho `stock` trên bảng `products` từ tổng `stockQuantity` của tất cả biến thể (`syncProductStock`).
+   - Kiểm tra số lượng tồn khi xuất kho: Hủy giao dịch và thông báo lỗi nếu `exportQty > stockQuantity`.
+   - Kiểm kê kho (`ADJUSTMENT`): Tính số lượng chênh lệch thực tế với sổ sách `diff = actualQuantity - currentStock` và lưu vết audit log.
+
+4. **Trình In Chứng Từ Kho Độc Lập Qua Hidden Iframe (`stockTicketPrinter.ts`)**:
+   - Giải quyết triệt để lỗi tràn giao diện Admin khi in phiếu.
+   - Tự động dựng bản in A4 nền trắng tinh 100% trong `iframe` ẩn (đóng gói Logo AP Sports, Mã phiếu kho, Thông tin nhà cung cấp, Bảng kê sản phẩm & 3 ô ký tên trách nhiệm) và thực hiện lệnh in độc lập.
+
+5. **Kiến Trúc Frontend Clean Architecture & Bảng Tối Ưu Màn Hình (`InventoryTransactionTable.tsx`)**:
+   - 100% không chứa state/effect/API logic trong UI components. Tách biệt thành các Custom Hooks: `useWarehouseInventory.ts`, `useSuppliers.ts`, `useAdminSidebar.ts`.
+   - Cột mặt hàng trên bảng sử dụng nút **Badge Chi Tiết** (`👁️ Xem chi tiết (X sản phẩm)`), khi bấm mở Modal `StockTicketDetailsModal.tsx`, giúp toàn bộ 8 cột hiển thị trọn vẹn 100% chiều ngang màn hình không bị tràn cuộn ngang.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
 
