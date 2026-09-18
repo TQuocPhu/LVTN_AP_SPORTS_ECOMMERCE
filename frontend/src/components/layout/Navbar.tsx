@@ -25,6 +25,7 @@ import ConfirmLogoutModal from "@/components/ui/ConfirmLogoutModal";
 import NavbarSearchBar from "./NavbarSearchBar";
 
 import { useTheme } from "@/context/ThemeContext";
+import { useWishlist } from "@/hooks/useWishlist";
 
 /**
  * Component Thanh Navigation Header Master Shell Navbar.
@@ -34,6 +35,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { wishlistCount } = useWishlist();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
@@ -121,6 +123,20 @@ export default function Navbar() {
               )}
             </button>
 
+            {/* Wishlist Icon */}
+            <Link
+              href="/wishlist"
+              className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group flex items-center justify-center"
+              title="Danh sách yêu thích"
+            >
+              <Heart className="w-5 h-5 group-hover:text-rose-500 transition-colors" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-current shadow-md">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
+
             {/* Cart Icon */}
             <button
               onClick={() => setIsCartOpen(true)}
@@ -194,14 +210,6 @@ export default function Navbar() {
                         >
                           <PackageCheck className="w-4 h-4 opacity-60" />
                           <span>Đơn hàng của tôi</span>
-                        </Link>
-                        <Link
-                          href="/wishlist"
-                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
-                          style={{ color: "var(--nav-text)" }}
-                        >
-                          <Heart className="w-4 h-4 opacity-60" />
-                          <span>Sản phẩm yêu thích</span>
                         </Link>
                         <button
                           onClick={() => {

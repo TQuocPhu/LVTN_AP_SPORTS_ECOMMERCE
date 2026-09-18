@@ -12,6 +12,7 @@ import {
   Warehouse,
   Users,
   BarChart3,
+  Building2,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -58,6 +59,13 @@ export default function AdminSidebar() {
       title: 'Quản Lý Kho',
       href: '/admin/inventory',
       icon: Warehouse,
+      permission: 'MANAGE_INVENTORY',
+      allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'],
+    },
+    {
+      title: 'Nhà Cung Cấp',
+      href: '/admin/suppliers',
+      icon: Building2,
       permission: 'MANAGE_INVENTORY',
       allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'],
     },

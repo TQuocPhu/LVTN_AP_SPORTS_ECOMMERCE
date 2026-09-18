@@ -20,6 +20,7 @@ export interface Product {
   rating?: number;
   reviewsCount?: number;
   totalStock: number;
+  stock?: number;
   status: 'in_stock' | 'out_of_stock' | 'discontinued' | string;
   unit: string;
   mainImage?: string;
@@ -27,6 +28,7 @@ export interface Product {
   primaryCategoryName?: string;
   categories: CategoryResponse[];
   variantCount: number;
+  variants?: ProductVariant[];
   createdAt: string;
   updatedAt: string;
 }

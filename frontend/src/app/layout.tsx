@@ -61,6 +61,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { WishlistProvider } from "@/context/WishlistContext";
 import ToastProvider from "@/components/providers/ToastProvider";
 
 export default function RootLayout({
@@ -95,17 +96,19 @@ export default function RootLayout({
         <ThemeProvider>
           {/* Global Auth State Provider – chia sẻ user state toàn app */}
           <AuthProvider>
-            {/* Top-Right Sonner Toast Notification Container */}
-            <ToastProvider />
+            <WishlistProvider>
+              {/* Top-Right Sonner Toast Notification Container */}
+              <ToastProvider />
 
-            {/* Master Shell Navbar Header */}
-            <Navbar />
+              {/* Master Shell Navbar Header */}
+              <Navbar />
 
-            {/* Main Application Page Content */}
-            <div className="flex-1 flex flex-col">{children}</div>
+              {/* Main Application Page Content */}
+              <div className="flex-1 flex flex-col">{children}</div>
 
-            {/* Master Shell Footer */}
-            <Footer />
+              {/* Master Shell Footer */}
+              <Footer />
+            </WishlistProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
