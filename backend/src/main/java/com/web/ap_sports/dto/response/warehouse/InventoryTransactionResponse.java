@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -15,7 +16,9 @@ import java.time.LocalDateTime;
 @Builder
 public class InventoryTransactionResponse {
     private Long id;
+    private String code;
     private String ticketNumber;
+    private List<InventoryTransactionResponse> items;
     private Long variantId;
     private String variantSku;
     private String variantSize;

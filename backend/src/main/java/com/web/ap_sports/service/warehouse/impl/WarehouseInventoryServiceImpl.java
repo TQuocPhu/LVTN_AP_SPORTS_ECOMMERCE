@@ -20,7 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -61,7 +63,12 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
             }
         }
 
-        InventoryTransaction lastSavedTx = null;
+        String ticketCode = request.getCode();
+        if (ticketCode == null || ticketCode.trim().isEmpty()) {
+            ticketCode = generateTicketCode(request.getType());
+        }
+
+        List<InventoryTransaction> savedList = new java.util.ArrayList<>();
 
         for (TransactionItemRequest item : items) {
             ProductVariant variant = variantRepository.findById(item.getVariantId())
@@ -86,6 +93,7 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
             syncProductStock(variant.getProduct());
 
             InventoryTransaction transaction = InventoryTransaction.builder()
+                    .code(ticketCode)
                     .variant(variant)
                     .supplier(supplier)
                     .type(request.getType())
@@ -95,10 +103,10 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
                     .createdBy(user)
                     .build();
 
-            lastSavedTx = transactionRepository.save(transaction);
+            savedList.add(transactionRepository.save(transaction));
         }
 
-        return mapToResponse(lastSavedTx);
+        return mapGroupedResponse(savedList, ticketCode);
     }
 
     @Override
@@ -123,7 +131,10 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
 
         syncProductStock(variant.getProduct());
 
+        String ticketCode = generateTicketCode(TransactionType.ADJUSTMENT);
+
         InventoryTransaction transaction = InventoryTransaction.builder()
+                .code(ticketCode)
                 .variant(variant)
                 .supplier(null)
                 .type(TransactionType.ADJUSTMENT)
@@ -143,11 +154,41 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
             TransactionType type,
             Long supplierId,
             String keyword,
-            LocalDateTime fromDate,
-            LocalDateTime toDate,
+            String fromDate,
+            String toDate,
             Pageable pageable
     ) {
-        Page<InventoryTransaction> page = transactionRepository.searchTransactions(type, supplierId, keyword, fromDate, toDate, pageable);
+        String cleanKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+
+        LocalDateTime parsedFromDate = null;
+        if (fromDate != null && !fromDate.isBlank()) {
+            try {
+                if (fromDate.length() == 10) {
+                    parsedFromDate = LocalDate.parse(fromDate).atStartOfDay();
+                } else {
+                    parsedFromDate = LocalDateTime.parse(fromDate);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        LocalDateTime parsedToDate = null;
+        if (toDate != null && !toDate.isBlank()) {
+            try {
+                if (toDate.length() == 10) {
+                    parsedToDate = LocalDate.parse(toDate).atTime(LocalTime.MAX);
+                } else {
+                    parsedToDate = LocalDateTime.parse(toDate);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        Page<InventoryTransaction> page;
+        if (type == null && supplierId == null && cleanKeyword == null && parsedFromDate == null && parsedToDate == null) {
+            page = transactionRepository.findAll(pageable);
+        } else {
+            page = transactionRepository.searchTransactions(type, supplierId, cleanKeyword, parsedFromDate, parsedToDate, pageable);
+        }
+
         return page.map(this::mapToResponse);
     }
 
@@ -156,6 +197,13 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
     public InventoryTransactionResponse getTransactionById(Long transactionId) {
         InventoryTransaction tx = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new AppException("Giao dịch kho không tồn tại", HttpStatus.NOT_FOUND));
+
+        if (tx.getCode() != null && !tx.getCode().isBlank()) {
+            List<InventoryTransaction> groupList = transactionRepository.findByCode(tx.getCode());
+            if (groupList != null && !groupList.isEmpty()) {
+                return mapGroupedResponse(groupList, tx.getCode());
+            }
+        }
         return mapToResponse(tx);
     }
 
@@ -223,6 +271,38 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         productRepository.save(product);
     }
 
+    private String generateTicketCode(TransactionType type) {
+        String prefix = type == TransactionType.IMPORT ? "PNK" : (type == TransactionType.EXPORT ? "PXK" : "PKK");
+        String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        int randomSeq = (int) (Math.random() * 900) + 100;
+        return String.format("%s-%s-%d", prefix, timestamp, randomSeq);
+    }
+
+    private InventoryTransactionResponse mapGroupedResponse(List<InventoryTransaction> txList, String ticketCode) {
+        if (txList == null || txList.isEmpty()) return null;
+
+        List<InventoryTransactionResponse> itemResponses = txList.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        InventoryTransaction primaryTx = txList.get(0);
+        InventoryTransactionResponse response = mapToResponse(primaryTx);
+
+        BigDecimal totalSum = BigDecimal.ZERO;
+        int totalQty = 0;
+        for (InventoryTransaction tx : txList) {
+            BigDecimal unitCost = tx.getUnitCost() != null ? tx.getUnitCost() : BigDecimal.ZERO;
+            totalSum = totalSum.add(unitCost.multiply(BigDecimal.valueOf(tx.getQuantity())));
+            totalQty += tx.getQuantity();
+        }
+
+        response.setItems(itemResponses);
+        response.setTotalAmount(totalSum);
+        response.setQuantity(totalQty);
+        response.setCode(ticketCode);
+        return response;
+    }
+
     private InventoryTransactionResponse mapToResponse(InventoryTransaction tx) {
         if (tx == null) return null;
         ProductVariant v = tx.getVariant();
@@ -243,10 +323,13 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
                     .orElseGet(() -> images.isEmpty() ? null : images.get(0).getImagePath());
         }
 
-        String ticketNumber = String.format("TK-%s-%06d", tx.getType().name(), tx.getId());
+        String ticketNumber = (tx.getCode() != null && !tx.getCode().isBlank())
+                ? tx.getCode()
+                : String.format("TK-%s-%06d", tx.getType().name(), tx.getId());
 
         return InventoryTransactionResponse.builder()
                 .id(tx.getId())
+                .code(tx.getCode())
                 .ticketNumber(ticketNumber)
                 .variantId(v != null ? v.getId() : null)
                 .variantSku(v != null ? v.getSku() : null)

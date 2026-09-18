@@ -16,6 +16,8 @@ import java.util.List;
 @Builder
 public class CreateInventoryTransactionRequest {
 
+    private String code;
+
     private Long variantId;
 
     private Long supplierId;

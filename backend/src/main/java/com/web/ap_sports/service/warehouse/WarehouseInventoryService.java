@@ -22,8 +22,8 @@ public interface WarehouseInventoryService {
             TransactionType type,
             Long supplierId,
             String keyword,
-            LocalDateTime fromDate,
-            LocalDateTime toDate,
+            String fromDate,
+            String toDate,
             Pageable pageable
     );
 
