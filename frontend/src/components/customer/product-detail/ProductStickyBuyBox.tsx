@@ -4,8 +4,15 @@ import React, { useState } from 'react';
 import { ShoppingBag, Zap, Heart, Truck, AlertCircle, Check, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { useWishlist } from '@/hooks/useWishlist';
+
 interface ProductStickyBuyBoxProps {
+  productId?: number;
   productName: string;
+  productSlug?: string;
+  mainImage?: string;
+  effectivePrice?: number;
+  primaryCategory?: string;
   totalPrice: number;
   effectiveStock: number;
   isOutOfStock: boolean;
@@ -17,7 +24,12 @@ interface ProductStickyBuyBoxProps {
 }
 
 export function ProductStickyBuyBox({
+  productId,
   productName,
+  productSlug,
+  mainImage,
+  effectivePrice,
+  primaryCategory,
   totalPrice,
   effectiveStock,
   isOutOfStock,
@@ -27,20 +39,25 @@ export function ProductStickyBuyBox({
   onAddToCart,
   onBuyNow,
 }: ProductStickyBuyBoxProps) {
-  const [isWishlist, setIsWishlist] = useState<boolean>(false);
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const isWishlist = productId ? isInWishlist(productId) : false;
 
   const formattedTotalPrice = new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
   }).format(totalPrice);
 
-  const handleToggleWishlist = () => {
-    setIsWishlist(!isWishlist);
-    if (!isWishlist) {
-      toast.success(`Đã thêm "${productName}" vào danh sách yêu thích!`);
-    } else {
-      toast.info(`Đã xóa khỏi danh sách yêu thích.`);
-    }
+  const handleToggleWishlist = async () => {
+    if (!productId) return;
+    await toggleWishlist(productId, {
+      productId,
+      name: productName,
+      slug: productSlug,
+      mainImage,
+      price: effectivePrice || totalPrice,
+      unit,
+      primaryCategoryName: primaryCategory,
+    });
   };
 
   return (

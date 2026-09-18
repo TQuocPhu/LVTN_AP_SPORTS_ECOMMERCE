@@ -7,12 +7,15 @@ import { Product } from "@/types/product";
 import { ShoppingBag, Eye, Star, Check, Heart } from "lucide-react";
 import { toast } from "sonner";
 
+import { useWishlist } from "@/hooks/useWishlist";
+
 interface CustomerProductCardProps {
   product: Product;
 }
 
 export function CustomerProductCard({ product }: CustomerProductCardProps) {
-  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const isFavorite = isInWishlist(product.id);
 
   const formattedPrice = new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -32,15 +35,18 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
     toast.success(`Đã thêm "${product.name}" vào giỏ hàng!`);
   };
 
-  const handleWishlistToggle = (e: React.MouseEvent) => {
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
-    if (!isFavorite) {
-      toast.success(`Đã thêm "${product.name}" vào danh sách yêu thích!`);
-    } else {
-      toast.info(`Đã xóa "${product.name}" khỏi danh sách yêu thích.`);
-    }
+    await toggleWishlist(product.id, {
+      productId: product.id,
+      name: product.name,
+      slug: product.slug,
+      mainImage: product.mainImage,
+      price: product.price,
+      unit: product.unit,
+      primaryCategoryName: product.primaryCategoryName || product.categories?.[0]?.name || "AP Sports",
+    });
   };
 
   const mainCategoryName =

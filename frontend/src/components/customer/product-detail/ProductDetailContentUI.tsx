@@ -158,7 +158,12 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
           {/* BOX ĐẶT HÀNG STICKY NHỎ GỌN (3 COLS SIDEBAR) */}
           <div className="lg:col-span-3 lg:sticky lg:top-24">
             <ProductStickyBuyBox
+              productId={product.id}
               productName={product.name}
+              productSlug={product.slug}
+              mainImage={product.mainImage}
+              effectivePrice={effectivePrice}
+              primaryCategory={primaryCategory}
               totalPrice={totalPrice}
               effectiveStock={effectiveStock}
               isOutOfStock={isOutOfStock}
