@@ -20,9 +20,10 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
     Optional<Supplier> findByCode(String code);
 
     @Query("SELECT s FROM Supplier s WHERE " +
-           "(:keyword IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(s.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(s.phone) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-           "LOWER(s.email) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "(CAST(:keyword AS string) IS NULL OR " +
+           "LOWER(s.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(s.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(s.phone) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "LOWER(s.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Supplier> searchSuppliers(@Param("keyword") String keyword, Pageable pageable);
 }

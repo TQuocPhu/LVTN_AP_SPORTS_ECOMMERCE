@@ -22,9 +22,10 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
            "LEFT JOIN FETCH it.createdBy u " +
            "WHERE (:type IS NULL OR it.type = :type) " +
            "AND (:supplierId IS NULL OR it.supplier.id = :supplierId) " +
-           "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "     OR LOWER(v.sku) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-           "     OR LOWER(it.note) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+           "AND (CAST(:keyword AS string) IS NULL OR " +
+           "     LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "     LOWER(v.sku) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "     LOWER(it.note) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
            "AND (:fromDate IS NULL OR it.createdAt >= :fromDate) " +
            "AND (:toDate IS NULL OR it.createdAt <= :toDate)")
     Page<InventoryTransaction> searchTransactions(

@@ -96,8 +96,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/customer/profile/**", "/api/v1/customer/addresses/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/admin/auth/me", "/api/v1/admin/auth/logout").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
                 .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
-                .requestMatchers("/api/v1/warehouse/**").hasRole("WAREHOUSE_MANAGER")
-                .requestMatchers("/api/v1/staff/**").hasRole("STAFF")
+                .requestMatchers("/api/v1/warehouse/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                .requestMatchers("/api/v1/staff/**").hasAnyRole("ADMIN", "STAFF")
 
                 // 3. Mặc định tất cả các request khác phải được xác thực
                 .anyRequest().authenticated()

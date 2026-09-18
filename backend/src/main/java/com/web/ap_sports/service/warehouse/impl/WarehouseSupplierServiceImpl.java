@@ -32,9 +32,9 @@ public class WarehouseSupplierServiceImpl implements WarehouseSupplierService {
         Supplier supplier = Supplier.builder()
                 .name(request.getName().trim())
                 .code(request.getCode().trim().toUpperCase())
-                .phone(request.getPhone())
-                .email(request.getEmail())
-                .address(request.getAddress())
+                .phone(request.getPhone() != null ? request.getPhone().trim() : null)
+                .email(request.getEmail() != null ? request.getEmail().trim() : null)
+                .address(request.getAddress() != null ? request.getAddress().trim() : null)
                 .build();
 
         Supplier saved = supplierRepository.save(supplier);
@@ -53,9 +53,9 @@ public class WarehouseSupplierServiceImpl implements WarehouseSupplierService {
 
         supplier.setName(request.getName().trim());
         supplier.setCode(request.getCode().trim().toUpperCase());
-        supplier.setPhone(request.getPhone());
-        supplier.setEmail(request.getEmail());
-        supplier.setAddress(request.getAddress());
+        supplier.setPhone(request.getPhone() != null ? request.getPhone().trim() : null);
+        supplier.setEmail(request.getEmail() != null ? request.getEmail().trim() : null);
+        supplier.setAddress(request.getAddress() != null ? request.getAddress().trim() : null);
 
         Supplier updated = supplierRepository.save(supplier);
         return mapToResponse(updated);
@@ -81,7 +81,10 @@ public class WarehouseSupplierServiceImpl implements WarehouseSupplierService {
     @Override
     @Transactional(readOnly = true)
     public Page<SupplierResponse> getAllSuppliers(String keyword, Pageable pageable) {
-        Page<Supplier> page = supplierRepository.searchSuppliers(keyword, pageable);
+        String cleanKeyword = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
+        Page<Supplier> page = (cleanKeyword == null)
+                ? supplierRepository.findAll(pageable)
+                : supplierRepository.searchSuppliers(cleanKeyword, pageable);
         return page.map(this::mapToResponse);
     }
 
