@@ -167,17 +167,26 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
     - `name`: VARCHAR(255) (Nike, Adidas, Kamito, Puma...)
     - `code`: VARCHAR(50) (Unique)
     - `phone`: VARCHAR(50), `email`: VARCHAR(255), `address`: TEXT
+    - `status`: ENUM (`ACTIVE`, `INACTIVE`) DEFAULT `ACTIVE`
     - `created_at`, `updated_at`: TIMESTAMP
-12. **`inventory_transactions`** `[BẢNG MỚI ENTERPRISE]`:
+12. **`inventory_transactions`** `[BẢNG MỚI ENTERPRISE - HỖ TRỢ NHIỀU SẢN PHẨM TRONG 1 PHIẾU]`:
     - `id`: BIGINT (Primary Key)
+    - `reference_code`: VARCHAR(100) (Mã phiếu kho: `IMP-xxxx`, `EXP-xxxx`, `AUD-xxxx`)
     - `variant_id`: BIGINT (FK -> `product_variants.id`)
     - `supplier_id`: BIGINT (Nullable - FK -> `suppliers.id`)
     - `type`: ENUM (`IMPORT`, `EXPORT`, `ADJUSTMENT`)
     - `quantity`: INT
-    - `unit_cost`: DECIMAL(10, 2) (Giá vốn khi nhập)
+    - `unit_cost`: DECIMAL(10, 2) (Giá vốn khi nhập/xuất)
+    - `total_amount`: DECIMAL(12, 2) (Tổng tiền hàng)
     - `note`: TEXT
     - `created_by_user_id`: BIGINT (FK -> `users.id`)
     - `created_at`: TIMESTAMP
+- **Tính năng nâng cấp Enterprise Quản Lý Kho & Nhà Cung Cấp**:
+  - **Phiếu Nhập/Xuất Kho Đa Sản Phẩm (Multi-Item Stock Tickets)**: Hỗ trợ thêm nhiều mặt hàng/biến thể trong cùng 1 lần nhập/xuất kho với bảng đối soát trực quan, thanh toán tự động và in phiếu kho (`window.print()`).
+  - **Thanh Tìm Kiếm Sản Phẩm Searchable Combobox**: Gợi ý tên và biến thể sản phẩm trực tiếp khi gõ từ khóa.
+  - **1-Click Batch Restock**: Nút lập phiếu nhập nhanh từ danh sách Cảnh báo tồn kho ($\le 5$ đơn vị).
+  - **Kiểm Kê Kho (Stock Audit)**: Nhập số lượng thực tế và tính toán chênh lệch tồn kho.
+  - **Giao Diện Pure White Theme**: Đảm bảo toàn bộ trang Quản lý Kho & Nhà Cung Cấp áp dụng giao diện nền trắng tương phản cao chuẩn Enterprise.
 
 ### 3.4. Nhóm Đơn Hàng & Vận Chuyển GPS
 13. **`shipping_addresses`** *(Giữ nguyên tất cả 7 trường gốc + Bổ sung 3 trường)*:
