@@ -19,16 +19,29 @@ export interface SupplierRequest {
   address?: string;
 }
 
+export interface StockTicketItem {
+  id?: number;
+  variantId?: number;
+  variantSku: string;
+  variantSize?: string;
+  variantColor?: string;
+  productId?: number;
+  productName: string;
+  quantity: number;
+  unitCost: number;
+  totalAmount: number;
+}
+
 export interface InventoryTransaction {
   id: number;
   code?: string;
   ticketNumber: string;
-  variantId: number;
-  variantSku: string;
+  variantId?: number;
+  variantSku?: string;
   variantSize?: string;
   variantColor?: string;
-  productId: number;
-  productName: string;
+  productId?: number;
+  productName?: string;
   productSlug?: string;
   productMainImage?: string;
   supplierId?: number;
@@ -41,9 +54,10 @@ export interface InventoryTransaction {
   stockBefore?: number;
   stockAfter?: number;
   note?: string;
-  createdByUserId: number;
+  createdByUserId?: number;
   createdByUserName?: string;
   createdAt: string;
+  items?: StockTicketItem[];
 }
 
 export interface InventoryOverviewStats {

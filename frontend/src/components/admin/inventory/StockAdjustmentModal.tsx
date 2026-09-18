@@ -272,9 +272,9 @@ export function StockAdjustmentModal({
                             : 'border-slate-300 bg-white text-slate-900 hover:border-orange-400'
                         }`}
                       >
-                        <div className="space-y-1">
-                          <div className="font-mono text-xs opacity-90 font-bold">SKU: {v.sku}</div>
-                          <div className="text-sm">Size: <strong>{v.size || 'Mặc định'}</strong> {v.color ? `• Màu: ${v.color}` : ''}</div>
+                        <div className="space-y-1 min-w-0 flex-1 pr-2">
+                          <div className="font-mono text-xs opacity-90 font-bold break-all leading-tight">SKU: {v.sku}</div>
+                          <div className="text-xs truncate">Size: <strong>{v.size || 'Mặc định'}</strong> {v.color ? `• Màu: ${v.color}` : ''}</div>
                           <div className="text-xs font-extrabold">Tồn sổ sách: {v.stockQuantity}</div>
                         </div>
                         {isSelected && <Check className="w-5 h-5 shrink-0" />}
@@ -357,7 +357,7 @@ export function StockAdjustmentModal({
               className="px-7 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 active:scale-95 disabled:opacity-50 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-orange-600/20 transition-all flex items-center gap-2"
             >
               <RefreshCw className="w-5 h-5" />
-              <span>{submitting ? 'Đang Điều Chỉnh...' : 'Cập Nhật Tồn Kho Real'}</span>
+              <span>{submitting ? 'Đang Điều Chỉnh...' : 'Cập Nhật Tồn Kho Thực Tế'}</span>
             </button>
           </div>
         </form>

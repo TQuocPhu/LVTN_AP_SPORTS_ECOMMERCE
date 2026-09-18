@@ -5,6 +5,7 @@ import { Building2, Plus, Search, RefreshCw } from 'lucide-react';
 import { useSuppliers } from '@/hooks/useSuppliers';
 import { SupplierListTable } from './SupplierListTable';
 import { SupplierFormModal } from './SupplierFormModal';
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 import { Supplier } from '@/types/inventory';
 
 export default function SuppliersPageContentUI() {
@@ -21,6 +22,7 @@ export default function SuppliersPageContentUI() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
 
   const handleOpenCreateModal = () => {
     setSupplierToEdit(null);
@@ -32,9 +34,17 @@ export default function SuppliersPageContentUI() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Bạn có chắc chắn muốn xóa nhà cung cấp này? Thao tác không thể hoàn tác!')) {
-      await deleteSupplier(id);
+  const handleRequestDelete = (supplierId: number) => {
+    const found = suppliers.find((s) => s.id === supplierId);
+    if (found) {
+      setSupplierToDelete(found);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (supplierToDelete) {
+      await deleteSupplier(supplierToDelete.id);
+      setSupplierToDelete(null);
     }
   };
 
@@ -96,7 +106,7 @@ export default function SuppliersPageContentUI() {
         suppliers={suppliers}
         loading={loading}
         onEdit={handleOpenEditModal}
-        onDelete={handleDelete}
+        onDelete={handleRequestDelete}
       />
 
       {/* Form Modal */}
@@ -105,6 +115,16 @@ export default function SuppliersPageContentUI() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleSubmit}
         supplierToEdit={supplierToEdit}
+      />
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!supplierToDelete}
+        onClose={() => setSupplierToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Xác Nhận Xóa Nhà Cung Cấp"
+        description={`Bạn có chắc chắn muốn xóa nhà cung cấp "${supplierToDelete?.name}" (${supplierToDelete?.code}) khỏi hệ thống? Thao tác này không thể hoàn tác.`}
+        confirmText="Xóa Nhà Cung Cấp"
       />
     </div>
   );

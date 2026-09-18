@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ShippingAddress, ShippingAddressRequest } from '@/types/address';
 import { MapPin, Plus, CheckCircle, Edit3, Trash2, Phone, User, Loader2 } from 'lucide-react';
 import AddressModal from './AddressModal';
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal';
 
 interface ShippingAddressesTabProps {
   addresses: ShippingAddress[];
@@ -24,6 +25,7 @@ export default function ShippingAddressesTab({
 }: ShippingAddressesTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [addressToEdit, setAddressToEdit] = useState<ShippingAddress | null>(null);
+  const [addressToDeleteId, setAddressToDeleteId] = useState<number | null>(null);
 
   const handleOpenAddModal = () => { setAddressToEdit(null); setIsModalOpen(true); };
   const handleOpenEditModal = (addr: ShippingAddress) => { setAddressToEdit(addr); setIsModalOpen(true); };
@@ -36,9 +38,10 @@ export default function ShippingAddressesTab({
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (confirm('Bạn có chắc chắn muốn xóa địa chỉ giao hàng này?')) {
-      await onDeleteAddress(id);
+  const handleConfirmDeleteAddress = async () => {
+    if (addressToDeleteId !== null) {
+      await onDeleteAddress(addressToDeleteId);
+      setAddressToDeleteId(null);
     }
   };
 
@@ -130,7 +133,7 @@ export default function ShippingAddressesTab({
                     </button>
                     <button
                       id={`btn-delete-address-${addr.id}`}
-                      onClick={() => handleDelete(addr.id)}
+                      onClick={() => setAddressToDeleteId(addr.id)}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-colors"
                       title="Xóa địa chỉ"
                     >
@@ -154,6 +157,15 @@ export default function ShippingAddressesTab({
         onClose={() => setIsModalOpen(false)}
         addressToEdit={addressToEdit}
         onSave={handleSaveAddress}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={addressToDeleteId !== null}
+        onClose={() => setAddressToDeleteId(null)}
+        onConfirm={handleConfirmDeleteAddress}
+        title="Xác Nhận Xóa Địa Chỉ"
+        description="Bạn có chắc chắn muốn xóa địa chỉ giao hàng này khỏi tài khoản không?"
+        confirmText="Xóa Địa Chỉ"
       />
     </div>
   );

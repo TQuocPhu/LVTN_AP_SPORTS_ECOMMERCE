@@ -23,6 +23,7 @@ import { adminProductController } from '@/controllers/admin-product-controller';
 
 interface ImportDraftItem {
   variantId: number;
+  productId?: number;
   sku: string;
   productName: string;
   size?: string;
@@ -236,10 +237,28 @@ export function CreateImportModal({
       })),
     };
 
-    const result = await onSubmit(payload);
+    const result: any = await onSubmit(payload);
     setSubmitting(false);
 
-    if (result) {
+    if (result && typeof result === 'object') {
+      const selectedSupplier = suppliers.find((s) => s.id === supplierId);
+      result.quantity = totalTicketQty;
+      result.totalAmount = totalTicketValue;
+      if (selectedSupplier) {
+        result.supplierName = selectedSupplier.name;
+        result.supplierCode = selectedSupplier.code;
+      }
+      result.items = ticketItems.map((item) => ({
+        variantId: item.variantId,
+        variantSku: item.sku,
+        variantSize: item.size,
+        variantColor: item.color,
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitCost: item.unitCost,
+        totalAmount: item.quantity * item.unitCost,
+      }));
       onClose();
     }
   };
@@ -424,9 +443,9 @@ export function CreateImportModal({
                             : 'border-slate-300 bg-white text-slate-900 hover:border-orange-400'
                         }`}
                       >
-                        <div className="space-y-1">
-                          <div className="font-mono text-xs opacity-90 font-bold">SKU: {v.sku}</div>
-                          <div>Size: <strong>{v.size || 'Mặc định'}</strong> {v.color ? `• Màu: ${v.color}` : ''}</div>
+                        <div className="space-y-1 min-w-0 flex-1 pr-2">
+                          <div className="font-mono text-xs opacity-90 font-bold break-all leading-tight">SKU: {v.sku}</div>
+                          <div className="text-xs truncate">Size: <strong>{v.size || 'Mặc định'}</strong> {v.color ? `• Màu: ${v.color}` : ''}</div>
                           <div className="text-xs font-bold">Tồn sổ sách: {v.stockQuantity}</div>
                         </div>
                         {isSelected && <Check className="w-4 h-4 shrink-0" />}

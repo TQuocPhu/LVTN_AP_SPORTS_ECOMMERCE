@@ -10,6 +10,7 @@ import { CreateImportModal } from './CreateImportModal';
 import { CreateExportModal } from './CreateExportModal';
 import { StockAdjustmentModal } from './StockAdjustmentModal';
 import { StockTicketPrintModal } from './StockTicketPrintModal';
+import { StockTicketDetailsModal } from './StockTicketDetailsModal';
 import { InventoryTransaction, LowStockItem } from '@/types/inventory';
 import Link from 'next/link';
 import {
@@ -36,27 +37,10 @@ export function InventoryPageContentUI() {
 
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
-  const [ticketToPrint, setTicketToPrint] = useState<InventoryTransaction | null>(null);
 
   const handleOpenImportModal = (initialItems?: LowStockItem[]) => {
     setImportModalLowStockItems(initialItems);
     setIsImportModalOpen(true);
-  };
-
-  const handleCreateImportSubmit = async (data: any) => {
-    const createdTx = await inventoryHook.createImport(data);
-    if (createdTx) {
-      setTicketToPrint(createdTx);
-    }
-    return createdTx;
-  };
-
-  const handleCreateExportSubmit = async (data: any) => {
-    const createdTx = await inventoryHook.createExport(data);
-    if (createdTx) {
-      setTicketToPrint(createdTx);
-    }
-    return createdTx;
   };
 
   return (
@@ -74,7 +58,7 @@ export function InventoryPageContentUI() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => inventoryHook.refreshAll()}
             title="Làm mới dữ liệu kho"
@@ -112,7 +96,7 @@ export function InventoryPageContentUI() {
             className="px-5 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-all flex items-center gap-1.5"
           >
             <ArrowDownLeft className="w-4 h-4 stroke-[3]" />
-            <span>Lập Phiếu Nhập Kho</span>
+            <span>Nhập Kho</span>
           </button>
         </div>
       </div>
@@ -153,7 +137,7 @@ export function InventoryPageContentUI() {
       {/* Active Tab Content */}
       {activeTab === 'transactions' ? (
         <InventoryTransactionTable
-          transactions={inventoryHook.transactions}
+          transactions={inventoryHook.groupedTickets}
           loading={inventoryHook.loading}
           totalElements={inventoryHook.totalElements}
           page={inventoryHook.page}
@@ -170,7 +154,8 @@ export function InventoryPageContentUI() {
           onFromDateChange={inventoryHook.setFromDate}
           toDate={inventoryHook.toDate}
           onToDateChange={inventoryHook.setToDate}
-          onSelectTicketToPrint={(tx) => setTicketToPrint(tx)}
+          onOpenDetailsModal={inventoryHook.openDetailsModal}
+          onOpenPrintModal={inventoryHook.openPrintModal}
         />
       ) : (
         <LowStockAlertsTable
@@ -183,7 +168,7 @@ export function InventoryPageContentUI() {
       <CreateImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onSubmit={handleCreateImportSubmit}
+        onSubmit={inventoryHook.createImport}
         suppliers={suppliersHook.suppliers}
         initialLowStockItems={importModalLowStockItems}
       />
@@ -191,7 +176,7 @@ export function InventoryPageContentUI() {
       <CreateExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        onSubmit={handleCreateExportSubmit}
+        onSubmit={inventoryHook.createExport}
       />
 
       <StockAdjustmentModal
@@ -200,10 +185,17 @@ export function InventoryPageContentUI() {
         onSubmit={inventoryHook.adjustStock}
       />
 
+      <StockTicketDetailsModal
+        isOpen={!!inventoryHook.ticketToViewDetails}
+        onClose={inventoryHook.closeDetailsModal}
+        transaction={inventoryHook.ticketToViewDetails}
+        onPrint={inventoryHook.openPrintModal}
+      />
+
       <StockTicketPrintModal
-        isOpen={!!ticketToPrint}
-        onClose={() => setTicketToPrint(null)}
-        transaction={ticketToPrint}
+        isOpen={!!inventoryHook.ticketToPrint}
+        onClose={inventoryHook.closePrintModal}
+        transaction={inventoryHook.ticketToPrint}
       />
     </div>
   );

@@ -271,9 +271,9 @@ export function CreateExportModal({
                             : 'border-slate-300 bg-white text-slate-900 hover:border-orange-400'
                         }`}
                       >
-                        <div className="space-y-1">
-                          <div className="font-mono text-xs opacity-90 font-bold">SKU: {v.sku}</div>
-                          <div className="text-sm">Size: <strong>{v.size || 'Mặc định'}</strong> {v.color ? `• Màu: ${v.color}` : ''}</div>
+                        <div className="space-y-1 min-w-0 flex-1 pr-2">
+                          <div className="font-mono text-xs opacity-90 font-bold break-all leading-tight">SKU: {v.sku}</div>
+                          <div className="text-xs truncate">Size: <strong>{v.size || 'Mặc định'}</strong> {v.color ? `• Màu: ${v.color}` : ''}</div>
                           <div className="text-xs font-extrabold">
                             Tồn kho: <span className={isOutOfStock ? 'text-rose-500' : 'text-emerald-600'}>{v.stockQuantity}</span>
                           </div>
