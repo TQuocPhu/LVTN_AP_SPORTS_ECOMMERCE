@@ -559,6 +559,25 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 📬 4.18. Phân Hệ Liên Hệ Khách Hàng & Quản Lý Liên Hệ Enterprise (Customer & Staff Contact Management System)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (22/09/2026 - Day 06)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Quản lý Liên Hệ Khách Hàng:**
+1. **Trang Liên Hệ Khách Hàng Storefront (`/contact`)**:
+   - **Giao diện Glassmorphism 3 Thẻ Thông Tin Top**: Hiển thị Email chính thức (`tqphu240804@gmail.com`), Hotline CSKH 24/7 (`0913 193 009`), và Mạng xã hội (Facebook, Instagram) với SVG icon chuẩn độ tương phản.
+   - **Contact Form Validation & Loading Spinner**: Form gửi thông tin (Tên, Email, SĐT, Nội dung) kèm validation định dạng Email & SĐT 10-11 số Việt Nam. Tích hợp Spinner Loading và tự động reset form sau khi gửi thành công.
+   - **Bản Đồ Vị Trí Cửa Hàng Google Maps Embed**: Tối ưu hiển thị bản đồ địa chỉ *561B Phan Đình Phùng, Khóm 9, Phường Trà Vinh, Vĩnh Long* với tầm nhìn camera zoom out vừa phải (`!1d3500`) và chiều cao khung `h-[480px] sm:h-[580px] lg:h-[650px]`.
+
+2. **Trang Quản Lý Liên Hệ Admin Portal (`/admin/contacts` - Permission `MANAGE_CONTACTS`)**:
+   - **Thanh Tìm Kiếm & Lọc 3 Cột Cùng Hàng**: Hỗ trợ tìm kiếm từ khóa thời gian thực (tên, email, sdt, nội dung), bộ lọc trạng thái (`ALL`, `pending`, `replied`), và bộ lọc thời gian (`Mới nhất` - DESC / `Sớm nhất` - ASC) bố trí trên cùng 1 hàng cân đối.
+   - **Modal Trả Lời Tích Hợp RichTextEditor & Spring Mail SMTP**: Sử dụng `RichTextEditor.tsx` cho phép nhân viên soạn thảo nội dung trả lời định dạng HTML chuyên nghiệp và tự động phát Email phản hồi về hòm thư khách hàng qua Spring Mail (`EmailService.sendContactReplyEmail`).
+   - **Cơ Chế Chống Phản Hồi Trùng Lặp (Double-Reply Protection)**:
+     - Backend (`StaffContactServiceImpl.java`): Bắt lỗi `AppException` nếu phiếu liên hệ đã ở trạng thái `replied`.
+     - Frontend (`ReplyContactModal.tsx`): Tự động chuyển modal sang **Chế độ xem Read-Only** khi phiếu đã được xử lý. Hiển thị Banner xanh lá ghi nhận tên nhân viên & ngày phản hồi, hiển thị nội dung HTML đã gửi và khóa nút bấm submit.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
 
