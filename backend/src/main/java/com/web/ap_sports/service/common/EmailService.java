@@ -22,4 +22,14 @@ public interface EmailService {
      * @param resetToken Mã xác nhận đặt lại mật khẩu
      */
     void sendPasswordResetEmail(String toEmail, String userName, String resetToken);
+
+    /**
+     * Gửi Email trả lời thắc mắc / liên hệ cho Khách hàng từ Ban Quản Trị AP Sports.
+     *
+     * @param toEmail Email người nhận
+     * @param customerName Tên khách hàng
+     * @param originalMessage Câu hỏi / nội dung gốc khách hàng gửi
+     * @param replyHtmlContent Nội dung câu trả lời từ ban quản trị (dạng HTML)
+     */
+    void sendContactReplyEmail(String toEmail, String customerName, String originalMessage, String replyHtmlContent);
 }
