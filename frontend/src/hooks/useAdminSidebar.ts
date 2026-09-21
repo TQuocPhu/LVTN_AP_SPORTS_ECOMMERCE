@@ -13,6 +13,7 @@ import {
   Users,
   BarChart3,
   Building2,
+  Mail,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -72,6 +73,13 @@ export function useAdminSidebar() {
       href: '/admin/orders',
       icon: ShoppingCart,
       permission: 'MANAGE_ORDERS',
+      allowedRoles: ['ADMIN', 'STAFF'],
+    },
+    {
+      title: 'Quản Lý Liên Hệ',
+      href: '/admin/contacts',
+      icon: Mail,
+      permission: 'MANAGE_CONTACTS',
       allowedRoles: ['ADMIN', 'STAFF'],
     },
     {
