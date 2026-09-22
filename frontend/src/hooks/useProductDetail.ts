@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { productController } from '@/controllers/product-controller';
-import { Product, ProductDetail, ProductVariant } from '@/types/product';
-import { useCart } from '@/hooks/useCart';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { productController } from "@/controllers/product-controller";
+import { Product, ProductDetail, ProductVariant } from "@/types/product";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "sonner";
 
 export interface UseProductDetailReturn {
   product: ProductDetail | null;
@@ -36,32 +36,41 @@ export interface UseProductDetailReturn {
   refetch: () => void;
 }
 
-export function parseVariantAttributes(v: ProductVariant): Record<string, string> {
+export function parseVariantAttributes(
+  v: ProductVariant,
+): Record<string, string> {
   if (v.attributes) {
     try {
       const parsed = JSON.parse(v.attributes);
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
         return parsed as Record<string, string>;
       }
     } catch {
       // If attributes is plain string text instead of JSON
       if (v.attributes.trim()) {
-        return { 'Thuộc tính': v.attributes };
+        return { "Thuộc tính": v.attributes };
       }
     }
   }
   const result: Record<string, string> = {};
-  if (v.color) result['Màu sắc'] = v.color;
+  if (v.color) result["Màu sắc"] = v.color;
   if (v.size) {
-    if (v.size.includes('|')) {
-      const parts = v.size.split('|').map((s) => s.trim()).filter(Boolean);
-      if (parts[0]) result['Kích thước / Size'] = parts[0];
-      if (parts[1]) result['Thuộc tính bổ sung'] = parts[1];
+    if (v.size.includes("|")) {
+      const parts = v.size
+        .split("|")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (parts[0]) result["Kích thước / Size"] = parts[0];
+      if (parts[1]) result["Thuộc tính bổ sung"] = parts[1];
       for (let i = 2; i < parts.length; i++) {
         result[`Thuộc tính ${i + 1}`] = parts[i];
       }
     } else {
-      result['Kích thước / Size'] = v.size;
+      result["Kích thước / Size"] = v.size;
     }
   }
   return result;
@@ -77,8 +86,10 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [currentImage, setCurrentImage] = useState<string>('');
-  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [currentImage, setCurrentImage] = useState<string>("");
+  const [selectedAttributes, setSelectedAttributes] = useState<
+    Record<string, string>
+  >({});
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
@@ -113,7 +124,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
           });
         }
 
-        setCurrentImage(prod.mainImage || (imageList[0] ?? ''));
+        setCurrentImage(prod.mainImage || (imageList[0] ?? ""));
 
         // Tự động chọn thuộc tính đầu tiên nếu có biến thể
         if (prod.variants && prod.variants.length > 0) {
@@ -135,17 +146,21 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
             size: 5,
           });
           if (relatedRes.data?.content) {
-            const filtered = relatedRes.data.content.filter((p) => p.id !== prod.id);
+            const filtered = relatedRes.data.content.filter(
+              (p) => p.id !== prod.id,
+            );
             setRelatedProducts(filtered.slice(0, 5));
           }
         } catch {
           // Bỏ qua lỗi sản phẩm liên quan
         }
       } else {
-        setError('Không tìm thấy thông tin sản phẩm.');
+        setError("Không tìm thấy thông tin sản phẩm.");
       }
     } catch {
-      setError('Đã xảy ra lỗi khi tải thông tin sản phẩm. Vui lòng thử lại sau.');
+      setError(
+        "Đã xảy ra lỗi khi tải thông tin sản phẩm. Vui lòng thử lại sau.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -190,12 +205,13 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     const map: Record<string, string> = {};
     if (!product) return map;
 
-    const fallbackImg = product.mainImage || '';
+    const fallbackImg = product.mainImage || "";
 
     if (product.variants) {
       product.variants.forEach((v) => {
         if (v.color && !map[v.color]) {
-          const vImg = v.images && v.images.length > 0 ? v.images[0] : fallbackImg;
+          const vImg =
+            v.images && v.images.length > 0 ? v.images[0] : fallbackImg;
           map[v.color] = vImg;
         }
       });
@@ -222,7 +238,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
       product.variants.find((v) => {
         const attrMap = parseVariantAttributes(v);
         return Object.entries(selectedAttributes).every(
-          ([groupName, val]) => attrMap[groupName] === val
+          ([groupName, val]) => attrMap[groupName] === val,
         );
       }) || product.variants[0]
     );
@@ -233,7 +249,11 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     const list: string[] = [];
 
     // Nếu biến thể được chọn có bộ ảnh riêng, ưu tiên chỉ hiển thị bộ ảnh của biến thể đó
-    if (selectedVariant && selectedVariant.images && selectedVariant.images.length > 0) {
+    if (
+      selectedVariant &&
+      selectedVariant.images &&
+      selectedVariant.images.length > 0
+    ) {
       selectedVariant.images.forEach((vImg) => {
         if (vImg && !list.includes(vImg)) list.push(vImg);
       });
@@ -247,7 +267,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
         if (img && !list.includes(img)) list.push(img);
       });
     }
-    return list.length > 0 ? list : [product?.mainImage || ''];
+    return list.length > 0 ? list : [product?.mainImage || ""];
   }, [product, selectedVariant]);
 
   // Tự động cập nhật currentImage sang ảnh đầu tiên của biến thể khi đổi chọn
@@ -260,17 +280,22 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   // Giá hiển thị thực tế
   const effectivePrice = selectedVariant?.price ?? product?.price ?? 0;
   const totalPrice = effectivePrice * quantity;
-  const effectiveStock = selectedVariant?.stockQuantity ?? product?.totalStock ?? 0;
-  const isOutOfStock = effectiveStock <= 0 || product?.status === 'out_of_stock';
+  const effectiveStock =
+    selectedVariant?.stockQuantity ?? product?.totalStock ?? 0;
+  const isOutOfStock =
+    effectiveStock <= 0 || product?.status === "out_of_stock";
 
   // Handler chọn thuộc tính bất kỳ theo Tên Nhóm & Giá trị
   const handleAttributeSelect = (groupName: string, value: string) => {
     setSelectedAttributes((prev) => {
       const next = { ...prev, [groupName]: value };
-      if (groupName.toLowerCase().includes('màu')) {
+      if (groupName.toLowerCase().includes("màu")) {
         setSelectedColor(value);
       }
-      if (groupName.toLowerCase().includes('size') || groupName.toLowerCase().includes('kích thước')) {
+      if (
+        groupName.toLowerCase().includes("size") ||
+        groupName.toLowerCase().includes("kích thước")
+      ) {
         setSelectedSize(value);
       }
 
@@ -290,12 +315,12 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
 
   // Chọn Màu sắc & Tự động đổi ảnh sang biến thể đó
   const handleColorSelect = (color: string) => {
-    handleAttributeSelect('Màu sắc', color);
+    handleAttributeSelect("Màu sắc", color);
   };
 
   // Chọn Kích thước
   const handleSizeSelect = (size: string) => {
-    handleAttributeSelect('Kích thước / Size', size);
+    handleAttributeSelect("Kích thước / Size", size);
   };
 
   // Click vào Thumbnail chọn ảnh Preview
@@ -319,7 +344,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   // Thêm vào giỏ hàng
   const handleAddToCart = async () => {
     if (isOutOfStock || !product) {
-      toast.error('Sản phẩm tạm thời hết hàng!');
+      // toast.error('Sản phẩm tạm thời hết hàng!');
       return;
     }
     await addToCart(product.id, selectedVariant?.id, quantity);
@@ -328,12 +353,12 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   // Mua ngay
   const handleBuyNow = async () => {
     if (isOutOfStock || !product) {
-      toast.error('Sản phẩm tạm thời hết hàng!');
+      // toast.error('Sản phẩm tạm thời hết hàng!');
       return;
     }
     const success = await addToCart(product.id, selectedVariant?.id, quantity);
     if (success) {
-      window.location.href = '/cart';
+      window.location.href = "/cart";
     }
   };
 

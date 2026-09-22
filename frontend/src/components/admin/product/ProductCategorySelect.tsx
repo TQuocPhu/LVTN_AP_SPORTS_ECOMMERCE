@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { CategoryResponse } from '@/types/category';
-import { Search, X, Check, ChevronDown, FolderTree } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { CategoryResponse } from "@/types/category";
+import { Search, X, Check, ChevronDown, FolderTree } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProductCategorySelectProps {
   categoryTree: CategoryResponse[];
@@ -26,26 +26,29 @@ export function ProductCategorySelect({
   onChange,
   error,
 }: ProductCategorySelectProps) {
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Flatten categories hierarchy into searchable list with breadcrumb paths
   const flattenedCategories = useMemo<FlattenedCategory[]>(() => {
     const result: FlattenedCategory[] = [];
 
-    const traverse = (items: CategoryResponse[], parentPath = '') => {
+    const traverse = (items: CategoryResponse[], parentPath = "") => {
       items.forEach((item) => {
         const path = parentPath ? `${parentPath} > ${item.name}` : item.name;
         const hasChildren = !!(item.children && item.children.length > 0);
@@ -72,8 +75,10 @@ export function ProductCategorySelect({
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return flattenedCategories;
     const query = searchQuery.toLowerCase().trim();
-    return flattenedCategories.filter((cat) =>
-      cat.path.toLowerCase().includes(query) || cat.name.toLowerCase().includes(query)
+    return flattenedCategories.filter(
+      (cat) =>
+        cat.path.toLowerCase().includes(query) ||
+        cat.name.toLowerCase().includes(query),
     );
   }, [flattenedCategories, searchQuery]);
 
@@ -87,10 +92,11 @@ export function ProductCategorySelect({
 
     // Rule: If user selects a parent category when its child is already selected -> Block & Warn
     const isParentOfAnySelected = flattenedCategories.some(
-      (child) => child.parentId === cat.id && selectedCategoryIds.includes(child.id)
+      (child) =>
+        child.parentId === cat.id && selectedCategoryIds.includes(child.id),
     );
     if (isParentOfAnySelected) {
-      toast.error(`Không thể chọn danh mục cha '${cat.name}' vì bạn đã chọn danh mục con của nó.`);
+      // toast.error(`Không thể chọn danh mục cha '${cat.name}' vì bạn đã chọn danh mục con của nó.`);
       return;
     }
 
@@ -98,12 +104,12 @@ export function ProductCategorySelect({
     let nextSelected = [...selectedCategoryIds];
     if (cat.parentId && nextSelected.includes(cat.parentId)) {
       nextSelected = nextSelected.filter((id) => id !== cat.parentId);
-      toast.success(`Đã chuyển sang danh mục con '${cat.name}'.`);
+      // toast.success(`Đã chuyển sang danh mục con '${cat.name}'.`);
     }
 
     nextSelected.push(cat.id);
     onChange(nextSelected);
-    setSearchQuery('');
+    setSearchQuery("");
   };
 
   const handleRemoveBadge = (id: number) => {
@@ -155,7 +161,7 @@ export function ProductCategorySelect({
           <ChevronDown
             onClick={() => setIsOpen(!isOpen)}
             className={`w-5 h-5 absolute right-3.5 text-slate-400 cursor-pointer transition-transform ${
-              isOpen ? 'rotate-180' : ''
+              isOpen ? "rotate-180" : ""
             }`}
           />
         </div>
@@ -176,12 +182,14 @@ export function ProductCategorySelect({
                     onClick={() => handleSelectCategory(cat)}
                     className={`p-3.5 text-sm flex items-center justify-between cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-orange-50 text-orange-600 font-bold'
-                        : 'hover:bg-slate-50 text-slate-700'
+                        ? "bg-orange-50 text-orange-600 font-bold"
+                        : "hover:bg-slate-50 text-slate-700"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <FolderTree className={`w-4 h-4 ${isSelected ? 'text-orange-500' : 'text-slate-400'}`} />
+                      <FolderTree
+                        className={`w-4 h-4 ${isSelected ? "text-orange-500" : "text-slate-400"}`}
+                      />
                       <span className="text-sm font-medium">{cat.path}</span>
                     </div>
 
@@ -198,7 +206,9 @@ export function ProductCategorySelect({
         )}
       </div>
 
-      {error && <p className="text-xs font-medium text-rose-500 mt-1">{error}</p>}
+      {error && (
+        <p className="text-xs font-medium text-rose-500 mt-1">{error}</p>
+      )}
     </div>
   );
 }

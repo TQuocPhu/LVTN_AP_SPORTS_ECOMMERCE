@@ -11,3 +11,18 @@ export function formatCurrency(amount: number | null | undefined): string {
     currency: 'VND',
   }).format(amount);
 }
+
+/**
+ * Helper định dạng Date thành chuỗi 'YYYY-MM-DDTHH:mm' theo đúng MÚI GIỜ ĐỊA PHƯƠNG của Trình duyệt (không bị lệch UTC -7h).
+ */
+export function formatToLocalDatetimeInput(dateInput?: string | Date | null): string {
+  if (!dateInput) return '';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}

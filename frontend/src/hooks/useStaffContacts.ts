@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Contact, ContactStatus } from '@/types/contact';
-import { contactController } from '@/controllers/contact-controller';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import { Contact, ContactStatus } from "@/types/contact";
+import { contactController } from "@/controllers/contact-controller";
+import { toast } from "sonner";
 
 export function useStaffContacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -11,28 +11,29 @@ export function useStaffContacts() {
   const [page, setPage] = useState<number>(0);
   const [pageSize] = useState<number>(10);
   const [totalElements, setTotalElements] = useState<number>(0);
-  const [keyword, setKeyword] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [sortDir, setSortDir] = useState<'DESC' | 'ASC'>('DESC');
+  const [keyword, setKeyword] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sortDir, setSortDir] = useState<"DESC" | "ASC">("DESC");
 
   // Modal & Reply States
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isReplyModalOpen, setIsReplyModalOpen] = useState<boolean>(false);
-  const [replyMessage, setReplyMessage] = useState<string>('');
+  const [replyMessage, setReplyMessage] = useState<string>("");
   const [replyLoading, setReplyLoading] = useState<boolean>(false);
-  const [replyError, setReplyError] = useState<string>('');
+  const [replyError, setReplyError] = useState<string>("");
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
     try {
-      const statusParam = statusFilter === 'ALL' ? undefined : (statusFilter as ContactStatus);
+      const statusParam =
+        statusFilter === "ALL" ? undefined : (statusFilter as ContactStatus);
       const res = await contactController.getContacts(
         keyword.trim() || undefined,
         statusParam,
         page,
         pageSize,
-        'createdAt',
-        sortDir
+        "createdAt",
+        sortDir,
       );
 
       if (res.data) {
@@ -52,45 +53,46 @@ export function useStaffContacts() {
 
   const handleOpenReplyModal = useCallback((contact: Contact) => {
     setSelectedContact(contact);
-    setReplyMessage(contact.replyMessage || '');
-    setReplyError('');
+    setReplyMessage(contact.replyMessage || "");
+    setReplyError("");
     setIsReplyModalOpen(true);
   }, []);
 
   const handleCloseReplyModal = useCallback(() => {
     setIsReplyModalOpen(false);
     setSelectedContact(null);
-    setReplyMessage('');
-    setReplyError('');
+    setReplyMessage("");
+    setReplyError("");
   }, []);
 
   const handleReplyMessageChange = useCallback((val: string) => {
     setReplyMessage(val);
-    setReplyError('');
+    setReplyError("");
   }, []);
 
   const handleSendReply = useCallback(async () => {
     if (!selectedContact) return;
 
-    const cleanReply = replyMessage ? replyMessage.trim() : '';
+    const cleanReply = replyMessage ? replyMessage.trim() : "";
     // Strip empty HTML tags from RichTextEditor like <p><br></p>, &nbsp;
     const strippedText = cleanReply
-      .replace(/<[^>]*>/g, '')
-      .replace(/&nbsp;/gi, ' ')
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/gi, " ")
       .trim();
 
     // Detect if content contains inline image tags (<img src=...)
     const hasImage = /<img\s+[^>]*src=/i.test(cleanReply);
 
     if (!strippedText && !hasImage) {
-      const msg = 'Vui lòng nhập nội dung câu trả lời hoặc chèn hình ảnh cho khách hàng.';
+      const msg =
+        "Vui lòng nhập nội dung câu trả lời hoặc chèn hình ảnh cho khách hàng.";
       setReplyError(msg);
-      toast.error(msg);
+      // toast.error(msg);
       return;
     }
 
     setReplyLoading(true);
-    setReplyError('');
+    setReplyError("");
 
     try {
       const res = await contactController.replyContact(selectedContact.id, {
@@ -98,15 +100,17 @@ export function useStaffContacts() {
       });
 
       if (res.data) {
-        toast.success('Đã gửi email phản hồi cho khách hàng thành công!');
+        // toast.success('Đã gửi email phản hồi cho khách hàng thành công!');
         handleCloseReplyModal();
         await fetchContacts();
       }
     } catch (err: unknown) {
-      const errorMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        || 'Có lỗi xảy ra khi gửi email phản hồi. Vui lòng thử lại.';
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ||
+        "Có lỗi xảy ra khi gửi email phản hồi. Vui lòng thử lại.";
       setReplyError(errorMsg);
-      toast.error(errorMsg);
+      // toast.error(errorMsg);
     } finally {
       setReplyLoading(false);
     }

@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { authController } from '@/controllers/auth-controller';
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { authController } from "@/controllers/auth-controller";
+import { toast } from "sonner";
 
 /**
  * Custom Hook quản lý state và business logic riêng biệt cho tính năng Đặt Lại Mật Khẩu.
@@ -10,16 +11,17 @@ import { authController } from '@/controllers/auth-controller';
  */
 export function useResetPassword() {
   const searchParams = useSearchParams();
-  const token = searchParams.get('token') || '';
-  const email = searchParams.get('email') || '';
+  const token = searchParams.get("token") || "";
+  const email = searchParams.get("email") || "";
 
   const [formData, setFormData] = useState({
-    newPassword: '',
-    confirmPassword: '',
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -35,28 +37,39 @@ export function useResetPassword() {
     setSuccessMessage(null);
 
     if (!email || !token) {
-      setError('Liên kết đặt lại mật khẩu không hợp lệ hoặc thiếu thông tin token/email.');
+      const msg =
+        "Liên kết đặt lại mật khẩu không hợp lệ hoặc thiếu thông tin token/email.";
+      setError(msg);
+      // toast.error(msg);
       return;
     }
 
     if (!formData.newPassword) {
-      setError('Mật khẩu mới không được để trống.');
+      const msg = "Mật khẩu mới không được để trống.";
+      setError(msg);
+      // toast.error(msg);
       return;
     }
 
     if (formData.newPassword.length < 8) {
-      setError('Mật khẩu mới phải chứa ít nhất 8 ký tự.');
+      const msg = "Mật khẩu mới phải chứa ít nhất 8 ký tự.";
+      setError(msg);
+      // toast.error(msg);
       return;
     }
 
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).+$/;
     if (!passwordRegex.test(formData.newPassword)) {
-      setError('Mật khẩu mới phải chứa ít nhất 1 chữ cái và 1 chữ số.');
+      const msg = "Mật khẩu mới phải chứa ít nhất 1 chữ cái và 1 chữ số.";
+      setError(msg);
+      // toast.error(msg);
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setError('Mật khẩu mới và xác nhận mật khẩu không trùng khớp.');
+      const msg = "Mật khẩu mới và xác nhận mật khẩu không trùng khớp.";
+      setError(msg);
+      // toast.error(msg);
       return;
     }
 
@@ -69,15 +82,21 @@ export function useResetPassword() {
         confirmPassword: formData.confirmPassword,
       });
 
-      setSuccessMessage(res.message || 'Đặt lại mật khẩu thành công!');
+      const msg = res.message || "Đặt lại mật khẩu thành công!";
+      setSuccessMessage(msg);
+      // toast.success(msg);
 
       // Tự động chuyển hướng về trang đăng nhập sau 1.5 giây
       setTimeout(() => {
-        window.location.href = '/login?reason=password_reset_success';
+        window.location.href = "/login?reason=password_reset_success";
       }, 1500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Đặt lại mật khẩu không thành công.';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Đặt lại mật khẩu không thành công.";
       setError(msg);
+      // toast.error(msg);
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { categoryController } from '@/controllers/category-controller';
 import { CategoryResponse, CreateCategoryRequest, UpdateCategoryRequest } from '@/types/category';
+import { toast } from 'sonner';
 
 interface UseCategoryFormProps {
   editingCategory?: CategoryResponse | null;
@@ -113,7 +114,7 @@ export function useCategoryForm({
 
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi khi lưu danh mục:', err);
     } finally {
       setSubmitting(false);

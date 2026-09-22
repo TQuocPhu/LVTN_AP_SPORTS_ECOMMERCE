@@ -1,14 +1,15 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { authController } from '@/controllers/auth-controller';
+import { useState } from "react";
+import { authController } from "@/controllers/auth-controller";
+import { toast } from "sonner";
 
 /**
  * Custom Hook quản lý state và business logic riêng biệt cho tính năng Quên Mật Khẩu.
  * Tuân thủ Clean Architecture: Tách biệt hoàn toàn Logic khỏi Component UI.
  */
 export function useForgotPassword() {
-  const [email, setEmail] = useState<string>('');
+  const [email, setEmail] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -25,17 +26,26 @@ export function useForgotPassword() {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setError('Vui lòng nhập địa chỉ email của bạn.');
+      setError("Vui lòng nhập địa chỉ email của bạn.");
+      // toast.error("Vui lòng nhập địa chỉ email của bạn.");
       return;
     }
 
     try {
       setLoading(true);
       const res = await authController.forgotPassword(trimmedEmail);
-      setSuccessMessage(res.message || 'Yêu cầu đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra hộp thư email của bạn.');
+      const msg =
+        res.message ||
+        "Yêu cầu đặt lại mật khẩu đã được gửi! Vui lòng kiểm tra hộp thư email của bạn.";
+      setSuccessMessage(msg);
+      // toast.success(msg);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi gửi yêu cầu đặt lại mật khẩu.';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Có lỗi xảy ra khi gửi yêu cầu đặt lại mật khẩu.";
       setError(msg);
+      // toast.error(msg);
     } finally {
       setLoading(false);
     }

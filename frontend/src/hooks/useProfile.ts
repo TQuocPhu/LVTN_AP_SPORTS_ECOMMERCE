@@ -5,6 +5,7 @@ import { profileController } from '@/controllers/profile-controller';
 import { UserProfile, UpdateProfileRequest, ChangePasswordRequest } from '@/types/profile';
 import { useAuth } from '@/hooks/useAuth';
 import { isApiError } from '@/services/api-client';
+import { toast } from 'sonner';
 
 export function useProfile() {
   const { refetchUser } = useAuth();

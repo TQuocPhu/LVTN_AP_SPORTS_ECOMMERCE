@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { categoryController } from '@/controllers/category-controller';
 import { CategoryResponse, CategoryFilterParams } from '@/types/category';
+import { toast } from 'sonner';
 
 export function useAdminCategories() {
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
@@ -149,7 +150,7 @@ export function useAdminCategories() {
       setDeletingCategory(null);
       fetchCategories();
       fetchRootCategories();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi khi xóa danh mục:', err);
     } finally {
       setActionLoading(false);

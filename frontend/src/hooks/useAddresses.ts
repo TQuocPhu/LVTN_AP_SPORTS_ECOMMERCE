@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { addressController } from '@/controllers/address-controller';
 import { ShippingAddress, ShippingAddressRequest } from '@/types/address';
 import { isApiError } from '@/services/api-client';
+import { toast } from 'sonner';
 
 export function useAddresses() {
   const [addresses, setAddresses] = useState<ShippingAddress[]>([]);

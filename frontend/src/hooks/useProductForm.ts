@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminProductController } from '@/controllers/admin-product-controller';
 import { ProductVariant, CreateProductFormRequest, UpdateProductFormRequest } from '@/types/product';
 import { isApiError } from '@/services/api-client';
+import { toast } from 'sonner';
 
 export interface SpecPair {
   key: string;
