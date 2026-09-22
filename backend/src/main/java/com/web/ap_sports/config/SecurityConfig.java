@@ -72,9 +72,11 @@ public class SecurityConfig {
                 .accessDeniedHandler(customAccessDeniedHandler())
             )
             .authorizeHttpRequests(auth -> auth
-                // 1. PermitAll: Auth Endpoints, Public Catalog, Handshake WebSocket /ws/**, H2 Console
+                // 1. PermitAll: Auth Endpoints, Public Catalog, Public Vouchers, Handshake WebSocket /ws/**, H2 Console
                 .requestMatchers(
                         "/api/v1/customer/contacts",
+                        "/api/v1/customer/vouchers",
+                        "/api/v1/customer/vouchers/**",
                         "/api/v1/admin/auth/login",
                         "/api/v1/customer/auth/register",
                         "/api/v1/customer/auth/activate",
