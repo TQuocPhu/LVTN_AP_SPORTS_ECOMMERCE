@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { productController } from '@/controllers/product-controller';
 import { Product, ProductDetail, ProductVariant } from '@/types/product';
+import { useCart } from '@/hooks/useCart';
 import { toast } from 'sonner';
 
 export interface UseProductDetailReturn {
@@ -27,8 +28,8 @@ export interface UseProductDetailReturn {
   handleSizeSelect: (size: string) => void;
   handleImageSelect: (imgUrl: string) => void;
   handleQuantityChange: (delta: number) => void;
-  handleAddToCart: () => void;
-  handleBuyNow: () => void;
+  handleAddToCart: () => Promise<void>;
+  handleBuyNow: () => Promise<void>;
   refetch: () => void;
 }
 
@@ -36,6 +37,7 @@ export interface UseProductDetailReturn {
  * Custom Hook quản lý State & Logic cho Trang Chi Tiết Sản Phẩm (7-layer Architecture)
  */
 export function useProductDetail(slug: string): UseProductDetailReturn {
+  const { addToCart } = useCart();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -232,24 +234,24 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   };
 
   // Thêm vào giỏ hàng
-  const handleAddToCart = () => {
-    if (isOutOfStock) {
+  const handleAddToCart = async () => {
+    if (isOutOfStock || !product) {
       toast.error('Sản phẩm tạm thời hết hàng!');
       return;
     }
-    const colorText = selectedColor ? ` - Màu: ${selectedColor}` : '';
-    const sizeText = selectedSize ? ` - Size: ${selectedSize}` : '';
-    const formattedTotal = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalPrice);
-    toast.success(`Đã thêm ${quantity} x "${product?.name}"${colorText}${sizeText} (${formattedTotal}) vào giỏ hàng!`);
+    await addToCart(product.id, selectedVariant?.id, quantity);
   };
 
   // Mua ngay
-  const handleBuyNow = () => {
-    if (isOutOfStock) {
+  const handleBuyNow = async () => {
+    if (isOutOfStock || !product) {
       toast.error('Sản phẩm tạm thời hết hàng!');
       return;
     }
-    handleAddToCart();
+    const success = await addToCart(product.id, selectedVariant?.id, quantity);
+    if (success) {
+      window.location.href = '/cart';
+    }
   };
 
   return {

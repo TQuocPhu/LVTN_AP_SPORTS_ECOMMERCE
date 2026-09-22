@@ -26,6 +26,7 @@ import NavbarSearchBar from "./NavbarSearchBar";
 
 import { useTheme } from "@/context/ThemeContext";
 import { useWishlist } from "@/hooks/useWishlist";
+import { useCart } from "@/hooks/useCart";
 
 /**
  * Component Thanh Navigation Header Master Shell Navbar.
@@ -36,7 +37,7 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { wishlistCount } = useWishlist();
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const { totalItems, isMiniCartOpen, openMiniCart, closeMiniCart } = useCart();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -139,14 +140,16 @@ export default function Navbar() {
 
             {/* Cart Icon */}
             <button
-              onClick={() => setIsCartOpen(true)}
+              onClick={openMiniCart}
               className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group"
               title="Giỏ hàng"
             >
               <ShoppingBag className="w-5 h-5" />
-              <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-current shadow-md">
-                2
-              </span>
+              {totalItems > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[11px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-current shadow-md">
+                  {totalItems}
+                </span>
+              )}
             </button>
 
             {/* User Account Dropdown */}
@@ -285,8 +288,8 @@ export default function Navbar() {
 
       {/* Mini Cart Drawer */}
       <MiniCartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
+        isOpen={isMiniCartOpen}
+        onClose={closeMiniCart}
       />
 
       {/* Logout Confirmation Modal */}
