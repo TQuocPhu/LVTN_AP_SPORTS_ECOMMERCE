@@ -1,11 +1,18 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { cartController } from '@/controllers/cart-controller';
-import { CartItem, CartSummary } from '@/types/cart';
-import { toast } from 'sonner';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { cartController } from "@/controllers/cart-controller";
+import { CartItem, CartSummary } from "@/types/cart";
+import { toast } from "sonner";
 
 interface CartContextType {
   cartSummary: CartSummary | null;
@@ -19,14 +26,18 @@ interface CartContextType {
   selectedTotalPrice: number;
   selectedTotalItems: number;
   isAllSelected: boolean;
-  
+
   // Actions
   openMiniCart: () => void;
   closeMiniCart: () => void;
   toggleMiniCart: () => void;
   toggleSelectItem: (cartItemId: number) => void;
   toggleSelectAll: () => void;
-  addToCart: (productId: number, variantId?: number | null, quantity?: number) => Promise<boolean>;
+  addToCart: (
+    productId: number,
+    variantId?: number | null,
+    quantity?: number,
+  ) => Promise<boolean>;
   updateQuantity: (cartItemId: number, newQuantity: number) => Promise<boolean>;
   removeItem: (cartItemId: number) => Promise<boolean>;
   clearCart: () => Promise<boolean>;
@@ -40,13 +51,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const [cartSummary, setCartSummary] = useState<CartSummary | null>(null);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMiniCartOpen, setIsMiniCartOpen] = useState<boolean>(false);
 
   const openMiniCart = useCallback(() => setIsMiniCartOpen(true), []);
   const closeMiniCart = useCallback(() => setIsMiniCartOpen(false), []);
-  const toggleMiniCart = useCallback(() => setIsMiniCartOpen((prev) => !prev), []);
+  const toggleMiniCart = useCallback(
+    () => setIsMiniCartOpen((prev) => !prev),
+    [],
+  );
 
   // Refresh cart from backend
   const refreshCart = useCallback(async () => {
@@ -130,11 +146,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Add to cart action with Auth Guard
   const addToCart = useCallback(
-    async (productId: number, variantId?: number | null, quantity = 1): Promise<boolean> => {
+    async (
+      productId: number,
+      variantId?: number | null,
+      quantity = 1,
+    ): Promise<boolean> => {
       if (!user) {
-        toast.error('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng!');
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/cart';
-        router.push(`/login?callbackUrl=${encodeURIComponent(currentPath)}&reason=login_required`);
+        // toast.error('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng!');
+        const currentPath =
+          typeof window !== "undefined" ? window.location.pathname : "/cart";
+        router.push(
+          `/login?callbackUrl=${encodeURIComponent(currentPath)}&reason=login_required`,
+        );
         return false;
       }
 
@@ -160,13 +183,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return false;
       } catch (err: unknown) {
         const errorMsg =
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Không thể thêm sản phẩm vào giỏ hàng';
-        toast.error(errorMsg);
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || "Không thể thêm sản phẩm vào giỏ hàng";
+        // toast.error(errorMsg);
         return false;
       }
     },
-    [user, router, refreshCart, openMiniCart]
+    [user, router, refreshCart, openMiniCart],
   );
 
   // Update quantity action
@@ -177,7 +200,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const res = await cartController.updateCartItem(cartItemId, { quantity: newQuantity });
+        const res = await cartController.updateCartItem(cartItemId, {
+          quantity: newQuantity,
+        });
         if (res.data) {
           await refreshCart();
           return true;
@@ -185,13 +210,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return false;
       } catch (err: unknown) {
         const errorMsg =
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Không thể cập nhật số lượng';
-        toast.error(errorMsg);
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || "Không thể cập nhật số lượng";
+        // toast.error(errorMsg);
         return false;
       }
     },
-    [refreshCart]
+    [refreshCart],
   );
 
   // Remove item action
@@ -208,13 +233,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return true;
       } catch (err: unknown) {
         const errorMsg =
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Không thể xóa sản phẩm khỏi giỏ hàng';
-        toast.error(errorMsg);
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || "Không thể xóa sản phẩm khỏi giỏ hàng";
+        // toast.error(errorMsg);
         return false;
       }
     },
-    [refreshCart]
+    [refreshCart],
   );
 
   // Clear cart action
@@ -226,9 +251,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (err: unknown) {
       const errorMsg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Không thể dọn dẹp giỏ hàng';
-      toast.error(errorMsg);
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Không thể dọn dẹp giỏ hàng";
+      // toast.error(errorMsg);
       return false;
     }
   }, [refreshCart]);
@@ -267,7 +292,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error("useCart must be used within a CartProvider");
   }
   return context;
 }

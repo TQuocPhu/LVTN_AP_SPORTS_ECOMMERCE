@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { VariantAttributeGroup } from '@/hooks/useProductForm';
-import { Plus, Trash2, Sparkles, X } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { VariantAttributeGroup } from "@/hooks/useProductForm";
+import { Plus, Trash2, Sparkles, X } from "lucide-react";
+import { toast } from "sonner";
 
 interface VariantAttributeManagerProps {
   attributeGroups: VariantAttributeGroup[];
@@ -20,33 +20,41 @@ export function VariantAttributeManager({
   onAddValue,
   onRemoveValue,
 }: VariantAttributeManagerProps) {
-  const [newGroupName, setNewGroupName] = useState<string>('');
+  const [newGroupName, setNewGroupName] = useState<string>("");
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   const handleAddValueClick = (groupId: string) => {
     const val = inputValues[groupId]?.trim();
     if (val) {
       onAddValue(groupId, val);
-      setInputValues((prev) => ({ ...prev, [groupId]: '' }));
+      setInputValues((prev) => ({ ...prev, [groupId]: "" }));
     }
   };
 
   const handleCreateGroupClick = () => {
     if (!newGroupName.trim()) {
-      toast.error('Vui lòng nhập tên thuộc tính (VD: Trọng lượng, Độ căng dây)...');
+      // toast.error('Vui lòng nhập tên thuộc tính (VD: Trọng lượng, Độ căng dây)...');
       return;
     }
     onAddGroup(newGroupName.trim());
-    setNewGroupName('');
+    setNewGroupName("");
   };
 
-  const presetSuggestions = ['Màu sắc', 'Kích thước / Size', 'Trọng lượng', 'Độ căng dây', 'Chất liệu', 'Phân loại'];
+  const presetSuggestions = [
+    "Màu sắc",
+    "Kích thước / Size",
+    "Trọng lượng",
+    "Độ căng dây",
+    "Chất liệu",
+    "Phân loại",
+  ];
 
   return (
     <div className="p-5 border border-slate-200 rounded-2xl space-y-5 bg-slate-50/50">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2 text-sm font-bold text-orange-600 uppercase tracking-wider">
-          <Sparkles className="w-5 h-5 text-orange-500" /> Trình sinh ma trận biến thể đa thuộc tính
+          <Sparkles className="w-5 h-5 text-orange-500" /> Trình sinh ma trận
+          biến thể đa thuộc tính
         </div>
 
         {/* Add New Attribute Group Controls */}
@@ -56,7 +64,10 @@ export function VariantAttributeManager({
             placeholder="Tên thuộc tính mới (VD: Trọng lượng)..."
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateGroupClick())}
+            onKeyDown={(e) =>
+              e.key === "Enter" &&
+              (e.preventDefault(), handleCreateGroupClick())
+            }
             className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
           />
           <button
@@ -73,7 +84,9 @@ export function VariantAttributeManager({
       <div className="flex items-center gap-2 flex-wrap text-xs">
         <span className="text-slate-400 font-medium">Gợi ý nhanh:</span>
         {presetSuggestions.map((preset) => {
-          const exists = attributeGroups.some((g) => g.name.toLowerCase() === preset.toLowerCase());
+          const exists = attributeGroups.some(
+            (g) => g.name.toLowerCase() === preset.toLowerCase(),
+          );
           if (exists) return null;
           return (
             <button
@@ -119,12 +132,16 @@ export function VariantAttributeManager({
               <input
                 type="text"
                 placeholder={`Nhập giá trị ${group.name} (rồi nhấn Thêm hoặc Enter)...`}
-                value={inputValues[group.id] || ''}
+                value={inputValues[group.id] || ""}
                 onChange={(e) =>
-                  setInputValues((prev) => ({ ...prev, [group.id]: e.target.value }))
+                  setInputValues((prev) => ({
+                    ...prev,
+                    [group.id]: e.target.value,
+                  }))
                 }
                 onKeyDown={(e) =>
-                  e.key === 'Enter' && (e.preventDefault(), handleAddValueClick(group.id))
+                  e.key === "Enter" &&
+                  (e.preventDefault(), handleAddValueClick(group.id))
                 }
                 className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20"
               />
@@ -140,7 +157,9 @@ export function VariantAttributeManager({
             {/* Render Value Tags */}
             <div className="flex flex-wrap gap-2 pt-1 min-h-[32px]">
               {group.values.length === 0 ? (
-                <span className="text-xs text-slate-400 italic">Chưa có giá trị nào được thêm...</span>
+                <span className="text-xs text-slate-400 italic">
+                  Chưa có giá trị nào được thêm...
+                </span>
               ) : (
                 group.values.map((val) => (
                   <span

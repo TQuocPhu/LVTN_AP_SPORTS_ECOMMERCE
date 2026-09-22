@@ -32,7 +32,7 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toast.success(`Đã thêm "${product.name}" vào giỏ hàng!`);
+    // toast.success(`Đã thêm "${product.name}" vào giỏ hàng!`);
   };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
@@ -45,7 +45,10 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
       mainImage: product.mainImage,
       price: product.price,
       unit: product.unit,
-      primaryCategoryName: product.primaryCategoryName || product.categories?.[0]?.name || "AP Sports",
+      primaryCategoryName:
+        product.primaryCategoryName ||
+        product.categories?.[0]?.name ||
+        "AP Sports",
     });
   };
 
@@ -55,9 +58,7 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
   const reviewsCount = product.reviewsCount || 12;
 
   return (
-    <div
-      className="ap-product-card group relative border hover:border-orange-500/50 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col justify-between h-full"
-    >
+    <div className="ap-product-card group relative border hover:border-orange-500/50 rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-xl flex flex-col justify-between h-full">
       {/* 1. Image Container */}
       <div className="ap-product-card-img-bg relative aspect-square w-full overflow-hidden">
         {product.mainImage ? (
@@ -69,7 +70,10 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
             className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ color: 'var(--text-muted)' }}>
+          <div
+            className="w-full h-full flex flex-col items-center justify-center gap-2"
+            style={{ color: "var(--text-muted)" }}
+          >
             <ShoppingBag className="w-10 h-10 stroke-[1.5]" />
             <span className="text-xs font-medium">Chưa có ảnh</span>
           </div>
@@ -117,13 +121,19 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
       {/* 2. Product Info */}
       <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-muted)' }}>
+          <div
+            className="flex items-center justify-between text-xs"
+            style={{ color: "var(--text-muted)" }}
+          >
             <span className="flex items-center gap-1 text-[11px]">
               <Check className="w-3 h-3 text-emerald-500" />
               <span>Sẵn hàng</span>
             </span>
             <div className="flex items-center gap-1 text-amber-500 text-[11px]">
-              <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>
+              <span
+                className="text-[10px]"
+                style={{ color: "var(--text-faint)" }}
+              >
                 ({reviewsCount} đánh giá)
               </span>
             </div>
@@ -132,7 +142,7 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
           <Link
             href={`/products/${product.slug || product.id}`}
             className="font-bold text-sm group-hover:text-orange-500 line-clamp-2 transition-colors min-h-[2.5rem] block"
-            style={{ color: 'var(--text-primary)' }}
+            style={{ color: "var(--text-primary)" }}
             title={product.name}
           >
             {product.name}
@@ -140,13 +150,21 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
         </div>
 
         {/* 3. Price & CTA */}
-        <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--card-footer-border, var(--bg-border-subtle))' }}>
+        <div
+          className="pt-3 border-t flex items-center justify-between"
+          style={{
+            borderColor: "var(--card-footer-border, var(--bg-border-subtle))",
+          }}
+        >
           <div>
             <div className="text-base font-extrabold text-orange-600 dark:text-orange-400">
               {formattedPrice}
             </div>
             {formattedOriginalPrice && (
-              <div className="text-xs line-through -mt-0.5" style={{ color: 'var(--text-faint)' }}>
+              <div
+                className="text-xs line-through -mt-0.5"
+                style={{ color: "var(--text-faint)" }}
+              >
                 {formattedOriginalPrice}
               </div>
             )}

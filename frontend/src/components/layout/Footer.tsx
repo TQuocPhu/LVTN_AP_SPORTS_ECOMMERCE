@@ -62,13 +62,14 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Cột 3: Hỗ Trợ */}
+        {/* Cột 3: Hỗ Trợ & Ưu Đãi */}
         <div>
           <h4 className="text-sm font-bold uppercase tracking-wider mb-4 border-l-2 border-orange-500 pl-2" style={{ color: 'var(--text-primary)' }}>
-            HỖ TRỢ KHÁCH HÀNG
+            HỖ TRỢ & KHUYẾN MÃI
           </h4>
           <ul className="space-y-2.5 text-xs">
             {[
+              { href: '/vouchers', label: 'Kho Voucher Ưu Đãi' },
               { href: '/faq', label: 'Câu hỏi thường gặp (FAQ)' },
               { href: '/shipping-policy', label: 'Chính sách giao hàng' },
               { href: '/return-policy', label: 'Chính sách đổi trả 30 ngày' },

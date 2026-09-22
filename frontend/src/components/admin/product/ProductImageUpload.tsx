@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import React, { useRef, useState } from 'react';
-import { UploadCloud, X, Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useRef, useState } from "react";
+import { UploadCloud, X, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 interface ProductImageUploadProps {
   // Single image mode
@@ -32,12 +32,12 @@ export function ProductImageUpload({
 
   const readFileAsDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      if (!file.type.startsWith('image/')) {
-        reject(new Error('Tệp không phải là hình ảnh'));
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Tệp không phải là hình ảnh"));
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
-        reject(new Error('Kích thước ảnh vượt quá 10MB'));
+        reject(new Error("Kích thước ảnh vượt quá 10MB"));
         return;
       }
       const reader = new FileReader();
@@ -56,17 +56,17 @@ export function ProductImageUpload({
         const url = await readFileAsDataUrl(file);
         if (url) validDataUrls.push(url);
       } catch (err: any) {
-        toast.error(err.message || 'Lỗi đọc tệp ảnh');
+        // toast.error(err.message || "Lỗi đọc tệp ảnh");
       }
     }
 
     if (validDataUrls.length > 0) {
       if (multiple && onImagesChange) {
         onImagesChange([...images, ...validDataUrls]);
-        toast.success(`Đã thêm ${validDataUrls.length} hình ảnh!`);
+        // toast.success(`Đã thêm ${validDataUrls.length} hình ảnh!`);
       } else if (onChange) {
         onChange(validDataUrls[0]);
-        toast.success('Đã chọn hình ảnh thành công!');
+        // toast.success('Đã chọn hình ảnh thành công!');
       }
     }
   };
@@ -97,8 +97,8 @@ export function ProductImageUpload({
 
   const handleRemoveSingle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onChange) onChange('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (onChange) onChange("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleRemoveMultiIndex = (index: number) => {
@@ -217,8 +217,12 @@ export function ProductImageUpload({
             className="w-24 h-24 object-cover rounded-xl border border-slate-200 shadow-inner"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-800 line-clamp-1">Tệp ảnh đã được tải lên</p>
-            <p className="text-xs text-emerald-600 font-semibold mt-0.5">Sẵn sàng lưu sản phẩm</p>
+            <p className="text-sm font-bold text-slate-800 line-clamp-1">
+              Tệp ảnh đã được tải lên
+            </p>
+            <p className="text-xs text-emerald-600 font-semibold mt-0.5">
+              Sẵn sàng lưu sản phẩm
+            </p>
             <div className="flex gap-3 mt-2.5">
               <button
                 type="button"
@@ -246,8 +250,8 @@ export function ProductImageUpload({
           onDrop={handleDrop}
           className={`border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all ${
             isDragging
-              ? 'border-orange-500 bg-orange-50/50 scale-[1.01]'
-              : 'border-slate-300 hover:border-orange-400 bg-slate-50/60 hover:bg-orange-50/20'
+              ? "border-orange-500 bg-orange-50/50 scale-[1.01]"
+              : "border-slate-300 hover:border-orange-400 bg-slate-50/60 hover:bg-orange-50/20"
           }`}
         >
           <div className="w-14 h-14 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-3">

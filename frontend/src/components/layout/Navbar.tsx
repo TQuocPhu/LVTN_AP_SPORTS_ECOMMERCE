@@ -19,6 +19,8 @@ import {
   X,
   Sun,
   Moon,
+  Gift,
+  Info,
 } from "lucide-react";
 import MiniCartDrawer from "./MiniCartDrawer";
 import ConfirmLogoutModal from "@/components/ui/ConfirmLogoutModal";
@@ -30,7 +32,7 @@ import { useCart } from "@/hooks/useCart";
 
 /**
  * Component Thanh Navigation Header Master Shell Navbar.
- * Đầy đủ Logo AP Sports, Link Sản phẩm trực tiếp, Cart Icon, User Avatar Dropdown và Mobile Responsive.
+ * Đầy đủ Logo AP Sports, Link Sản phẩm trực tiếp, Dropdown Giới thiệu & Khuyến Mãi, Cart Icon, User Avatar Dropdown và Mobile Responsive.
  */
 export default function Navbar() {
   const pathname = usePathname();
@@ -40,6 +42,7 @@ export default function Navbar() {
   const { totalItems, isMiniCartOpen, openMiniCart, closeMiniCart } = useCart();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [isAboutDropdownOpen, setIsAboutDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   // Không hiển thị Navbar trang bán hàng khi ở các route quản trị /admin
@@ -80,29 +83,82 @@ export default function Navbar() {
 
           {/* 2. Nav Links (Desktop) */}
           <nav className="hidden md:flex items-center space-x-8">
-            {[
-              { href: "/", label: "Trang Chủ" },
-              { href: "/products", label: "Sản Phẩm" },
-              { href: "/about", label: "Giới Thiệu" },
-              { href: "/contact", label: "Liên Hệ" },
-            ].map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`text-sm font-bold transition-colors py-2 nav-link ${
-                  pathname === link.href
+            <Link
+              href="/"
+              className={`text-sm font-bold transition-colors py-2 nav-link ${
+                pathname === "/" ? "text-orange-500" : "hover:text-orange-400"
+              }`}
+            >
+              Trang Chủ
+            </Link>
+
+            <Link
+              href="/products"
+              className={`text-sm font-bold transition-colors py-2 nav-link ${
+                pathname === "/products" ? "text-orange-500" : "hover:text-orange-400"
+              }`}
+            >
+              Sản Phẩm
+            </Link>
+
+            {/* Dropdown Giới Thiệu (Bao gồm Về AP Sports & Khuyến Mãi) */}
+            <div
+              className="relative py-2"
+              onMouseEnter={() => setIsAboutDropdownOpen(true)}
+              onMouseLeave={() => setIsAboutDropdownOpen(false)}
+            >
+              <button
+                className={`text-sm font-bold transition-colors py-2 flex items-center gap-1 nav-link ${
+                  pathname === "/about" || pathname === "/vouchers"
                     ? "text-orange-500"
                     : "hover:text-orange-400"
                 }`}
               >
-                {link.label}
-              </Link>
-            ))}
+                <span>Giới Thiệu</span>
+                <ChevronDown className="w-4 h-4 opacity-70" />
+              </button>
+
+              {/* Dropdown Submenu Giới Thiệu */}
+              {isAboutDropdownOpen && (
+                <div className="absolute top-full left-0 pt-2 w-56 z-50 animate-fade-in">
+                  <div className="nav-dropdown border rounded-2xl shadow-2xl p-2 space-y-1">
+                    <Link
+                      href="/about"
+                      onClick={() => setIsAboutDropdownOpen(false)}
+                      className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
+                      style={{ color: "var(--nav-text)" }}
+                    >
+                      <Info className="w-4 h-4 text-orange-400" />
+                      <span>Giới Thiệu AP Sports</span>
+                    </Link>
+
+                    <Link
+                      href="/vouchers"
+                      onClick={() => setIsAboutDropdownOpen(false)}
+                      className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
+                      style={{ color: "var(--nav-text)" }}
+                    >
+                      <Gift className="w-4 h-4 text-amber-500" />
+                      <span>Chương Trình Khuyến Mãi</span>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Link
+              href="/contact"
+              className={`text-sm font-bold transition-colors py-2 nav-link ${
+                pathname === "/contact" ? "text-orange-500" : "hover:text-orange-400"
+              }`}
+            >
+              Liên Hệ
+            </Link>
           </nav>
 
-          {/* 3. Right Side: Search, Theme, Cart, User */}
-          <div className="flex items-center space-x-3 sm:space-x-4">
-            {/* Search Bar */}
+          {/* 3. Right Side: Search, Theme, Cart, User (Giãn khoảng cách space-x-5 sm:space-x-6 như cũ) */}
+          <div className="flex items-center space-x-5 sm:space-x-6">
+            {/* Search Bar (Độ rộng thu gọn w-48 ... lg:w-64) */}
             <div className="hidden sm:block">
               <NavbarSearchBar />
             </div>
@@ -110,7 +166,7 @@ export default function Navbar() {
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="nav-icon-btn p-2.5 rounded-xl border transition-colors shadow"
+              className="nav-icon-btn p-2.5 rounded-xl border transition-colors shadow cursor-pointer"
               title={
                 theme === "dark"
                   ? "Đang ở chế độ Tối (Dark Mode)"
@@ -127,7 +183,7 @@ export default function Navbar() {
             {/* Wishlist Icon */}
             <Link
               href="/wishlist"
-              className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group flex items-center justify-center"
+              className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group flex items-center justify-center cursor-pointer"
               title="Danh sách yêu thích"
             >
               <Heart className="w-5 h-5 group-hover:text-rose-500 transition-colors" />
@@ -141,7 +197,7 @@ export default function Navbar() {
             {/* Cart Icon */}
             <button
               onClick={openMiniCart}
-              className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group"
+              className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group cursor-pointer"
               title="Giỏ hàng"
             >
               <ShoppingBag className="w-5 h-5" />
@@ -158,7 +214,7 @@ export default function Navbar() {
               onMouseEnter={() => setIsUserDropdownOpen(true)}
               onMouseLeave={() => setIsUserDropdownOpen(false)}
             >
-              <button className="nav-icon-btn flex items-center space-x-2.5 p-1.5 pl-2.5 pr-3 rounded-xl border transition-colors">
+              <button className="nav-icon-btn flex items-center space-x-2.5 p-1.5 pl-2.5 pr-3 rounded-xl border transition-colors cursor-pointer">
                 {user ? (
                   <div className="flex items-center space-x-2">
                     {user.avatar ? (
@@ -188,7 +244,7 @@ export default function Navbar() {
                 <ChevronDown className="w-3.5 h-3.5 opacity-60" />
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Dropdown Menu User */}
               {isUserDropdownOpen && (
                 <div className="absolute top-full right-0 pt-2 w-56 z-50 animate-fade-in">
                   <div className="nav-dropdown border rounded-2xl shadow-2xl p-2 space-y-1">
@@ -219,7 +275,7 @@ export default function Navbar() {
                             setIsUserDropdownOpen(false);
                             setIsLogoutModalOpen(true);
                           }}
-                          className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                          className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
                         >
                           <LogOut className="w-4 h-4" />
                           <span>Đăng xuất</span>
@@ -252,7 +308,7 @@ export default function Navbar() {
             {/* Mobile Hamburger */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="nav-icon-btn md:hidden p-2.5 rounded-xl border"
+              className="nav-icon-btn md:hidden p-2.5 rounded-xl border cursor-pointer"
             >
               {isMobileMenuOpen ? (
                 <X className="w-5 h-5" />
@@ -269,7 +325,8 @@ export default function Navbar() {
             {[
               { href: "/", label: "Trang Chủ" },
               { href: "/products", label: "Sản Phẩm" },
-              { href: "/about", label: "Giới Thiệu" },
+              { href: "/about", label: "Giới Thiệu AP Sports" },
+              { href: "/vouchers", label: "Chương Trình Khuyến Mãi" },
               { href: "/contact", label: "Liên Hệ" },
             ].map((link) => (
               <Link

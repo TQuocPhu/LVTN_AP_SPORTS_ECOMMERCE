@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useAdminProducts } from '@/hooks/useAdminProducts';
-import { useCategories } from '@/hooks/useCategories';
-import { adminProductController } from '@/controllers/admin-product-controller';
-import { ProductDetail } from '@/types/product';
-import { ProductFilterBar } from '@/components/admin/product/ProductFilterBar';
-import { ProductTable } from '@/components/admin/product/ProductTable';
-import { ProductPagination } from '@/components/admin/product/ProductPagination';
-import { ProductVariantDrawer } from '@/components/admin/product/ProductVariantDrawer';
-import { ProductDescriptionModal } from '@/components/admin/product/ProductDescriptionModal';
-import { ProductDeleteModal } from '@/components/admin/product/ProductDeleteModal';
-import { Plus, RefreshCw, Package } from 'lucide-react';
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import Link from "next/link";
+import { useAdminProducts } from "@/hooks/useAdminProducts";
+import { useCategories } from "@/hooks/useCategories";
+import { adminProductController } from "@/controllers/admin-product-controller";
+import { ProductDetail } from "@/types/product";
+import { ProductFilterBar } from "@/components/admin/product/ProductFilterBar";
+import { ProductTable } from "@/components/admin/product/ProductTable";
+import { ProductPagination } from "@/components/admin/product/ProductPagination";
+import { ProductVariantDrawer } from "@/components/admin/product/ProductVariantDrawer";
+import { ProductDescriptionModal } from "@/components/admin/product/ProductDescriptionModal";
+import { ProductDeleteModal } from "@/components/admin/product/ProductDeleteModal";
+import { Plus, RefreshCw, Package } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminProductsPage() {
   const {
@@ -32,11 +32,15 @@ export default function AdminProductsPage() {
   const { categoryTree } = useCategories();
 
   // Selected Detail States for Drawers & Modals
-  const [selectedVariantDetail, setSelectedVariantDetail] = useState<ProductDetail | null>(null);
-  const [isVariantDrawerOpen, setIsVariantDrawerOpen] = useState<boolean>(false);
+  const [selectedVariantDetail, setSelectedVariantDetail] =
+    useState<ProductDetail | null>(null);
+  const [isVariantDrawerOpen, setIsVariantDrawerOpen] =
+    useState<boolean>(false);
 
-  const [selectedDescriptionDetail, setSelectedDescriptionDetail] = useState<ProductDetail | null>(null);
-  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState<boolean>(false);
+  const [selectedDescriptionDetail, setSelectedDescriptionDetail] =
+    useState<ProductDetail | null>(null);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] =
+    useState<boolean>(false);
 
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
 
@@ -49,7 +53,7 @@ export default function AdminProductsPage() {
         setIsVariantDrawerOpen(true);
       }
     } catch (err) {
-      toast.error('Không thể tải chi tiết biến thể sản phẩm');
+      // toast.error('Không thể tải chi tiết biến thể sản phẩm');
     }
   };
 
@@ -62,16 +66,16 @@ export default function AdminProductsPage() {
         setIsDescriptionModalOpen(true);
       }
     } catch (err) {
-      toast.error('Không thể tải thông tin mô tả sản phẩm');
+      // toast.error('Không thể tải thông tin mô tả sản phẩm');
     }
   };
 
   const handleToggleStatus = async (id: number) => {
     try {
       await toggleStatus(id);
-      toast.success('Đã cập nhật trạng thái sản phẩm!');
+      // toast.success('Đã cập nhật trạng thái sản phẩm!');
     } catch (err) {
-      toast.error('Cập nhật trạng thái thất bại!');
+      // toast.error('Cập nhật trạng thái thất bại!');
     }
   };
 
@@ -79,10 +83,10 @@ export default function AdminProductsPage() {
     if (!deleteTargetId) return;
     try {
       await deleteProduct(deleteTargetId);
-      toast.success('Xóa sản phẩm thành công!');
+      // toast.success('Xóa sản phẩm thành công!');
       setDeleteTargetId(null);
     } catch (err) {
-      toast.error('Xóa sản phẩm thất bại!');
+      // toast.error("Xóa sản phẩm thất bại!");
     }
   };
 
@@ -98,7 +102,8 @@ export default function AdminProductsPage() {
             </h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Quản lý danh mục, biến thể size/màu, giá bán, tồn kho và mô tả sản phẩm AP Sports.
+            Quản lý danh mục, biến thể size/màu, giá bán, tồn kho và mô tả sản
+            phẩm AP Sports.
           </p>
         </div>
 
@@ -109,7 +114,7 @@ export default function AdminProductsPage() {
             className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors disabled:opacity-50"
             title="Làm mới danh sách"
           >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
           </button>
 
           <Link

@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { wishlistController } from '@/controllers/wishlist-controller';
-import { WishlistResponse } from '@/types/wishlist';
-import { toast } from 'sonner';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { wishlistController } from "@/controllers/wishlist-controller";
+import { WishlistResponse } from "@/types/wishlist";
+import { toast } from "sonner";
 
 interface WishlistContextType {
   wishlistProductIds: Set<number>;
@@ -12,25 +18,32 @@ interface WishlistContextType {
   wishlistCount: number;
   isLoading: boolean;
   isInWishlist: (productId: number) => boolean;
-  toggleWishlist: (productId: number, productDetails?: Partial<WishlistResponse>) => Promise<boolean>;
+  toggleWishlist: (
+    productId: number,
+    productDetails?: Partial<WishlistResponse>,
+  ) => Promise<boolean>;
   removeFromWishlist: (productId: number) => Promise<void>;
   refreshWishlist: () => Promise<void>;
 }
 
-const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
+const WishlistContext = createContext<WishlistContextType | undefined>(
+  undefined,
+);
 
-const LOCAL_STORAGE_WISHLIST_KEY = 'ap_sports_guest_wishlist_ids';
-const LOCAL_STORAGE_WISHLIST_ITEMS = 'ap_sports_guest_wishlist_items';
+const LOCAL_STORAGE_WISHLIST_KEY = "ap_sports_guest_wishlist_ids";
+const LOCAL_STORAGE_WISHLIST_ITEMS = "ap_sports_guest_wishlist_items";
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [wishlistProductIds, setWishlistProductIds] = useState<Set<number>>(new Set());
+  const [wishlistProductIds, setWishlistProductIds] = useState<Set<number>>(
+    new Set(),
+  );
   const [wishlistItems, setWishlistItems] = useState<WishlistResponse[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Read LocalStorage for guest users
   const loadGuestWishlist = useCallback(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     try {
       const savedIds = localStorage.getItem(LOCAL_STORAGE_WISHLIST_KEY);
       const savedItems = localStorage.getItem(LOCAL_STORAGE_WISHLIST_ITEMS);
@@ -79,12 +92,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     (productId: number): boolean => {
       return wishlistProductIds.has(productId);
     },
-    [wishlistProductIds]
+    [wishlistProductIds],
   );
 
   const toggleWishlist = async (
     productId: number,
-    productDetails?: Partial<WishlistResponse>
+    productDetails?: Partial<WishlistResponse>,
   ): Promise<boolean> => {
     const isCurrentlyFav = wishlistProductIds.has(productId);
     const newFavState = !isCurrentlyFav;
@@ -98,10 +111,10 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
         if (statusData?.isFavorite) {
           updatedIds.add(productId);
-          toast.success('Đã thêm sản phẩm vào danh sách yêu thích!');
+          // toast.success('Đã thêm sản phẩm vào danh sách yêu thích!');
         } else {
           updatedIds.delete(productId);
-          toast.info('Đã xóa sản phẩm khỏi danh sách yêu thích.');
+          toast.info("Đã xóa sản phẩm khỏi danh sách yêu thích.");
         }
         setWishlistProductIds(updatedIds);
 
@@ -112,8 +125,10 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
         }
         return statusData?.isFavorite ?? newFavState;
       } catch (err: unknown) {
-        const errorMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Lỗi khi tương tác danh sách yêu thích';
-        toast.error(errorMsg);
+        const errorMsg =
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || "Lỗi khi tương tác danh sách yêu thích";
+        // toast.error(errorMsg);
         return isCurrentlyFav;
       }
     } else {
@@ -127,31 +142,41 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           const newItem: WishlistResponse = {
             id: Date.now(),
             productId,
-            name: productDetails.name || 'Sản phẩm AP Sports',
-            slug: productDetails.slug || '',
-            mainImage: productDetails.mainImage || '',
+            name: productDetails.name || "Sản phẩm AP Sports",
+            slug: productDetails.slug || "",
+            mainImage: productDetails.mainImage || "",
             price: productDetails.price || 0,
             salePrice: productDetails.salePrice,
-            unit: productDetails.unit || 'sản phẩm',
+            unit: productDetails.unit || "sản phẩm",
             inStock: productDetails.inStock !== false,
-            primaryCategoryName: productDetails.primaryCategoryName || 'AP Sports',
+            primaryCategoryName:
+              productDetails.primaryCategoryName || "AP Sports",
             addedAt: new Date().toISOString(),
           };
-          updatedItems = [newItem, ...updatedItems.filter((i) => i.productId !== productId)];
+          updatedItems = [
+            newItem,
+            ...updatedItems.filter((i) => i.productId !== productId),
+          ];
         }
-        toast.success('Đã thêm vào danh sách yêu thích!');
+        // toast.success('Đã thêm vào danh sách yêu thích!');
       } else {
         updatedIds.delete(productId);
         updatedItems = updatedItems.filter((i) => i.productId !== productId);
-        toast.info('Đã xóa khỏi danh sách yêu thích.');
+        toast.info("Đã xóa khỏi danh sách yêu thích.");
       }
 
       setWishlistProductIds(updatedIds);
       setWishlistItems(updatedItems);
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(LOCAL_STORAGE_WISHLIST_KEY, JSON.stringify(Array.from(updatedIds)));
-        localStorage.setItem(LOCAL_STORAGE_WISHLIST_ITEMS, JSON.stringify(updatedItems));
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          LOCAL_STORAGE_WISHLIST_KEY,
+          JSON.stringify(Array.from(updatedIds)),
+        );
+        localStorage.setItem(
+          LOCAL_STORAGE_WISHLIST_ITEMS,
+          JSON.stringify(updatedItems),
+        );
       }
 
       return newFavState;
@@ -191,7 +216,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 export function useWishlist() {
   const context = useContext(WishlistContext);
   if (!context) {
-    throw new Error('useWishlist must be used within a WishlistProvider');
+    throw new Error("useWishlist must be used within a WishlistProvider");
   }
   return context;
 }

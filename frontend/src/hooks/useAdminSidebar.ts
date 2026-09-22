@@ -14,6 +14,7 @@ import {
   BarChart3,
   Building2,
   Mail,
+  Tag,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -67,6 +68,13 @@ export function useAdminSidebar() {
       icon: FolderTree,
       permission: 'MANAGE_CATEGORIES',
       allowedRoles: ['ADMIN'],
+    },
+    {
+      title: 'Quản Lý Mã Giảm Giá',
+      href: '/admin/vouchers',
+      icon: Tag,
+      permission: 'MANAGE_VOUCHERS',
+      allowedRoles: ['ADMIN', 'STAFF'],
     },
     {
       title: 'Quản Lý Đơn Hàng',

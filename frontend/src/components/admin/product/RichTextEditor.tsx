@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from "react";
 import {
   Bold,
   Italic,
@@ -14,8 +14,8 @@ import {
   Undo,
   Redo,
   Type,
-} from 'lucide-react';
-import { toast } from 'sonner';
+} from "lucide-react";
+import { toast } from "sonner";
 
 interface RichTextEditorProps {
   value: string;
@@ -23,17 +23,24 @@ interface RichTextEditorProps {
   error?: string;
 }
 
-export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  error,
+}: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || '';
+      editorRef.current.innerHTML = value || "";
     }
   }, [value]);
 
-  const execCommand = (command: string, arg: string | undefined = undefined) => {
+  const execCommand = (
+    command: string,
+    arg: string | undefined = undefined,
+  ) => {
     document.execCommand(command, false, arg);
     if (editorRef.current) {
       onChange(editorRef.current.innerHTML);
@@ -43,7 +50,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
   const handleFontSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (val) {
-      execCommand('fontSize', val);
+      execCommand("fontSize", val);
     }
   };
 
@@ -51,8 +58,8 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
     const files = e.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      if (!file.type.startsWith('image/')) {
-        toast.error('Tệp được chọn không phải là hình ảnh!');
+      if (!file.type.startsWith("image/")) {
+        // toast.error("Tệp được chọn không phải là hình ảnh!");
         return;
       }
 
@@ -60,8 +67,8 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
         if (dataUrl) {
-          execCommand('insertImage', dataUrl);
-          toast.success('Đã chèn ảnh vào nội dung mô tả!');
+          execCommand("insertImage", dataUrl);
+          // toast.success('Đã chèn ảnh vào nội dung mô tả!');
         }
       };
       reader.readAsDataURL(file);
@@ -69,9 +76,9 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
   };
 
   const handleInsertLink = () => {
-    const url = prompt('Nhập URL liên kết:');
+    const url = prompt("Nhập URL liên kết:");
     if (url) {
-      execCommand('createLink', url);
+      execCommand("createLink", url);
     }
   };
 
@@ -113,7 +120,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           {/* Text Formatting */}
           <button
             type="button"
-            onClick={() => execCommand('bold')}
+            onClick={() => execCommand("bold")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="In đậm (Ctrl+B)"
           >
@@ -121,7 +128,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           </button>
           <button
             type="button"
-            onClick={() => execCommand('italic')}
+            onClick={() => execCommand("italic")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="In nghiêng (Ctrl+I)"
           >
@@ -129,7 +136,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           </button>
           <button
             type="button"
-            onClick={() => execCommand('underline')}
+            onClick={() => execCommand("underline")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Gạch chân (Ctrl+U)"
           >
@@ -141,7 +148,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           {/* Headings */}
           <button
             type="button"
-            onClick={() => execCommand('formatBlock', '<h1>')}
+            onClick={() => execCommand("formatBlock", "<h1>")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Tiêu đề H1"
           >
@@ -149,7 +156,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           </button>
           <button
             type="button"
-            onClick={() => execCommand('formatBlock', '<h2>')}
+            onClick={() => execCommand("formatBlock", "<h2>")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Tiêu đề H2"
           >
@@ -161,7 +168,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           {/* Lists */}
           <button
             type="button"
-            onClick={() => execCommand('insertUnorderedList')}
+            onClick={() => execCommand("insertUnorderedList")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Danh sách dấu chấm"
           >
@@ -169,7 +176,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           </button>
           <button
             type="button"
-            onClick={() => execCommand('insertOrderedList')}
+            onClick={() => execCommand("insertOrderedList")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Danh sách số"
           >
@@ -201,7 +208,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           {/* Undo/Redo */}
           <button
             type="button"
-            onClick={() => execCommand('undo')}
+            onClick={() => execCommand("undo")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Hoàn tác (Ctrl+Z)"
           >
@@ -209,7 +216,7 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           </button>
           <button
             type="button"
-            onClick={() => execCommand('redo')}
+            onClick={() => execCommand("redo")}
             className="p-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
             title="Làm lại (Ctrl+Y)"
           >
@@ -225,7 +232,9 @@ export function RichTextEditor({ value, onChange, error }: RichTextEditorProps) 
           className="min-h-[260px] p-4 text-base text-slate-800 focus:outline-none prose max-w-none"
         />
       </div>
-      {error && <p className="text-sm font-semibold text-rose-500 mt-1">{error}</p>}
+      {error && (
+        <p className="text-sm font-semibold text-rose-500 mt-1">{error}</p>
+      )}
     </div>
   );
 }
