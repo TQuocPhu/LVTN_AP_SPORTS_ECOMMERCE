@@ -1,29 +1,70 @@
-import { ApiResponse } from '@/types/api';
-import { UserCreateRequest, UserResponse } from '@/types/user';
+import { apiClient, ApiResponse } from '@/services/api-client';
+import {
+  UserAccount,
+  UserFilterParams,
+  CreateStaffFormData,
+  UserPageResponse,
+  UserStatus,
+} from '@/types/user-management';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
-
+/**
+ * Controller phụ trách gọi REST API giao tiếp với Backend cho Phân Hệ Quản lý Tài Khoản Người Dùng.
+ * Phân chia minh bạch theo kiến trúc 4 tầng: pages -> components -> hooks -> controller (FE).
+ */
 export const userController = {
-  async getAllUsers(): Promise<UserResponse[]> {
-    const res = await fetch(`${API_BASE}/v1/users`, { cache: 'no-store' });
-    const result: ApiResponse<UserResponse[]> = await res.json();
-    if (!res.ok || !result.success) {
-      throw new Error(result.message || 'Không thể lấy danh sách người dùng');
-    }
-    return result.data;
+  /**
+   * Lấy danh sách tài khoản phía Admin có phân trang, tìm kiếm từ khóa và lọc đa tiêu chí.
+   */
+  async getAdminUsers(params: UserFilterParams): Promise<ApiResponse<UserPageResponse<UserAccount>>> {
+    const queryParams = new URLSearchParams();
+    if (params.keyword) queryParams.append('keyword', params.keyword);
+    if (params.role) queryParams.append('role', params.role);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortDir) queryParams.append('sortDir', params.sortDir);
+    queryParams.append('page', (params.page ?? 0).toString());
+    queryParams.append('size', (params.size ?? 10).toString());
+
+    return apiClient.get<ApiResponse<UserPageResponse<UserAccount>>>(
+      `/admin/users?${queryParams.toString()}`,
+      { suppressErrorToast: true }
+    );
   },
 
-  async createUser(payload: UserCreateRequest): Promise<UserResponse> {
-    const res = await fetch(`${API_BASE}/v1/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const result: ApiResponse<UserResponse> = await res.json();
-    if (!res.ok || !result.success) {
-      const errDetail = result.errors ? JSON.stringify(result.errors) : '';
-      throw new Error(`${result.message} ${errDetail}`);
-    }
-    return result.data;
+  /**
+   * Lấy thông tin chi tiết cá nhân và danh sách địa chỉ giao hàng của tài khoản.
+   */
+  async getAdminUserDetail(id: number): Promise<ApiResponse<UserAccount>> {
+    return apiClient.get<ApiResponse<UserAccount>>(`/admin/users/${id}`);
+  },
+
+  /**
+   * Cập nhật trạng thái kích hoạt / khóa tài khoản (active, banned, pending, deleted).
+   */
+  async updateUserStatus(id: number, status: UserStatus | string): Promise<ApiResponse<UserAccount>> {
+    return apiClient.patch<ApiResponse<UserAccount>>(`/admin/users/${id}/status`, { status });
+  },
+
+  /**
+   * Tạo mới tài khoản Nhân viên (STAFF hoặc WAREHOUSE_MANAGER) với mật khẩu mặc định.
+   */
+  async createStaffAccount(data: CreateStaffFormData): Promise<ApiResponse<UserAccount>> {
+    return apiClient.post<ApiResponse<UserAccount>>('/admin/users/staff', data);
+  },
+
+  /**
+   * Compatibility method for legacy hooks.
+   */
+  async getAllUsers(): Promise<any> {
+    const res = await this.getAdminUsers({});
+    return res.data?.content || [];
+  },
+
+  /**
+   * Compatibility method for legacy hooks.
+   */
+  async createUser(payload: any): Promise<any> {
+    const res = await this.createStaffAccount(payload);
+    return res.data;
   },
 };
