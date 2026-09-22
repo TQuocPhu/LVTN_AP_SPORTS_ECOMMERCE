@@ -1,8 +1,7 @@
-'use client';
-
 import { useState, useEffect, useCallback } from 'react';
 import { Contact, ContactStatus } from '@/types/contact';
 import { contactController } from '@/controllers/contact-controller';
+import { toast } from 'sonner';
 
 export function useStaffContacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -65,15 +64,28 @@ export function useStaffContacts() {
     setReplyError('');
   }, []);
 
+  const handleReplyMessageChange = useCallback((val: string) => {
+    setReplyMessage(val);
+    setReplyError('');
+  }, []);
+
   const handleSendReply = useCallback(async () => {
     if (!selectedContact) return;
 
     const cleanReply = replyMessage ? replyMessage.trim() : '';
-    // Strip empty HTML tags from RichTextEditor like <p><br></p>
-    const strippedText = cleanReply.replace(/<[^>]*>/g, '').trim();
+    // Strip empty HTML tags from RichTextEditor like <p><br></p>, &nbsp;
+    const strippedText = cleanReply
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/gi, ' ')
+      .trim();
 
-    if (!strippedText) {
-      setReplyError('Vui lòng nhập nội dung câu trả lời cho khách hàng.');
+    // Detect if content contains inline image tags (<img src=...)
+    const hasImage = /<img\s+[^>]*src=/i.test(cleanReply);
+
+    if (!strippedText && !hasImage) {
+      const msg = 'Vui lòng nhập nội dung câu trả lời hoặc chèn hình ảnh cho khách hàng.';
+      setReplyError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -86,11 +98,15 @@ export function useStaffContacts() {
       });
 
       if (res.data) {
+        toast.success('Đã gửi email phản hồi cho khách hàng thành công!');
         handleCloseReplyModal();
         await fetchContacts();
       }
-    } catch {
-      setReplyError('Có lỗi xảy ra khi gửi email phản hồi. Vui lòng thử lại.');
+    } catch (err: unknown) {
+      const errorMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        || 'Có lỗi xảy ra khi gửi email phản hồi. Vui lòng thử lại.';
+      setReplyError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setReplyLoading(false);
     }
@@ -112,7 +128,7 @@ export function useStaffContacts() {
     selectedContact,
     isReplyModalOpen,
     replyMessage,
-    setReplyMessage,
+    setReplyMessage: handleReplyMessageChange,
     replyLoading,
     replyError,
     openReplyModal: handleOpenReplyModal,
