@@ -74,6 +74,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 1. PermitAll: Auth Endpoints, Public Catalog, Handshake WebSocket /ws/**, H2 Console
                 .requestMatchers(
+                        "/api/v1/customer/contacts",
                         "/api/v1/admin/auth/login",
                         "/api/v1/customer/auth/register",
                         "/api/v1/customer/auth/activate",

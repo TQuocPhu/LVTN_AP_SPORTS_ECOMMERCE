@@ -18,8 +18,12 @@ public class CustomerContactServiceImpl implements CustomerContactService {
     @Override
     @Transactional
     public ContactResponse createContact(CreateContactRequest request) {
+        String customerName = (request.getName() != null && !request.getName().isBlank())
+                ? request.getName().trim()
+                : "Người dùng khách";
+
         Contact contact = Contact.builder()
-                .name(request.getName().trim())
+                .name(customerName)
                 .email(request.getEmail().trim().toLowerCase())
                 .phone(request.getPhone() != null ? request.getPhone().trim() : null)
                 .message(request.getMessage().trim())

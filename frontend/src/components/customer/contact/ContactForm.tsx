@@ -51,14 +51,14 @@ export function ContactForm({
           {/* Name Field */}
           <div className="space-y-1.5">
             <label htmlFor="contact-name" className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-              Họ và tên <span className="text-orange-500">*</span>
+              Họ và tên <span className="text-slate-400 font-normal">(Tùy chọn)</span>
             </label>
             <div className="relative">
               <User className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
               <input
                 id="contact-name"
                 type="text"
-                placeholder="Nguyễn Văn A"
+                placeholder="Để trống mặc định: Người dùng khách"
                 value={formData.name}
                 onChange={(e) => onChange('name', e.target.value)}
                 disabled={loading}

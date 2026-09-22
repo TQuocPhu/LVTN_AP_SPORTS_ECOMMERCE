@@ -26,10 +26,6 @@ export function useCustomerContact() {
   const validate = (data: CreateContactRequest): FormErrors => {
     const errs: FormErrors = {};
 
-    if (!data.name || !data.name.trim()) {
-      errs.name = 'Vui lòng nhập họ và tên của bạn';
-    }
-
     if (!data.email || !data.email.trim()) {
       errs.email = 'Vui lòng nhập địa chỉ email';
     } else {
@@ -75,7 +71,7 @@ export function useCustomerContact() {
 
     try {
       const res = await contactController.submitContact({
-        name: formData.name.trim(),
+        name: formData.name.trim() || 'Người dùng ẩn danh',
         email: formData.email.trim(),
         phone: formData.phone?.trim() || undefined,
         message: formData.message.trim(),
