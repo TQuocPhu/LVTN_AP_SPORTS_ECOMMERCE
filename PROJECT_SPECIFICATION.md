@@ -578,6 +578,36 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 🛒 4.19. Phân Hệ Biến Thể Thuộc Tính Động (Dynamic Attributes) & Quản Lý Giỏ Hàng Khách Hàng (Customer Cart System)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (22/09/2026 - Day 06)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Quản lý Biến thể Thuộc tính Động & Giỏ Hàng:**
+1. **Kiến Trúc Thuộc Tính Động Bảng `product_variants` (Dynamic JSON Attribute Storage)**:
+   - Thêm cột `attributes` (định dạng `TEXT` lưu JSON Map linh hoạt: `{"Màu sắc": "Xanh", "Kích thước": "41", "Loại đinh": "AG", "Chất liệu": "Da thật"}`). Cho phép mở rộng không giới hạn các nhóm thuộc tính biến thể tùy chỉnh do Admin tự định nghĩa mà **không bị bó hẹp hay ép cứng** vào hai cột `color` và `size`.
+   - `size` và `color` trở thành các trường phụ tùy chọn (`nullable = true`), không bắt buộc.
+
+2. **Chi Tiết Các Hàm Helper Phía Backend & Frontend (Giải Thích Mục Đích & Cách Sử Dụng)**:
+   - **`resolveAttributesJson(rawAttr, color, size)`** (trong `AdminProductServiceImpl.java`): 
+     - *Mục đích*: Tự động khởi tạo chuỗi JSON `attributes` hợp lệ khi lưu hoặc sửa biến thể sản phẩm.
+     - *Cách hoạt động*: Nếu nhận `rawAttr` dạng JSON chuỗi từ Frontend thì giữ nguyên; nếu là dữ liệu cũ hoặc chuỗi nối dạng `5 | Cỏ thật`, hàm tự động phân tách thành các cặp thuộc tính JSON `{"Kích thước": "5", "Thuộc tính bổ sung": "Cỏ thật"}` nhằm giữ tương thích ngược 100% với CSDL cũ.
+   - **`parseVariantAttributes(v: ProductVariant)`** (trong `useProductDetail.ts` & `ProductVariantDrawer.tsx`):
+     - *Mục đích*: Đọc và giải mã dữ liệu `v.attributes` JSON thành Dictionary `Record<string, string>` phía Frontend.
+     - *Cách hoạt động*: Giải mã các cặp Key-Value để render riêng biệt từng dòng chọn thuộc tính trên trang Chi tiết sản phẩm (Màu sắc, Kích thước, Loại đinh, Độ cứng, Dung tích...) và các thẻ Badge thông tin trong Drawer quản trị Admin.
+   - **`formatVariantName(item: CartItemResponse)`** (trong `CartItemList.tsx` & `MiniCartDrawer.tsx`):
+     - *Mục đích*: Định dạng nhãn hiển thị tên biến thể gọn gàng cho từng dòng sản phẩm trong giỏ hàng.
+     - *Cách hoạt động*: Trích xuất tập hợp giá trị (Values) từ JSON `attributes` và nối lại dưới dạng `Xanh | 41 | AG` (hoặc `Màu: Xanh | Size: 41`), ngăn chặn 100% việc in chuỗi JSON thô `{"Màu sắc":...}` lên giao diện người dùng.
+
+3. **Luồng Quản Lý Giỏ Hàng Chuẩn Clean Architecture (Customer Cart System)**:
+   - **Slide-Over Mini Cart Drawer (`MiniCartDrawer.tsx`)**: Trượt mượt từ bên phải ra trên nền mờ Glassmorphic Backdrop, hiển thị thông tin sản phẩm, bộ chọn mặt hàng thanh toán, nút tăng/giảm số lượng bị vô hiệu hóa (`disabled`) khi số lượng `<= 1` hoặc `>= stockQuantity` tồn kho.
+   - **Trang Giỏ Hàng `/cart` & Modal Xác Nhận Xóa (`CartItemList.tsx` & `CustomerCartContentUI.tsx`)**:
+     - Đồng bộ chuẩn hệ thống **Light/Dark Mode** mượt mà trên toàn bộ các thành phần UI.
+     - Tự động mở rộng 100% chiều rộng màn hình (`col-span-12`) khi giỏ hàng trống.
+     - **Delete Confirmation Modal**: Mọi thao tác xóa mặt hàng (xóa 1 sản phẩm hoặc xóa toàn bộ giỏ hàng) **bắt buộc hiển thị Modal xác nhận xóa đỏ rực rỡ** trước khi thực thi xóa CSDL.
+   - **Bộ Thẻ Cam Kết & Thông Tin Cửa Hàng (Store Trust Highlights)**: Đính kèm các Badge cam kết *"Chính hãng AP Sports"*, *"Đổi trả trong 7 ngày"*, *"Giao hàng toàn quốc"* và Mã SKU nổi bật trên từng dòng sản phẩm.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
 
