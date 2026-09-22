@@ -21,12 +21,13 @@ public class VariantRequest {
     @Size(max = 255, message = "Mã SKU không được vượt quá 255 ký tự")
     private String sku;
 
-    @NotBlank(message = "Kích thước (Size) không được để trống")
     @Size(max = 50, message = "Kích thước không được vượt quá 50 ký tự")
     private String size;
 
     @Size(max = 50, message = "Màu sắc không được vượt quá 50 ký tự")
     private String color;
+
+    private String attributes; // Thuộc tính biến thể mở rộng (JSON / Text)
 
     @NotNull(message = "Giá bán biến thể không được để trống")
     @PositiveOrZero(message = "Giá bán phải lớn hơn hoặc bằng 0")

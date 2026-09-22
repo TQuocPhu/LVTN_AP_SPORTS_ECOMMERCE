@@ -25,10 +25,12 @@ public class ProductVariant {
     @Column(nullable = false, unique = true)
     private String sku;
 
-    @Column(nullable = false)
     private String size; // Size số: 38..43 hoặc Size chữ: S..XXL
 
     private String color;
+
+    @Column(columnDefinition = "TEXT")
+    private String attributes; // JSON text hoặc chuỗi thuộc tính biến thể mở rộng (VD: {"Loại sân":"AG","Size":"5"})
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;

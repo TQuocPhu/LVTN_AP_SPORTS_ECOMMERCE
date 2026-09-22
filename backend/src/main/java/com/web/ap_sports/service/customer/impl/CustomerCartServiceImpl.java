@@ -178,11 +178,23 @@ public class CustomerCartServiceImpl implements CustomerCartService {
 
         String variantName = null;
         if (v != null) {
-            List<String> parts = new java.util.ArrayList<>();
-            if (v.getSize() != null && !v.getSize().isBlank()) parts.add("Size: " + v.getSize());
-            if (v.getColor() != null && !v.getColor().isBlank()) parts.add("Màu: " + v.getColor());
-            if (!parts.isEmpty()) {
-                variantName = String.join(" | ", parts);
+            String attrJson = v.getAttributes();
+            if (org.springframework.util.StringUtils.hasText(attrJson)) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    java.util.Map<String, String> map = mapper.readValue(attrJson, new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, String>>() {});
+                    variantName = String.join(" | ", map.values());
+                } catch (Exception e) {
+                    variantName = null;
+                }
+            }
+            if (!org.springframework.util.StringUtils.hasText(variantName)) {
+                List<String> parts = new java.util.ArrayList<>();
+                if (v.getSize() != null && !v.getSize().isBlank()) parts.add("Size: " + v.getSize());
+                if (v.getColor() != null && !v.getColor().isBlank()) parts.add("Màu: " + v.getColor());
+                if (!parts.isEmpty()) {
+                    variantName = String.join(" | ", parts);
+                }
             }
         }
 
@@ -196,6 +208,7 @@ public class CustomerCartServiceImpl implements CustomerCartService {
                 .sku(v != null ? v.getSku() : null)
                 .size(v != null ? v.getSize() : null)
                 .color(v != null ? v.getColor() : null)
+                .attributes(v != null ? v.getAttributes() : null)
                 .variantName(variantName)
                 .price(price)
                 .stockQuantity(stockQuantity)

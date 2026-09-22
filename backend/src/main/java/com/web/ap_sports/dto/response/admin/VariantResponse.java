@@ -18,6 +18,8 @@ public class VariantResponse {
     private String sku;
     private String size;
     private String color;
+    private String attributes;
+    private String variantName;
     private BigDecimal price;
     private BigDecimal costPrice;
     private Integer stockQuantity;

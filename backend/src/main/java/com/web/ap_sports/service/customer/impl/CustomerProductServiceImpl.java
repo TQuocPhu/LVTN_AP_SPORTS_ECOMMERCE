@@ -186,11 +186,60 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                             .map(ProductImage::getImagePath)
                             .collect(Collectors.toList());
 
+                    String attributesJson = v.getAttributes();
+                    if (!StringUtils.hasText(attributesJson)) {
+                        Map<String, String> attrMap = new LinkedHashMap<>();
+                        if (StringUtils.hasText(v.getColor())) {
+                            attrMap.put("Màu sắc", v.getColor().trim());
+                        }
+                        if (StringUtils.hasText(v.getSize())) {
+                            String sizeStr = v.getSize().trim();
+                            if (sizeStr.contains("|")) {
+                                String[] parts = sizeStr.split("\\|");
+                                if (parts.length >= 1 && StringUtils.hasText(parts[0])) {
+                                    attrMap.put("Kích thước / Size", parts[0].trim());
+                                }
+                                if (parts.length >= 2 && StringUtils.hasText(parts[1])) {
+                                    attrMap.put("Thuộc tính bổ sung", parts[1].trim());
+                                }
+                                for (int i = 2; i < parts.length; i++) {
+                                    if (StringUtils.hasText(parts[i])) {
+                                        attrMap.put("Thuộc tính " + (i + 1), parts[i].trim());
+                                    }
+                                }
+                            } else {
+                                attrMap.put("Kích thước / Size", sizeStr);
+                            }
+                        }
+                        try {
+                            attributesJson = objectMapper.writeValueAsString(attrMap);
+                        } catch (Exception e) {
+                            attributesJson = null;
+                        }
+                    }
+
+                    String variantName = null;
+                    if (StringUtils.hasText(attributesJson)) {
+                        try {
+                            Map<String, String> parsedMap = objectMapper.readValue(attributesJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+                            variantName = String.join(" | ", parsedMap.values());
+                        } catch (Exception e) {
+                            variantName = attributesJson;
+                        }
+                    } else {
+                        List<String> parts = new ArrayList<>();
+                        if (v.getSize() != null && !v.getSize().isBlank()) parts.add("Size: " + v.getSize());
+                        if (v.getColor() != null && !v.getColor().isBlank()) parts.add("Màu: " + v.getColor());
+                        if (!parts.isEmpty()) variantName = String.join(" | ", parts);
+                    }
+
                     return VariantResponse.builder()
                             .id(v.getId())
                             .sku(v.getSku())
                             .size(v.getSize())
                             .color(v.getColor())
+                            .attributes(attributesJson)
+                            .variantName(variantName)
                             .price(v.getPrice())
                             .costPrice(v.getCostPrice())
                             .stockQuantity(v.getStockQuantity())

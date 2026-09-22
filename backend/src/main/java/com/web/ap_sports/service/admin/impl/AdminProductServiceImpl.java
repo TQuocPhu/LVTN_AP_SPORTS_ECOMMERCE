@@ -279,9 +279,14 @@ public class AdminProductServiceImpl implements AdminProductService {
                 variant = ProductVariant.builder().product(product).stockQuantity(0).build();
             }
 
+            String colorVal = StringUtils.hasText(vr.getColor()) ? vr.getColor().trim() : null;
+            String sizeVal = StringUtils.hasText(vr.getSize()) ? vr.getSize().trim() : null;
+            String attributesJson = resolveAttributesJson(vr.getAttributes(), colorVal, sizeVal);
+
             variant.setSku(vr.getSku().trim());
-            variant.setSize(vr.getSize().trim());
-            variant.setColor(StringUtils.hasText(vr.getColor()) ? vr.getColor().trim() : null);
+            variant.setSize(sizeVal);
+            variant.setColor(colorVal);
+            variant.setAttributes(attributesJson);
             variant.setPrice(vr.getPrice());
             variant.setCostPrice(vr.getCostPrice());
 
@@ -352,11 +357,16 @@ public class AdminProductServiceImpl implements AdminProductService {
 
     private void saveVariantsAndImages(Product product, List<VariantRequest> variantRequests, boolean isCreate) {
         for (VariantRequest vr : variantRequests) {
+            String colorVal = StringUtils.hasText(vr.getColor()) ? vr.getColor().trim() : null;
+            String sizeVal = StringUtils.hasText(vr.getSize()) ? vr.getSize().trim() : null;
+            String attributesJson = resolveAttributesJson(vr.getAttributes(), colorVal, sizeVal);
+
             ProductVariant variant = ProductVariant.builder()
                     .product(product)
                     .sku(vr.getSku().trim())
-                    .size(vr.getSize().trim())
-                    .color(StringUtils.hasText(vr.getColor()) ? vr.getColor().trim() : null)
+                    .size(sizeVal)
+                    .color(colorVal)
+                    .attributes(attributesJson)
                     .price(vr.getPrice())
                     .costPrice(vr.getCostPrice())
                     .stockQuantity(vr.getStockQuantity() != null ? vr.getStockQuantity() : 0)
@@ -442,11 +452,23 @@ public class AdminProductServiceImpl implements AdminProductService {
                             .map(ProductImage::getImagePath)
                             .collect(Collectors.toList());
 
+                    String variantName = null;
+                    if (v.getAttributes() != null && !v.getAttributes().isBlank()) {
+                        variantName = v.getAttributes();
+                    } else {
+                        List<String> parts = new ArrayList<>();
+                        if (v.getSize() != null && !v.getSize().isBlank()) parts.add("Size: " + v.getSize());
+                        if (v.getColor() != null && !v.getColor().isBlank()) parts.add("Màu: " + v.getColor());
+                        if (!parts.isEmpty()) variantName = String.join(" | ", parts);
+                    }
+
                     return VariantResponse.builder()
                             .id(v.getId())
                             .sku(v.getSku())
                             .size(v.getSize())
                             .color(v.getColor())
+                            .attributes(v.getAttributes())
+                            .variantName(variantName)
                             .price(v.getPrice())
                             .costPrice(v.getCostPrice())
                             .stockQuantity(v.getStockQuantity())
@@ -535,6 +557,41 @@ public class AdminProductServiceImpl implements AdminProductService {
         if (!allImages.isEmpty()) {
             Map<String, String> uploadedUrlMap = cloudinaryService.uploadBase64OrUrlBatch(allImages, PRODUCT_FOLDER);
             applyUrls.accept(uploadedUrlMap);
+        }
+    }
+
+    private String resolveAttributesJson(String rawAttr, String color, String size) {
+        if (StringUtils.hasText(rawAttr)) {
+            return rawAttr.trim();
+        }
+        Map<String, String> map = new java.util.LinkedHashMap<>();
+        if (StringUtils.hasText(color)) {
+            map.put("Màu sắc", color.trim());
+        }
+        if (StringUtils.hasText(size)) {
+            String sizeStr = size.trim();
+            if (sizeStr.contains("|")) {
+                String[] parts = sizeStr.split("\\|");
+                if (parts.length >= 1 && StringUtils.hasText(parts[0])) {
+                    map.put("Kích thước", parts[0].trim());
+                }
+                if (parts.length >= 2 && StringUtils.hasText(parts[1])) {
+                    map.put("Thuộc tính bổ sung", parts[1].trim());
+                }
+                for (int i = 2; i < parts.length; i++) {
+                    if (StringUtils.hasText(parts[i])) {
+                        map.put("Thuộc tính " + (i + 1), parts[i].trim());
+                    }
+                }
+            } else {
+                map.put("Kích thước / Size", sizeStr);
+            }
+        }
+        if (map.isEmpty()) return null;
+        try {
+            return objectMapper.writeValueAsString(map);
+        } catch (Exception e) {
+            return null;
         }
     }
 }
