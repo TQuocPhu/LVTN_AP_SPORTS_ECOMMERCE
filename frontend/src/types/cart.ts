@@ -8,6 +8,7 @@ export interface CartItem {
   sku: string | null;
   size: string | null;
   color: string | null;
+  attributes?: string | null;
   variantName?: string | null;
   price: number;
   stockQuantity: number;

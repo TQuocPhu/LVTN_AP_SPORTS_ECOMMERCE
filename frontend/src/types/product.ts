@@ -3,8 +3,10 @@ import { CategoryResponse } from './category';
 export interface ProductVariant {
   id?: number;
   sku: string;
-  size: string;
-  color?: string;
+  size?: string | null;
+  color?: string | null;
+  attributes?: string | null;
+  variantName?: string | null;
   price: number;
   costPrice: number;
   stockQuantity: number;

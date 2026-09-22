@@ -126,7 +126,7 @@ export function ProductFormVariantStep({
                   <td className="p-3">
                     <input
                       type="text"
-                      value={varItem.size}
+                      value={varItem.size || ''}
                       onChange={(e) => onUpdateVariant(idx, 'size', e.target.value)}
                       className="w-36 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-1 focus:ring-orange-500"
                     />

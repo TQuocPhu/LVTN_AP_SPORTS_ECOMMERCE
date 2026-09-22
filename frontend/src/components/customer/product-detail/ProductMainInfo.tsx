@@ -11,11 +11,14 @@ interface ProductMainInfoProps {
   primaryCategory: string;
   selectedVariant: ProductVariant | null;
   effectivePrice: number;
+  attributeGroups?: Record<string, string[]>;
+  selectedAttributes?: Record<string, string>;
   availableColors: string[];
   colorImageMap: Record<string, string>;
-  selectedColor: string | null;
   availableSizes: string[];
+  selectedColor: string | null;
   selectedSize: string | null;
+  onAttributeSelect?: (groupName: string, value: string) => void;
   onColorSelect: (color: string) => void;
   onSizeSelect: (size: string) => void;
 }
@@ -25,11 +28,14 @@ export function ProductMainInfo({
   primaryCategory,
   selectedVariant,
   effectivePrice,
+  attributeGroups,
+  selectedAttributes = {},
   availableColors,
   colorImageMap,
-  selectedColor,
   availableSizes,
+  selectedColor,
   selectedSize,
+  onAttributeSelect,
   onColorSelect,
   onSizeSelect,
 }: ProductMainInfoProps) {
@@ -41,6 +47,7 @@ export function ProductMainInfo({
   }).format(effectivePrice);
 
   const productUnit = product.unit || 'sản phẩm';
+  const hasDynamicGroups = attributeGroups && Object.keys(attributeGroups).length > 0;
 
   return (
     <div className="space-y-6">
@@ -61,6 +68,14 @@ export function ProductMainInfo({
           <span>Danh mục: <strong className="text-slate-700 dark:text-slate-300">{primaryCategory}</strong></span>
           <span>•</span>
           <span>Mã SKU: <strong className="text-slate-700 dark:text-slate-300">{selectedVariant?.sku || product.slug}</strong></span>
+          {selectedVariant?.variantName && (
+            <>
+              <span>•</span>
+              <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 font-extrabold px-2 py-0.5 rounded-md border border-orange-500/30">
+                {selectedVariant.variantName}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -80,75 +95,160 @@ export function ProductMainInfo({
         </div>
       </div>
 
-      {/* 3. Swatch Màu Sắc Bằng Hình Ảnh (Color Image Swatches) */}
-      {availableColors.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-900 dark:text-white">
-              Màu sắc: <strong className="text-orange-600 dark:text-orange-400">{selectedColor || 'Mặc định'}</strong>
-            </span>
-          </div>
+      {/* 3. Render Các Nhóm Thuộc Tính Động (Dynamic Attribute Groups) Separately */}
+      {hasDynamicGroups ? (
+        <div className="space-y-4">
+          {Object.entries(attributeGroups!).map(([groupName, values]) => {
+            const currentSelected = selectedAttributes[groupName] || values[0];
+            const isColorGroup = groupName.toLowerCase().includes('màu');
 
-          <div className="flex flex-wrap gap-2.5">
-            {availableColors.map((color) => {
-              const isSelected = selectedColor === color;
-              const swatchImg = colorImageMap[color] || product.mainImage;
-              return (
-                <button
-                  key={color}
-                  onClick={() => onColorSelect(color)}
-                  className={`relative group p-1 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${
-                    isSelected
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/40 ring-4 ring-orange-500/20 shadow-md scale-105'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-orange-300'
-                  }`}
-                  title={`Màu ${color}`}
-                >
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950">
-                    {swatchImg ? (
-                      <Image src={swatchImg} alt={color} fill sizes="48px" className="object-contain p-0.5" />
-                    ) : (
-                      <span className="text-[10px] flex items-center justify-center h-full">{color}</span>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 px-1">
-                    {color}
+            return (
+              <div key={groupName} className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {groupName}: <strong className="text-orange-600 dark:text-orange-400">{currentSelected}</strong>
                   </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                </div>
 
-      {/* 4. Bộ Chọn Kích Thước (Size Chips - Bỏ dòng Size Chart) */}
-      {availableSizes.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-900 dark:text-white">
-              Kích thước: <strong className="text-orange-600 dark:text-orange-400">{selectedSize || 'Chọn size'}</strong>
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {availableSizes.map((size) => {
-              const isSelected = selectedSize === size;
-              return (
-                <button
-                  key={size}
-                  onClick={() => onSizeSelect(size)}
-                  className={`min-w-[2.75rem] h-9 px-2.5 rounded-xl font-black text-xs transition-all border flex items-center justify-center ${
-                    isSelected
-                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:border-orange-400'
-                  }`}
-                >
-                  {size}
-                </button>
-              );
-            })}
-          </div>
+                {isColorGroup ? (
+                  <div className="flex flex-wrap gap-2.5">
+                    {values.map((val) => {
+                      const isSelected = currentSelected === val;
+                      const swatchImg = colorImageMap[val] || product.mainImage;
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() =>
+                            onAttributeSelect
+                              ? onAttributeSelect(groupName, val)
+                              : onColorSelect(val)
+                          }
+                          className={`relative group p-1 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${
+                            isSelected
+                              ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/40 ring-4 ring-orange-500/20 shadow-md scale-105'
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-orange-300'
+                          }`}
+                          title={`${groupName}: ${val}`}
+                        >
+                          <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950">
+                            {swatchImg ? (
+                              <Image src={swatchImg} alt={val} fill sizes="48px" className="object-contain p-0.5" />
+                            ) : (
+                              <span className="text-[10px] flex items-center justify-center h-full">{val}</span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 px-1">
+                            {val}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {values.map((val) => {
+                      const isSelected = currentSelected === val;
+                      return (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() =>
+                            onAttributeSelect
+                              ? onAttributeSelect(groupName, val)
+                              : onSizeSelect(val)
+                          }
+                          className={`min-w-[2.75rem] h-9 px-3.5 rounded-xl font-black text-xs transition-all border flex items-center justify-center ${
+                            isSelected
+                              ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/25 scale-105'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:border-orange-400'
+                          }`}
+                        >
+                          {val}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+      ) : (
+        <>
+          {/* Legacy Swatch Màu Sắc */}
+          {availableColors.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-900 dark:text-white">
+                  Màu sắc: <strong className="text-orange-600 dark:text-orange-400">{selectedColor || 'Mặc định'}</strong>
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2.5">
+                {availableColors.map((color) => {
+                  const isSelected = selectedColor === color;
+                  const swatchImg = colorImageMap[color] || product.mainImage;
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => onColorSelect(color)}
+                      className={`relative group p-1 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 ${
+                        isSelected
+                          ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/40 ring-4 ring-orange-500/20 shadow-md scale-105'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-orange-300'
+                      }`}
+                      title={`Màu ${color}`}
+                    >
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950">
+                        {swatchImg ? (
+                          <Image src={swatchImg} alt={color} fill sizes="48px" className="object-contain p-0.5" />
+                        ) : (
+                          <span className="text-[10px] flex items-center justify-center h-full">{color}</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 px-1">
+                        {color}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Legacy Bộ Chọn Kích Thước */}
+          {availableSizes.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-900 dark:text-white">
+                  Kích thước: <strong className="text-orange-600 dark:text-orange-400">{selectedSize || 'Chọn size'}</strong>
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {availableSizes.map((size) => {
+                  const isSelected = selectedSize === size;
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => onSizeSelect(size)}
+                      className={`min-w-[2.75rem] h-9 px-2.5 rounded-xl font-black text-xs transition-all border flex items-center justify-center ${
+                        isSelected
+                          ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:border-orange-400'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* 5. Accordion Thông Số Nổi Bật (Top Highlights) */}

@@ -203,11 +203,12 @@ export function useProductForm(productId?: number) {
       );
       const colorVal = colorGroup ? pairMap[colorGroup.name] : undefined;
 
-      const nonColorPairs = activeGroups
-        .filter((g) => g !== colorGroup)
-        .map((g) => pairMap[g.name]);
+      const sizeGroup = activeGroups.find((g) =>
+        g.name.toLowerCase().includes('size') || g.name.toLowerCase().includes('kích thước')
+      );
+      const sizeVal = sizeGroup ? pairMap[sizeGroup.name] : undefined;
 
-      const sizeVal = nonColorPairs.length > 0 ? nonColorPairs.join(' | ') : 'Freesize';
+      const attributesJson = JSON.stringify(pairMap);
 
       const skuParts = [baseSkuPrefix, ...comb.map((c) => c.toUpperCase().replace(/\s+/g, ''))];
       const sku = skuParts.join('-');
@@ -217,8 +218,9 @@ export function useProductForm(productId?: number) {
 
       return {
         sku,
-        size: sizeVal,
-        color: colorVal,
+        size: sizeVal || null,
+        color: colorVal || null,
+        attributes: attributesJson,
         price: basePrice,
         costPrice: Math.round(basePrice * 0.7),
         stockQuantity: isEdit ? 0 : 10,
@@ -294,8 +296,8 @@ export function useProductForm(productId?: number) {
       errs.variants = 'Sản phẩm phải có ít nhất 1 biến thể';
     } else {
       variants.forEach((v, idx) => {
-        if (!v.sku.trim()) errs[`variant_sku_${idx}`] = 'Mã SKU không được trống';
-        if (!v.size.trim()) errs[`variant_size_${idx}`] = 'Size / Thuộc tính không được trống';
+        if (!v.sku?.trim()) errs[`variant_sku_${idx}`] = 'Mã SKU không được trống';
+        if (v.size && !v.size.trim()) errs[`variant_size_${idx}`] = 'Size / Thuộc tính không được trống';
         if (v.price < 0) errs[`variant_price_${idx}`] = 'Giá bán phải >= 0';
         if (v.costPrice < 0) errs[`variant_cost_${idx}`] = 'Giá nhập phải >= 0';
       });

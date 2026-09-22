@@ -10,6 +10,34 @@ interface ProductVariantDrawerProps {
   onClose: () => void;
 }
 
+function getVariantAttrChips(variant: any): [string, string][] {
+  if (variant.attributes) {
+    try {
+      const parsed = JSON.parse(variant.attributes);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return Object.entries(parsed as Record<string, string>);
+      }
+    } catch {
+      // Ignore JSON parse error
+    }
+  }
+  const pairs: [string, string][] = [];
+  if (variant.color) pairs.push(['Màu sắc', variant.color]);
+  if (variant.size) {
+    if (variant.size.includes('|')) {
+      const parts = variant.size.split('|').map((s: string) => s.trim()).filter(Boolean);
+      if (parts[0]) pairs.push(['Kích thước / Size', parts[0]]);
+      if (parts[1]) pairs.push(['Thuộc tính bổ sung', parts[1]]);
+      for (let i = 2; i < parts.length; i++) {
+        pairs.push([`Thuộc tính ${i + 1}`, parts[i]]);
+      }
+    } else {
+      pairs.push(['Kích thước / Size', variant.size]);
+    }
+  }
+  return pairs;
+}
+
 export function ProductVariantDrawer({ product, isOpen, onClose }: ProductVariantDrawerProps) {
   if (!isOpen || !product) return null;
 
@@ -111,33 +139,35 @@ export function ProductVariantDrawer({ product, isOpen, onClose }: ProductVarian
               </div>
             ) : (
               <div className="space-y-3">
-                {product.variants.map((variant) => (
-                  <div
-                    key={variant.id || variant.sku}
-                    className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3 hover:border-slate-300 transition-colors"
-                  >
-                    {/* Header line: SKU and Badges */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <span className="font-mono text-xs font-bold px-3 py-1.5 bg-slate-100 text-slate-800 rounded-lg border border-slate-200 inline-block break-all">
-                          {variant.sku}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                        {variant.color && (
-                          <span className="text-xs font-bold px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200/60">
-                            Màu: {variant.color}
+                {product.variants.map((variant) => {
+                  const chips = getVariantAttrChips(variant);
+                  return (
+                    <div
+                      key={variant.id || variant.sku}
+                      className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3 hover:border-slate-300 transition-colors"
+                    >
+                      {/* Header line: SKU and Badges */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-mono text-xs font-bold px-3 py-1.5 bg-slate-100 text-slate-800 rounded-lg border border-slate-200 inline-block break-all">
+                            {variant.sku}
                           </span>
-                        )}
-                        <span className="text-xs font-bold px-3 py-1 bg-purple-50 text-purple-700 rounded-full border border-purple-200/60">
-                          Size: {variant.size}
-                        </span>
-                        <span className="text-xs font-bold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200/60">
-                          Tồn kho: {variant.stockQuantity}
-                        </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                          {chips.map(([k, v]) => (
+                            <span
+                              key={k}
+                              className="text-xs font-bold px-3 py-1 bg-orange-50 text-orange-700 rounded-full border border-orange-200/60"
+                            >
+                              {k}: {v}
+                            </span>
+                          ))}
+                          <span className="text-xs font-bold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200/60">
+                            Tồn kho: {variant.stockQuantity}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
                     {/* Pricing Grid */}
                     <div className="grid grid-cols-2 gap-4 text-xs border-t border-slate-100 pt-3">
@@ -173,8 +203,9 @@ export function ProductVariantDrawer({ product, isOpen, onClose }: ProductVarian
                         </div>
                       </div>
                     )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

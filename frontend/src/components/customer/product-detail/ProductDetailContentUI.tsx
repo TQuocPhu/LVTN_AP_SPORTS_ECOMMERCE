@@ -37,6 +37,8 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
     selectedColor,
     selectedSize,
     selectedVariant,
+    attributeGroups,
+    selectedAttributes,
     availableColors,
     colorImageMap,
     availableSizes,
@@ -46,6 +48,7 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
     totalPrice,
     effectiveStock,
     isOutOfStock,
+    handleAttributeSelect,
     handleColorSelect,
     handleSizeSelect,
     handleImageSelect,
@@ -111,7 +114,6 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
         title="CHI TIẾT SẢN PHẨM"
         subtitle={`Chính hãng AP Sports | Mã SKU: ${selectedVariant?.sku || product.slug}`}
         breadcrumbs={[
-          { label: 'Trang chủ', href: '/' },
           { label: 'Sản phẩm', href: '/products' },
           { label: primaryCategory, href: '/products' },
           { label: 'Chi tiết sản phẩm' },
@@ -144,11 +146,14 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
                 primaryCategory={primaryCategory}
                 selectedVariant={selectedVariant}
                 effectivePrice={effectivePrice}
+                attributeGroups={attributeGroups}
+                selectedAttributes={selectedAttributes}
                 availableColors={availableColors}
                 colorImageMap={colorImageMap}
                 selectedColor={selectedColor}
                 availableSizes={availableSizes}
                 selectedSize={selectedSize}
+                onAttributeSelect={handleAttributeSelect}
                 onColorSelect={handleColorSelect}
                 onSizeSelect={handleSizeSelect}
               />

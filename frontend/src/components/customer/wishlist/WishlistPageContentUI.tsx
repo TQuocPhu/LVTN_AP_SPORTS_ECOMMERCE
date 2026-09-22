@@ -27,7 +27,6 @@ export default function WishlistPageContentUI() {
         title="DANH SÁCH YÊU THÍCH"
         subtitle={`Bạn đang lưu ${wishlistCount} sản phẩm thể thao yêu thích`}
         breadcrumbs={[
-          { label: 'Trang chủ', href: '/' },
           { label: 'Sản phẩm yêu thích' },
         ]}
       />

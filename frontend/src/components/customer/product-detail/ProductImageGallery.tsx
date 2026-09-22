@@ -46,7 +46,7 @@ export function ProductImageGallery({
     <div className="flex flex-col sm:flex-row gap-4 items-start w-full">
       {/* 1. Vertical Thumbnail Bar với overflow-y-auto và kích thước cố định shrink-0 */}
       {allImages.length > 1 && (
-        <div className="flex sm:flex-col gap-3 order-2 sm:order-1 overflow-x-auto sm:overflow-y-auto w-full sm:w-20 max-h-[560px] scrollbar-thin shrink-0 py-1 pr-1">
+        <div className="flex sm:flex-col gap-3 order-2 sm:order-1 overflow-x-hidden sm:overflow-y-auto w-full sm:w-20 max-h-[560px] shrink-0 py-1 pr-1 [::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {allImages.map((img, idx) => {
             const isActive = currentImage === img;
             return (

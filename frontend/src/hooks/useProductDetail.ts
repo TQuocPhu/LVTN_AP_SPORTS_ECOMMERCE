@@ -15,6 +15,8 @@ export interface UseProductDetailReturn {
   selectedColor: string | null;
   selectedSize: string | null;
   selectedVariant: ProductVariant | null;
+  attributeGroups: Record<string, string[]>;
+  selectedAttributes: Record<string, string>;
   availableColors: string[];
   colorImageMap: Record<string, string>;
   availableSizes: string[];
@@ -24,6 +26,7 @@ export interface UseProductDetailReturn {
   totalPrice: number;
   effectiveStock: number;
   isOutOfStock: boolean;
+  handleAttributeSelect: (groupName: string, value: string) => void;
   handleColorSelect: (color: string) => void;
   handleSizeSelect: (size: string) => void;
   handleImageSelect: (imgUrl: string) => void;
@@ -31,6 +34,37 @@ export interface UseProductDetailReturn {
   handleAddToCart: () => Promise<void>;
   handleBuyNow: () => Promise<void>;
   refetch: () => void;
+}
+
+export function parseVariantAttributes(v: ProductVariant): Record<string, string> {
+  if (v.attributes) {
+    try {
+      const parsed = JSON.parse(v.attributes);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return parsed as Record<string, string>;
+      }
+    } catch {
+      // If attributes is plain string text instead of JSON
+      if (v.attributes.trim()) {
+        return { 'Thuộc tính': v.attributes };
+      }
+    }
+  }
+  const result: Record<string, string> = {};
+  if (v.color) result['Màu sắc'] = v.color;
+  if (v.size) {
+    if (v.size.includes('|')) {
+      const parts = v.size.split('|').map((s) => s.trim()).filter(Boolean);
+      if (parts[0]) result['Kích thước / Size'] = parts[0];
+      if (parts[1]) result['Thuộc tính bổ sung'] = parts[1];
+      for (let i = 2; i < parts.length; i++) {
+        result[`Thuộc tính ${i + 1}`] = parts[i];
+      }
+    } else {
+      result['Kích thước / Size'] = v.size;
+    }
+  }
+  return result;
 }
 
 /**
@@ -44,6 +78,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   const [error, setError] = useState<string | null>(null);
 
   const [currentImage, setCurrentImage] = useState<string>('');
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
@@ -80,9 +115,11 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
 
         setCurrentImage(prod.mainImage || (imageList[0] ?? ''));
 
-        // Tự động chọn Màu sắc và Kích thước đầu tiên nếu có biến thể
+        // Tự động chọn thuộc tính đầu tiên nếu có biến thể
         if (prod.variants && prod.variants.length > 0) {
           const firstVariant = prod.variants[0];
+          const initialAttr = parseVariantAttributes(firstVariant);
+          setSelectedAttributes(initialAttr);
           if (firstVariant.color) setSelectedColor(firstVariant.color);
           if (firstVariant.size) setSelectedSize(firstVariant.size);
           if (firstVariant.images && firstVariant.images.length > 0) {
@@ -117,6 +154,26 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   useEffect(() => {
     fetchProductDetail();
   }, [fetchProductDetail]);
+
+  // Trích xuất các nhóm thuộc tính động
+  const attributeGroups = useMemo(() => {
+    if (!product?.variants) return {};
+    const groups: Record<string, string[]> = {};
+
+    product.variants.forEach((v) => {
+      const attrMap = parseVariantAttributes(v);
+      Object.entries(attrMap).forEach(([groupName, val]) => {
+        if (!groups[groupName]) {
+          groups[groupName] = [];
+        }
+        if (!groups[groupName].includes(val)) {
+          groups[groupName].push(val);
+        }
+      });
+    });
+
+    return groups;
+  }, [product]);
 
   // Danh sách các Màu sắc có sẵn từ các biến thể
   const availableColors = useMemo(() => {
@@ -157,39 +214,48 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     return Array.from(sizes);
   }, [product]);
 
-  // Biến thể hiện tại khớp với Màu & Size đang chọn
+  // Biến thể hiện tại khớp với thuộc tính đang chọn
   const selectedVariant = useMemo(() => {
     if (!product?.variants || product.variants.length === 0) return null;
 
     return (
       product.variants.find((v) => {
-        const colorMatch = !selectedColor || v.color === selectedColor;
-        const sizeMatch = !selectedSize || v.size === selectedSize;
-        return colorMatch && sizeMatch;
+        const attrMap = parseVariantAttributes(v);
+        return Object.entries(selectedAttributes).every(
+          ([groupName, val]) => attrMap[groupName] === val
+        );
       }) || product.variants[0]
     );
-  }, [product, selectedColor, selectedSize]);
+  }, [product, selectedAttributes]);
 
-  // Tổng hợp tất cả ảnh khả dụng
+  // Tổng hợp danh sách ảnh khả dụng theo biến thể đang chọn
   const allImages = useMemo(() => {
     const list: string[] = [];
+
+    // Nếu biến thể được chọn có bộ ảnh riêng, ưu tiên chỉ hiển thị bộ ảnh của biến thể đó
+    if (selectedVariant && selectedVariant.images && selectedVariant.images.length > 0) {
+      selectedVariant.images.forEach((vImg) => {
+        if (vImg && !list.includes(vImg)) list.push(vImg);
+      });
+      return list;
+    }
+
+    // Fallback: nếu biến thể không có ảnh riêng, hiển thị mainImage + allImages của sản phẩm
     if (product?.mainImage) list.push(product.mainImage);
     if (product?.allImages) {
       product.allImages.forEach((img) => {
         if (img && !list.includes(img)) list.push(img);
       });
     }
-    if (product?.variants) {
-      product.variants.forEach((v) => {
-        if (v.images) {
-          v.images.forEach((vImg) => {
-            if (vImg && !list.includes(vImg)) list.push(vImg);
-          });
-        }
-      });
+    return list.length > 0 ? list : [product?.mainImage || ''];
+  }, [product, selectedVariant]);
+
+  // Tự động cập nhật currentImage sang ảnh đầu tiên của biến thể khi đổi chọn
+  useEffect(() => {
+    if (allImages.length > 0 && !allImages.includes(currentImage)) {
+      setCurrentImage(allImages[0]);
     }
-    return list;
-  }, [product]);
+  }, [allImages, currentImage]);
 
   // Giá hiển thị thực tế
   const effectivePrice = selectedVariant?.price ?? product?.price ?? 0;
@@ -197,22 +263,39 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   const effectiveStock = selectedVariant?.stockQuantity ?? product?.totalStock ?? 0;
   const isOutOfStock = effectiveStock <= 0 || product?.status === 'out_of_stock';
 
+  // Handler chọn thuộc tính bất kỳ theo Tên Nhóm & Giá trị
+  const handleAttributeSelect = (groupName: string, value: string) => {
+    setSelectedAttributes((prev) => {
+      const next = { ...prev, [groupName]: value };
+      if (groupName.toLowerCase().includes('màu')) {
+        setSelectedColor(value);
+      }
+      if (groupName.toLowerCase().includes('size') || groupName.toLowerCase().includes('kích thước')) {
+        setSelectedSize(value);
+      }
+
+      if (product?.variants) {
+        const matchedVar = product.variants.find((v) => {
+          const attrMap = parseVariantAttributes(v);
+          return Object.entries(next).every(([k, val]) => attrMap[k] === val);
+        });
+
+        if (matchedVar && matchedVar.images && matchedVar.images.length > 0) {
+          setCurrentImage(matchedVar.images[0]);
+        }
+      }
+      return next;
+    });
+  };
+
   // Chọn Màu sắc & Tự động đổi ảnh sang biến thể đó
   const handleColorSelect = (color: string) => {
-    setSelectedColor(color);
-    if (!product?.variants) return;
-
-    const matchedVar = product.variants.find((v) => v.color === color && (!selectedSize || v.size === selectedSize))
-      || product.variants.find((v) => v.color === color);
-
-    if (matchedVar && matchedVar.images && matchedVar.images.length > 0) {
-      setCurrentImage(matchedVar.images[0]);
-    }
+    handleAttributeSelect('Màu sắc', color);
   };
 
   // Chọn Kích thước
   const handleSizeSelect = (size: string) => {
-    setSelectedSize(size);
+    handleAttributeSelect('Kích thước / Size', size);
   };
 
   // Click vào Thumbnail chọn ảnh Preview
@@ -263,6 +346,8 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     selectedColor,
     selectedSize,
     selectedVariant,
+    attributeGroups,
+    selectedAttributes,
     availableColors,
     colorImageMap,
     availableSizes,
@@ -272,6 +357,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     totalPrice,
     effectiveStock,
     isOutOfStock,
+    handleAttributeSelect,
     handleColorSelect,
     handleSizeSelect,
     handleImageSelect,
