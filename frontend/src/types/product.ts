@@ -25,6 +25,7 @@ export interface Product {
   stock?: number;
   status: 'in_stock' | 'out_of_stock' | 'discontinued' | string;
   unit: string;
+  weight?: number; // Trọng lượng tính bằng grams
   mainImage?: string;
   primaryCategoryId?: number;
   primaryCategoryName?: string;
@@ -37,6 +38,7 @@ export interface Product {
 
 export interface ProductDetail extends Product {
   description?: string;
+  weight?: number; // Kế thừa từ Product, nhưng đảm bảo trường chi tiết có weight
   specifications: Record<string, string>;
   variants: ProductVariant[];
   allImages: string[];
@@ -50,6 +52,7 @@ export interface CreateProductFormRequest {
   description?: string;
   price: number;
   unit: string;
+  weight?: number; // Tính bằng grams, mặc định 500g nếu không nhập
   mainImage?: string;
   specifications: Record<string, string>;
   variants: ProductVariant[];
@@ -63,6 +66,7 @@ export interface UpdateProductFormRequest {
   description?: string;
   price: number;
   unit: string;
+  weight?: number; // Tính bằng grams
   status: string;
   mainImage?: string;
   specifications: Record<string, string>;

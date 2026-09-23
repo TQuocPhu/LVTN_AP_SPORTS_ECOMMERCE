@@ -91,6 +91,9 @@ export function ProductTable({
                           <span className="text-xs text-slate-400 font-mono block break-all leading-normal pt-0.5">
                             /{product.slug}
                           </span>
+                          <span className="text-[11px] text-slate-500 font-medium block leading-normal pt-0.5">
+                            Trọng lượng: <span className="font-semibold text-slate-700">{product.weight ?? 500}g</span>
+                          </span>
                         </div>
                       </div>
                     </td>

@@ -66,6 +66,9 @@ export function ProductDescriptionModal({
                 {product.name}
               </h4>
               <p className="text-xs text-slate-500 font-mono">/{product.slug}</p>
+              <p className="text-[11px] text-slate-500 font-medium pt-0.5">
+                Trọng lượng: <span className="font-semibold text-slate-700">{product.weight ?? 500}g</span>
+              </p>
             </div>
           </div>
 
