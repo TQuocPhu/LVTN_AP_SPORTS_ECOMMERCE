@@ -34,6 +34,7 @@ export interface GhnProvince {
   ProvinceName: string;
   CountryID: number;
   Code: string;
+  NameExtension?: string[];
 }
 
 export interface GhnDistrict {
@@ -43,10 +44,12 @@ export interface GhnDistrict {
   Code: string;
   Type: number;
   SupportType: number;
+  NameExtension?: string[];
 }
 
 export interface GhnWard {
   WardCode: string;
   WardName: string;
   DistrictID: number;
+  NameExtension?: string[];
 }

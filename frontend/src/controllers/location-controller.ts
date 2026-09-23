@@ -34,4 +34,38 @@ export const locationController = {
       { suppressErrorToast: true }
     );
   },
+
+  /**
+   * Reverse Geocoding qua Backend Proxy.
+   */
+  async reverseGeocode(lat: number, lon: number): Promise<ApiResponse<Record<string, unknown>>> {
+    return apiClient.get<ApiResponse<Record<string, unknown>>>(
+      `/locations/reverse-geocode?lat=${lat}&lon=${lon}`,
+      { suppressErrorToast: true }
+    );
+  },
+
+  /**
+   * Forward Geocoding qua Backend Proxy.
+   */
+  async forwardGeocode(query: string): Promise<ApiResponse<Record<string, unknown>>> {
+    return apiClient.get<ApiResponse<Record<string, unknown>>>(
+      `/locations/forward-geocode?query=${encodeURIComponent(query)}`,
+      { suppressErrorToast: true }
+    );
+  },
+
+  /**
+   * Tính phí giao hàng GHN dựa trên toDistrictId và toWardCode.
+   */
+  async calculateShippingFee(
+    toDistrictId: number,
+    toWardCode: string,
+    weight = 500
+  ): Promise<ApiResponse<{ shippingFee: number; isFallback?: boolean; details?: unknown }>> {
+    return apiClient.get<ApiResponse<{ shippingFee: number; isFallback?: boolean; details?: unknown }>>(
+      `/locations/calculate-fee?toDistrictId=${toDistrictId}&toWardCode=${encodeURIComponent(toWardCode)}&weight=${weight}`,
+      { suppressErrorToast: true }
+    );
+  },
 };

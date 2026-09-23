@@ -229,7 +229,7 @@ export default function AddressModal({ isOpen, onClose, addressToEdit, onSave }:
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <Navigation className="w-4 h-4 text-blue-500" />
-                    Tọa độ GPS
+                    Tọa độ GPS địa lý
                   </p>
                   {latitude && longitude ? (
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
@@ -237,36 +237,12 @@ export default function AddressModal({ isOpen, onClose, addressToEdit, onSave }:
                     </p>
                   ) : (
                     <p className="text-xs text-slate-400 dark:text-slate-500">
-                      Chưa có — sẽ tự động tính từ địa chỉ khi lưu
+                      Tọa độ GPS sẽ tự động tính từ Tỉnh/Quận/Phường đã chọn khi bấm Lưu
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  id="btn-get-gps"
-                  onClick={handleGetGPS}
-                  disabled={isGettingGPS}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                >
-                  {isGettingGPS
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <Navigation className="w-3.5 h-3.5" />}
-                  {isGettingGPS ? 'Đang lấy vị trí...' : 'Lấy vị trí GPS'}
-                </button>
               </div>
 
-              {gpsStatus === 'success' && (
-                <p className="text-xs text-emerald-500 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Tọa độ GPS đã được cập nhật thành công
-                </p>
-              )}
-              {gpsStatus === 'error' && (
-                <p className="text-xs text-amber-500 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  Không thể lấy vị trí GPS — tọa độ sẽ tự động tính từ địa chỉ đã nhập
-                </p>
-              )}
               {isGeocoding && (
                 <p className="text-xs text-blue-400 flex items-center gap-1">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
