@@ -37,9 +37,9 @@ export const AdminVouchersContentUI: React.FC = () => {
   } = useAdminVouchers();
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
