@@ -46,7 +46,7 @@ export function AdminUsersContentUI() {
               <Users className="w-6 h-6" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Quản Lý Tài Khoản Người Dùng & Phân Quyền
+              Quản Lý Tài Khoản Người Dùng
             </h1>
           </div>
           <p className="text-sm text-slate-500 mt-1">
