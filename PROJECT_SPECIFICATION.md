@@ -608,6 +608,30 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 🗺️ 4.20. Phân Hệ Địa Chỉ Giao Hàng GHN Master Data, GPS Geocoding & Trọng Lượng Sản Phẩm (Phase 1 Shipping Upgrade)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (23/09/2026 - Day 07)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Nâng cấp Địa Chỉ & Trọng Lượng Sản Phẩm:**
+1. **API Proxy Địa Lý GHN Location Master Data (`LocationController.java` & `/api/v1/locations/*`)**:
+   - Backend đóng vai trò làm API Proxy bảo mật, gọi trực tiếp API GHN Master Data (`https://online-gateway.ghn.vn/shiip/public-api/master-data/...`) với header `Token` GHN từ cấu hình `application.yml`.
+   - Cung cấp 3 endpoints công khai: `/provinces` (Lấy danh sách 63 Tỉnh/Thành), `/districts?provinceId=...` (Lấy danh sách Quận/Huyện), và `/wards?districtId=...` (Lấy danh sách Phường/Xã).
+   - Loại bỏ hoàn toàn việc trói buộc hay hardcode danh mục địa chính trong CSDL, tự động cập nhật theo dữ liệu địa lý chuẩn quốc gia của GHN.
+
+2. **Cơ Chế Dropdown Cascade 3 Tầng & Forward Geocoding Tọa Độ GPS Phía Frontend (`useLocation.ts`, `useAddressModal.ts`, `AddressModal.tsx`)**:
+   - Dropdown chọn địa chỉ 3 tầng (Tỉnh/Thành -> Quận/Huyện -> Phường/Xã) tự động nạp liên hoàn (Cascade).
+   - **Tích hợp HTML5 Geolocation & Nominatim OpenStreetMap Geocoding**:
+     - Cho phép khách hàng định vị tọa độ GPS hiện tại qua `navigator.geolocation.getCurrentPosition()`.
+     - Tự động chuyển đổi chuỗi địa chỉ (Số nhà + Phường/Xã + Quận/Huyện + Tỉnh/Thành) thành tọa độ `latitude` và `longitude` chính xác qua Nominatim OpenStreetMap Geocoding API khi bấm Lưu địa chỉ.
+     - Cập nhật bảng `shipping_addresses` bổ sung 2 cột `latitude` (`DOUBLE`) và `longitude` (`DOUBLE`) làm tiền đề tính phí vận chuyển theo khoảng cách thực tế.
+
+3. **Hệ Thống Quản Lý & Hiển Thị Trọng Lượng Sản Phẩm (`Product.java` & `weight` field)**:
+   - Nâng cấp bảng `products` bổ sung cột `weight` (`INTEGER DEFAULT 500`, đơn vị: grams). Mặc định 500g nếu bỏ trống.
+   - **Trang Quản Trị Sản Phẩm (`ProductTable.tsx` & `ProductDescriptionModal.tsx`)**: Hiển thị nhãn trọng lượng (ví dụ: `Trọng lượng: 500g`) ngay dưới Tên và Slug sản phẩm (`/{slug}`).
+   - **Trang Chi Tiết Sản Phẩm Phía Khách Hàng (`ProductMainInfo.tsx`)**: Hiển thị thông tin trọng lượng ngay sau phần đơn vị tính `/ {unit}` (ví dụ: `/ sản phẩm • Trọng lượng: 500g`) và bổ sung dòng Trọng lượng vào khung Thông Số Nổi Bật (Top Highlights).
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
 
