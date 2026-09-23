@@ -69,12 +69,27 @@ export default function AdminHeader() {
       {/* User info & Actions */}
       <div className="flex items-center space-x-4">
         {user && (
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
-              <User className="w-5 h-5" />
+          <Link
+            href="/admin/profile"
+            id="admin-header-profile-link"
+            className="flex items-center space-x-3 p-1 rounded-lg hover:bg-slate-100 transition group cursor-pointer"
+            title="Quản lý hồ sơ cá nhân"
+          >
+            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 overflow-hidden relative group-hover:ring-2 group-hover:ring-orange-500 transition">
+              {user.avatar ? (
+                <Image
+                  src={user.avatar}
+                  alt={user.name}
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-5 h-5" />
+              )}
             </div>
             <div className="hidden md:flex flex-col text-left">
-              <span className="text-sm font-semibold text-slate-900 leading-tight">
+              <span className="text-sm font-semibold text-slate-900 group-hover:text-orange-600 transition leading-tight">
                 {user.name}
               </span>
               <span
@@ -86,7 +101,7 @@ export default function AdminHeader() {
                 {getRoleDisplayName(user.roleName)}
               </span>
             </div>
-          </div>
+          </Link>
         )}
 
         <button
