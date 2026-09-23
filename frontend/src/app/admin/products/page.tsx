@@ -91,19 +91,16 @@ export default function AdminProductsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Package className="w-6 h-6 text-orange-500" />
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Quản Lý Sản Phẩm
-            </h1>
-          </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Quản lý danh mục, biến thể size/màu, giá bán, tồn kho và mô tả sản
-            phẩm AP Sports.
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <Package className="w-7 h-7 text-orange-500" />
+            Quản Lý Sản Phẩm
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Quản lý danh mục, biến thể size/màu, giá bán, tồn kho và mô tả sản phẩm AP Sports.
           </p>
         </div>
 
@@ -111,7 +108,7 @@ export default function AdminProductsPage() {
           <button
             onClick={() => refetchProducts()}
             disabled={loading}
-            className="p-2.5 text-slate-600 hover:bg-slate-100 rounded-xl border border-slate-200 transition-colors disabled:opacity-50"
+            className="p-2.5 text-slate-600 hover:bg-slate-100 bg-white rounded-xl border border-slate-200 shadow-xs transition-colors disabled:opacity-50"
             title="Làm mới danh sách"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />

@@ -49,7 +49,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
+    <div className="h-screen w-screen overflow-hidden flex flex-col font-sans text-slate-900 bg-slate-50">
       <AdminHeader />
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar />

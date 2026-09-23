@@ -11,7 +11,7 @@ export default function AdminSidebar() {
   const isProfileActive = pathname === '/admin/profile';
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col sticky top-16 h-[calc(100vh-4rem)] border-r border-slate-800 flex-shrink-0 select-none">
+    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full border-r border-slate-800 flex-shrink-0 select-none">
       <div className="p-4 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
         Menu Đặt Lệnh Quản Trị
       </div>

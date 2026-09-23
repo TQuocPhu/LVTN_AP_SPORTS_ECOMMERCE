@@ -43,7 +43,7 @@ export default function AdminHeader() {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-30 shadow-sm">
+    <header className="h-16 flex-shrink-0 bg-white border-b border-slate-200 px-6 flex items-center justify-between z-30 shadow-sm">
       {/* Brand & Title */}
       <Link href="/admin/dashboard" className="flex items-center space-x-3 group">
         <div className="relative w-14 h-14 flex items-center justify-center">

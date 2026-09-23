@@ -29,7 +29,7 @@ export function ProductFilterBar({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
         {/* Search Input */}
         <div className="relative md:col-span-4">
