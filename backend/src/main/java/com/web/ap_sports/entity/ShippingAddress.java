@@ -42,6 +42,12 @@ public class ShippingAddress {
     @Column(name = "ward_code")
     private String wardCode;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Column(name = "is_default", nullable = false)
     private boolean isDefault;
 

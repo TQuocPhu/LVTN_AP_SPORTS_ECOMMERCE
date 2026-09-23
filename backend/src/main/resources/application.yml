@@ -98,5 +98,5 @@ app:
   shipping:
     ghn:
       api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn/shiip/public-api/v2}
-      token: ${GHN_TOKEN:}
+      token: ${GHN_TOKEN:d0a9140d-3489-46a2-962c-72706c832f51}
       shop-id: ${GHN_SHOP_ID:}

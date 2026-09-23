@@ -40,5 +40,9 @@ public class ShippingAddressRequest {
 
     private String wardCode;
 
+    private Double latitude;
+
+    private Double longitude;
+
     private Boolean isDefault;
 }

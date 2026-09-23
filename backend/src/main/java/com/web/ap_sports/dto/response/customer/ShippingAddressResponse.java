@@ -22,6 +22,8 @@ public class ShippingAddressResponse {
     private Integer provinceId;
     private Integer districtId;
     private String wardCode;
+    private Double latitude;
+    private Double longitude;
 
     @JsonProperty("isDefault")
     private boolean isDefault;

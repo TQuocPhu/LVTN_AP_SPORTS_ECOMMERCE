@@ -55,6 +55,8 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
                 .provinceId(request.getProvinceId())
                 .districtId(request.getDistrictId())
                 .wardCode(request.getWardCode())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .isDefault(shouldBeDefault)
                 .build();
 
@@ -81,6 +83,8 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
         if (request.getProvinceId() != null) shippingAddress.setProvinceId(request.getProvinceId());
         if (request.getDistrictId() != null) shippingAddress.setDistrictId(request.getDistrictId());
         if (request.getWardCode() != null) shippingAddress.setWardCode(request.getWardCode());
+        if (request.getLatitude() != null) shippingAddress.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) shippingAddress.setLongitude(request.getLongitude());
 
         ShippingAddress updated = shippingAddressRepository.save(shippingAddress);
         log.info("Cập nhật địa chỉ giao hàng ID: {} cho user ID: {}", updated.getId(), user.getId());
@@ -144,6 +148,8 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
                 .provinceId(entity.getProvinceId())
                 .districtId(entity.getDistrictId())
                 .wardCode(entity.getWardCode())
+                .latitude(entity.getLatitude())
+                .longitude(entity.getLongitude())
                 .isDefault(entity.isDefault())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

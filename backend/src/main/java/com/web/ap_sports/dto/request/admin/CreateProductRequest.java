@@ -37,6 +37,9 @@ public class CreateProductRequest {
     @Size(max = 50, message = "Đơn vị tính không được vượt quá 50 ký tự")
     private String unit;
 
+    @Min(value = 1, message = "Trọng lượng sản phẩm phải lớn hơn 0")
+    private Integer weight; // Tính bằng grams, mặc định 500g nếu bỏ trống
+
     private String mainImage;
 
     @Builder.Default

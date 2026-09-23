@@ -149,6 +149,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                 .stock(totalStock)
                 .status(totalStock > 0 ? "in_stock" : "out_of_stock")
                 .unit(request.getUnit() != null ? request.getUnit().trim() : "Cái")
+                .weight(request.getWeight() != null ? request.getWeight() : 500)
                 .specifications(specificationsJson)
                 .build();
 
@@ -234,6 +235,7 @@ public class AdminProductServiceImpl implements AdminProductService {
         product.setDescription(request.getDescription());
         product.setPrice(request.getPrice());
         product.setUnit(request.getUnit() != null ? request.getUnit().trim() : product.getUnit());
+        if (request.getWeight() != null) product.setWeight(request.getWeight());
         if (StringUtils.hasText(request.getStatus())) {
             product.setStatus(request.getStatus().trim());
         }
@@ -417,6 +419,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                 .totalStock(product.getStock())
                 .status(product.getStatus())
                 .unit(product.getUnit())
+                .weight(product.getWeight())
                 .mainImage(mainImage)
                 .primaryCategoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .primaryCategoryName(product.getCategory() != null ? product.getCategory().getName() : null)
@@ -496,6 +499,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                 .totalStock(product.getStock())
                 .status(product.getStatus())
                 .unit(product.getUnit())
+                .weight(product.getWeight())
                 .mainImage(mainImage)
                 .primaryCategoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .primaryCategoryName(product.getCategory() != null ? product.getCategory().getName() : null)

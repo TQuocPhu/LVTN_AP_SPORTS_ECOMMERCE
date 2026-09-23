@@ -41,6 +41,9 @@ public class UpdateProductRequest {
     @Pattern(regexp = "^(in_stock|out_of_stock|discontinued)$", message = "Trạng thái sản phẩm không hợp lệ")
     private String status; // in_stock, out_of_stock, discontinued
 
+    @Min(value = 1, message = "Trọng lượng sản phẩm phải lớn hơn 0")
+    private Integer weight; // Tính bằng grams
+
     private String mainImage;
 
     @Builder.Default
