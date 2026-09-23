@@ -10,6 +10,19 @@ export default function AdminSidebar() {
 
   const isProfileActive = pathname === '/admin/profile';
 
+  const getRoleDisplayName = (role?: string) => {
+    switch (role) {
+      case 'ADMIN':
+        return 'Quản Trị Viên';
+      case 'STAFF':
+        return 'Nhân Viên Bán Hàng';
+      case 'WAREHOUSE_MANAGER':
+        return 'Quản Lý Kho';
+      default:
+        return role || 'Chưa xác định';
+    }
+  };
+
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full border-r border-slate-800 flex-shrink-0 select-none">
       <div className="p-4 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-800">
@@ -67,8 +80,8 @@ export default function AdminSidebar() {
       </div>
 
       {/* Sidebar Footer Info */}
-      <div className="p-4 border-t border-slate-800 text-xs text-slate-500">
-        Role: <span className="font-semibold text-slate-300">{user?.roleName || 'N/A'}</span>
+      <div className="p-4 border-t border-slate-800 text-xs text-slate-400">
+        Vai trò: <span className="font-semibold text-orange-400">{getRoleDisplayName(user?.roleName)}</span>
       </div>
     </aside>
   );

@@ -31,7 +31,7 @@ export function useAdminProfile() {
       }
     } catch (err) {
       if (!(isApiError(err) && err.status === 401)) {
-        toast.error('Lỗi khi tải thông tin hồ sơ tài khoản.');
+        // toast.error('Lỗi khi tải thông tin hồ sơ tài khoản.');
       }
     } finally {
       setLoading(false);
@@ -48,14 +48,14 @@ export function useAdminProfile() {
       const res = await adminProfileController.updateProfile(data);
       if (res && res.data) {
         setProfile(res.data);
-        toast.success(res.message || 'Cập nhật thông tin cá nhân thành công!');
+        // toast.success(res.message || 'Cập nhật thông tin cá nhân thành công!');
         // Đồng bộ tức thì với AdminHeader
         await refetchAdmin();
       }
       return res;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Cập nhật thông tin thất bại.';
-      toast.error(msg);
+      // toast.error(msg);
       throw err;
     } finally {
       setUpdating(false);
@@ -65,11 +65,11 @@ export function useAdminProfile() {
   const uploadAvatar = async (file: File) => {
     // 1. Kiểm tra dung lượng & loại file
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Kích thước file không vượt quá 5MB.');
+      // toast.error('Kích thước file không vượt quá 5MB.');
       return;
     }
     if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WEBP).');
+      // toast.error('Vui lòng chọn file hình ảnh hợp lệ (PNG, JPG, WEBP).');
       return;
     }
 
@@ -89,14 +89,14 @@ export function useAdminProfile() {
         if (res.data.avatar) {
           setAvatarPreview(res.data.avatar);
         }
-        toast.success(res.message || 'Cập nhật ảnh đại diện thành công!');
+        // toast.success(res.message || 'Cập nhật ảnh đại diện thành công!');
         // Đồng bộ avatar tức thì với AdminHeader
         await refetchAdmin();
       }
       return res;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Tải ảnh đại diện thất bại.';
-      toast.error(msg);
+      // toast.error(msg);
       // Revert preview nếu upload thất bại
       if (profile?.avatar) {
         setAvatarPreview(profile.avatar);
@@ -109,19 +109,19 @@ export function useAdminProfile() {
 
   const changePassword = async (data: ChangeAdminPasswordRequest) => {
     if (data.newPassword !== data.confirmPassword) {
-      toast.error('Xác nhận mật khẩu mới không khớp.');
+      // toast.error('Xác nhận mật khẩu mới không khớp.');
       return;
     }
 
     try {
       setUpdating(true);
       const res = await adminProfileController.changePassword(data);
-      toast.success(res.message || 'Đổi mật khẩu thành công!');
+      // toast.success(res.message || 'Đổi mật khẩu thành công!');
       await refetchAdmin();
       return res;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Đổi mật khẩu thất bại.';
-      toast.error(msg);
+      // toast.error(msg);
       throw err;
     } finally {
       setUpdating(false);
