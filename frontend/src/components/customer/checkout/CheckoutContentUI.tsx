@@ -39,6 +39,7 @@ export default function CheckoutContentUI() {
     setNote,
     summary,
     isSubmittingOrder,
+    orderError,
     handlePlaceOrder,
   } = useCheckout();
 
@@ -73,7 +74,7 @@ export default function CheckoutContentUI() {
       {/* Main Container */}
       <main className="max-w-[1536px] w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 mt-8 flex-1 space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Form Info, Cart Items, Payment Method, Voucher */}
+          {/* Left Column: Form Info, Cart Items & Trust Guarantees Badges */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-6">
             {/* 1. Address Section */}
             <CheckoutAddressSection
@@ -85,13 +86,13 @@ export default function CheckoutContentUI() {
             {/* 2. Cart Items List */}
             <CheckoutItemsSection items={cartItems} loading={loadingCart} />
 
-            {/* 3. Payment Method Selector */}
-            <CheckoutPaymentMethodSection
-              paymentMethod={paymentMethod}
-              onSelectPaymentMethod={setPaymentMethod}
-            />
+            {/* 3. SEO Trust Guarantees Badges */}
+            <CheckoutSEOTrustBadges />
+          </div>
 
-            {/* 4. Voucher Section */}
+          {/* Right Column: Voucher, Order Summary, Payment Method (Sticky Panel) */}
+          <div className="lg:col-span-5 xl:col-span-4 space-y-6 sticky top-24">
+            {/* 1. Nhập Mã Khuyến Mãi / Voucher */}
             <CheckoutVoucherSection
               voucherCode={voucherCode}
               setVoucherCode={setVoucherCode}
@@ -101,21 +102,29 @@ export default function CheckoutContentUI() {
               onApply={handleApplyVoucher}
               onRemove={handleRemoveVoucher}
             />
-          </div>
 
-          {/* Right Column: Order Summary & Trust Badges (Sticky Panel) */}
-          <div className="lg:col-span-5 xl:col-span-4 space-y-6 sticky top-24">
+            {/* 2. Tổng Quan Đơn Hàng & Ghi Chú */}
             <CheckoutSummarySection
               summary={summary}
               note={note}
               setNote={setNote}
-              isSubmitting={isSubmittingOrder}
               loadingShippingFee={loadingShippingFee}
-              onPlaceOrder={handlePlaceOrder}
             />
 
-            {/* SEO Trust Guarantees Cards Vertical */}
-            <CheckoutSEOTrustBadges />
+            {/* 3. Error Banner (Nếu có) */}
+            {orderError && (
+              <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold">
+                {orderError}
+              </div>
+            )}
+
+            {/* 4. Phương Thức Thanh Toán & Nút Nút Đặt Hàng / Thanh Toán Online */}
+            <CheckoutPaymentMethodSection
+              paymentMethod={paymentMethod}
+              onSelectPaymentMethod={setPaymentMethod}
+              isSubmitting={isSubmittingOrder}
+              onPlaceOrder={handlePlaceOrder}
+            />
           </div>
         </div>
       </main>

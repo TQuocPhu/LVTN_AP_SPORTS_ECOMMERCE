@@ -10,7 +10,7 @@ export function CheckoutSEOTrustBadges() {
         Cam Kết Dịch Vụ AP Sports Enterprise:
       </span>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Card 1: 100% Chính Hãng */}
         <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">

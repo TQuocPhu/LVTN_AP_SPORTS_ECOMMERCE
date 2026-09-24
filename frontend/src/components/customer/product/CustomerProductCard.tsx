@@ -7,6 +7,7 @@ import { Product } from "@/types/product";
 import { ShoppingBag, Eye, Star, Check, Heart } from "lucide-react";
 import { toast } from "sonner";
 
+import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/hooks/useWishlist";
 
 interface CustomerProductCardProps {
@@ -15,6 +16,7 @@ interface CustomerProductCardProps {
 
 export function CustomerProductCard({ product }: CustomerProductCardProps) {
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { addToCart } = useCart();
   const isFavorite = isInWishlist(product.id);
 
   const formattedPrice = new Intl.NumberFormat("vi-VN", {
@@ -29,10 +31,10 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
       }).format(product.originalPrice)
     : null;
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // toast.success(`Đã thêm "${product.name}" vào giỏ hàng!`);
+    await addToCart(product.id, null, 1);
   };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {

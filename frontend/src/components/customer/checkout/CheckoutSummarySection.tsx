@@ -1,25 +1,19 @@
-'use client';
-
 import React from 'react';
 import { CheckoutOrderSummary } from '@/types/checkout';
-import { ShoppingBag, ArrowRight, Loader2, MessageSquare } from 'lucide-react';
+import { ShoppingBag, Loader2, MessageSquare } from 'lucide-react';
 
 interface CheckoutSummarySectionProps {
   summary: CheckoutOrderSummary;
   note: string;
   setNote: (note: string) => void;
-  isSubmitting: boolean;
   loadingShippingFee?: boolean;
-  onPlaceOrder: () => void;
 }
 
 export function CheckoutSummarySection({
   summary,
   note,
   setNote,
-  isSubmitting,
   loadingShippingFee,
-  onPlaceOrder,
 }: CheckoutSummarySectionProps) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xl space-y-5 transition-colors">
@@ -88,26 +82,6 @@ export function CheckoutSummarySection({
           className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-orange-500 transition-colors"
         />
       </div>
-
-      {/* Place Order Button */}
-      <button
-        type="button"
-        onClick={onPlaceOrder}
-        disabled={isSubmitting}
-        className="w-full py-3.5 px-6 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm uppercase tracking-wide rounded-xl shadow-lg shadow-orange-500/25 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Đang Xử Lý Đơn Hàng...</span>
-          </>
-        ) : (
-          <>
-            <span>Tiến Hành Đặt Hàng</span>
-            <ArrowRight className="w-5 h-5" />
-          </>
-        )}
-      </button>
     </div>
   );
 }

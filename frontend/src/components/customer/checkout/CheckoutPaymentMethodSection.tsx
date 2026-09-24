@@ -2,17 +2,23 @@
 
 import React from 'react';
 import { PaymentMethod } from '@/types/checkout';
-import { CreditCard, Banknote, ShieldCheck, Check } from 'lucide-react';
+import { CreditCard, Banknote, ShieldCheck, Check, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface CheckoutPaymentMethodSectionProps {
   paymentMethod: PaymentMethod;
   onSelectPaymentMethod: (method: PaymentMethod) => void;
+  isSubmitting: boolean;
+  onPlaceOrder: () => void;
 }
 
 export function CheckoutPaymentMethodSection({
   paymentMethod,
   onSelectPaymentMethod,
+  isSubmitting,
+  onPlaceOrder,
 }: CheckoutPaymentMethodSectionProps) {
+  const isVnPay = paymentMethod === 'VNPAY';
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
       {/* Header */}
@@ -102,10 +108,53 @@ export function CheckoutPaymentMethodSection({
       </div>
 
       {/* Security Note */}
-      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 pt-1">
+      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 pt-1 pb-2">
         <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
         <span>Giao dịch của bạn được mã hóa và bảo mật theo tiêu chuẩn PCI-DSS Enterprise.</span>
       </div>
+
+      {/* Distinct Action Buttons according to Payment Method */}
+      {isVnPay ? (
+        <button
+          type="button"
+          onClick={onPlaceOrder}
+          disabled={isSubmitting}
+          className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white font-black text-sm uppercase tracking-wide rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Đang Kết Nối Cổng VNPay...</span>
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-5 h-5" />
+              <span>Thanh Toán Bằng VNPay Sandbox</span>
+              <ArrowRight className="w-5 h-5 ml-auto opacity-80" />
+            </>
+          )}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onPlaceOrder}
+          disabled={isSubmitting}
+          className="w-full py-4 px-6 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-sm uppercase tracking-wide rounded-xl shadow-lg shadow-orange-500/25 transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>Đang Xử Lý Đơn Hàng...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="w-5 h-5" />
+              <span>Xác Nhận Đặt Hàng (COD)</span>
+              <ArrowRight className="w-5 h-5 ml-auto opacity-80" />
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

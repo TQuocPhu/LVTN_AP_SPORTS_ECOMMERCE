@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCart } from '@/context/CartContext';
 import { checkoutController } from '@/controllers/checkout-controller';
 import { locationController } from '@/controllers/location-controller';
+import { orderController } from '@/controllers/order-controller';
 import { ShippingAddress, GhnProvince, GhnDistrict, GhnWard } from '@/types/address';
 import { CartItem } from '@/types/cart';
 import { PaymentMethod, CheckoutOrderSummary } from '@/types/checkout';
 import { VoucherApplyResult } from '@/types/voucher';
-import { toast } from 'sonner';
-
 export interface UseCheckoutReturn {
   // Address State
   addresses: ShippingAddress[];
@@ -45,6 +46,7 @@ export interface UseCheckoutReturn {
 
   // Order Submission
   isSubmittingOrder: boolean;
+  orderError: string | null;
   handlePlaceOrder: () => Promise<void>;
 }
 
@@ -53,6 +55,9 @@ export interface UseCheckoutReturn {
  * Không chứa bất kỳ UI rendering code nào, tuân thủ Clean Architecture 4 tầng.
  */
 export function useCheckout(): UseCheckoutReturn {
+  const router = useRouter();
+  const { selectedItems, selectedTotalPrice, items, totalPrice, refreshCart } = useCart();
+
   // 1. State Địa Chỉ Giao Hàng
   const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
   const [selectedAddress, setSelectedAddressState] = useState<ShippingAddress | null>(null);
@@ -62,9 +67,30 @@ export function useCheckout(): UseCheckoutReturn {
   // 2. State Phí Giao Hàng & Giỏ Hàng
   const [shippingFee, setShippingFee] = useState<number>(30000);
   const [loadingShippingFee, setLoadingShippingFee] = useState<boolean>(false);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [subtotal, setSubtotal] = useState<number>(0);
+  const [rawCartItems, setRawCartItems] = useState<CartItem[]>([]);
+  const [rawSubtotal, setRawSubtotal] = useState<number>(0);
   const [loadingCart, setLoadingCart] = useState<boolean>(true);
+
+  // Lọc sản phẩm được chọn từ giỏ hàng (Ưu tiên selectedItems từ CartContext)
+  const cartItems = useMemo(() => {
+    if (selectedItems && selectedItems.length > 0) {
+      return selectedItems;
+    }
+    if (rawCartItems && rawCartItems.length > 0) {
+      return rawCartItems;
+    }
+    return items || [];
+  }, [selectedItems, rawCartItems, items]);
+
+  const subtotal = useMemo(() => {
+    if (selectedItems && selectedItems.length > 0) {
+      return selectedTotalPrice;
+    }
+    if (rawSubtotal > 0) {
+      return rawSubtotal;
+    }
+    return totalPrice || 0;
+  }, [selectedItems, selectedTotalPrice, rawSubtotal, totalPrice]);
 
   // 3. State Phương Thức Thanh Toán (Mặc định COD)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
@@ -78,6 +104,7 @@ export function useCheckout(): UseCheckoutReturn {
   // 5. State Ghi Chú & Submitting
   const [note, setNote] = useState<string>('');
   const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Load danh sách Địa chỉ khách hàng
   const fetchAddresses = useCallback(async () => {
@@ -168,14 +195,14 @@ export function useCheckout(): UseCheckoutReturn {
     };
   }, [selectedAddress]);
 
-  // Load Giỏ hàng
+  // Load Giỏ hàng từ Backend nếu cần
   const fetchCart = useCallback(async () => {
     setLoadingCart(true);
     try {
       const res = await checkoutController.getCart();
       if (res.data) {
-        setCartItems(res.data.items || []);
-        setSubtotal(res.data.totalPrice || 0);
+        setRawCartItems(res.data.items || []);
+        setRawSubtotal(res.data.totalPrice || 0);
       }
     } catch {
       // Silent catch
@@ -210,9 +237,13 @@ export function useCheckout(): UseCheckoutReturn {
         shippingFee: shippingFee,
       });
       if (res.data) {
-        setAppliedVoucher(res.data);
-        const codeName = res.data.couponCode || res.data.voucher?.code || voucherCode;
-        toast.success(`Áp dụng mã ${codeName} thành công!`);
+        if (res.data.valid) {
+          setAppliedVoucher(res.data);
+          setVoucherError(null);
+        } else {
+          setVoucherError(res.data.message || 'Mã giảm giá không hợp lệ.');
+          setAppliedVoucher(null);
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Không thể áp dụng mã giảm giá này.';
@@ -228,7 +259,6 @@ export function useCheckout(): UseCheckoutReturn {
     setAppliedVoucher(null);
     setVoucherCode('');
     setVoucherError(null);
-    toast.info('Đã hủy áp dụng mã giảm giá.');
   }, []);
 
   // Tính toán Tổng quan Đơn hàng
@@ -244,31 +274,48 @@ export function useCheckout(): UseCheckoutReturn {
     };
   }, [subtotal, shippingFee, appliedVoucher]);
 
-  // Tiến hành Đặt Hàng (Chuẩn bị Payload sẵn sàng cho bước xử lý Đặt hàng & Thanh toán ở phase sau)
+  // Tiến hành Đặt Hàng (Gửi API Tạo đơn hàng & Xử lý thanh toán COD / VNPay)
   const handlePlaceOrder = useCallback(async () => {
     if (!selectedAddress) {
-      toast.error('Vui lòng chọn địa chỉ giao hàng trước khi tiến hành đặt hàng.');
+      setOrderError('Vui lòng chọn địa chỉ giao hàng trước khi tiến hành đặt hàng.');
       return;
     }
     if (cartItems.length === 0) {
-      toast.error('Giỏ hàng của bạn đang trống.');
+      setOrderError('Giỏ hàng của bạn đang trống.');
       return;
     }
 
     setIsSubmittingOrder(true);
+    setOrderError(null);
     try {
-      // Giả lập chuẩn bị đơn hàng cho Phase tiếp theo
-      await new Promise((r) => setTimeout(r, 800));
+      const selectedCartItemIds = cartItems.map((item) => item.id);
+      const payload = {
+        shippingAddressId: selectedAddress.id,
+        paymentMethod: paymentMethod,
+        couponCode: appliedVoucher?.couponCode || appliedVoucher?.voucher?.code || (voucherCode.trim() ? voucherCode.trim() : undefined),
+        note: note.trim() || undefined,
+        cartItemIds: selectedCartItemIds,
+      };
 
-      if (paymentMethod === 'VNPAY') {
-        toast.info('Đã chuẩn bị thông tin đặt hàng. Đang chuyển sang cổng thanh toán VNPay...');
-      } else {
-        toast.success('Thông tin đặt hàng hợp lệ! Đã sẵn sàng cho bước xử lý đơn hàng COD.');
+      const res = await orderController.createOrder(payload);
+
+      if (res.data) {
+        // Cập nhật ngay lập tức state giỏ hàng trên UI
+        await refreshCart();
+
+        if (paymentMethod === 'VNPAY' && res.data.paymentUrl) {
+          window.location.href = res.data.paymentUrl;
+        } else {
+          router.push(`/orders/success?code=${res.data.orderCode}`);
+        }
       }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Đặt hàng không thành công. Vui lòng thử lại.';
+      setOrderError(msg);
     } finally {
       setIsSubmittingOrder(false);
     }
-  }, [selectedAddress, cartItems.length, paymentMethod]);
+  }, [selectedAddress, cartItems, paymentMethod, appliedVoucher, voucherCode, note, refreshCart, router]);
 
   return {
     addresses,
@@ -295,6 +342,7 @@ export function useCheckout(): UseCheckoutReturn {
     setNote,
     summary,
     isSubmittingOrder,
+    orderError,
     handlePlaceOrder,
   };
 }
