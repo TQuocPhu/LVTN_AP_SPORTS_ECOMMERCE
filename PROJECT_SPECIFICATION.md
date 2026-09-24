@@ -632,6 +632,49 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 💳 4.21. Phân Hệ Đặt Hàng, Thanh Toán Multi-Gate (COD & VNPay Sandbox), Khấu Trừ Tồn Kho Kép, Mã Giảm Giá Đa Cấp & Kho GHN Station (Phase 2 Checkout & Payment System)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (24/09/2026 - Day 08)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Đặt Hàng & Thanh Toán:**
+1. **Thanh Toán Sản Phẩm Được Chọn Trong Giỏ Hàng (Selected Items Checkout)**:
+   - Request DTO `CreateOrderRequest` đính kèm danh sách `cartItemIds` (mảng ID các `CartItem` được tích chọn).
+   - Backend lọc chính xác các sản phẩm được chọn qua `cartItemRepository.findByUserIdAndIdIn(userId, cartItemIds)` để khởi tạo đơn hàng.
+   - Khi đặt hàng thành công, hệ thống chỉ dọn các mặt hàng đã mua ra khỏi giỏ, giữ lại nguyên vẹn các sản phẩm chưa chọn.
+   - Frontend tự động làm mới state giỏ hàng tức thì qua `await refreshCart()` từ `CartContext` mà không cần reload trang (F5).
+
+2. **Ràng Buộc & Quy Tắc Tính Mã Giảm Giá Đa Cấp (Coupon & Voucher Validation Engine)**:
+   - Kiểm tra các điều kiện: `isActive = true`, `status == "active"`, ngày bắt đầu `startsAt`, ngày hết hạn `expiresAt`, giới hạn toàn hệ thống `usageLimit`, giá trị đơn hàng tối thiểu `minOrderValue`.
+   - **Giới Hạn Lượt Dùng Theo Tài Khoản (`userUsageLimit`)**: Đếm số đơn hàng khách đã sử dụng mã qua `orderRepository.countByUserIdAndCouponIdAndStatusNotIn(userId, couponId, List.of("cancelled", "payment_failed"))`. Tự động loại trừ các đơn hủy/thanh toán thất bại để bảo toàn lượt cho người dùng.
+   - **Công thức giảm giá theo loại Voucher**:
+     - `PERCENT`: Giảm theo phần trăm tiền hàng `subtotal * (value / 100)`. Áp dụng mức trần giảm giá tối đa `maxDiscountAmount` nếu có.
+     - `FIXED`: Giảm số tiền cố định trực tiếp vào tiền hàng, tối đa bằng đúng tổng tiền hàng `subtotal`.
+     - `FREESHIP`: Giảm vào phí vận chuyển GHN, tối đa bằng đúng phí ship thực tế `shippingFee` (không trừ lấn sang tiền hàng).
+   - **Kiểm soát Toastr**: Truyền `showSuccessToast: false` cho API `/customer/vouchers/apply`. Kiểm tra `res.data.valid` phía Custom Hook `useCheckout`; khi `valid = false`, hệ thống gán `voucherError` hiển thị thông báo lỗi màu đỏ trực tiếp bên dưới ô nhập mã.
+
+3. **Khấu Trừ Tồn Kho Kép & Cơ Chế Hoàn Tồn Kho (Stock Management & Rollback Flow)**:
+   - Khi tạo đơn, hệ thống khấu trừ đồng thời cả `Product.stock` và `ProductVariant.stockQuantity`. Tự động cập nhật `product.status = "out_of_stock"` khi tồn kho về `0`.
+   - **Hoàn trả tồn kho khi thanh toán VNPay thất bại (`rollbackOrderStock`)**: Nếu VNPay trả về lỗi hoặc khách hủy giao dịch (`vnp_ResponseCode != "00"`), đơn hàng chuyển trạng thái **`payment_failed`** (chặn nhân viên duyệt nhầm đơn chưa trả tiền) và lập tức hoàn trả lại tồn kho cho cả Product & Variant.
+   - **Thanh toán lại (`retryVNPayPayment`)**: Cho phép khách hàng bấm *"Thanh Toán Lại Bằng VNPay"*, hệ thống gọi `reDeductOrderStock` khấu trừ lại tồn kho, đổi trạng thái đơn về `pending` và tái sinh URL thanh toán VNPay mới.
+
+4. **Tra Cứu Bưu Cục GHN Station, Tọa Độ GPS & Mã Vận Đơn (`tracking_code`)**:
+   - Hàm `fetchNearestGhnStation`: Tra cứu từ GHN API (`/station/get`) dựa trên `districtId` & `wardCode`. Parse chính xác các trường `locationId`/`station_id`, `locationName`/`name`, `address`, `latitude`, `longitude`.
+   - **Cơ chế Fallback**: Tự động tính toán bưu cục kho GHN xử lý gần nhất theo quận/huyện nếu API Sandbox không phản hồi, bảo đảm 100% các cột `ghn_station_id`, `ghn_station_name`, `ghn_station_address`, `ghn_station_latitude`, `ghn_station_longitude` được lưu đầy đủ vào CSDL.
+   - Tự động sinh mã vận đơn `tracking_code = "GHN-" + orderCode` và lưu tọa độ người nhận `gps_latitude`, `gps_longitude`.
+
+5. **Tích Hợp Thanh Toán Multi-Gate VNPay Sandbox & Xử Lý Số Tiền Lẻ (`vnp_Amount`)**:
+   - Sử dụng `.setScale(2, RoundingMode.HALF_UP)` cho các phép tính số tiền đơn hàng và tiền giảm giá.
+   - Trong `VNPayServiceImpl`: Nhân `finalAmount` cho `100` (`vnp_Amount = finalAmount * 100`), hỗ trợ VNPay xử lý chính xác số tiền lẻ đến hàng đơn vị đồng (VD: 153.333 VNĐ) và các số lẻ thập phân trên cổng thanh toán.
+   - Xác thực mã băm bảo mật checksum `verifyChecksum` qua thuật toán HMAC-SHA512 cho các tham số trả về từ VNPay.
+
+6. **Tái Cấu Trúc Giao Diện `/checkout` Chuẩn UX (Sticky Right Panel Layout)**:
+   - Sắp xếp cột thông tin bên phải màn hình Đặt hàng theo thứ tự ưu tiên:
+     1. Khung Nhập mã giảm giá / Voucher (`CheckoutVoucherSection`) ở trên cùng.
+     2. Khung Tổng quan đơn hàng & Ghi chú (`CheckoutSummarySection`) ở giữa.
+     3. Khung Phương thức thanh toán (`CheckoutPaymentMethodSection`) ở dưới cùng đính kèm Nút bấm **`XÁC NHẬN ĐẶT HÀNG (COD)`** hoặc **`THANH TOÁN BẰNG VNPAY SANDBOX`** trực tiếp ở cuối card.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
 
