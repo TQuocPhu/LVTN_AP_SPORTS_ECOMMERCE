@@ -60,6 +60,24 @@ public class Order {
     @Column(name = "gps_longitude")
     private Double gpsLongitude;
 
+    @Column(name = "ghn_station_id")
+    private Integer ghnStationId;
+
+    @Column(name = "ghn_station_name")
+    private String ghnStationName;
+
+    @Column(name = "ghn_station_address", columnDefinition = "TEXT")
+    private String ghnStationAddress;
+
+    @Column(name = "ghn_station_latitude")
+    private Double ghnStationLatitude;
+
+    @Column(name = "ghn_station_longitude")
+    private Double ghnStationLongitude;
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coupon_id")
     private Coupon coupon;

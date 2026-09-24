@@ -32,4 +32,15 @@ public interface EmailService {
      * @param replyHtmlContent Nội dung câu trả lời từ ban quản trị (dạng HTML)
      */
     void sendContactReplyEmail(String toEmail, String customerName, String originalMessage, String replyHtmlContent);
+
+    /**
+     * Gửi Email xác nhận Đặt hàng thành công cho Khách hàng.
+     *
+     * @param toEmail Email người nhận
+     * @param customerName Tên khách hàng
+     * @param orderCode Mã đơn hàng
+     * @param totalAmount Tổng số tiền thanh toán
+     * @param paymentMethod Phương thức thanh toán
+     */
+    void sendOrderConfirmationEmail(String toEmail, String customerName, String orderCode, String totalAmount, String paymentMethod);
 }

@@ -238,6 +238,53 @@ public class EmailServiceImpl implements EmailService {
         return sb.toString();
     }
 
+    @Override
+    public void sendOrderConfirmationEmail(String toEmail, String customerName, String orderCode, String totalAmount, String paymentMethod) {
+        log.info("==================================================================");
+        log.info("🛒 AP SPORTS ORDER CONFIRMATION EMAIL FOR {}: OrderCode = {}", toEmail, orderCode);
+        log.info("==================================================================");
+
+        String htmlContent = """
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #ffffff;">
+                <div style="text-align: center; padding-bottom: 20px; border-bottom: 2px solid #ea580c;">
+                    <h2 style="color: #111827; margin: 0;">⚡ AP SPORTS ENTERPRISE</h2>
+                    <p style="color: #ea580c; margin: 4px 0 0 0; font-size: 12px; font-weight: bold; text-transform: uppercase;">Xác Nhận Đặt Hàng Thành Công</p>
+                </div>
+                <div style="padding: 20px 0;">
+                    <p style="font-size: 16px; color: #374151;">Xin chào <strong>%s</strong>,</p>
+                    <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">Cảm ơn bạn đã đặt hàng tại <strong>AP Sports Enterprise</strong>. Đơn hàng của bạn đã được ghi nhận trên hệ thống với thông tin như sau:</p>
+                    
+                    <div style="margin: 20px 0; padding: 16px; background-color: #fff7ed; border: 1px solid #ffedd5; border-radius: 8px;">
+                        <p style="margin: 4px 0; font-size: 14px; color: #1e293b;">Mã đơn hàng: <strong style="color: #ea580c;">#%s</strong></p>
+                        <p style="margin: 4px 0; font-size: 14px; color: #1e293b;">Tổng tiền thanh toán: <strong>%s đ</strong></p>
+                        <p style="margin: 4px 0; font-size: 14px; color: #1e293b;">Phương thức thanh toán: <strong>%s</strong></p>
+                    </div>
+
+                    <p style="font-size: 14px; color: #4b5563; line-height: 1.6;">Chúng tôi sẽ nhanh chóng kiểm tra và vận chuyển đơn hàng đến địa chỉ của bạn. Bạn có thể theo dõi hành trình đơn hàng bằng cách truy cập tài khoản của bạn tại trang web.</p>
+                </div>
+                <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; text-align: center; font-size: 12px; color: #9ca3af;">
+                    <p>Nếu có thắc mắc, vui lòng liên hệ hotline: 0913-193-009</p>
+                    <p>© 2026 AP Sports Enterprise. All rights reserved.</p>
+                </div>
+            </div>
+            """.formatted(customerName, orderCode, totalAmount, paymentMethod);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("⚡ AP Sports - Xác Nhận Đơn Hàng #" + orderCode);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Đã gửi email xác nhận đơn hàng #{} thành công đến địa chỉ: {}", orderCode, toEmail);
+        } catch (Exception e) {
+            log.warn("Không thể gửi email xác nhận đơn hàng qua SMTP server ({}): {}", e.getMessage(), e.getClass().getName());
+        }
+    }
+
     @lombok.AllArgsConstructor
     @lombok.Getter
     private static class Base64ImageAttachment {

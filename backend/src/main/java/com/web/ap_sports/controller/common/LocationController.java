@@ -343,6 +343,40 @@ public class LocationController {
         return ResponseEntity.ok(ApiResponse.success("Áp dụng phí giao hàng tiêu chuẩn.", fallbackResult));
     }
 
+    /**
+     * Tra cứu danh sách Bưu cục / Chi cục kho GHN tại vị trí Quận/Huyện hoặc Phường/Xã.
+     */
+    @GetMapping("/ghn-stations")
+    @SuppressWarnings("rawtypes")
+    public ResponseEntity<ApiResponse<Object>> getGhnStations(
+            @RequestParam Integer districtId,
+            @RequestParam(required = false) String wardCode) {
+        try {
+            String url = getGhnBaseUrl() + "station/get";
+            HttpHeaders headers = buildHeaders();
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("district_id", districtId);
+            if (wardCode != null && !wardCode.isBlank()) {
+                requestBody.put("ward_code", wardCode);
+            }
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Object data = response.getBody().get("data");
+                if (data != null) {
+                    return ResponseEntity.ok(ApiResponse.success("Lấy danh sách bưu cục kho GHN thành công.", data));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi tra cứu bưu cục kho GHN (districtId={}): {}", districtId, e.getMessage());
+        }
+
+        return ResponseEntity.ok(ApiResponse.success("Chưa tìm thấy bưu cục GHN phù hợp.", java.util.Collections.emptyList()));
+    }
+
     private String cleanAdminPrefix(String input) {
         if (input == null) return "";
         return input.trim()
