@@ -93,6 +93,7 @@ public class SecurityConfig {
                         "/api/v1/categories/**",
                         "/api/v1/locations",
                         "/api/v1/locations/**",
+                        "/api/v1/demo/logistics/**",
                         "/ws/**",
                         "/h2-console/**"
                 ).permitAll()
