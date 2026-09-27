@@ -12,5 +12,7 @@ public interface CustomerOrderService {
     OrderResponse processVNPayReturn(Map<String, String> queryParams);
     OrderResponse retryVNPayPayment(String email, String orderCode, String clientIp);
     OrderResponse getOrderByCode(String email, String orderCode);
-    Page<OrderResponse> getMyOrders(String email, Pageable pageable);
+    Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, Pageable pageable);
+    OrderResponse cancelMyOrder(String email, String orderCode, String reason);
+    OrderResponse returnMyOrder(String email, String orderCode, String reason);
 }

@@ -20,6 +20,7 @@ public class OrderItemResponse {
     private String sku;
     private String color;
     private String size;
+    private String attributes;
     private Integer quantity;
     private BigDecimal price;
     private String image;

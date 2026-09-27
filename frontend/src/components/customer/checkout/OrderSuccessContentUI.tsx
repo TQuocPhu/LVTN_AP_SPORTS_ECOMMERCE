@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useOrderSuccess } from '@/hooks/useOrderSuccess';
-import { CheckCircle2, ShoppingBag, Truck, MapPin, Package, FileText } from 'lucide-react';
+import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
+import { CheckCircle2, ShoppingBag, Truck, MapPin, Package, FileText, Navigation, Building } from 'lucide-react';
 
 export default function OrderSuccessContentUI() {
   const { loading, order, errorMsg } = useOrderSuccess();
@@ -56,40 +57,43 @@ export default function OrderSuccessContentUI() {
 
         {/* Thông tin Đơn hàng & Địa chỉ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cột trái: Thông tin nhận hàng & GHN */}
+          {/* Cột trái: Thông tin nhận hàng & Vận chuyển GHN */}
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700/60 p-5 space-y-4">
             <div className="flex items-center gap-2 border-b border-gray-100 dark:border-slate-700 pb-3 text-gray-900 dark:text-gray-100 font-bold text-base">
               <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <h2>Địa Chỉ Nhận Hàng</h2>
+              <h2>Địa Chỉ Nhận Hàng & Lộ Trình</h2>
             </div>
+
+            {/* Kho xuất hàng AP Sports */}
+            <div className="text-xs space-y-1 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/50">
+              <p className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5 text-orange-500" />
+                <span>{STORE_LOCATION_CONSTANTS.STORE_NAME}</span>
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-[11px]">{STORE_LOCATION_CONSTANTS.STORE_ADDRESS}</p>
+              <p className="text-[10px] text-slate-400 font-mono">
+                GPS Xuất Kho: ({STORE_LOCATION_CONSTANTS.STORE_GPS_LATITUDE}, {STORE_LOCATION_CONSTANTS.STORE_GPS_LONGITUDE})
+              </p>
+            </div>
+
             {order.shippingAddress ? (
               <div className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
-                <p className="font-semibold text-gray-900 dark:text-gray-100">{order.shippingAddress.fullName}</p>
-                <p className="text-gray-600 dark:text-gray-400">Điện thoại: {order.shippingAddress.phone}</p>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="font-semibold text-gray-900 dark:text-gray-100">{order.shippingAddress.fullName} ({order.shippingAddress.phone})</p>
+                <p className="text-gray-600 dark:text-gray-400 text-xs">
                   {order.shippingAddress.address}, {order.shippingAddress.city}
                 </p>
+                {order.gpsLatitude && order.gpsLongitude && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono mt-1 flex items-center gap-1 font-semibold">
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Tọa độ GPS đích: ({order.gpsLatitude.toFixed(5)}, {order.gpsLongitude.toFixed(5)})</span>
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-gray-500">Chưa có thông tin địa chỉ</p>
             )}
 
-            {/* Chi cục kho GHN gần nhất */}
-            {order.ghnStationName && (
-              <div className="pt-3 border-t border-gray-100 dark:border-slate-700/60">
-                <div className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 mb-1">
-                  <Truck className="w-4 h-4" />
-                  <span>Bưu Cục Kho GHN Xử Lý Gần Nhất:</span>
-                </div>
-                <p className="text-xs font-medium text-gray-800 dark:text-gray-200">{order.ghnStationName}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{order.ghnStationAddress}</p>
-                {order.ghnStationLatitude && order.ghnStationLongitude && (
-                  <p className="text-[11px] text-gray-400 font-mono mt-1">
-                    GPS: ({order.ghnStationLatitude.toFixed(5)}, {order.ghnStationLongitude.toFixed(5)})
-                  </p>
-                )}
-              </div>
-            )}
+
           </div>
 
           {/* Cột phải: Phương thức & Tổng tiền */}
@@ -156,11 +160,15 @@ export default function OrderSuccessContentUI() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{item.productName}</p>
-                  {(item.color || item.size) && (
+                  {item.attributes ? (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {item.attributes}
+                    </p>
+                  ) : (item.color || item.size) ? (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {item.color && `Màu: ${item.color}`} {item.size && `| Size: ${item.size}`}
                     </p>
-                  )}
+                  ) : null}
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Số lượng: x{item.quantity}</p>
                 </div>
                 <div className="text-right text-sm font-semibold text-gray-900 dark:text-gray-100">

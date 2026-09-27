@@ -76,9 +76,13 @@ public class CustomerOrderController {
     @GetMapping("/my-orders")
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> getMyOrders(
             Authentication authentication,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false, defaultValue = "DESC") String sortDir,
             @PageableDefault(size = 10) Pageable pageable) {
         User user = getAuthenticatedUser(authentication);
-        Page<OrderResponse> orders = orderService.getMyOrders(user.getEmail(), pageable);
+        Page<OrderResponse> orders = orderService.getMyOrders(user.getEmail(), status, keyword, sortBy, sortDir, pageable);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng thành công", orders));
     }
 
@@ -89,5 +93,27 @@ public class CustomerOrderController {
         User user = getAuthenticatedUser(authentication);
         OrderResponse response = orderService.getOrderByCode(user.getEmail(), orderCode);
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết đơn hàng thành công", response));
+    }
+
+    @PutMapping("/{orderCode}/cancel")
+    public ResponseEntity<ApiResponse<OrderResponse>> cancelMyOrder(
+            Authentication authentication,
+            @PathVariable String orderCode,
+            @RequestBody(required = false) Map<String, String> body) {
+        User user = getAuthenticatedUser(authentication);
+        String reason = body != null ? body.get("reason") : null;
+        OrderResponse response = orderService.cancelMyOrder(user.getEmail(), orderCode, reason);
+        return ResponseEntity.ok(ApiResponse.success("Hủy đơn hàng thành công", response));
+    }
+
+    @PutMapping("/{orderCode}/return")
+    public ResponseEntity<ApiResponse<OrderResponse>> returnMyOrder(
+            Authentication authentication,
+            @PathVariable String orderCode,
+            @RequestBody(required = false) Map<String, String> body) {
+        User user = getAuthenticatedUser(authentication);
+        String reason = body != null ? body.get("reason") : null;
+        OrderResponse response = orderService.returnMyOrder(user.getEmail(), orderCode, reason);
+        return ResponseEntity.ok(ApiResponse.success("Gửi yêu cầu trả hàng thành công", response));
     }
 }

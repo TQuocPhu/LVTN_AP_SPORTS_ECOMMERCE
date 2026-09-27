@@ -5,6 +5,7 @@ export interface CreateOrderRequest {
   paymentMethod: 'COD' | 'VNPAY';
   couponCode?: string;
   note?: string;
+  shippingFee?: number;
   cartItemIds?: number[];
 }
 
@@ -17,10 +18,25 @@ export interface OrderItem {
   sku?: string;
   color?: string;
   size?: string;
+  attributes?: string;
   quantity: number;
   price: number;
   image?: string;
 }
+
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'shipping'
+  | 'shipped'
+  | 'delivered'
+  | 'completed'
+  | 'cancelled'
+  | 'returned'
+  | 'payment_failed';
+
+export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
 
 export interface OrderResponse {
   id: number;
@@ -29,15 +45,21 @@ export interface OrderResponse {
   shippingFee: number;
   discountAmount: number;
   finalAmount: number;
-  status: string; // pending, confirmed, shipping, delivered, cancelled, payment_failed
+  status: OrderStatus | string;
   paymentMethod: 'COD' | 'VNPAY' | string;
-  paymentStatus: 'pending' | 'completed' | 'failed' | string;
+  paymentStatus: PaymentStatus | string;
   paymentUrl?: string;
+  couponCode?: string;
+  couponName?: string;
   shippingAddress?: ShippingAddress;
   trackingCode?: string;
   shippingProvider?: string;
+
+  // không sử dụng gpsLatitude
   gpsLatitude?: number;
+  // không sử dụng gpsLongitude
   gpsLongitude?: number;
+  
   ghnStationId?: number;
   ghnStationName?: string;
   ghnStationAddress?: string;

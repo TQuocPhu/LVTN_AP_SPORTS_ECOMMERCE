@@ -4,10 +4,12 @@ import { useCart } from '@/context/CartContext';
 import { checkoutController } from '@/controllers/checkout-controller';
 import { locationController } from '@/controllers/location-controller';
 import { orderController } from '@/controllers/order-controller';
-import { ShippingAddress, GhnProvince, GhnDistrict, GhnWard } from '@/types/address';
+import { ShippingAddress, ShippingAddressRequest, GhnProvince, GhnDistrict, GhnWard } from '@/types/address';
+import { addressController } from '@/controllers/address-controller';
 import { CartItem } from '@/types/cart';
 import { PaymentMethod, CheckoutOrderSummary } from '@/types/checkout';
 import { VoucherApplyResult } from '@/types/voucher';
+
 export interface UseCheckoutReturn {
   // Address State
   addresses: ShippingAddress[];
@@ -18,6 +20,7 @@ export interface UseCheckoutReturn {
   setIsAddressSelectModalOpen: (open: boolean) => void;
   setSelectedAddress: (address: ShippingAddress) => void;
   refetchAddresses: () => Promise<void>;
+  handleAddAddress: (data: ShippingAddressRequest) => Promise<boolean>;
 
   // Cart Items State
   cartItems: CartItem[];
@@ -56,7 +59,7 @@ export interface UseCheckoutReturn {
  */
 export function useCheckout(): UseCheckoutReturn {
   const router = useRouter();
-  const { selectedItems, selectedTotalPrice, items, totalPrice, refreshCart } = useCart();
+  const { selectedItems, selectedTotalPrice, isLoading: loadingCart, refreshCart } = useCart();
 
   // 1. State Địa Chỉ Giao Hàng
   const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
@@ -67,30 +70,15 @@ export function useCheckout(): UseCheckoutReturn {
   // 2. State Phí Giao Hàng & Giỏ Hàng
   const [shippingFee, setShippingFee] = useState<number>(30000);
   const [loadingShippingFee, setLoadingShippingFee] = useState<boolean>(false);
-  const [rawCartItems, setRawCartItems] = useState<CartItem[]>([]);
-  const [rawSubtotal, setRawSubtotal] = useState<number>(0);
-  const [loadingCart, setLoadingCart] = useState<boolean>(true);
 
-  // Lọc sản phẩm được chọn từ giỏ hàng (Ưu tiên selectedItems từ CartContext)
+  // Lọc sản phẩm được chọn từ giỏ hàng (Chỉ lấy các sản phẩm ĐƯỢC CHỌN từ CartContext)
   const cartItems = useMemo(() => {
-    if (selectedItems && selectedItems.length > 0) {
-      return selectedItems;
-    }
-    if (rawCartItems && rawCartItems.length > 0) {
-      return rawCartItems;
-    }
-    return items || [];
-  }, [selectedItems, rawCartItems, items]);
+    return selectedItems || [];
+  }, [selectedItems]);
 
   const subtotal = useMemo(() => {
-    if (selectedItems && selectedItems.length > 0) {
-      return selectedTotalPrice;
-    }
-    if (rawSubtotal > 0) {
-      return rawSubtotal;
-    }
-    return totalPrice || 0;
-  }, [selectedItems, selectedTotalPrice, rawSubtotal, totalPrice]);
+    return selectedTotalPrice || 0;
+  }, [selectedTotalPrice]);
 
   // 3. State Phương Thức Thanh Toán (Mặc định COD)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
@@ -170,7 +158,13 @@ export function useCheckout(): UseCheckoutReturn {
 
       if (targetDistrictId && targetWardCode) {
         try {
-          const feeRes = await locationController.calculateShippingFee(targetDistrictId, targetWardCode);
+          // Tính tổng trọng lượng (grams) các sản phẩm ĐƯỢC CHỌN trong giỏ hàng
+          const totalWeight = cartItems.reduce((sum, item) => {
+            const w = (typeof item.weight === 'number' && item.weight > 0) ? item.weight : 500;
+            return sum + w * (item.quantity || 1);
+          }, 0) || 500;
+
+          const feeRes = await locationController.calculateShippingFee(targetDistrictId, targetWardCode, totalWeight, subtotal);
           const fee = feeRes?.data?.shippingFee;
           if (!isCancelled && typeof fee === 'number') {
             setShippingFee(fee);
@@ -193,28 +187,11 @@ export function useCheckout(): UseCheckoutReturn {
     return () => {
       isCancelled = true;
     };
-  }, [selectedAddress]);
-
-  // Load Giỏ hàng từ Backend nếu cần
-  const fetchCart = useCallback(async () => {
-    setLoadingCart(true);
-    try {
-      const res = await checkoutController.getCart();
-      if (res.data) {
-        setRawCartItems(res.data.items || []);
-        setRawSubtotal(res.data.totalPrice || 0);
-      }
-    } catch {
-      // Silent catch
-    } finally {
-      setLoadingCart(false);
-    }
-  }, []);
+  }, [selectedAddress, cartItems]);
 
   useEffect(() => {
     fetchAddresses();
-    fetchCart();
-  }, [fetchAddresses, fetchCart]);
+  }, [fetchAddresses]);
 
   // Chọn địa chỉ từ Modal
   const setSelectedAddress = useCallback((addr: ShippingAddress) => {
@@ -294,16 +271,21 @@ export function useCheckout(): UseCheckoutReturn {
         paymentMethod: paymentMethod,
         couponCode: appliedVoucher?.couponCode || appliedVoucher?.voucher?.code || (voucherCode.trim() ? voucherCode.trim() : undefined),
         note: note.trim() || undefined,
+        shippingFee: shippingFee,
         cartItemIds: selectedCartItemIds,
       };
 
       const res = await orderController.createOrder(payload);
 
       if (res.data) {
+        // Clear selected cart items session cache
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("ap_selected_cart_item_ids");
+        }
         // Cập nhật ngay lập tức state giỏ hàng trên UI
         await refreshCart();
 
-        if (paymentMethod === 'VNPAY' && res.data.paymentUrl) {
+        if (paymentMethod === "VNPAY" && res.data.paymentUrl) {
           window.location.href = res.data.paymentUrl;
         } else {
           router.push(`/orders/success?code=${res.data.orderCode}`);
@@ -317,6 +299,24 @@ export function useCheckout(): UseCheckoutReturn {
     }
   }, [selectedAddress, cartItems, paymentMethod, appliedVoucher, voucherCode, note, refreshCart, router]);
 
+  // Tạo địa chỉ giao hàng mới
+  const handleAddAddress = useCallback(
+    async (data: ShippingAddressRequest): Promise<boolean> => {
+      try {
+        const res = await addressController.createAddress(data);
+        if (res.data) {
+          await fetchAddresses();
+          setSelectedAddressState(res.data);
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    },
+    [fetchAddresses],
+  );
+
   return {
     addresses,
     selectedAddress,
@@ -326,6 +326,7 @@ export function useCheckout(): UseCheckoutReturn {
     setIsAddressSelectModalOpen,
     setSelectedAddress,
     refetchAddresses: fetchAddresses,
+    handleAddAddress,
     cartItems,
     subtotal,
     loadingCart,

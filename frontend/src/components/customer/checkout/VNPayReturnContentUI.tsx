@@ -91,27 +91,7 @@ export default function VNPayReturnContentUI() {
               </div>
             </div>
 
-            {/* Chi tiết Bưu cục kho GHN gần nhất nếu có */}
-            {order?.ghnStationName && (
-              <div className="p-4 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-blue-900 dark:text-blue-200 text-sm space-y-2">
-                <div className="flex items-center gap-2 font-bold text-blue-800 dark:text-blue-300">
-                  <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span>Chi Cục / Kho GHN Xử Lý Đơn Hàng Gần Nhất:</span>
-                </div>
-                <div className="pl-6 space-y-1 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-                  <p className="font-semibold">{order.ghnStationName}</p>
-                  <p className="flex items-start gap-1">
-                    <MapPin className="w-3.5 h-3.5 mt-0.5 text-blue-500 shrink-0" />
-                    <span>{order.ghnStationAddress}</span>
-                  </p>
-                  {order.ghnStationLatitude && order.ghnStationLongitude && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      Tọa độ GPS: ({order.ghnStationLatitude.toFixed(6)}, {order.ghnStationLongitude.toFixed(6)})
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+
 
             {/* Thông báo lỗi nếu thất bại */}
             {(!isSuccess || errorMsg) && (

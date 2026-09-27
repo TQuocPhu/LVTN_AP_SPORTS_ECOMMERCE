@@ -11,7 +11,6 @@ import { CheckoutVoucherSection } from './CheckoutVoucherSection';
 import { CheckoutSummarySection } from './CheckoutSummarySection';
 import { CheckoutSEOTrustBadges } from './CheckoutSEOTrustBadges';
 import AddressModal from '../profile/AddressModal';
-import { addressController } from '@/controllers/address-controller';
 import { ShippingAddressRequest } from '@/types/address';
 
 export default function CheckoutContentUI() {
@@ -23,7 +22,7 @@ export default function CheckoutContentUI() {
     isAddressSelectModalOpen,
     setIsAddressSelectModalOpen,
     setSelectedAddress,
-    refetchAddresses,
+    handleAddAddress,
     cartItems,
     loadingCart,
     paymentMethod,
@@ -47,15 +46,9 @@ export default function CheckoutContentUI() {
   const [isAddAddressModalOpen, setIsAddAddressModalOpen] = useState(false);
 
   const handleSaveNewAddress = async (data: ShippingAddressRequest) => {
-    try {
-      const res = await addressController.createAddress(data);
-      if (res.data) {
-        await refetchAddresses();
-        setSelectedAddress(res.data);
-        setIsAddAddressModalOpen(false);
-      }
-    } catch {
-      // apiClient handles error toast automatically
+    const success = await handleAddAddress(data);
+    if (success) {
+      setIsAddAddressModalOpen(false);
     }
   };
 

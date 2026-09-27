@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
  * Lớp triển khai Service nghiệp vụ xử lý Voucher phía khách hàng (Customer Portal & Checkout).
  * Cung cấp tính năng lấy kho voucher Shopee-style và tính toán số tiền giảm khi thanh toán.
  */
+import com.web.ap_sports.enums.OrderStatus;
 import com.web.ap_sports.repository.OrderRepository;
 import com.web.ap_sports.repository.UserRepository;
 import org.springframework.security.core.Authentication;
@@ -131,7 +132,7 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
             if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
                 userRepository.findByEmail(auth.getName()).ifPresent(u -> {
                     long userUsedCount = orderRepository.countByUserIdAndCouponIdAndStatusNotIn(
-                            u.getId(), coupon.getId(), List.of("cancelled", "payment_failed")
+                            u.getId(), coupon.getId(), List.of(OrderStatus.cancelled, OrderStatus.payment_failed)
                     );
                     if (userUsedCount >= coupon.getUserUsageLimit()) {
                         throw new com.web.ap_sports.exception.AppException(

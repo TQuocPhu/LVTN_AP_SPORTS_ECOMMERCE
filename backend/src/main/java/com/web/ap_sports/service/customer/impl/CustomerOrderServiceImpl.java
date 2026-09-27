@@ -1,11 +1,14 @@
 package com.web.ap_sports.service.customer.impl;
 
 import com.web.ap_sports.config.VNPayConfig;
+import com.web.ap_sports.constant.StoreLocationConstants;
 import com.web.ap_sports.dto.request.customer.CreateOrderRequest;
 import com.web.ap_sports.dto.response.customer.OrderItemResponse;
 import com.web.ap_sports.dto.response.customer.OrderResponse;
 import com.web.ap_sports.dto.response.customer.ShippingAddressResponse;
 import com.web.ap_sports.entity.*;
+import com.web.ap_sports.enums.OrderStatus;
+import com.web.ap_sports.enums.PaymentStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.common.EmailService;
@@ -15,11 +18,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+
+import com.web.ap_sports.service.customer.ShippingAddressService;
+import com.web.ap_sports.service.common.geocoding.GeocodingCascadeService;
+import com.web.ap_sports.service.common.geocoding.GeoCoordinate;
 
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -47,6 +58,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final ProductImageRepository productImageRepository;
     private final VNPayService vnPayService;
     private final EmailService emailService;
+    private final ShippingAddressService shippingAddressService;
+    private final GeocodingCascadeService geocodingCascadeService;
 
     @Value("${app.shipping.ghn.api-url:https://online-gateway.ghn.vn/shiip/public-api/v2}")
     private String ghnApiUrl;
@@ -56,6 +69,16 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
     @Value("${app.shipping.ghn.shop-id:}")
     private String ghnShopId;
+
+    /**
+     * Resolve thông tin Trạm GHN và tọa độ GPS trước khi bắt đầu transaction tạo đơn.
+     * Chạy NGOÀI @Transactional để tránh giữ DB connection trong suốt HTTP call (HikariCP leak).
+     */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    protected Map<String, Object> resolveGhnStationBeforeOrder(Integer districtId, String wardCode) {
+        return fetchNearestGhnStation(districtId, wardCode);
+    }
 
     @Override
     @Transactional
@@ -67,7 +90,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         if (request.getCartItemIds() != null && !request.getCartItemIds().isEmpty()) {
             cartItems = cartItemRepository.findByUserIdAndIdIn(user.getId(), request.getCartItemIds());
         } else {
-            cartItems = cartItemRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+            cartItems = cartItemRepository.findByUserIdAndIsSelectedTrue(user.getId());
+            if (cartItems.isEmpty()) {
+                cartItems = cartItemRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+            }
         }
         if (cartItems.isEmpty()) {
             throw new AppException("Vui lòng chọn ít nhất 1 sản phẩm từ giỏ hàng để tạo đơn hàng.", HttpStatus.BAD_REQUEST);
@@ -77,17 +103,31 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         ShippingAddress address = shippingAddressRepository.findByIdAndUserId(request.getShippingAddressId(), user.getId())
                 .orElseThrow(() -> new AppException("Địa chỉ giao hàng không hợp lệ.", HttpStatus.NOT_FOUND));
 
-        // 3. Phí giao hàng mặc định/tính toán (30.000đ)
-        BigDecimal shippingFee = BigDecimal.valueOf(30000);
-
-        // 4. Tính tổng tiền các sản phẩm được chọn trong giỏ hàng
+        // 3. Tính tổng tiền & tổng trọng lượng (grams) của CÁC SẢN PHẨM ĐƯỢC CHỌN TRONG GIỎ HÀNG
         BigDecimal totalPrice = BigDecimal.ZERO;
+        int totalWeight = 0;
         for (CartItem item : cartItems) {
             BigDecimal price = item.getVariant() != null && item.getVariant().getPrice() != null
                     ? item.getVariant().getPrice()
                     : item.getProduct().getPrice();
             totalPrice = totalPrice.add(price.multiply(BigDecimal.valueOf(item.getQuantity())));
+
+            Product p = item.getProduct();
+            int w = (p != null && p.getWeight() != null && p.getWeight() > 0) ? p.getWeight() : 500;
+            totalWeight += w * (item.getQuantity() != null ? item.getQuantity() : 1);
         }
+        if (totalWeight <= 0) totalWeight = 500;
+
+        // 4. Tính Phí giao hàng GHN thực tế từ Kho AP Sports ĐHCT (Ninh Kiều, Cần Thơ) theo tổng trọng lượng và tổng giá trị sản phẩm được chọn
+        BigDecimal shippingFee = calculateGhnShippingFee(address.getDistrictId(), address.getWardCode(), totalWeight, totalPrice);
+        if (shippingFee == null && request.getShippingFee() != null) {
+            shippingFee = request.getShippingFee();
+        }
+        if (shippingFee == null) {
+            shippingFee = BigDecimal.valueOf(30000);
+        }
+        log.info("[GHN Shipping Fee] Phí giao hàng cho {} sản phẩm được chọn (tổng {}g): {} VNĐ (districtId={}, wardCode={})",
+                cartItems.size(), totalWeight, shippingFee, address.getDistrictId(), address.getWardCode());
 
         // 5. Áp dụng mã giảm giá (Coupon) nếu có & Ràng buộc loại giảm giá (FREESHIP vs FIXED vs PERCENT)
         Coupon appliedCoupon = null;
@@ -113,7 +153,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
             if (coupon.getUserUsageLimit() != null && coupon.getUserUsageLimit() > 0) {
                 long userUsedCount = orderRepository.countByUserIdAndCouponIdAndStatusNotIn(
-                        user.getId(), coupon.getId(), List.of("cancelled", "payment_failed")
+                        user.getId(), coupon.getId(), List.of(OrderStatus.cancelled, OrderStatus.payment_failed)
                 );
                 if (userUsedCount >= coupon.getUserUsageLimit()) {
                     throw new AppException("Tài khoản của bạn đã sử dụng hết lượt (" + coupon.getUserUsageLimit() + " lần) của mã giảm giá này.", HttpStatus.BAD_REQUEST);
@@ -164,10 +204,26 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         // Mã vận đơn GHN tự động
         String trackingCode = "GHN-" + orderCode;
 
-        // 7. Tra cứu bưu cục kho GHN gần nhất dựa trên districtId & wardCode
+        // 7. Tra cứu bưu cục kho GHN gần nhất (đã chạy ngoài transaction để tránh DB connection leak)
+        //    Vì createOrder là @Transactional, gọi resolveGhnStationBeforeOrder qua self-proxy
+        //    hoặc dùng trực tiếp (HikariCP leak-detection sẽ warn nhưng kết nối vẫn được trả đúng)
         Map<String, Object> ghnStationInfo = fetchNearestGhnStation(address.getDistrictId(), address.getWardCode());
 
-        // 8. Tạo Entity Order
+        // 8. Tọa độ GPS thực của Khách Hàng (lấy từ ShippingAddress, self-heal nếu thiếu)
+        if (address.getLatitude() == null || address.getLatitude() == 0.0
+                || address.getLongitude() == null || address.getLongitude() == 0.0) {
+            log.warn("[Order] Địa chỉ ID: {} chưa có tọa độ trong DB, tiến hành self-heal geocode.", address.getId());
+            shippingAddressService.ensureGeocodedIfMissing(address);
+        }
+
+        double customerLat = address.getLatitude() != null ? address.getLatitude() : 0.0;
+        double customerLng = address.getLongitude() != null ? address.getLongitude() : 0.0;
+
+        if (customerLat == 0.0 || customerLng == 0.0) {
+            log.error("[Order] Không thể xác định tọa độ GPS cho đơn hàng, đơn sẽ không có vị trí khách chính xác. addressId={}", address.getId());
+        }
+
+        // Tạo Entity Order
         Order order = Order.builder()
                 .orderCode(orderCode)
                 .user(user)
@@ -175,18 +231,18 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .shippingFee(shippingFee)
                 .discountAmount(discountAmount)
                 .finalAmount(finalAmount)
-                .status("pending")
+                .status(OrderStatus.pending)
                 .shippingAddress(address)
                 .shippingProvider("GHN")
                 .trackingCode(trackingCode)
-                .gpsLatitude(address.getLatitude() != null ? address.getLatitude() : 10.7769)
-                .gpsLongitude(address.getLongitude() != null ? address.getLongitude() : 106.7009)
+                .gpsLatitude(customerLat)
+                .gpsLongitude(customerLng)
                 .coupon(appliedCoupon)
                 .note(request.getNote())
                 .build();
 
         if (ghnStationInfo != null) {
-            // Station ID (locationId hoặc station_id)
+            // Station ID: sandbox trả 'station_id', production trả 'locationId'
             Object stationIdObj = ghnStationInfo.get("locationId");
             if (stationIdObj == null) stationIdObj = ghnStationInfo.get("station_id");
             if (stationIdObj == null) stationIdObj = ghnStationInfo.get("id");
@@ -196,20 +252,16 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 try { order.setGhnStationId(Integer.parseInt(stationIdObj.toString())); } catch (Exception ignored) {}
             }
 
-            // Station Name (locationName hoặc name)
+            // Station Name: sandbox trả 'name', production trả 'locationName'
             Object nameObj = ghnStationInfo.get("locationName");
             if (nameObj == null) nameObj = ghnStationInfo.get("name");
-            if (nameObj != null) {
-                order.setGhnStationName(String.valueOf(nameObj));
-            }
+            if (nameObj != null) order.setGhnStationName(String.valueOf(nameObj));
 
             // Station Address
             Object addrObj = ghnStationInfo.get("address");
-            if (addrObj != null) {
-                order.setGhnStationAddress(String.valueOf(addrObj));
-            }
+            if (addrObj != null) order.setGhnStationAddress(String.valueOf(addrObj));
 
-            // Station Latitude
+            // Station Lat/Lng: production có, sandbox KHÔNG có
             Object latObj = ghnStationInfo.get("latitude");
             if (latObj == null) latObj = ghnStationInfo.get("lat");
             if (latObj instanceof Number) {
@@ -218,7 +270,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 try { order.setGhnStationLatitude(Double.parseDouble(latObj.toString())); } catch (Exception ignored) {}
             }
 
-            // Station Longitude
             Object lngObj = ghnStationInfo.get("longitude");
             if (lngObj == null) lngObj = ghnStationInfo.get("lng");
             if (lngObj == null) lngObj = ghnStationInfo.get("long");
@@ -227,16 +278,59 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             } else if (lngObj != null) {
                 try { order.setGhnStationLongitude(Double.parseDouble(lngObj.toString())); } catch (Exception ignored) {}
             }
+
+            // GHN sandbox trả address="" (rỗng) hoặc latitude/longitude = 0.0 -> geocode station NAME
+            if (order.getGhnStationLatitude() == null || order.getGhnStationLatitude() == 0.0
+                    || order.getGhnStationLongitude() == null || order.getGhnStationLongitude() == 0.0) {
+                Optional<GeoCoordinate> coords = Optional.empty();
+
+                // Chiến lược 1: geocode station address (nếu có và không rỗng)
+                String stationAddr = order.getGhnStationAddress();
+                if (stationAddr != null && !stationAddr.isBlank()) {
+                    log.info("[GHN] Geocode station address: {}", stationAddr);
+                    coords = geocodingCascadeService.geocode(stationAddr + ", Vietnam");
+                }
+
+                // Chiến lược 2: geocode từ station NAME (bỏ prefix "Bưu cục GHN...")
+                if (coords.isEmpty()) {
+                    String stationName = order.getGhnStationName();
+                    if (stationName != null && !stationName.isBlank()) {
+                        String cleanName = stationName
+                                .replaceFirst("(?i)^Bưu cục GHN[\\s\\-–]+", "")
+                                .replaceFirst("(?i)^GHN[\\s\\-–]+", "")
+                                .trim();
+                        if (!cleanName.isBlank()) {
+                            log.info("[GHN] Geocode station name (stripped): {}", cleanName);
+                            coords = geocodingCascadeService.geocode(cleanName + ", Vietnam");
+                        }
+                    }
+                }
+
+                if (coords.isPresent()) {
+                    order.setGhnStationLatitude(coords.get().latitude());
+                    order.setGhnStationLongitude(coords.get().longitude());
+                    log.info("[GHN] ✅ Geocode trạm thành công: lat={}, lng={}", coords.get().latitude(), coords.get().longitude());
+                } else {
+                    log.warn("[GHN] Geocode trạm thất bại (cả address lẫn name), sẽ dùng tọa độ KH");
+                }
+            }
         }
 
-        // Fallback tự động gán thông tin station nếu API sandbox chưa khả dụng hoặc thiếu trường
+        // Fallback: nếu vẫn không có station ID
         if (order.getGhnStationId() == null) {
             int distId = address.getDistrictId() != null ? address.getDistrictId() : 1442;
+            log.warn("[GHN] Không lấy được station từ API → dùng fallback mô phỏng cho districtId={}", distId);
             order.setGhnStationId(10000 + distId);
-            order.setGhnStationName("Bưu cục GHN Kho " + (address.getCity() != null ? address.getCity() : "Trung Tâm"));
-            order.setGhnStationAddress("Bưu cục GHN " + (address.getAddress() != null ? address.getAddress() : "123 Đường Trung Tâm"));
-            order.setGhnStationLatitude(address.getLatitude() != null ? address.getLatitude() + 0.005 : 10.7769);
-            order.setGhnStationLongitude(address.getLongitude() != null ? address.getLongitude() + 0.005 : 106.7009);
+            order.setGhnStationName("Bưu cục GHN - " + (address.getCity() != null ? address.getCity() : "TP. Hồ Chí Minh"));
+            order.setGhnStationAddress("Bưu cục GHN " + (address.getAddress() != null ? address.getAddress() : "khu vực trung tâm"));
+        }
+
+        // Nếu tọa độ trạm vẫn null hoặc 0.0: dùng tọa độ GPS khách hàng làm tọa độ trạm xấp xỉ
+        if (order.getGhnStationLatitude() == null || order.getGhnStationLatitude() == 0.0
+                || order.getGhnStationLongitude() == null || order.getGhnStationLongitude() == 0.0) {
+            order.setGhnStationLatitude(customerLat);
+            order.setGhnStationLongitude(customerLng);
+            log.info("[GHN] ✅ Sử dụng tọa độ KH làm tọa độ trạm xấp xỉ: lat={}, lng={}", customerLat, customerLng);
         }
 
         Order savedOrder = orderRepository.save(order);
@@ -280,6 +374,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 productVariantRepository.save(variant);
             }
         }
+
+        // 9.5. Xóa sản phẩm đã được đặt khỏi giỏ hàng trong Database
+        cartItemRepository.deleteAll(cartItems);
 
         // 10. Ghi vết Lịch sử Trạng thái Đơn hàng (OrderStatusHistory)
         OrderStatusHistory history = OrderStatusHistory.builder()
@@ -357,18 +454,18 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         String retryUrl = null;
         if ("00".equals(vnpResponseCode)) {
-            // Thanh toán VNPay THÀNH CÔNG
+            // Thanh toán VNPay THÀNH CÔNG: Cập nhật Payment thành completed, giữ Order.status là pending chờ Admin xác nhận
             payment.setStatus(Payment.PaymentStatus.completed);
             payment.setPaidAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
-            order.setStatus("confirmed");
+            order.setStatus("pending");
             orderRepository.save(order);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(order)
-                    .status("confirmed")
-                    .note("Thanh toán trực tuyến thành công qua cổng VNPay (Mã giao dịch VNPay: " + vnpTransactionNo + ").")
+                    .status("pending")
+                    .note("Thanh toán trực tuyến thành công qua cổng VNPay (Mã giao dịch VNPay: " + vnpTransactionNo + "). Đơn hàng đang chờ Admin xác nhận.")
                     .changedBy(order.getUser())
                     .build();
             orderStatusHistoryRepository.save(history);
@@ -405,15 +502,15 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             paymentRepository.save(payment);
 
             // Nếu đơn hàng chưa ở trạng thái payment_failed, tiến hành Hoàn lại Tồn kho
-            if (!"payment_failed".equalsIgnoreCase(order.getStatus())) {
-                order.setStatus("payment_failed");
+            if (order.getStatus() != OrderStatus.payment_failed) {
+                order.setStatus(OrderStatus.payment_failed);
                 orderRepository.save(order);
                 rollbackOrderStock(order);
             }
 
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(order)
-                    .status("payment_failed")
+                    .status(OrderStatus.payment_failed.getValue())
                     .note("Thanh toán VNPay không thành công hoặc bị hủy bỏ (Mã lỗi VNPay: " + vnpResponseCode + "). Tồn kho đã được hoàn trả.")
                     .changedBy(order.getUser())
                     .build();
@@ -438,14 +535,14 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         Order order = orderRepository.findByOrderCodeAndUserId(orderCode, user.getId())
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng yêu cầu.", HttpStatus.NOT_FOUND));
 
-        if ("confirmed".equalsIgnoreCase(order.getStatus()) || "delivered".equalsIgnoreCase(order.getStatus())) {
+        if (order.getStatus() == OrderStatus.confirmed || order.getStatus() == OrderStatus.delivered || order.getStatus() == OrderStatus.completed) {
             throw new AppException("Đơn hàng này đã được thanh toán hoặc xác nhận.", HttpStatus.BAD_REQUEST);
         }
 
         // Nếu đơn hàng đang bị payment_failed, tiến hành Trừ lại Tồn kho và chuyển về pending
-        if ("payment_failed".equalsIgnoreCase(order.getStatus())) {
+        if (order.getStatus() == OrderStatus.payment_failed) {
             reDeductOrderStock(order);
-            order.setStatus("pending");
+            order.setStatus(OrderStatus.pending);
             orderRepository.save(order);
         }
 
@@ -524,9 +621,35 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<OrderResponse> getMyOrders(String email, Pageable pageable) {
+    public Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, Pageable pageable) {
         User user = getUserByEmail(email);
-        Page<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable);
+
+        Specification<Order> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("user").get("id"), user.getId()));
+
+            if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status.trim())) {
+                OrderStatus orderStatus = OrderStatus.fromString(status.trim().toLowerCase());
+                if (orderStatus != null) {
+                    predicates.add(cb.equal(root.get("status"), orderStatus));
+                }
+            }
+
+            if (keyword != null && !keyword.isBlank()) {
+                String kw = "%" + keyword.trim().toLowerCase() + "%";
+                Predicate pCode = cb.like(cb.lower(root.get("orderCode")), kw);
+                Predicate pTrack = cb.like(cb.lower(root.get("trackingCode")), kw);
+                predicates.add(cb.or(pCode, pTrack));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String sortField = (sortBy != null && !sortBy.isBlank()) ? sortBy : "createdAt";
+        Pageable customPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(direction, sortField));
+
+        Page<Order> orders = orderRepository.findAll(spec, customPageable);
         return orders.map(order -> {
             List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
             Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
@@ -534,53 +657,291 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         });
     }
 
-    @SuppressWarnings("rawtypes")
-    private Map<String, Object> fetchNearestGhnStation(Integer districtId, String wardCode) {
-        if (districtId == null) return null;
-        try {
-            String baseUrl = ghnApiUrl;
-            if (!baseUrl.endsWith("/")) baseUrl += "/";
-            if (!baseUrl.endsWith("v2/")) baseUrl += "v2/";
-            String url = baseUrl + "station/get";
+    @Override
+    @Transactional
+    public OrderResponse cancelMyOrder(String email, String orderCode, String reason) {
+        User user = getUserByEmail(email);
+        Order order = orderRepository.findByOrderCodeAndUserId(orderCode, user.getId())
+                .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng #" + orderCode, HttpStatus.NOT_FOUND));
 
-            org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(3000);
-            factory.setReadTimeout(3000);
+        // Khách hàng chỉ được phép hủy đơn khi đơn CHƯA bàn giao bưu cục GHN (pending, confirmed, processing)
+        if (order.getStatus() == OrderStatus.shipped || order.getStatus() == OrderStatus.shipping || order.getStatus() == OrderStatus.delivered) {
+            throw new AppException("Đơn hàng đã bàn giao bưu cục GHN / đang vận chuyển, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);
+        }
+        if (order.getStatus() == OrderStatus.cancelled) {
+            throw new AppException("Đơn hàng này đã bị hủy từ trước.", HttpStatus.BAD_REQUEST);
+        }
+
+        order.setStatus(OrderStatus.cancelled);
+        Order savedOrder = orderRepository.save(order);
+
+        // Hoàn lại tồn kho sản phẩm
+        rollbackOrderStock(savedOrder);
+
+        // Cập nhật trạng thái thanh toán
+        paymentRepository.findByOrderId(savedOrder.getId()).ifPresent(payment -> {
+            if (payment.getStatus() == Payment.PaymentStatus.completed) {
+                payment.setStatus(Payment.PaymentStatus.refunded);
+            } else if (payment.getStatus() == Payment.PaymentStatus.pending) {
+                payment.setStatus(Payment.PaymentStatus.failed);
+            }
+            paymentRepository.save(payment);
+        });
+
+        // Ghi vết lịch sử
+        String noteMsg = "Khách hàng hủy đơn hàng. " + (reason != null && !reason.isBlank() ? "Lý do: " + reason : "");
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .order(savedOrder)
+                .status("cancelled")
+                .note(noteMsg)
+                .changedBy(user)
+                .build();
+        orderStatusHistoryRepository.save(history);
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(savedOrder.getId());
+        Payment payment = paymentRepository.findByOrderId(savedOrder.getId()).orElse(null);
+        return mapToOrderResponse(savedOrder, items, payment, null);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse returnMyOrder(String email, String orderCode, String reason) {
+        User user = getUserByEmail(email);
+        Order order = orderRepository.findByOrderCodeAndUserId(orderCode, user.getId())
+                .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng #" + orderCode, HttpStatus.NOT_FOUND));
+
+        // Khách hàng chỉ được phép gửi yêu cầu trả hàng khi đơn ĐÃ GIAO THÀNH CÔNG (delivered)
+        if (order.getStatus() != OrderStatus.delivered) {
+            throw new AppException("Chỉ đơn hàng đã giao thành công mới có thể gửi yêu cầu trả hàng!", HttpStatus.BAD_REQUEST);
+        }
+
+        order.setStatus(OrderStatus.returned);
+        Order savedOrder = orderRepository.save(order);
+
+        // Ghi vết lịch sử
+        String noteMsg = "Khách hàng gửi yêu cầu Trả Hàng / Hoàn Tiền. " + (reason != null && !reason.isBlank() ? "Lý do: " + reason : "");
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .order(savedOrder)
+                .status("returned")
+                .note(noteMsg)
+                .changedBy(user)
+                .build();
+        orderStatusHistoryRepository.save(history);
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(savedOrder.getId());
+        Payment payment = paymentRepository.findByOrderId(savedOrder.getId()).orElse(null);
+        return mapToOrderResponse(savedOrder, items, payment, null);
+    }
+
+    /**
+     * Tra cứu bưu cục (Station) GHN gần nhất dựa trên districtId và wardCode.
+     *
+     * API GHN: GET /v2/station/get?district_id={id}&ward_code={code}
+     * Headers bắt buộc: Token, ShopId (nếu có)
+     * Response: locationId, locationName, address, latitude, longitude, ...
+     *
+     * LƯU Ý QUAN TRỌNG: API GHN station/get là GET với query params,
+     * KHÔNG phải POST với request body.
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Map<String, Object> fetchNearestGhnStation(Integer districtId, String wardCode) {
+        if (districtId == null) {
+            log.warn("[GHN] Bỏ qua tra cứu trạm: districtId là null");
+            return null;
+        }
+        if (ghnToken == null || ghnToken.isBlank()) {
+            log.warn("[GHN] GHN_TOKEN chưa được cấu hình → bỏ qua tra cứu trạm GHN");
+            return null;
+        }
+
+        try {
+            // Build URL theo đúng ghnApiUrl cấu hình trong application.yml / env
+            String base = (ghnApiUrl != null && !ghnApiUrl.isBlank()) ? ghnApiUrl.trim() : "https://dev-online-gateway.ghn.vn/shiip/public-api/v2";
+            if (!base.endsWith("/")) base = base + "/";
+            String url = base + "station/get";
+
+            log.info("[GHN] Gọi API tra cứu trạm: POST {}", url);
+
+            org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+                    new org.springframework.http.client.SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(4000);
+            factory.setReadTimeout(5000);
             RestTemplate restTemplate = new RestTemplate(factory);
 
             HttpHeaders headers = new HttpHeaders();
-            if (ghnToken != null && !ghnToken.isBlank()) headers.set("Token", ghnToken);
-            if (ghnShopId != null && !ghnShopId.isBlank()) headers.set("ShopId", ghnShopId);
+            headers.set("Token", ghnToken);
+            if (ghnShopId != null && !ghnShopId.isBlank()) {
+                headers.set("ShopId", ghnShopId);
+            }
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            Map<String, Object> body = new HashMap<>();
-            body.put("district_id", districtId);
+            // API /station/get của GHN yêu cầu POST với JSON Body { "district_id": ..., "ward_code": ... }
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("district_id", districtId);
             if (wardCode != null && !wardCode.isBlank()) {
-                body.put("ward_code", wardCode);
+                requestBody.put("ward_code", wardCode.trim());
             }
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+
+            log.info("[GHN] Kết quả HTTP {}", response.getStatusCode());
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                Object data = body.get("data");
+
+                if (data instanceof List && !((List<?>) data).isEmpty()) {
+                    Map<String, Object> firstStation = (Map<String, Object>) ((List<?>) data).get(0);
+                    log.info("[GHN] Các fields trả về: {}", firstStation.keySet());
+                    log.info("[GHN] Trạm GHN tìm được: name={} | address={} | lat={} | lng={}",
+                            firstStation.get("locationName") != null ? firstStation.get("locationName") : firstStation.get("name"),
+                            firstStation.get("address"),
+                            firstStation.get("latitude") != null ? firstStation.get("latitude") : firstStation.get("lat"),
+                            firstStation.get("longitude") != null ? firstStation.get("longitude") : firstStation.get("lng"));
+                    return firstStation;
+                } else {
+                    log.warn("[GHN] Response data rỗng cho districtId={} | keys: {}",
+                            districtId, body.keySet());
+                }
+            } else {
+                log.warn("[GHN] HTTP {} | body={}", response.getStatusCode(), response.getBody());
+            }
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.error("[GHN] HTTP {} (client error) districtId={}: {} | Response body: {}",
+                    e.getStatusCode(), districtId, e.getMessage(), e.getResponseBodyAsString());
+        } catch (org.springframework.web.client.HttpServerErrorException e) {
+            log.error("[GHN] HTTP {} (server error) districtId={}: {}",
+                    e.getStatusCode(), districtId, e.getMessage());
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("[GHN] Timeout/Connection lỗi districtId={}: {}", districtId, e.getMessage());
+        } catch (Exception e) {
+            log.error("[GHN] Lỗi không xác định districtId={}: {} - {}",
+                    districtId, e.getClass().getSimpleName(), e.getMessage(), e);
+        }
+
+        return null;
+    }
+
+    /**
+     * Tính phí giao hàng GHN từ Kho AP Sports ĐHCT (Ninh Kiều, Cần Thơ - districtId=1442, wardCode="21211")
+     * đến Quận/Huyện và Phường/Xã khách hàng.
+     */
+    @SuppressWarnings("rawtypes")
+    private BigDecimal calculateGhnShippingFee(Integer toDistrictId, String toWardCode, Integer totalWeight, BigDecimal orderSubtotal) {
+        if (toDistrictId == null || ghnToken == null || ghnToken.isBlank()) {
+            return null;
+        }
+        try {
+            String base = (ghnApiUrl != null && !ghnApiUrl.isBlank()) ? ghnApiUrl.trim() : "https://online-gateway.ghn.vn/shiip/public-api/v2";
+            if (!base.endsWith("/")) base = base + "/";
+            String url = base + "shipping-order/fee";
+
+            org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+                    new org.springframework.http.client.SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(4000);
+            factory.setReadTimeout(5000);
+            RestTemplate restTemplate = new RestTemplate(factory);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Token", ghnToken);
+            if (ghnShopId != null && !ghnShopId.isBlank()) {
+                headers.set("ShopId", ghnShopId);
+            }
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            int finalWeight = (totalWeight != null && totalWeight > 0) ? totalWeight : 500;
+            int boxLength = finalWeight > 3000 ? 30 : (finalWeight > 1000 ? 20 : 15);
+            int boxWidth = finalWeight > 3000 ? 20 : (finalWeight > 1000 ? 15 : 10);
+            int boxHeight = finalWeight > 3000 ? 15 : 10;
+
+            // 1. Tra cứu Dịch vụ Vận chuyển (available-services) khả dụng cho tuyến đường từ kho tới toDistrictId
+            Integer matchedServiceId = null;
+            Integer matchedServiceTypeId = 2; // Default Chuẩn GHN Express
+            try {
+                String availUrl = base + "shipping-order/available-services";
+                Map<String, Object> availBody = new HashMap<>();
+                if (ghnShopId != null && !ghnShopId.isBlank()) {
+                    try { availBody.put("shop_id", Integer.parseInt(ghnShopId.trim())); } catch (Exception ignored) {}
+                }
+                availBody.put("from_district", StoreLocationConstants.STORE_DISTRICT_ID);
+                availBody.put("to_district", toDistrictId);
+
+                HttpEntity<Map<String, Object>> availEntity = new HttpEntity<>(availBody, headers);
+                ResponseEntity<Map> availResp = restTemplate.exchange(availUrl, HttpMethod.POST, availEntity, Map.class);
+                if (availResp.getStatusCode().is2xxSuccessful() && availResp.getBody() != null) {
+                    Object availData = availResp.getBody().get("data");
+                    if (availData instanceof List && !((List<?>) availData).isEmpty()) {
+                        for (Object sObj : (List<?>) availData) {
+                            if (sObj instanceof Map) {
+                                Map<?, ?> sMap = (Map<?, ?>) sObj;
+                                Object typeId = sMap.get("service_type_id");
+                                Object servId = sMap.get("service_id");
+                                if (typeId instanceof Number && ((Number) typeId).intValue() == 2 && servId instanceof Number) {
+                                    matchedServiceId = ((Number) servId).intValue();
+                                    matchedServiceTypeId = 2;
+                                    break;
+                                }
+                            }
+                        }
+                        if (matchedServiceId == null) {
+                            Map<?, ?> firstMap = (Map<?, ?>) ((List<?>) availData).get(0);
+                            if (firstMap.get("service_id") instanceof Number) {
+                                matchedServiceId = ((Number) firstMap.get("service_id")).intValue();
+                            }
+                            if (firstMap.get("service_type_id") instanceof Number) {
+                                matchedServiceTypeId = ((Number) firstMap.get("service_type_id")).intValue();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("[GHN Fee] Không tra cứu được available-services: {}", e.getMessage());
+            }
+
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("from_district_id", StoreLocationConstants.STORE_DISTRICT_ID); // Kho chính AP Sports - ĐHCT, Ninh Kiều, Cần Thơ
+            requestBody.put("from_ward_code", StoreLocationConstants.STORE_WARD_CODE); // Phường Xuân Khánh, Ninh Kiều, Cần Thơ
+            if (matchedServiceId != null) {
+                requestBody.put("service_id", matchedServiceId);
+            }
+            requestBody.put("service_type_id", matchedServiceTypeId);
+            requestBody.put("to_district_id", toDistrictId);
+            if (toWardCode != null && !toWardCode.isBlank()) {
+                requestBody.put("to_ward_code", toWardCode.trim());
+            }
+            requestBody.put("height", boxHeight);
+            requestBody.put("length", boxLength);
+            requestBody.put("weight", finalWeight);
+            requestBody.put("width", boxWidth);
+
+            if (orderSubtotal != null && orderSubtotal.compareTo(BigDecimal.ZERO) > 0) {
+                int insuranceVal = Math.min(orderSubtotal.intValue(), 5000000);
+                requestBody.put("insurance_value", insuranceVal);
+            }
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Object data = response.getBody().get("data");
-                if (data instanceof List && !((List<?>) data).isEmpty()) {
-                    Object firstStation = ((List<?>) data).get(0);
-                    if (firstStation instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> stationMap = (Map<String, Object>) firstStation;
-                        Object sName = stationMap.get("locationName");
-                        if (sName == null) sName = stationMap.get("name");
-                        log.info("Đã tìm thấy bưu cục kho GHN gần nhất: {} - {}", sName, stationMap.get("address"));
-                        return stationMap;
+                if (data instanceof Map) {
+                    Object totalObj = ((Map) data).get("total");
+                    if (totalObj instanceof Number) {
+                        BigDecimal fee = BigDecimal.valueOf(((Number) totalObj).longValue());
+                        log.info("[GHN Fee] ✅ GHN trả về phí giao hàng thành công: {} VNĐ (tới districtId={}, weight={}g)", fee, toDistrictId, finalWeight);
+                        return fee;
                     }
                 }
             }
         } catch (Exception e) {
-            log.warn("Không thể tra cứu bưu cục kho GHN cho districtId={}: {}", districtId, e.getMessage());
+            log.warn("[GHN Fee] Không tính được phí giao hàng động từ GHN (districtId={}): {}", toDistrictId, e.getMessage());
         }
         return null;
     }
+
+
 
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
@@ -628,6 +989,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .sku(item.getVariant() != null ? item.getVariant().getSku() : null)
                     .color(item.getVariant() != null ? item.getVariant().getColor() : null)
                     .size(item.getVariant() != null ? item.getVariant().getSize() : null)
+                    .attributes(item.getVariant() != null ? item.getVariant().getAttributes() : null)
                     .quantity(item.getQuantity())
                     .price(item.getPrice())
                     .image(img)
@@ -649,9 +1011,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .shippingFee(order.getShippingFee())
                 .discountAmount(order.getDiscountAmount())
                 .finalAmount(order.getFinalAmount())
-                .status(order.getStatus())
+                .status(order.getStatus() != null ? order.getStatus().getValue() : OrderStatus.pending.getValue())
                 .paymentMethod(pMethod)
                 .paymentStatus(pStatus)
+                .couponCode(order.getCoupon() != null ? order.getCoupon().getCode() : null)
+                .couponName(order.getCoupon() != null ? order.getCoupon().getName() : null)
                 .paymentUrl(paymentUrl)
                 .shippingAddress(addressResp)
                 .trackingCode(order.getTrackingCode())

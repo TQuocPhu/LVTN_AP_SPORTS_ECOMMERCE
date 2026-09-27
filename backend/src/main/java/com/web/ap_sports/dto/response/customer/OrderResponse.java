@@ -24,6 +24,8 @@ public class OrderResponse {
     private String paymentMethod; // COD, VNPAY
     private String paymentStatus; // pending, completed, failed
     private String paymentUrl; // Dành riêng cho VNPay khi cần thanh toán / thanh toán lại
+    private String couponCode;
+    private String couponName;
     private ShippingAddressResponse shippingAddress;
     
     // Mã vận đơn GHN & Tọa độ giao hàng

@@ -20,6 +20,7 @@ public class CreateOrderRequest {
 
     private String couponCode;
     private String note;
+    private java.math.BigDecimal shippingFee;
 
     private java.util.List<Long> cartItemIds;
 }
