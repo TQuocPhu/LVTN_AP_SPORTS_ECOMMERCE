@@ -21,7 +21,8 @@ spring:
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1800000
-      leak-detection-threshold: 2000
+      # Tăng threshold từ 2s → 15s vì createOrder gọi GHN API + Nominatim geocoding (mỗi cái tối đa 5s)
+      leak-detection-threshold: 15000
       pool-name: APSportsHikariCP
 
   jpa:
@@ -84,6 +85,7 @@ app:
     secret: ${JWT_SECRET}
     access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:1800000}
     refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+    refresh-token-absolute-max-days: ${JWT_REFRESH_ABSOLUTE_MAX_DAYS:30}
   storage:
     type: ${STORAGE_TYPE:cloudinary}
     cloudinary:
@@ -97,6 +99,11 @@ app:
     return-url: ${VNP_RETURN_URL:http://localhost:3000/checkout/vnpay-return}
   shipping:
     ghn:
-      api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn/shiip/public-api/v2}
+      api-url: ${GHN_API_URL:https://online-gateway.ghn.vn/shiip/public-api/v2}
       token: ${GHN_TOKEN:}
       shop-id: ${GHN_SHOP_ID:}
+  geocoding:
+    provider-order: nominatim,esri,photon,goong
+    goong:
+      enabled: false
+      api-key: ${GOONG_REST_API_KEY:}

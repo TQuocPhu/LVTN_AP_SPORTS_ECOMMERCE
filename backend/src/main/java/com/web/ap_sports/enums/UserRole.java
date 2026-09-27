@@ -4,5 +4,7 @@ public enum UserRole {
     ADMIN,
     STAFF,
     WAREHOUSE_MANAGER,
-    CUSTOMER
+    CUSTOMER,
+    GHN_STATION,
+    GHN_SHIPPER
 }

@@ -74,3 +74,36 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// Load .env file vào JVM system properties cho bootRun
+// Cho phép Spring Boot ${KEY:default} resolve được các biến môi trường
+// từ file .env local mà không cần set biến môi trường hệ thống thủ công.
+// ──────────────────────────────────────────────────────────────────────
+bootRun {
+	def envFile = file("${projectDir}/.env")
+	if (envFile.exists()) {
+		def envProps = new Properties()
+		envFile.eachLine { line ->
+			line = line.trim()
+			// Bỏ qua dòng comment và dòng rỗng
+			if (!line.startsWith('#') && line.contains('=')) {
+				def idx = line.indexOf('=')
+				def key = line.substring(0, idx).trim()
+				def value = line.substring(idx + 1).trim()
+				// Loại bỏ dấu ngoặc kép/đơn bao quanh value nếu có
+				if ((value.startsWith('"') && value.endsWith('"')) ||
+				    (value.startsWith("'") && value.endsWith("'"))) {
+					value = value.substring(1, value.length() - 1)
+				}
+				envProps[key] = value
+			}
+		}
+		// Inject vào JVM system properties → Spring Boot đọc được qua ${KEY}
+		systemProperties(envProps)
+		println "✅ [bootRun] Đã load ${envProps.size()} biến từ .env"
+	} else {
+		println "⚠️  [bootRun] Không tìm thấy file .env tại ${envFile.absolutePath}"
+	}
+}
+

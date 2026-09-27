@@ -56,11 +56,13 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedRolesAndPermissions() {
-        // 1. Khởi tạo danh sách 4 Vai Trò (Roles)
+        // 1. Khởi tạo danh sách Vai Trò (Roles)
         Role adminRole = getOrCreateRole(UserRole.ADMIN.name());
         Role staffRole = getOrCreateRole(UserRole.STAFF.name());
         Role warehouseRole = getOrCreateRole(UserRole.WAREHOUSE_MANAGER.name());
         Role customerRole = getOrCreateRole(UserRole.CUSTOMER.name());
+        Role ghnStationRole = getOrCreateRole(UserRole.GHN_STATION.name());
+        Role ghnShipperRole = getOrCreateRole(UserRole.GHN_SHIPPER.name());
 
         // 2. Khởi tạo danh sách Quyền Hạn (Permissions) theo từng cụm chức năng
         Permission pUserMgmt = getOrCreatePermission("MANAGE_USERS");
@@ -98,6 +100,12 @@ public class DataInitializer implements CommandLineRunner {
         // 6. Phân quyền cho Vai Trò CUSTOMER (Quyền mua hàng Storefront)
         assignPermissionToRole(customerRole, pCustomerStorefront);
 
+        // 7. Phân quyền cho Vai Trò GHN_STATION (Quyền quản lý vận chuyển logistics)
+        assignPermissionToRole(ghnStationRole, pOrderMgmt);
+
+        // 8. Phân quyền cho Vai Trò GHN_SHIPPER (Quyền giao hàng Shipper)
+        assignPermissionToRole(ghnShipperRole, pOrderMgmt);
+
         log.info("Khởi tạo thành công dữ liệu mẫu cho bảng roles, permissions và role_permissions.");
     }
 
@@ -106,11 +114,15 @@ public class DataInitializer implements CommandLineRunner {
         Role staffRole = roleRepository.findByName(UserRole.STAFF.name()).orElseThrow();
         Role warehouseRole = roleRepository.findByName(UserRole.WAREHOUSE_MANAGER.name()).orElseThrow();
         Role customerRole = roleRepository.findByName(UserRole.CUSTOMER.name()).orElseThrow();
+        Role ghnStationRole = roleRepository.findByName(UserRole.GHN_STATION.name()).orElseThrow();
+        Role ghnShipperRole = roleRepository.findByName(UserRole.GHN_SHIPPER.name()).orElseThrow();
 
         getOrCreateUser("admin@example.com", "Admin@123", "Quản Trị Viên", adminRole);
         getOrCreateUser("staff@example.com", "Staff@123", "Nhân Viên Bán Hàng", staffRole);
         getOrCreateUser("warehouse@example.com", "Warehouse@123", "Quản Lý Kho", warehouseRole);
         getOrCreateUser("customer@example.com", "Customer@123", "Khách Hàng Mẫu", customerRole);
+        getOrCreateUser("ghn_station@apsports.com", "GhnStation@123", "Bưu Cục Vận Chuyển GHN Express", ghnStationRole);
+        getOrCreateUser("ghn_shipper@apsports.com", "GhnShipper@123", "Shipper Nguyễn Văn Nam (GHN Express)", ghnShipperRole);
 
         log.info("Khởi tạo thành công dữ liệu người dùng mẫu mặc định.");
     }
