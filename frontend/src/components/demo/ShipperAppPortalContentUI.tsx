@@ -9,7 +9,6 @@ import {
   Phone,
   RefreshCw,
   ShieldCheck,
-  Play,
 } from 'lucide-react';
 import { useDemoLogistics } from '@/hooks/useDemoLogistics';
 import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
@@ -46,7 +45,7 @@ export function ShipperAppPortalContentUI() {
                 </h1>
               </div>
               <p className="text-[11px] text-slate-400">
-                Ứng dụng điều khiển xe giao hàng 60km/h (Đồng bộ đa trình duyệt & thiết bị qua Backend)
+                Ứng dụng điều khiển xe giao hàng (Đồng bộ thời gian thực 60km/h đa thiết bị qua Backend)
               </p>
             </div>
           </div>
@@ -75,7 +74,7 @@ export function ShipperAppPortalContentUI() {
             </span>
           </div>
           <span className="text-[10px] font-mono bg-slate-700 text-slate-300 px-2 py-1 rounded-lg">
-            REAL-WORLD BACKEND SYNC
+            REAL-TIME BACKEND SYNC (60 KM/H)
           </span>
         </div>
 
@@ -145,39 +144,15 @@ export function ShipperAppPortalContentUI() {
                     </p>
                   </div>
 
-                  {/* Shipper Simulation Control Box */}
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                        <Truck className="w-4 h-4 text-emerald-400" />
-                        Trạng thái vận chuyển thực tế (Đồng bộ đa thiết bị 60km/h):
-                      </span>
-                      <span className="font-mono text-emerald-400 font-bold">
-                        {currentProgress}% Tiến trình
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        disabled={updatingId === order.id}
-                        onClick={() =>
-                          handleUpdateStatus(
-                            order.id,
-                            'shipping',
-                            'Shipper GHN đã xuất phát giao hàng với tốc độ 60km/h'
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        <Play className="w-4 h-4" />
-                        <span>
-                          {updatingId === order.id
-                            ? 'Đang Khởi Tạo Chuyến Xe...'
-                            : 'Bắt Đầu Xuất Phát Giao Hàng (60km/h Thực Tế)'}
-                        </span>
-                      </button>
-                    </div>
+                  {/* Live Progress Banner Box */}
+                  <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-300 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-emerald-400 animate-pulse" />
+                      Xe đang di chuyển (Tự động 60km/h):
+                    </span>
+                    <span className="font-mono text-emerald-400 font-black text-sm bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800/80">
+                      {currentProgress}% Tiến trình
+                    </span>
                   </div>
 
                   {/* Interactive Map View for Shipper */}
