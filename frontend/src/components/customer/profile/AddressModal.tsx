@@ -205,7 +205,7 @@ export default function AddressModal({ isOpen, onClose, addressToEdit, onSave }:
             {/* Địa chỉ chi tiết */}
             <div className="space-y-1.5">
               <label htmlFor="input-address-detail" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Địa chỉ chi tiết (Số nhà, tên đường...) <span className="text-red-500">*</span>
+                Địa chỉ chi tiết (nhập số nhà, tên đường) <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="input-address-detail"
@@ -237,7 +237,7 @@ export default function AddressModal({ isOpen, onClose, addressToEdit, onSave }:
                     </p>
                   ) : (
                     <p className="text-xs text-slate-400 dark:text-slate-500">
-                      Tọa độ GPS sẽ tự động tính từ Tỉnh/Quận/Phường đã chọn khi bấm Lưu
+                      Tọa độ GPS sẽ tự động tính từ địa chỉ đã chọn khi lưu
                     </p>
                   )}
                 </div>

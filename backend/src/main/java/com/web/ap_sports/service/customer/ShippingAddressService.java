@@ -34,4 +34,9 @@ public interface ShippingAddressService {
      * Đặt địa chỉ làm mặc định.
      */
     ShippingAddressResponse setDefaultAddress(String email, Long addressId);
+
+    /**
+     * Tự động geocode nếu địa chỉ chưa có tọa độ GPS hợp lệ.
+     */
+    void ensureGeocodedIfMissing(com.web.ap_sports.entity.ShippingAddress address);
 }

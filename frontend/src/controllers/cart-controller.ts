@@ -49,4 +49,18 @@ export const cartController = {
       showSuccessToast: true,
     });
   },
+
+  /**
+   * Thay đổi trạng thái chọn 1 sản phẩm
+   */
+  async toggleSelectItem(id: number): Promise<ApiResponse<CartItem>> {
+    return apiClient.patch<ApiResponse<CartItem>>(`/customer/cart/items/${id}/select`);
+  },
+
+  /**
+   * Thay đổi trạng thái chọn tất cả sản phẩm
+   */
+  async toggleSelectAll(isSelected: boolean): Promise<ApiResponse<void>> {
+    return apiClient.patch<ApiResponse<void>>(`/customer/cart/select-all?isSelected=${isSelected}`);
+  },
 };

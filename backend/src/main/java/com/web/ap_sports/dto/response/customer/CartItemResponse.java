@@ -27,6 +27,8 @@ public class CartItemResponse {
     private Integer stockQuantity;
     private Integer quantity;
     private BigDecimal subtotal;
+    private Integer weight;
 
     private Boolean inStock;
+    private Boolean isSelected;
 }

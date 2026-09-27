@@ -61,10 +61,15 @@ export const locationController = {
   async calculateShippingFee(
     toDistrictId: number,
     toWardCode: string,
-    weight = 500
+    weight = 500,
+    insuranceValue?: number
   ): Promise<ApiResponse<{ shippingFee: number; isFallback?: boolean; details?: unknown }>> {
+    let url = `/locations/calculate-fee?toDistrictId=${toDistrictId}&toWardCode=${encodeURIComponent(toWardCode)}&weight=${weight}`;
+    if (insuranceValue && insuranceValue > 0) {
+      url += `&insuranceValue=${Math.min(insuranceValue, 5000000)}`;
+    }
     return apiClient.get<ApiResponse<{ shippingFee: number; isFallback?: boolean; details?: unknown }>>(
-      `/locations/calculate-fee?toDistrictId=${toDistrictId}&toWardCode=${encodeURIComponent(toWardCode)}&weight=${weight}`,
+      url,
       { suppressErrorToast: true }
     );
   },

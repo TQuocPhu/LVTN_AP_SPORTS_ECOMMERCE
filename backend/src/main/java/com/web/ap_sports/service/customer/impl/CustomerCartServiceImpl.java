@@ -99,6 +99,7 @@ public class CustomerCartServiceImpl implements CustomerCartService {
                 throw new AppException("Số lượng trong giỏ vượt quá tồn kho khả dụng (" + availableStock + ")", HttpStatus.BAD_REQUEST);
             }
             cartItem.setQuantity(newQuantity);
+            cartItem.setIsSelected(true);
         } else {
             if (request.getQuantity() > availableStock) {
                 throw new AppException("Số lượng vượt quá tồn kho khả dụng (" + availableStock + ")", HttpStatus.BAD_REQUEST);
@@ -108,6 +109,7 @@ public class CustomerCartServiceImpl implements CustomerCartService {
                     .product(product)
                     .variant(variant)
                     .quantity(request.getQuantity())
+                    .isSelected(true)
                     .build();
         }
 
@@ -214,7 +216,35 @@ public class CustomerCartServiceImpl implements CustomerCartService {
                 .stockQuantity(stockQuantity)
                 .quantity(cartItem.getQuantity())
                 .subtotal(subtotal)
+                .weight((p.getWeight() != null && p.getWeight() > 0) ? p.getWeight() : 500)
                 .inStock(stockQuantity > 0)
+                .isSelected(cartItem.getIsSelected() != null ? cartItem.getIsSelected() : true)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public CartItemResponse toggleSelectItem(Long userId, Long cartItemId) {
+        CartItem cartItem = cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new AppException("Mặt hàng trong giỏ không tồn tại", HttpStatus.NOT_FOUND));
+
+        if (!cartItem.getUser().getId().equals(userId)) {
+            throw new AppException("Không có quyền thao tác trên giỏ hàng này", HttpStatus.FORBIDDEN);
+        }
+
+        boolean currentSelected = !Boolean.FALSE.equals(cartItem.getIsSelected());
+        cartItem.setIsSelected(!currentSelected);
+        CartItem saved = cartItemRepository.save(cartItem);
+        return mapToCartItemResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void toggleSelectAll(Long userId, boolean isSelected) {
+        List<CartItem> cartItems = cartItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        for (CartItem item : cartItems) {
+            item.setIsSelected(isSelected);
+        }
+        cartItemRepository.saveAll(cartItems);
     }
 }

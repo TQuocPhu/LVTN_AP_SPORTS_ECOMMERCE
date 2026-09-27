@@ -1,5 +1,6 @@
 package com.web.ap_sports.controller.common;
 
+import com.web.ap_sports.constant.StoreLocationConstants;
 import com.web.ap_sports.dto.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,19 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.web.ap_sports.service.common.geocoding.GeocodingCascadeService;
+import com.web.ap_sports.service.common.geocoding.GeoCoordinate;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.util.*;
+
 /**
  * LocationController - Proxy API dữ liệu địa lý từ GHN (Giao Hàng Nhanh).
  * Cung cấp danh sách Tỉnh/Thành, Quận/Huyện, Phường/Xã để tích hợp Dropdown địa chỉ giao hàng.
@@ -23,6 +37,7 @@ import java.util.stream.Stream;
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/locations")
+@RequiredArgsConstructor
 public class LocationController {
 
     @Value("${app.shipping.ghn.api-url}")
@@ -34,17 +49,19 @@ public class LocationController {
     @Value("${app.shipping.ghn.shop-id:}")
     private String ghnShopId;
 
-    private final RestTemplate restTemplate;
-    private static Object cachedProvinces = null;
-    private static final Map<Integer, Object> cachedDistricts = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final Map<Integer, Object> cachedWards = new java.util.concurrent.ConcurrentHashMap<>();
+    private final GeocodingCascadeService geocodingCascadeService;
+    private final RestTemplate restTemplate = createRestTemplate();
 
-    public LocationController() {
+    private static RestTemplate createRestTemplate() {
         org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(4000);
         factory.setReadTimeout(5000);
-        this.restTemplate = new RestTemplate(factory);
+        return new RestTemplate(factory);
     }
+
+    private static Object cachedProvinces = null;
+    private static final Map<Integer, Object> cachedDistricts = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<Integer, Object> cachedWards = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Lấy danh sách tất cả Tỉnh/Thành phố từ GHN.
@@ -234,55 +251,13 @@ public class LocationController {
             return ResponseEntity.ok(ApiResponse.success("Chuỗi tìm kiếm rỗng.", null));
         }
 
-        // 1. Chuẩn hóa & tách các cấp từ chuỗi địa chỉ
-        String[] rawParts = query.split(",");
-        String[] cleanParts = new String[rawParts.length];
-        for (int i = 0; i < rawParts.length; i++) {
-            cleanParts[i] = cleanAdminPrefix(rawParts[i]);
-        }
-
-        // 2. Thử tìm kiếm theo 2 vòng: Vòng 1 với chuỗi đã làm sạch tiền tố (Ninh Kiều, Cần Thơ), Vòng 2 với chuỗi gốc
-        String[][] attempts = new String[][]{ cleanParts, rawParts };
-
-        for (String[] parts : attempts) {
-            for (int i = 0; i < parts.length; i++) {
-                StringBuilder searchBuilder = new StringBuilder();
-                for (int j = i; j < parts.length; j++) {
-                    String part = parts[j].trim();
-                    if (part.isBlank()) continue;
-                    if (searchBuilder.length() > 0) searchBuilder.append(", ");
-                    searchBuilder.append(part);
-                }
-
-                String currentSearch = searchBuilder.toString().trim();
-                if (currentSearch.isBlank()) continue;
-
-                if (!currentSearch.toLowerCase().contains("việt nam") && !currentSearch.toLowerCase().contains("vietnam")) {
-                    currentSearch += ", Việt Nam";
-                }
-
-                try {
-                    URI uri = UriComponentsBuilder.fromHttpUrl("https://nominatim.openstreetmap.org/search")
-                            .queryParam("format", "json")
-                            .queryParam("q", currentSearch)
-                            .queryParam("limit", 1)
-                            .queryParam("countrycodes", "vn")
-                            .queryParam("accept-language", "vi")
-                            .build()
-                            .toUri();
-
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.set("User-Agent", "AP-Sports-Ecommerce/1.0 (contact@apsports.com)");
-                    headers.set("Accept-Language", "vi");
-
-                    ResponseEntity<Object[]> response = restTemplate.exchange(uri, HttpMethod.GET, new HttpEntity<>(headers), Object[].class);
-                    if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null && response.getBody().length > 0) {
-                        return ResponseEntity.ok(ApiResponse.success("Forward geocode thành công.", response.getBody()[0]));
-                    }
-                } catch (Exception e) {
-                    log.warn("Thử tìm kiếm Geocode '{}' thất bại: {}", currentSearch, e.getMessage());
-                }
-            }
+        Optional<GeoCoordinate> result = geocodingCascadeService.geocode(query);
+        if (result.isPresent()) {
+            Map<String, Object> resMap = new HashMap<>();
+            resMap.put("lat", String.valueOf(result.get().latitude()));
+            resMap.put("lon", String.valueOf(result.get().longitude()));
+            resMap.put("display_name", query);
+            return ResponseEntity.ok(ApiResponse.success("Forward geocode thành công.", resMap));
         }
 
         return ResponseEntity.ok(ApiResponse.success("Không tìm thấy tọa độ.", null));
@@ -296,7 +271,8 @@ public class LocationController {
     public ResponseEntity<ApiResponse<Object>> calculateShippingFee(
             @RequestParam Integer toDistrictId,
             @RequestParam String toWardCode,
-            @RequestParam(required = false, defaultValue = "500") Integer weight) {
+            @RequestParam(required = false, defaultValue = "500") Integer weight,
+            @RequestParam(required = false) Integer insuranceValue) {
         try {
             String feeUrl = getGhnBaseUrl() + "shipping-order/fee";
             HttpHeaders headers = buildHeaders();
@@ -304,16 +280,72 @@ public class LocationController {
                 headers.set("ShopId", ghnShopId);
             }
 
+            // 1. Tra cứu Dịch vụ Vận chuyển (available-services) khả dụng cho tuyến đường từ kho tới toDistrictId
+            Integer matchedServiceId = null;
+            Integer matchedServiceTypeId = 2; // Default Chuẩn GHN Express
+            try {
+                String availUrl = getGhnBaseUrl() + "shipping-order/available-services";
+                Map<String, Object> availBody = new HashMap<>();
+                if (ghnShopId != null && !ghnShopId.isBlank()) {
+                    try { availBody.put("shop_id", Integer.parseInt(ghnShopId.trim())); } catch (Exception ignored) {}
+                }
+                availBody.put("from_district", StoreLocationConstants.STORE_DISTRICT_ID);
+                availBody.put("to_district", toDistrictId);
+
+                HttpEntity<Map<String, Object>> availEntity = new HttpEntity<>(availBody, headers);
+                ResponseEntity<Map> availResp = restTemplate.exchange(availUrl, HttpMethod.POST, availEntity, Map.class);
+                if (availResp.getStatusCode().is2xxSuccessful() && availResp.getBody() != null) {
+                    Object availData = availResp.getBody().get("data");
+                    if (availData instanceof List && !((List<?>) availData).isEmpty()) {
+                        for (Object sObj : (List<?>) availData) {
+                            if (sObj instanceof Map) {
+                                Map<?, ?> sMap = (Map<?, ?>) sObj;
+                                Object typeId = sMap.get("service_type_id");
+                                Object servId = sMap.get("service_id");
+                                if (typeId instanceof Number && ((Number) typeId).intValue() == 2 && servId instanceof Number) {
+                                    matchedServiceId = ((Number) servId).intValue();
+                                    matchedServiceTypeId = 2;
+                                    break;
+                                }
+                            }
+                        }
+                        if (matchedServiceId == null) {
+                            Map<?, ?> firstMap = (Map<?, ?>) ((List<?>) availData).get(0);
+                            if (firstMap.get("service_id") instanceof Number) {
+                                matchedServiceId = ((Number) firstMap.get("service_id")).intValue();
+                            }
+                            if (firstMap.get("service_type_id") instanceof Number) {
+                                matchedServiceTypeId = ((Number) firstMap.get("service_type_id")).intValue();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Không tra cứu được available-services GHN: {}, sử dụng service_type_id mặc định = 2", e.getMessage());
+            }
+
+            int finalWeight = (weight != null && weight > 0) ? weight : 500;
+            int boxLength = finalWeight > 3000 ? 30 : (finalWeight > 1000 ? 20 : 15);
+            int boxWidth = finalWeight > 3000 ? 20 : (finalWeight > 1000 ? 15 : 10);
+            int boxHeight = finalWeight > 3000 ? 15 : 10;
+
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("from_district_id", 1442); // Mặc định kho hàng chính (Ninh Kiều, Cần Thơ)
-            requestBody.put("from_ward_code", "21211");
-            requestBody.put("service_type_id", 2); // Chuẩn GHN Express
+            requestBody.put("from_district_id", StoreLocationConstants.STORE_DISTRICT_ID); // Kho chính AP Sports (ĐHCT, Ninh Kiều, Cần Thơ)
+            requestBody.put("from_ward_code", StoreLocationConstants.STORE_WARD_CODE);
+            if (matchedServiceId != null) {
+                requestBody.put("service_id", matchedServiceId);
+            }
+            requestBody.put("service_type_id", matchedServiceTypeId);
             requestBody.put("to_district_id", toDistrictId);
             requestBody.put("to_ward_code", toWardCode);
-            requestBody.put("height", 10);
-            requestBody.put("length", 15);
-            requestBody.put("weight", weight != null ? weight : 500);
-            requestBody.put("width", 10);
+            requestBody.put("height", boxHeight);
+            requestBody.put("length", boxLength);
+            requestBody.put("weight", finalWeight);
+            requestBody.put("width", boxWidth);
+
+            if (insuranceValue != null && insuranceValue > 0) {
+                requestBody.put("insurance_value", Math.min(insuranceValue, 5000000));
+            }
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
             ResponseEntity<Map> response = restTemplate.exchange(feeUrl, HttpMethod.POST, entity, Map.class);
@@ -385,10 +417,7 @@ public class LocationController {
     }
 
     private String getGhnBaseUrl() {
-        String base = (ghnApiUrl != null && !ghnApiUrl.isBlank()) ? ghnApiUrl : "https://online-gateway.ghn.vn/shiip/public-api/v2";
-        if (base.contains("dev-online-gateway.ghn.vn")) {
-            base = base.replace("dev-online-gateway.ghn.vn", "online-gateway.ghn.vn");
-        }
+        String base = (ghnApiUrl != null && !ghnApiUrl.isBlank()) ? ghnApiUrl.trim() : "https://online-gateway.ghn.vn/shiip/public-api/v2";
         if (!base.endsWith("/")) {
             base = base + "/";
         }
