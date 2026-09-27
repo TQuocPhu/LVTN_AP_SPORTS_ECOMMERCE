@@ -714,7 +714,44 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 🚚 4.23. Phân Hệ Quản Lý Đơn Hàng Admin, Nền Tảng Mô Phỏng Logistics 3 Trạm GHN, Bản Đồ Leaflet OSRM & Đồng Bộ Vận Tốc 60 km/h Real-Time (Phase 4 Logistics & Order Ecosystem)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (27/09/2026 - Day 10)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Nâng cấp Hệ thống:**
+1. **Hệ Thống Quản Lý Đơn Hàng Admin Doanh Nghiệp (`/admin/orders`)**:
+   - **Bảng Thống Kê Tổng Quan (Summary Cards)**: Thống kê số lượng đơn theo các nhóm trạng thái (`pending`, `processing`, `shipping`, `completed`, `canceled`).
+   - **Bộ Lọc Nâng Cao (Filter Bar)**: Hỗ trợ tìm kiếm theo từ khóa mã đơn, tên/SĐT khách hàng, lọc theo trạng thái đơn hàng (`status`), lọc phương thức thanh toán, phân trang (`page`, `size`) và sắp xếp.
+   - **Modal Chi Tiết Đơn Hàng Admin (`AdminOrderDetailModal.tsx`)**: Hiển thị nổi bật thẻ **Điểm Xuất Hàng (Kho AP Sports Cần Thơ)** và **Điểm Nhận Hàng (Khách hàng)**, danh sách sản phẩm mua, hóa đơn điện tử E-Invoice, lịch sử chuyển trạng thái và bản đồ OSRM trực quan.
+   - **Các Modal Thao Tác Trạng Thái**: `AdminOrderUpdateStatusModal.tsx` (cập nhật trạng thái đơn) và `AdminOrderCancelModal.tsx` (hủy đơn kèm lý do và hoàn trả tồn kho kép).
+
+2. **Nền Tảng Mô Phỏng Logistics 3 Trạm GHN (Multi-Portal Logistics Platform)**:
+   - **Portal 1 — Bưu Cục GHN Station (`/demo/ghn-station`)**: Tiếp nhận kiện hàng xuất từ Kho AP Sports (`processing` → `shipped`). Nút thao tác duy nhất: *"Xác Nhận Đã Nhận Kiện Hàng Từ Kho AP Sports"*.
+   - **Portal 2 — Trung Tâm Vận Chuyển GHN Transit (`/demo/carrier-logistics`)**: Điều hành xe tải luân chuyển liên tỉnh (`shipped` → `shipping`). Nút thao tác duy nhất: *"Xe Tải Xuất Phát Giao Hàng"*.
+   - **Portal 3 — GHN Express Mobile App Shipper (`/demo/shipper-app`)**: Giao hàng chặng cuối (`shipping` → `delivered`). Nơi kích hoạt chuyến xe vận tốc thực 60 km/h với nút bấm *"Bắt Đầu Xuất Phát Giao Hàng (60km/h Thực Tế)"* và xác nhận thu tiền COD.
+
+3. **Bản Đồ Leaflet OSRM Road Routing Engine & Lớp Bản Đồ Keyless**:
+   - Tích hợp đà động OSRM (`router.project-osrm.org/route/v1/driving/...`), vẽ đường Polyline ôm sát theo quốc lộ và cầu đường thực tế thay vì đường thẳng nét đứt.
+   - Nhúng bản đồ Esri World Street Map & HD Satellite keyless, loại bỏ hoàn toàn giới hạn Google Maps API Key.
+
+4. **Thuật Toán Toán Học Haversine Tính Khoảng Cách GPS (`calculateOrderDistanceKm`)**:
+   - Áp dụng công thức đường tròn lớn (Great-Circle Distance) dựa trên bán kính Trái Đất $R = 6371 \text{ km}$:
+     $$a = \sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1) \cdot \cos(\phi_2) \cdot \sin^2\left(\frac{\Delta \lambda}{2}\right), \quad c = 2 \cdot \arctan2(\sqrt{a}, \sqrt{1-a}), \quad d = R \cdot c \text{ (km)}$$
+   - Tự động đo khoảng cách chính xác từ Kho AP Sports Cần Thơ đến tọa độ GPS thực tế của từng đơn hàng mà không cần gán cứng.
+
+5. **Cơ Chế Đồng Bộ Xe Di Chuyển Real-Time Đa Trình Duyệt & Thiết Bị (Backend Timestamp Sync)**:
+   - Khi Shipper xuất phát, Backend ghi nhận `updatedAt = LocalDateTime.now()` trong PostgreSQL.
+   - Tất cả trình duyệt và thiết bị (Chrome, Edge, Safari Mobile) tự động đọc `updatedAt` và tính số giây trôi qua:
+     $$\Delta t_{\text{elapsed}} = \frac{\text{Date.now()} - \text{updatedAt}}{1000} \text{ (giây)}, \quad \text{Progress (\%)} = \frac{\Delta t_{\text{elapsed}}}{\text{distanceKm} \times 60} \times 100\%$$
+   - Đảm bảo 100% mọi thiết bị hiển thị đúng chính xác cùng 1 vị trí xe tải tại cùng 1 giây trên bản đồ OSRM!
+
+6. **Tuân Thủ Tuyệt Đối Kiến Trúc Clean Architecture**:
+   - Phân tách 100% logic khỏi UI Component. Các file trang Router là Pure Wrapper, UI Component là Pure Presentation, mọi state & timer được đóng gói trong Custom Hooks (`usePortalSimulation`, `useAdminOrders`, `useCustomerOrderTracking`).
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+
 
 
 
