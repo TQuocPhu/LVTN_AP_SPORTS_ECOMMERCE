@@ -117,6 +117,8 @@ export const voucherController = {
    * @return Promise chứa ApiResponse của VoucherApplyResult
    */
   async calculateVoucherDiscount(params: ApplyVoucherParams): Promise<ApiResponse<VoucherApplyResult>> {
-    return apiClient.post<ApiResponse<VoucherApplyResult>>('/customer/vouchers/apply', params);
+    return apiClient.post<ApiResponse<VoucherApplyResult>>('/customer/vouchers/apply', params, {
+      showSuccessToast: false,
+    });
   },
 };

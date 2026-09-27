@@ -73,4 +73,22 @@ public class CustomerCartController {
         cartService.clearCart(user.getId());
         return ResponseEntity.ok(ApiResponse.success("Đã dọn dẹp giỏ hàng", null));
     }
+
+    @PatchMapping("/items/{id}/select")
+    public ResponseEntity<ApiResponse<CartItemResponse>> toggleSelectItem(
+            Authentication authentication,
+            @PathVariable Long id) {
+        User user = getAuthenticatedUser(authentication);
+        CartItemResponse item = cartService.toggleSelectItem(user.getId(), id);
+        return ResponseEntity.ok(ApiResponse.success("Đã thay đổi trạng thái chọn sản phẩm", item));
+    }
+
+    @PatchMapping("/select-all")
+    public ResponseEntity<ApiResponse<Void>> toggleSelectAll(
+            Authentication authentication,
+            @RequestParam boolean isSelected) {
+        User user = getAuthenticatedUser(authentication);
+        cartService.toggleSelectAll(user.getId(), isSelected);
+        return ResponseEntity.ok(ApiResponse.success("Đã thay đổi trạng thái chọn tất cả", null));
+    }
 }

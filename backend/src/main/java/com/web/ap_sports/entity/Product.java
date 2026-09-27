@@ -55,6 +55,9 @@ public class Product {
 
     private String unit;
 
+    @Column(name = "weight", columnDefinition = "INTEGER DEFAULT 500")
+    private Integer weight; // Trọng lượng tính bằng grams, dùng cho tính phí vận chuyển GHN
+
     @Column(columnDefinition = "TEXT")
     private String specifications; // JSON text for dynamic attributes
 
@@ -65,6 +68,7 @@ public class Product {
     protected void onCreate() {
         if (stock == null) stock = 0;
         if (status == null) status = "in_stock";
+        if (weight == null) weight = 500; // Mặc định 500g nếu không nhập
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }

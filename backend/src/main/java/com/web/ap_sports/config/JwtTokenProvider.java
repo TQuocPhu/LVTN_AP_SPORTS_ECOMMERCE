@@ -39,6 +39,9 @@ public class JwtTokenProvider {
     @Value("${app.jwt.refresh-secret:${JWT_REFRESH_SECRET:default_refresh_secret}}")
     private String jwtRefreshSecret;
 
+    @Value("${app.jwt.refresh-token-absolute-max-days:30}")
+    private long refreshTokenAbsoluteMaxDays;
+
     /**
      * Sinh JWT Access Token ngắn hạn cho người dùng bằng thuật toán RS256 với RSA
      * Private Key.
@@ -142,5 +145,9 @@ public class JwtTokenProvider {
 
     public long getRefreshExpirationMs() {
         return jwtRefreshExpirationMs;
+    }
+
+    public long getRefreshTokenAbsoluteMaxDays() {
+        return refreshTokenAbsoluteMaxDays;
     }
 }

@@ -45,8 +45,8 @@ export default function Navbar() {
   const [isAboutDropdownOpen, setIsAboutDropdownOpen] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  // Không hiển thị Navbar trang bán hàng khi ở các route quản trị /admin
-  if (pathname?.startsWith("/admin")) {
+  // Không hiển thị Navbar trang bán hàng khi ở các route quản trị /admin hoặc demo /demo
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/demo")) {
     return null;
   }
 

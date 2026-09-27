@@ -77,12 +77,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             categoryTree={categoryTree}
             price={form.price}
             unit={form.unit}
+            weight={form.weight}
             mainImage={form.mainImage}
             errors={form.errors}
             onNameChange={form.setName}
             onCategoryIdsChange={form.setCategoryIds}
             onPriceChange={form.setPrice}
             onUnitChange={form.setUnit}
+            onWeightChange={form.setWeight}
             onMainImageChange={form.setMainImage}
           />
         )}

@@ -14,7 +14,9 @@ export interface CartItem {
   stockQuantity: number;
   quantity: number;
   subtotal: number;
+  weight?: number;
   inStock: boolean;
+  isSelected?: boolean;
 }
 
 export interface CartSummary {

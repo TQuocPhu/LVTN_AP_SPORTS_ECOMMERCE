@@ -81,12 +81,15 @@ export function ProductMainInfo({
 
       {/* 2. Giá Tiền & Đơn Vị Tính Ở Cột Giữa */}
       <div className="border-t border-b border-slate-200 dark:border-slate-800 py-3.5 space-y-1">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-baseline flex-wrap gap-2">
           <span className="text-2xl sm:text-3xl font-black text-orange-600 dark:text-orange-400">
             {formattedPrice}
           </span>
           <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             / {productUnit}
+          </span>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            • Trọng lượng: <strong className="font-bold text-slate-700 dark:text-slate-300">{product.weight ?? 500}g</strong>
           </span>
         </div>
         <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -277,6 +280,10 @@ export function ProductMainInfo({
             <div className="grid grid-cols-2 py-1 border-t border-slate-100 dark:border-slate-800/60">
               <span className="font-semibold text-slate-500 dark:text-slate-400">Đơn vị</span>
               <span className="font-bold text-slate-800 dark:text-slate-200">{productUnit}</span>
+            </div>
+            <div className="grid grid-cols-2 py-1 border-t border-slate-100 dark:border-slate-800/60">
+              <span className="font-semibold text-slate-500 dark:text-slate-400">Trọng lượng</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{product.weight ?? 500}g</span>
             </div>
           </div>
         )}

@@ -19,12 +19,37 @@ import {
 } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { formatCurrency } from '@/utils/formatters';
+import { CartItem } from '@/types/cart';
 
 interface DeleteModalState {
   isOpen: boolean;
   type: 'single' | 'all';
   itemId?: number;
   itemName?: string;
+}
+
+function formatVariantLabel(item: CartItem): string | null {
+  if (item.variantName) {
+    if (item.variantName.startsWith('{')) {
+      try {
+        return Object.values(JSON.parse(item.variantName)).join(' | ');
+      } catch {
+        // ignore
+      }
+    }
+    return item.variantName;
+  }
+  if (item.attributes) {
+    try {
+      return Object.values(JSON.parse(item.attributes)).join(' | ');
+    } catch {
+      // ignore
+    }
+  }
+  const parts: string[] = [];
+  if (item.size) parts.push(`Size: ${item.size}`);
+  if (item.color) parts.push(`Màu: ${item.color}`);
+  return parts.length > 0 ? parts.join(' | ') : null;
 }
 
 export default function CartItemList() {
@@ -179,38 +204,11 @@ export default function CartItemList() {
                         </span>
                       )}
 
-                      {(() => {
-                        const displayVariant = (() => {
-                          if (item.variantName) {
-                            if (item.variantName.startsWith('{')) {
-                              try {
-                                return Object.values(JSON.parse(item.variantName)).join(' | ');
-                              } catch {
-                                // Ignore
-                              }
-                            }
-                            return item.variantName;
-                          }
-                          if (item.attributes) {
-                            try {
-                              return Object.values(JSON.parse(item.attributes)).join(' | ');
-                            } catch {
-                              // Ignore
-                            }
-                          }
-                          const parts: string[] = [];
-                          if (item.size) parts.push(`Size: ${item.size}`);
-                          if (item.color) parts.push(`Màu: ${item.color}`);
-                          return parts.join(' | ');
-                        })();
-
-                        if (!displayVariant) return null;
-                        return (
-                          <span className="text-xs font-semibold bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-md border border-orange-200 dark:border-orange-500/20">
-                            {displayVariant}
-                          </span>
-                        );
-                      })()}
+                      {formatVariantLabel(item) && (
+                        <span className="text-xs font-semibold bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 px-2 py-0.5 rounded-md border border-orange-200 dark:border-orange-500/20">
+                          {formatVariantLabel(item)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Stock Status Badge */}

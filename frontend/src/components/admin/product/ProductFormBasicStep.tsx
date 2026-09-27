@@ -13,12 +13,14 @@ interface ProductFormBasicStepProps {
   categoryTree: CategoryResponse[];
   price: number | '';
   unit: string;
+  weight: number | '';
   mainImage: string;
   errors: Record<string, string>;
   onNameChange: (val: string) => void;
   onCategoryIdsChange: (ids: number[]) => void;
   onPriceChange: (val: number | '') => void;
   onUnitChange: (val: string) => void;
+  onWeightChange: (val: number | '') => void;
   onMainImageChange: (url: string) => void;
 }
 
@@ -29,12 +31,14 @@ export function ProductFormBasicStep({
   categoryTree,
   price,
   unit,
+  weight,
   mainImage,
   errors,
   onNameChange,
   onCategoryIdsChange,
   onPriceChange,
   onUnitChange,
+  onWeightChange,
   onMainImageChange,
 }: ProductFormBasicStepProps) {
   return (
@@ -93,8 +97,8 @@ export function ProductFormBasicStep({
         />
       </div>
 
-      {/* Price & Unit Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      {/* Price, Unit & Weight Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div>
           <label className="block text-sm font-bold text-slate-800 uppercase tracking-wider mb-2">
             Giá gốc niêm yết (VNĐ) <span className="text-rose-500">*</span>
@@ -129,6 +133,28 @@ export function ProductFormBasicStep({
           {errors.unit && (
             <p className="text-sm font-semibold text-rose-500 mt-1.5 flex items-center gap-1">
               <AlertCircle className="w-4 h-4" /> {errors.unit}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-bold text-slate-800 uppercase tracking-wider mb-2">
+            Trọng lượng (Grams)
+          </label>
+          <input
+            type="number"
+            min={1}
+            placeholder="Mặc định 500g"
+            value={weight}
+            onChange={(e) =>
+              onWeightChange(e.target.value === '' ? '' : Number(e.target.value))
+            }
+            className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-xl text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">Đơn vị: grams (g). Dùng tính phí GHN.</p>
+          {errors.weight && (
+            <p className="text-sm font-semibold text-rose-500 mt-1.5 flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" /> {errors.weight}
             </p>
           )}
         </div>

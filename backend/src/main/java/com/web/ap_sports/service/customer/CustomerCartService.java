@@ -16,4 +16,8 @@ public interface CustomerCartService {
     void removeCartItem(Long userId, Long cartItemId);
 
     void clearCart(Long userId);
+
+    CartItemResponse toggleSelectItem(Long userId, Long cartItemId);
+
+    void toggleSelectAll(Long userId, boolean isSelected);
 }

@@ -1,5 +1,6 @@
 package com.web.ap_sports.entity;
 
+import com.web.ap_sports.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -41,8 +42,17 @@ public class Order {
     @Column(name = "final_amount", precision = 10, scale = 2)
     private BigDecimal finalAmount;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status; // pending, confirmed, processing, shipping, delivered, canceled, returned
+    private OrderStatus status; // pending, confirmed, processing, shipping, shipped, delivered, completed, cancelled, returned, payment_failed
+
+    public void setStatus(String statusStr) {
+        this.status = OrderStatus.fromString(statusStr);
+    }
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shipping_address_id", nullable = false)
@@ -54,11 +64,31 @@ public class Order {
     @Column(name = "tracking_code")
     private String trackingCode;
 
+    // DEPRECATED: Không dùng GPS địa chỉ khách hàng nữa, thay vào đó dùng ghnStationLatitude & ghnStationLongitude (Trạm GHN gần nhất)
     @Column(name = "gps_latitude")
     private Double gpsLatitude;
 
+    // DEPRECATED: Không dùng GPS địa chỉ khách hàng nữa, thay vào đó dùng ghnStationLatitude & ghnStationLongitude (Trạm GHN gần nhất)
     @Column(name = "gps_longitude")
     private Double gpsLongitude;
+
+    @Column(name = "ghn_station_id")
+    private Integer ghnStationId;
+
+    @Column(name = "ghn_station_name")
+    private String ghnStationName;
+
+    @Column(name = "ghn_station_address", columnDefinition = "TEXT")
+    private String ghnStationAddress;
+
+    @Column(name = "ghn_station_latitude")
+    private Double ghnStationLatitude;
+
+    @Column(name = "ghn_station_longitude")
+    private Double ghnStationLongitude;
+
+    @Column(columnDefinition = "TEXT")
+    private String note;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coupon_id")
@@ -69,7 +99,7 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
-        if (status == null) status = "pending";
+        if (status == null) status = OrderStatus.pending;
         if (shippingFee == null) shippingFee = BigDecimal.ZERO;
         if (discountAmount == null) discountAmount = BigDecimal.ZERO;
         createdAt = LocalDateTime.now();

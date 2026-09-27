@@ -70,6 +70,20 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(401, ex.getMessage()));
     }
 
+    // Xử lý ngoại lệ vi phạm ràng buộc dữ liệu CSDL (Foreign Key Constraint)
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        String msg = ex.getMessage() != null ? ex.getMessage() : "";
+        if (msg.contains("shipping_addresses") || msg.contains("fkstjxbn0162q6csb4f7ejx3fwe") || msg.contains("orders")) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "Địa chỉ này đã từng được sử dụng để đặt hàng nên không thể xóa."));
+        }
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(400, "Dữ liệu đang được tham chiếu bởi bản ghi khác trong hệ thống, không thể xóa."));
+    }
+
     // Xử lý ngoại lệ hệ thống mặc định
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {

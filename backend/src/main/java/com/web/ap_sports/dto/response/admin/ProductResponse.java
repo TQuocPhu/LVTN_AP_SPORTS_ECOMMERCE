@@ -22,6 +22,7 @@ public class ProductResponse {
     private Integer totalStock;
     private String status;
     private String unit;
+    private Integer weight;
     private String mainImage;
     private Long primaryCategoryId;
     private String primaryCategoryName;

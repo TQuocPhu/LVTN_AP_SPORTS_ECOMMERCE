@@ -23,12 +23,20 @@ import java.util.stream.Collectors;
  * Lớp triển khai Service nghiệp vụ xử lý Voucher phía khách hàng (Customer Portal & Checkout).
  * Cung cấp tính năng lấy kho voucher Shopee-style và tính toán số tiền giảm khi thanh toán.
  */
+import com.web.ap_sports.enums.OrderStatus;
+import com.web.ap_sports.repository.OrderRepository;
+import com.web.ap_sports.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CustomerVoucherServiceImpl implements CustomerVoucherService {
 
     private final CouponRepository couponRepository;
+    private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
 
     /**
      * Lấy danh sách voucher công khai đang khả dụng trên trang /vouchers.
@@ -118,6 +126,24 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
             return buildInvalidResponse("Mã giảm giá này đã hết lượt sử dụng.", orderAmount);
         }
 
+        // 5b. Kiểm tra giới hạn số lần sử dụng theo từng tài khoản (userUsageLimit)
+        if (coupon.getUserUsageLimit() != null && coupon.getUserUsageLimit() > 0) {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+                userRepository.findByEmail(auth.getName()).ifPresent(u -> {
+                    long userUsedCount = orderRepository.countByUserIdAndCouponIdAndStatusNotIn(
+                            u.getId(), coupon.getId(), List.of(OrderStatus.cancelled, OrderStatus.payment_failed)
+                    );
+                    if (userUsedCount >= coupon.getUserUsageLimit()) {
+                        throw new com.web.ap_sports.exception.AppException(
+                                "Tài khoản của bạn đã sử dụng hết lượt (" + coupon.getUserUsageLimit() + " lần) của mã giảm giá này.",
+                                org.springframework.http.HttpStatus.BAD_REQUEST
+                        );
+                    }
+                });
+            }
+        }
+
         // 6. Kiểm tra giá trị đơn hàng tối thiểu (minOrderValue)
         if (coupon.getMinOrderValue() != null && orderAmount.compareTo(coupon.getMinOrderValue()) < 0) {
             return buildInvalidResponse(
@@ -133,7 +159,7 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
         if (type == CouponType.PERCENT) {
             // Giảm theo phần trăm: orderAmount * (value / 100)
             BigDecimal percentRatio = coupon.getValue().divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
-            discount = orderAmount.multiply(percentRatio).setScale(0, RoundingMode.HALF_UP);
+            discount = orderAmount.multiply(percentRatio).setScale(2, RoundingMode.HALF_UP);
 
             // Áp mức giảm tối đa nếu có thiết lập maxDiscountAmount
             if (coupon.getMaxDiscountAmount() != null && coupon.getMaxDiscountAmount().compareTo(BigDecimal.ZERO) > 0) {

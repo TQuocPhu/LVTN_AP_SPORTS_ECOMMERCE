@@ -46,16 +46,45 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const SELECTED_CART_ITEMS_KEY = "ap_selected_cart_item_ids";
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
 
   const [cartSummary, setCartSummary] = useState<CartSummary | null>(null);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(
-    new Set(),
-  );
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = sessionStorage.getItem(SELECTED_CART_ITEMS_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return new Set<number>(parsed);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return new Set<number>();
+  });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isMiniCartOpen, setIsMiniCartOpen] = useState<boolean>(false);
+
+  // Sync selectedItemIds to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(
+          SELECTED_CART_ITEMS_KEY,
+          JSON.stringify(Array.from(selectedItemIds)),
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }, [selectedItemIds]);
 
   const openMiniCart = useCallback(() => setIsMiniCartOpen(true), []);
   const closeMiniCart = useCallback(() => setIsMiniCartOpen(false), []);
@@ -77,17 +106,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const res = await cartController.getCart();
       if (res.data) {
         setCartSummary(res.data);
-        // Default: select all items when loaded if selectedItemIds is empty or sync existing
-        setSelectedItemIds((prevSelected) => {
-          const newSet = new Set<number>();
-          res.data?.items.forEach((item) => {
-            // Keep previously selected status, or select by default if initial load
-            if (prevSelected.size === 0 || prevSelected.has(item.id)) {
-              newSet.add(item.id);
-            }
-          });
-          return newSet;
+        const newSet = new Set<number>();
+        res.data.items.forEach((item) => {
+          if (item.isSelected !== false) {
+            newSet.add(item.id);
+          }
         });
+        setSelectedItemIds(newSet);
       }
     } catch {
       // Handled by apiClient suppressErrorToast
@@ -122,27 +147,45 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items, selectedItems]);
 
   // Select / Deselect actions
-  const toggleSelectItem = useCallback((cartItemId: number) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(cartItemId)) {
-        next.delete(cartItemId);
-      } else {
-        next.add(cartItemId);
-      }
-      return next;
-    });
-  }, []);
+  const toggleSelectItem = useCallback(
+    async (cartItemId: number) => {
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(cartItemId)) {
+          next.delete(cartItemId);
+        } else {
+          next.add(cartItemId);
+        }
+        return next;
+      });
 
-  const toggleSelectAll = useCallback(() => {
-    setSelectedItemIds((prev) => {
-      if (items.length > 0 && prev.size === items.length) {
-        return new Set(); // Unselect all
+      try {
+        await cartController.toggleSelectItem(cartItemId);
+      } catch {
+        refreshCart();
+      }
+    },
+    [refreshCart],
+  );
+
+  const toggleSelectAll = useCallback(async () => {
+    const nextIsSelected = !(
+      items.length > 0 && selectedItemIds.size === items.length
+    );
+    setSelectedItemIds(() => {
+      if (nextIsSelected) {
+        return new Set(items.map((i) => i.id));
       } else {
-        return new Set(items.map((i) => i.id)); // Select all
+        return new Set();
       }
     });
-  }, [items]);
+
+    try {
+      await cartController.toggleSelectAll(nextIsSelected);
+    } catch {
+      refreshCart();
+    }
+  }, [items, selectedItemIds, refreshCart]);
 
   // Add to cart action with Auth Guard
   const addToCart = useCallback(

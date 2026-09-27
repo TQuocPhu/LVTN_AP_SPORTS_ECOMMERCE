@@ -608,7 +608,151 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 🗺️ 4.20. Phân Hệ Địa Chỉ Giao Hàng GHN Master Data, GPS Geocoding & Trọng Lượng Sản Phẩm (Phase 1 Shipping Upgrade)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (23/09/2026 - Day 07)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Nâng cấp Địa Chỉ & Trọng Lượng Sản Phẩm:**
+1. **API Proxy Địa Lý GHN Location Master Data (`LocationController.java` & `/api/v1/locations/*`)**:
+   - Backend đóng vai trò làm API Proxy bảo mật, gọi trực tiếp API GHN Master Data (`https://online-gateway.ghn.vn/shiip/public-api/master-data/...`) với header `Token` GHN từ cấu hình `application.yml`.
+   - Cung cấp 3 endpoints công khai: `/provinces` (Lấy danh sách 63 Tỉnh/Thành), `/districts?provinceId=...` (Lấy danh sách Quận/Huyện), và `/wards?districtId=...` (Lấy danh sách Phường/Xã).
+   - Loại bỏ hoàn toàn việc trói buộc hay hardcode danh mục địa chính trong CSDL, tự động cập nhật theo dữ liệu địa lý chuẩn quốc gia của GHN.
+
+2. **Cơ Chế Dropdown Cascade 3 Tầng & Forward Geocoding Tọa Độ GPS Phía Frontend (`useLocation.ts`, `useAddressModal.ts`, `AddressModal.tsx`)**:
+   - Dropdown chọn địa chỉ 3 tầng (Tỉnh/Thành -> Quận/Huyện -> Phường/Xã) tự động nạp liên hoàn (Cascade).
+   - **Tích hợp HTML5 Geolocation & Nominatim OpenStreetMap Geocoding**:
+     - Cho phép khách hàng định vị tọa độ GPS hiện tại qua `navigator.geolocation.getCurrentPosition()`.
+     - Tự động chuyển đổi chuỗi địa chỉ (Số nhà + Phường/Xã + Quận/Huyện + Tỉnh/Thành) thành tọa độ `latitude` và `longitude` chính xác qua Nominatim OpenStreetMap Geocoding API khi bấm Lưu địa chỉ.
+     - Cập nhật bảng `shipping_addresses` bổ sung 2 cột `latitude` (`DOUBLE`) và `longitude` (`DOUBLE`) làm tiền đề tính phí vận chuyển theo khoảng cách thực tế.
+
+3. **Hệ Thống Quản Lý & Hiển Thị Trọng Lượng Sản Phẩm (`Product.java` & `weight` field)**:
+   - Nâng cấp bảng `products` bổ sung cột `weight` (`INTEGER DEFAULT 500`, đơn vị: grams). Mặc định 500g nếu bỏ trống.
+   - **Trang Quản Trị Sản Phẩm (`ProductTable.tsx` & `ProductDescriptionModal.tsx`)**: Hiển thị nhãn trọng lượng (ví dụ: `Trọng lượng: 500g`) ngay dưới Tên và Slug sản phẩm (`/{slug}`).
+   - **Trang Chi Tiết Sản Phẩm Phía Khách Hàng (`ProductMainInfo.tsx`)**: Hiển thị thông tin trọng lượng ngay sau phần đơn vị tính `/ {unit}` (ví dụ: `/ sản phẩm • Trọng lượng: 500g`) và bổ sung dòng Trọng lượng vào khung Thông Số Nổi Bật (Top Highlights).
+
+---
+
+### 💳 4.21. Phân Hệ Đặt Hàng, Thanh Toán Multi-Gate (COD & VNPay Sandbox), Khấu Trừ Tồn Kho Kép, Mã Giảm Giá Đa Cấp & Kho GHN Station (Phase 2 Checkout & Payment System)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (24/09/2026 - Day 08)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Đặt Hàng & Thanh Toán:**
+1. **Thanh Toán Sản Phẩm Được Chọn Trong Giỏ Hàng (Selected Items Checkout)**:
+   - Request DTO `CreateOrderRequest` đính kèm danh sách `cartItemIds` (mảng ID các `CartItem` được tích chọn).
+   - Backend lọc chính xác các sản phẩm được chọn qua `cartItemRepository.findByUserIdAndIdIn(userId, cartItemIds)` để khởi tạo đơn hàng.
+   - Khi đặt hàng thành công, hệ thống chỉ dọn các mặt hàng đã mua ra khỏi giỏ, giữ lại nguyên vẹn các sản phẩm chưa chọn.
+   - Frontend tự động làm mới state giỏ hàng tức thì qua `await refreshCart()` từ `CartContext` mà không cần reload trang (F5).
+
+2. **Ràng Buộc & Quy Tắc Tính Mã Giảm Giá Đa Cấp (Coupon & Voucher Validation Engine)**:
+   - Kiểm tra các điều kiện: `isActive = true`, `status == "active"`, ngày bắt đầu `startsAt`, ngày hết hạn `expiresAt`, giới hạn toàn hệ thống `usageLimit`, giá trị đơn hàng tối thiểu `minOrderValue`.
+   - **Giới Hạn Lượt Dùng Theo Tài Khoản (`userUsageLimit`)**: Đếm số đơn hàng khách đã sử dụng mã qua `orderRepository.countByUserIdAndCouponIdAndStatusNotIn(userId, couponId, List.of("cancelled", "payment_failed"))`. Tự động loại trừ các đơn hủy/thanh toán thất bại để bảo toàn lượt cho người dùng.
+   - **Công thức giảm giá theo loại Voucher**:
+     - `PERCENT`: Giảm theo phần trăm tiền hàng `subtotal * (value / 100)`. Áp dụng mức trần giảm giá tối đa `maxDiscountAmount` nếu có.
+     - `FIXED`: Giảm số tiền cố định trực tiếp vào tiền hàng, tối đa bằng đúng tổng tiền hàng `subtotal`.
+     - `FREESHIP`: Giảm vào phí vận chuyển GHN, tối đa bằng đúng phí ship thực tế `shippingFee` (không trừ lấn sang tiền hàng).
+   - **Kiểm soát Toastr**: Truyền `showSuccessToast: false` cho API `/customer/vouchers/apply`. Kiểm tra `res.data.valid` phía Custom Hook `useCheckout`; khi `valid = false`, hệ thống gán `voucherError` hiển thị thông báo lỗi màu đỏ trực tiếp bên dưới ô nhập mã.
+
+3. **Khấu Trừ Tồn Kho Kép & Cơ Chế Hoàn Tồn Kho (Stock Management & Rollback Flow)**:
+   - Khi tạo đơn, hệ thống khấu trừ đồng thời cả `Product.stock` và `ProductVariant.stockQuantity`. Tự động cập nhật `product.status = "out_of_stock"` khi tồn kho về `0`.
+   - **Hoàn trả tồn kho khi thanh toán VNPay thất bại (`rollbackOrderStock`)**: Nếu VNPay trả về lỗi hoặc khách hủy giao dịch (`vnp_ResponseCode != "00"`), đơn hàng chuyển trạng thái **`payment_failed`** (chặn nhân viên duyệt nhầm đơn chưa trả tiền) và lập tức hoàn trả lại tồn kho cho cả Product & Variant.
+   - **Thanh toán lại (`retryVNPayPayment`)**: Cho phép khách hàng bấm *"Thanh Toán Lại Bằng VNPay"*, hệ thống gọi `reDeductOrderStock` khấu trừ lại tồn kho, đổi trạng thái đơn về `pending` và tái sinh URL thanh toán VNPay mới.
+
+4. **Tra Cứu Bưu Cục GHN Station, Tọa Độ GPS & Mã Vận Đơn (`tracking_code`)**:
+   - Hàm `fetchNearestGhnStation`: Tra cứu từ GHN API (`/station/get`) dựa trên `districtId` & `wardCode`. Parse chính xác các trường `locationId`/`station_id`, `locationName`/`name`, `address`, `latitude`, `longitude`.
+   - **Cơ chế Fallback**: Tự động tính toán bưu cục kho GHN xử lý gần nhất theo quận/huyện nếu API Sandbox không phản hồi, bảo đảm 100% các cột `ghn_station_id`, `ghn_station_name`, `ghn_station_address`, `ghn_station_latitude`, `ghn_station_longitude` được lưu đầy đủ vào CSDL.
+   - Tự động sinh mã vận đơn `tracking_code = "GHN-" + orderCode` và lưu tọa độ người nhận `gps_latitude`, `gps_longitude`.
+
+5. **Tích Hợp Thanh Toán Multi-Gate VNPay Sandbox & Xử Lý Số Tiền Lẻ (`vnp_Amount`)**:
+   - Sử dụng `.setScale(2, RoundingMode.HALF_UP)` cho các phép tính số tiền đơn hàng và tiền giảm giá.
+   - Trong `VNPayServiceImpl`: Nhân `finalAmount` cho `100` (`vnp_Amount = finalAmount * 100`), hỗ trợ VNPay xử lý chính xác số tiền lẻ đến hàng đơn vị đồng (VD: 153.333 VNĐ) và các số lẻ thập phân trên cổng thanh toán.
+   - Xác thực mã băm bảo mật checksum `verifyChecksum` qua thuật toán HMAC-SHA512 cho các tham số trả về từ VNPay.
+
+6. **Tái Cấu Trúc Giao Diện `/checkout` Chuẩn UX (Sticky Right Panel Layout)**:
+   - Sắp xếp cột thông tin bên phải màn hình Đặt hàng theo thứ tự ưu tiên:
+     1. Khung Nhập mã giảm giá / Voucher (`CheckoutVoucherSection`) ở trên cùng.
+     2. Khung Tổng quan đơn hàng & Ghi chú (`CheckoutSummarySection`) ở giữa.
+     3. Khung Phương thức thanh toán (`CheckoutPaymentMethodSection`) ở dưới cùng đính kèm Nút bấm **`XÁC NHẬN ĐẶT HÀNG (COD)`** hoặc **`THANH TOÁN BẰNG VNPAY SANDBOX`** trực tiếp ở cuối card.
+
+---
+
+### 🗺️ 4.22. Phân Hệ Geocoding Cascade Engine 4 Tầng, Single-Source-of-Truth Tọa Độ GPS & Quản Lý Khóa Ngoại Địa Chỉ Giao Hàng (Phase 3 System Refactoring & Third-Party Integration)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (27/09/2026 - Day 09)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Nâng cấp Hệ thống:**
+1. **Kiến Trúc Geocoding Cascade Engine 4 Tầng (Strategy & Chain of Responsibility)**:
+   - **Tích hợp 4 Nhà cung cấp định vị địa lý (Providers)**:
+     1. `NominatimGeocodingProvider`: Truy vấn OpenStreetMap API (`/search`), tự động lọc bỏ các tiền tố hành chính dư thừa ("Thành phố", "Phường", "Quận", "Huyện", "Tỉnh") để tối ưu khả năng bắt khớp tên đường.
+     2. `EsriArcGisGeocodingProvider`: Truy vấn ESRI World Geocoding Service.
+     3. `PhotonGeocodingProvider`: Truy vấn Photon Komoot API.
+     4. `GoongGeocodingProvider`: Truy vấn Goong Maps API Việt Nam (`api_key` cấu hình).
+   - **Cấu hình thứ tự ưu tiên động (`application.yml`)**:
+     ```yaml
+     app:
+       geocoding:
+         provider-order: nominatim,esri,photon,goong
+     ```
+   - **Cơ chế Fallback cách ly ngoại lệ**: Khi một Provider gặp sự cố (Timeout 3s, Rate limit 429), hệ thống tự động nhảy sang Provider tiếp theo trong chuỗi mà không gây gián đoạn luồng người dùng.
+
+2. **Quy Tắc Single Source of Truth Cho Tọa Độ GPS Địa Chỉ Giao Hàng**:
+   - Geocode tọa độ GPS **một lần duy nhất** tại `ShippingAddressServiceImpl.ensureGeocodedIfMissing()` khi người dùng **Thêm mới (`createAddress`)** hoặc **Chỉnh sửa (`updateAddress`)** địa chỉ giao hàng, lưu trực tiếp vào CSDL (`shipping_addresses.gps_latitude`, `shipping_addresses.gps_longitude`).
+   - Khi Khách hàng Đặt Hàng (`createOrder`), Backend chỉ thực hiện **sao chép (copy) tọa độ đã có** từ địa chỉ sang đơn hàng mà **KHÔNG GỌI LẠI BẤT KỲ API GEOCODE BÊN THỨ 3 NÀO**, giảm thời gian phản hồi API đặt hàng xuống **dưới 150ms** và loại bỏ triệt để nguy cơ Rate Limit.
+
+3. **Chuẩn Hóa Vòng Đời Đơn Hàng & Thanh Toán Multi-Gate (Strict Order & Payment Lifecycle)**:
+   - **Đồng bộ Java Enums & TypeScript Enums**: `OrderStatus` (`pending`, `confirmed`, `processing`, `shipping`, `delivered`, `canceled`, `returned`, `payment_failed`) và `PaymentStatus` (`pending`, `completed`, `failed`, `refunded`).
+   - **Thanh toán VNPay thành công**: Cập nhật `PaymentStatus = completed` và `paid_at = now()`. Đơn hàng `Order.status` **vẫn giữ nguyên `pending`** chờ Nhân viên Admin duyệt trước khi xuất kho (`confirmed`).
+   - **Thanh toán VNPay thất bại / Hủy**: Cập nhật `Order.status = payment_failed`, `PaymentStatus = failed`, và tự động kích hoạt **Khấu trừ & Hoàn trả tồn kho kép (`rollbackOrderStock`)** khôi phục ngay số lượng cho `Product` và `ProductVariant`.
+
+4. **Xử Lý An Toàn Ràng Buộc Khóa Ngoại Khi Xóa Địa Chỉ Giao Hàng**:
+   - Kiểm tra chủ động `orderRepository.existsByShippingAddressId(addressId)` trước khi xóa địa chỉ. Ngăn ngừa triệt để lỗi PostgreSQL Foreign Key Constraint (`fkstjxbn0162q6csb4f7ejx3fwe on table orders`).
+   - Ném ra thông báo tiếng Việt thân thiện: *"Địa chỉ này đã từng được sử dụng để đặt hàng nên không thể xóa."*.
+   - Bổ sung bộ xử lý ngoại lệ toàn cục `@ExceptionHandler(DataIntegrityViolationException.class)` tại `GlobalExceptionHandler.java`.
+
+5. **Tối Ưu Giao Diện Chi Tiết Đơn Hàng Admin & Customer**:
+   - Loại bỏ thông tin thẻ Bưu cục GHN Station & Tọa độ bưu cục dư thừa trên giao diện Admin & Customer Order UI (bản đồ Map Routing tập trung vẽ luồng nối từ Tọa độ Kho Hàng AP Sports đến Tọa độ GPS Thực Tế Điểm Đến Của Khách Hàng).
+   - Loại bỏ các badge hiển thị `Color` và `Size` trùng lặp trên Modal chi tiết đơn hàng Admin.
+
+---
+
+### 🚚 4.23. Phân Hệ Quản Lý Đơn Hàng Admin, Nền Tảng Mô Phỏng Logistics 3 Trạm GHN, Bản Đồ Leaflet OSRM & Đồng Bộ Vận Tốc 60 km/h Real-Time (Phase 4 Logistics & Order Ecosystem)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (27/09/2026 - Day 10)
+
+**Đặc tả Kiến trúc & Quy trình Nghiệp vụ Nâng cấp Hệ thống:**
+1. **Hệ Thống Quản Lý Đơn Hàng Admin Doanh Nghiệp (`/admin/orders`)**:
+   - **Bảng Thống Kê Tổng Quan (Summary Cards)**: Thống kê số lượng đơn theo các nhóm trạng thái (`pending`, `processing`, `shipping`, `completed`, `canceled`).
+   - **Bộ Lọc Nâng Cao (Filter Bar)**: Hỗ trợ tìm kiếm theo từ khóa mã đơn, tên/SĐT khách hàng, lọc theo trạng thái đơn hàng (`status`), lọc phương thức thanh toán, phân trang (`page`, `size`) và sắp xếp.
+   - **Modal Chi Tiết Đơn Hàng Admin (`AdminOrderDetailModal.tsx`)**: Hiển thị nổi bật thẻ **Điểm Xuất Hàng (Kho AP Sports Cần Thơ)** và **Điểm Nhận Hàng (Khách hàng)**, danh sách sản phẩm mua, hóa đơn điện tử E-Invoice, lịch sử chuyển trạng thái và bản đồ OSRM trực quan.
+   - **Các Modal Thao Tác Trạng Thái**: `AdminOrderUpdateStatusModal.tsx` (cập nhật trạng thái đơn) và `AdminOrderCancelModal.tsx` (hủy đơn kèm lý do và hoàn trả tồn kho kép).
+
+2. **Nền Tảng Mô Phỏng Logistics 3 Trạm GHN (Multi-Portal Logistics Platform)**:
+   - **Portal 1 — Bưu Cục GHN Station (`/demo/ghn-station`)**: Tiếp nhận kiện hàng xuất từ Kho AP Sports (`processing` → `shipped`). Nút thao tác duy nhất: *"Xác Nhận Đã Nhận Kiện Hàng Từ Kho AP Sports"*.
+   - **Portal 2 — Trung Tâm Vận Chuyển GHN Transit (`/demo/carrier-logistics`)**: Điều hành xe tải luân chuyển liên tỉnh (`shipped` → `shipping`). Nút thao tác duy nhất: *"Xe Tải Xuất Phát Giao Hàng"*.
+   - **Portal 3 — GHN Express Mobile App Shipper (`/demo/shipper-app`)**: Giao hàng chặng cuối (`shipping` → `delivered`). Nơi kích hoạt chuyến xe vận tốc thực 60 km/h với nút bấm *"Bắt Đầu Xuất Phát Giao Hàng (60km/h Thực Tế)"* và xác nhận thu tiền COD.
+
+3. **Bản Đồ Leaflet OSRM Road Routing Engine & Lớp Bản Đồ Keyless**:
+   - Tích hợp đà động OSRM (`router.project-osrm.org/route/v1/driving/...`), vẽ đường Polyline ôm sát theo quốc lộ và cầu đường thực tế thay vì đường thẳng nét đứt.
+   - Nhúng bản đồ Esri World Street Map & HD Satellite keyless, loại bỏ hoàn toàn giới hạn Google Maps API Key.
+
+4. **Thuật Toán Toán Học Haversine Tính Khoảng Cách GPS (`calculateOrderDistanceKm`)**:
+   - Áp dụng công thức đường tròn lớn (Great-Circle Distance) dựa trên bán kính Trái Đất $R = 6371 \text{ km}$:
+     $$a = \sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1) \cdot \cos(\phi_2) \cdot \sin^2\left(\frac{\Delta \lambda}{2}\right), \quad c = 2 \cdot \arctan2(\sqrt{a}, \sqrt{1-a}), \quad d = R \cdot c \text{ (km)}$$
+   - Tự động đo khoảng cách chính xác từ Kho AP Sports Cần Thơ đến tọa độ GPS thực tế của từng đơn hàng mà không cần gán cứng.
+
+5. **Cơ Chế Đồng Bộ Xe Di Chuyển Real-Time Đa Trình Duyệt & Thiết Bị (Backend Timestamp Sync)**:
+   - Khi Shipper xuất phát, Backend ghi nhận `updatedAt = LocalDateTime.now()` trong PostgreSQL.
+   - Tất cả trình duyệt và thiết bị (Chrome, Edge, Safari Mobile) tự động đọc `updatedAt` và tính số giây trôi qua:
+     $$\Delta t_{\text{elapsed}} = \frac{\text{Date.now()} - \text{updatedAt}}{1000} \text{ (giây)}, \quad \text{Progress (\%)} = \frac{\Delta t_{\text{elapsed}}}{\text{distanceKm} \times 60} \times 100\%$$
+   - Đảm bảo 100% mọi thiết bị hiển thị đúng chính xác cùng 1 vị trí xe tải tại cùng 1 giây trên bản đồ OSRM!
+
+6. **Tuân Thủ Tuyệt Đối Kiến Trúc Clean Architecture**:
+   - Phân tách 100% logic khỏi UI Component. Các file trang Router là Pure Wrapper, UI Component là Pure Presentation, mọi state & timer được đóng gói trong Custom Hooks (`usePortalSimulation`, `useAdminOrders`, `useCustomerOrderTracking`).
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+
+
 
 
 

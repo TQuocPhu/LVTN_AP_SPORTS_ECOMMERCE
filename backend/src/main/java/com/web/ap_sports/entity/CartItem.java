@@ -32,6 +32,10 @@ public class CartItem {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(name = "is_selected")
+    @Builder.Default
+    private Boolean isSelected = true;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

@@ -28,6 +28,7 @@ export function useProductForm(productId?: number) {
   const [primaryCategoryId, setPrimaryCategoryId] = useState<number | undefined>(undefined);
   const [price, setPrice] = useState<number | ''>('');
   const [unit, setUnit] = useState<string>('Cái');
+  const [weight, setWeight] = useState<number | ''>(500);
   const [mainImage, setMainImage] = useState<string>('');
   const [status, setStatus] = useState<string>('in_stock');
   const [description, setDescription] = useState<string>('');
@@ -89,6 +90,7 @@ export function useProductForm(productId?: number) {
         setPrimaryCategoryId(prod.primaryCategoryId);
         setPrice(prod.price || 0);
         setUnit(prod.unit || 'Cái');
+        setWeight(prod.weight || 500);
         setMainImage(prod.mainImage || '');
         setStatus(prod.status || 'in_stock');
         setDescription(prod.description || '');
@@ -346,6 +348,7 @@ export function useProductForm(productId?: number) {
           description,
           price: typeof price === 'number' ? price : 0,
           unit,
+          weight: typeof weight === 'number' ? weight : 500,
           status,
           mainImage,
           specifications: specsMap,
@@ -362,6 +365,7 @@ export function useProductForm(productId?: number) {
           description,
           price: typeof price === 'number' ? price : 0,
           unit,
+          weight: typeof weight === 'number' ? weight : 500,
           mainImage,
           specifications: specsMap,
           variants,
@@ -399,6 +403,8 @@ export function useProductForm(productId?: number) {
     setPrice,
     unit,
     setUnit,
+    weight,
+    setWeight,
     mainImage,
     setMainImage,
     status,
