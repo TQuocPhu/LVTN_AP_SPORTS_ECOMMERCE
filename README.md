@@ -4,6 +4,16 @@
 
 ---
 
+## 🔗 5 Đường Dẫn Truy Cập Nhanh (Quick Links)
+
+1. 🏠 **Trang Chủ Khách Hàng**: [http://localhost:3000](http://localhost:3000)
+2. 👑 **Trang Quản Trị Admin**: [http://localhost:3000/admin/orders](http://localhost:3000/admin/orders)
+3. 🏬 **Portal 1 - Bưu Cục GHN Station**: [http://localhost:3000/demo/ghn-station](http://localhost:3000/demo/ghn-station)
+4. 🚛 **Portal 2 - Trung Chuyển Carrier Logistics**: [http://localhost:3000/demo/carrier-logistics](http://localhost:3000/demo/carrier-logistics)
+5. 📱 **Portal 3 - App Di Động Shipper GHN**: [http://localhost:3000/demo/shipper-app](http://localhost:3000/demo/shipper-app)
+
+---
+
 ## 📌 1. Cấu Trúc Thư Mục Dự Án & Clean Architecture
 
 Dự án được xây dựng tuân thủ nghiêm ngặt mô hình **Clean Architecture 7-Layer Pattern**:
