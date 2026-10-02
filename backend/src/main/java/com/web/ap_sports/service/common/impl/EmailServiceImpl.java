@@ -289,6 +289,226 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    @org.springframework.scheduling.annotation.Async
+    public void sendEInvoiceEmail(String toEmail, com.web.ap_sports.dto.response.admin.AdminOrderDetailResponse orderDetail) {
+        if (orderDetail == null) return;
+        String orderCode = orderDetail.getOrderCode() != null ? orderDetail.getOrderCode() : "N/A";
+        String customerEmail = (toEmail != null && !toEmail.isBlank()) ? toEmail : orderDetail.getCustomerEmail();
+
+        log.info("==================================================================");
+        log.info("🧾 PHÁT HÀNH HÓA ĐƠN ĐIỆN TỬ E-INVOICE CHO ĐƠN #{}: {}", orderCode, customerEmail);
+        log.info("==================================================================");
+
+        if (customerEmail == null || customerEmail.isBlank()) {
+            log.warn("Không thể gửi Hóa đơn điện tử: Email người nhận bị trống.");
+            return;
+        }
+
+        // 1. Phân tích địa chỉ giao hàng
+        String receiverName = orderDetail.getCustomerName() != null ? orderDetail.getCustomerName() : "Khách hàng";
+        String receiverPhone = orderDetail.getCustomerPhone() != null ? orderDetail.getCustomerPhone() : "---";
+        String receiverAddress = "Chưa cập nhật địa chỉ giao hàng";
+
+        if (orderDetail.getShippingAddress() != null) {
+            var addr = orderDetail.getShippingAddress();
+            if (addr.getFullName() != null && !addr.getFullName().isBlank()) receiverName = addr.getFullName();
+            if (addr.getPhone() != null && !addr.getPhone().isBlank()) receiverPhone = addr.getPhone();
+            receiverAddress = String.format("%s, %s",
+                    addr.getAddress() != null ? addr.getAddress() : "",
+                    addr.getCity() != null ? addr.getCity() : "").replaceAll("^,\\s*", "");
+        }
+
+        // 2. Render danh sách sản phẩm mua hàng dạng HTML table
+        StringBuilder itemsHtml = new StringBuilder();
+        int idx = 1;
+        if (orderDetail.getItems() != null && !orderDetail.getItems().isEmpty()) {
+            for (var item : orderDetail.getItems()) {
+                java.math.BigDecimal unitPrice = item.getPrice() != null ? item.getPrice() : java.math.BigDecimal.ZERO;
+                int qty = item.getQuantity() != null ? item.getQuantity() : 1;
+                java.math.BigDecimal itemTotal = unitPrice.multiply(java.math.BigDecimal.valueOf(qty));
+
+                String variantInfo = "";
+                if (item.getColor() != null || item.getSize() != null) {
+                    variantInfo = String.format("<div style=\"font-size: 11px; color: #64748b;\">Phân loại: %s %s</div>",
+                            item.getColor() != null ? item.getColor() : "",
+                            item.getSize() != null ? item.getSize() : "").trim();
+                }
+
+                itemsHtml.append(String.format("""
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 10px; text-align: center; color: #64748b; font-size: 13px;">%d</td>
+                        <td style="padding: 10px; font-size: 13px; color: #0f172a;">
+                            <strong style="color: #1e293b;">%s</strong>
+                            %s
+                        </td>
+                        <td style="padding: 10px; text-align: center; font-size: 13px; color: #334155;">%d</td>
+                        <td style="padding: 10px; text-align: right; font-size: 13px; color: #334155;">%s đ</td>
+                        <td style="padding: 10px; text-align: right; font-size: 13px; font-weight: bold; color: #0f172a;">%s đ</td>
+                    </tr>
+                    """,
+                        idx++,
+                        item.getProductName() != null ? item.getProductName() : "Sản phẩm",
+                        variantInfo,
+                        qty,
+                        formatMoney(unitPrice),
+                        formatMoney(itemTotal)
+                ));
+            }
+        } else {
+            itemsHtml.append("""
+                <tr>
+                    <td colspan="5" style="padding: 15px; text-align: center; color: #94a3b8; font-size: 13px;">Không có chi tiết sản phẩm.</td>
+                </tr>
+                """);
+        }
+
+        // 3. Format số tiền
+        String subtotalStr = formatMoney(orderDetail.getTotalPrice());
+        String shipFeeStr = formatMoney(orderDetail.getShippingFee());
+        String discountStr = formatMoney(orderDetail.getDiscountAmount());
+        String finalTotalStr = formatMoney(orderDetail.getFinalAmount());
+        String paymentMethodStr = orderDetail.getPaymentMethod() != null ? orderDetail.getPaymentMethod().toUpperCase() : "COD";
+        String paymentStatusStr = "completed".equalsIgnoreCase(orderDetail.getPaymentStatus()) ? "ĐÃ THÀNH TOÁN" : "CHỜ THANH TOÁN (COD)";
+        String issueDateStr = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"));
+
+        String htmlTemplate = """
+            <div style="font-family: Arial, Helvetica, sans-serif; max-width: 680px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff; color: #1e293b;">
+                <!-- Header Hóa Đơn -->
+                <table width="100%%" cellspacing="0" cellpadding="0" style="border-bottom: 2px solid #ea580c; padding-bottom: 16px; margin-bottom: 20px;">
+                    <tr>
+                        <td valign="top">
+                            <h2 style="color: #ea580c; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">⚡ AP SPORTS ENTERPRISE</h2>
+                            <p style="margin: 4px 0 0 0; font-size: 12px; color: #64748b;">Hệ Thống Phân Phối Dụng Cụ Thể Thao Cao Cấp</p>
+                            <p style="margin: 2px 0 0 0; font-size: 11px; color: #94a3b8;">Khuôn viên II, ĐH Cần Thơ, Đường 3/2, Q. Ninh Kiều, TP. Cần Thơ</p>
+                            <p style="margin: 2px 0 0 0; font-size: 11px; color: #94a3b8;">Hotline: 0988 776 655 | Email: invoice@apsports.com</p>
+                        </td>
+                        <td valign="top" align="right">
+                            <div style="background-color: #fff7ed; border: 1px solid #ffedd5; padding: 10px 14px; border-radius: 8px; text-align: right;">
+                                <h3 style="color: #c2410c; margin: 0; font-size: 15px; font-weight: 800; text-transform: uppercase;">HÓA ĐƠN ĐIỆN TỬ</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 12px; color: #1e293b;">Số HĐ: <strong style="color: #ea580c;">#INV-%s</strong></p>
+                                <p style="margin: 2px 0 0 0; font-size: 11px; color: #64748b;">Ngày lập: %s</p>
+                                <p style="margin: 2px 0 0 0; font-size: 10px; color: #059669; font-weight: bold;">Mã số thuế: 1801234567-VAT</p>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Thông tin Bên Bán & Bên Mua -->
+                <table width="100%%" cellspacing="0" cellpadding="0" style="margin-bottom: 20px; background-color: #f8fafc; border: 1px solid #f1f5f9; border-radius: 8px; padding: 14px;">
+                    <tr>
+                        <td width="50%%" valign="top" style="padding-right: 12px; border-right: 1px solid #e2e8f0;">
+                            <h4 style="margin: 0 0 8px 0; font-size: 12px; color: #ea580c; text-transform: uppercase; letter-spacing: 0.5px;">🏢 ĐƠN VỊ XUẤT HÀNG (KHO TỔNG)</h4>
+                            <p style="margin: 3px 0; font-size: 12px; font-weight: bold; color: #0f172a;">Kho AP Sports Enterprise Cần Thơ</p>
+                            <p style="margin: 3px 0; font-size: 12px; color: #475569;">Đại Học Cần Thơ, Đường 3/2, Q. Ninh Kiều</p>
+                            <p style="margin: 3px 0; font-size: 12px; color: #475569;">Đại diện: Ban Quản Trị Hệ Thống AP Sports</p>
+                        </td>
+                        <td width="50%%" valign="top" style="padding-left: 12px;">
+                            <h4 style="margin: 0 0 8px 0; font-size: 12px; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px;">👤 KHÁCH HÀNG NHẬN HÀNG</h4>
+                            <p style="margin: 3px 0; font-size: 12px; font-weight: bold; color: #0f172a;">%s</p>
+                            <p style="margin: 3px 0; font-size: 12px; color: #475569;">SĐT: <strong>%s</strong></p>
+                            <p style="margin: 3px 0; font-size: 12px; color: #475569;">Địa chỉ: %s</p>
+                            <p style="margin: 3px 0; font-size: 12px; color: #475569;">Email: %s</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Bảng Chi Tiết Sản Phẩm -->
+                <h4 style="margin: 0 0 10px 0; font-size: 13px; color: #334155; text-transform: uppercase;">📦 CHI TIẾT SẢN PHẨM MUA HÀNG</h4>
+                <table width="100%%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 10px; text-align: center; font-size: 12px; color: #475569; width: 40px;">STT</th>
+                            <th style="padding: 10px; text-align: left; font-size: 12px; color: #475569;">Sản Phẩm</th>
+                            <th style="padding: 10px; text-align: center; font-size: 12px; color: #475569; width: 60px;">SL</th>
+                            <th style="padding: 10px; text-align: right; font-size: 12px; color: #475569; width: 110px;">Đơn Giá</th>
+                            <th style="padding: 10px; text-align: right; font-size: 12px; color: #475569; width: 120px;">Thành Tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        %s
+                    </tbody>
+                </table>
+
+                <!-- Bảng Bảng Tổng Kết Tài Chính -->
+                <table width="100%%" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;">
+                    <tr>
+                        <td width="50%%" valign="top" style="padding-right: 10px;">
+                            <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+                                <p style="margin: 0 0 4px 0; font-size: 12px; color: #475569;">Phương thức thanh toán: <strong style="color: #0f172a;">%s</strong></p>
+                                <p style="margin: 0; font-size: 12px; color: #475569;">Trạng thái tài chính: <strong style="color: #059669;">%s</strong></p>
+                            </div>
+                        </td>
+                        <td width="50%%" valign="top">
+                            <table width="100%%" cellspacing="0" cellpadding="4" style="font-size: 13px;">
+                                <tr>
+                                    <td style="color: #64748b;">Tạm tính tiền hàng:</td>
+                                    <td align="right" style="color: #1e293b; font-weight: bold;">%s đ</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #64748b;">Phí vận chuyển (GHN):</td>
+                                    <td align="right" style="color: #1e293b;">%s đ</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #16a34a;">Voucher giảm giá:</td>
+                                    <td align="right" style="color: #16a34a; font-weight: bold;">-%s đ</td>
+                                </tr>
+                                <tr style="border-top: 2px solid #ea580c;">
+                                    <td style="font-size: 14px; font-weight: bold; color: #0f172a; padding-top: 8px;">TỔNG TIỀN THANH TOÁN:</td>
+                                    <td align="right" style="font-size: 16px; font-weight: 900; color: #ea580c; padding-top: 8px;">%s đ</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2" align="right" style="font-size: 10px; color: #94a3b8; font-style: italic;">(Đã bao gồm thuế GTGT 8%%)</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Chữ Ký Xác Thực & Footer -->
+                <div style="border-top: 1px dashed #cbd5e1; padding-top: 16px; text-align: center; font-size: 11px; color: #64748b;">
+                    <p style="margin: 0 0 4px 0; font-weight: bold; color: #059669;">✔ HÓA ĐƠN ĐIỆN TỬ KHỞI TẠO HỢP LỆ TỪ HỆ THỐNG AP SPORTS ENTERPRISE ERP</p>
+                    <p style="margin: 0;">Mọi thắc mắc về hóa đơn, quý khách vui lòng liên hệ Bộ phận Kế Toán: <strong>0988 776 655</strong></p>
+                    <p style="margin: 4px 0 0 0; color: #94a3b8;">© 2026 AP Sports Enterprise. All rights reserved.</p>
+                </div>
+            </div>
+            """.formatted(
+                orderCode,
+                issueDateStr,
+                receiverName,
+                receiverPhone,
+                receiverAddress,
+                customerEmail,
+                itemsHtml.toString(),
+                paymentMethodStr,
+                paymentStatusStr,
+                subtotalStr,
+                shipFeeStr,
+                discountStr,
+                finalTotalStr
+        );
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+
+            helper.setFrom(fromEmail);
+            helper.setTo(customerEmail);
+            helper.setSubject("🧾 [AP SPORTS E-INVOICE] Hóa Đơn Điện Tử Đơn Hàng #" + orderCode);
+            helper.setText(htmlTemplate, true);
+
+            mailSender.send(message);
+            log.info("Đã phát hành và gửi thành công Hóa đơn điện tử E-Invoice đơn #{} đến email {}", orderCode, customerEmail);
+        } catch (Exception e) {
+            log.warn("Không thể gửi email Hóa đơn điện tử qua SMTP ({}): {}", e.getMessage(), e.getClass().getName());
+        }
+    }
+
+    private String formatMoney(java.math.BigDecimal amount) {
+        if (amount == null) return "0";
+        return String.format("%,d", amount.longValue()).replace(',', '.');
+    }
+
     @lombok.AllArgsConstructor
     @lombok.Getter
     private static class Base64ImageAttachment {

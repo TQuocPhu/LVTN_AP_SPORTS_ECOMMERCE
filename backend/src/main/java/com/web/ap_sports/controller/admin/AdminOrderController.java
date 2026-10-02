@@ -85,4 +85,11 @@ public class AdminOrderController {
         AdminOrderDetailResponse response = adminOrderService.cancelOrder(id, request, staffEmail);
         return ResponseEntity.ok(ApiResponse.success("Hủy đơn hàng thành công!", response));
     }
+
+    @PostMapping("/{id}/send-einvoice")
+    public ResponseEntity<ApiResponse<Void>> sendEInvoice(@PathVariable Long id) {
+        log.info("REST request gửi Hóa đơn điện tử E-Invoice cho đơn hàng ID #{}", id);
+        adminOrderService.sendEInvoice(id);
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi thành công Hóa đơn điện tử E-Invoice qua Email!", null));
+    }
 }

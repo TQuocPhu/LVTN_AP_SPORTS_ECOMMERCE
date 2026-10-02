@@ -65,6 +65,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final ProductImageRepository productImageRepository;
     private final UserRepository userRepository;
     private final CouponRepository couponRepository;
+    private final com.web.ap_sports.service.common.EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -283,6 +284,18 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         log.info("Nhân viên [{}] đã hủy đơn hàng #{} với lý do: {}", staff.getEmail(), savedOrder.getOrderCode(), request.getReason());
         return mapToAdminOrderDetailResponse(savedOrder);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void sendEInvoice(Long id) {
+        AdminOrderDetailResponse detail = getAdminOrderById(id);
+        String targetEmail = detail.getCustomerEmail();
+        if (targetEmail == null || targetEmail.isBlank()) {
+            throw new AppException("Đơn hàng #" + detail.getOrderCode() + " không có địa chỉ email nhận hóa đơn.", HttpStatus.BAD_REQUEST);
+        }
+        emailService.sendEInvoiceEmail(targetEmail, detail);
+        log.info("Admin đã kích hoạt gửi Hóa đơn điện tử E-Invoice cho đơn hàng #{}, email: {}", detail.getOrderCode(), targetEmail);
     }
 
     /**

@@ -54,16 +54,24 @@ export function useAdminOrderDetailModal({
     return () => clearInterval(interval);
   }, [currentOrder?.status, currentOrder?.updatedAt]);
 
-  const handleSendEinvoice = useCallback(() => {
-    setEinvoiceSent(true);
-    setToastMessage(
-      `Đã phát hóa đơn điện tử E-Invoice cho đơn #${currentOrder?.orderCode} gửi tới ${
-        currentOrder?.customerEmail || 'email khách hàng'
-      }.`
-    );
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
+  const handleSendEinvoice = useCallback(async () => {
+    if (!currentOrder?.id) return;
+    try {
+      setEinvoiceSent(true);
+      await adminOrderController.sendEInvoice(currentOrder.id);
+      setToastMessage(
+        `Đã phát hành và gửi Hóa đơn điện tử E-Invoice thành công tới ${
+          currentOrder?.customerEmail || 'email khách hàng'
+        }.`
+      );
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 5000);
+    } catch (err: any) {
+      setEinvoiceSent(false);
+      setToastMessage(err?.message || 'Không thể gửi Hóa đơn điện tử E-Invoice');
+      setTimeout(() => setToastMessage(null), 4000);
+    }
   }, [currentOrder]);
 
   const handleUpdateStatus = useCallback(

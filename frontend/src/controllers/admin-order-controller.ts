@@ -81,4 +81,13 @@ export const adminOrderController = {
       showSuccessToast: true,
     });
   },
+
+  /**
+   * Phát hành và gửi Hóa đơn điện tử E-Invoice dạng HTML qua Email
+   */
+  async sendEInvoice(id: number): Promise<ApiResponse<void>> {
+    return apiClient.post<ApiResponse<void>>(`/admin/orders/${id}/send-einvoice`, {}, {
+      showSuccessToast: true,
+    });
+  },
 };

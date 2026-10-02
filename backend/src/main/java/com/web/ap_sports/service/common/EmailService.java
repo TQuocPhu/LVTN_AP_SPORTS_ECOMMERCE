@@ -43,4 +43,12 @@ public interface EmailService {
      * @param paymentMethod Phương thức thanh toán
      */
     void sendOrderConfirmationEmail(String toEmail, String customerName, String orderCode, String totalAmount, String paymentMethod);
+
+    /**
+     * Gửi Hóa Đơn Điện Tử (E-Invoice) dạng HTML chuẩn doanh nghiệp qua Email cho Khách hàng.
+     *
+     * @param toEmail Email người nhận hóa đơn
+     * @param orderDetail Chi tiết đơn hàng tài chính & sản phẩm
+     */
+    void sendEInvoiceEmail(String toEmail, com.web.ap_sports.dto.response.admin.AdminOrderDetailResponse orderDetail);
 }
