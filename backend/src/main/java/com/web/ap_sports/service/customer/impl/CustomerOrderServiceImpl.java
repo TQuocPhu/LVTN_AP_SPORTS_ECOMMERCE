@@ -279,58 +279,21 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 try { order.setGhnStationLongitude(Double.parseDouble(lngObj.toString())); } catch (Exception ignored) {}
             }
 
-            // GHN sandbox trả address="" (rỗng) hoặc latitude/longitude = 0.0 -> geocode station NAME
-            if (order.getGhnStationLatitude() == null || order.getGhnStationLatitude() == 0.0
-                    || order.getGhnStationLongitude() == null || order.getGhnStationLongitude() == 0.0) {
-                Optional<GeoCoordinate> coords = Optional.empty();
-
-                // Chiến lược 1: geocode station address (nếu có và không rỗng)
-                String stationAddr = order.getGhnStationAddress();
-                if (stationAddr != null && !stationAddr.isBlank()) {
-                    log.info("[GHN] Geocode station address: {}", stationAddr);
-                    coords = geocodingCascadeService.geocode(stationAddr + ", Vietnam");
-                }
-
-                // Chiến lược 2: geocode từ station NAME (bỏ prefix "Bưu cục GHN...")
-                if (coords.isEmpty()) {
-                    String stationName = order.getGhnStationName();
-                    if (stationName != null && !stationName.isBlank()) {
-                        String cleanName = stationName
-                                .replaceFirst("(?i)^Bưu cục GHN[\\s\\-–]+", "")
-                                .replaceFirst("(?i)^GHN[\\s\\-–]+", "")
-                                .trim();
-                        if (!cleanName.isBlank()) {
-                            log.info("[GHN] Geocode station name (stripped): {}", cleanName);
-                            coords = geocodingCascadeService.geocode(cleanName + ", Vietnam");
-                        }
-                    }
-                }
-
-                if (coords.isPresent()) {
-                    order.setGhnStationLatitude(coords.get().latitude());
-                    order.setGhnStationLongitude(coords.get().longitude());
-                    log.info("[GHN] ✅ Geocode trạm thành công: lat={}, lng={}", coords.get().latitude(), coords.get().longitude());
-                } else {
-                    log.warn("[GHN] Geocode trạm thất bại (cả address lẫn name), sẽ dùng tọa độ KH");
-                }
-            }
         }
 
-        // Fallback: nếu vẫn không có station ID
+        // Fallback: nếu không lấy được station ID từ GHN Sandbox
         if (order.getGhnStationId() == null) {
             int distId = address.getDistrictId() != null ? address.getDistrictId() : 1442;
-            log.warn("[GHN] Không lấy được station từ API → dùng fallback mô phỏng cho districtId={}", distId);
             order.setGhnStationId(10000 + distId);
             order.setGhnStationName("Bưu cục GHN - " + (address.getCity() != null ? address.getCity() : "TP. Hồ Chí Minh"));
             order.setGhnStationAddress("Bưu cục GHN " + (address.getAddress() != null ? address.getAddress() : "khu vực trung tâm"));
         }
 
-        // Nếu tọa độ trạm vẫn null hoặc 0.0: dùng tọa độ GPS khách hàng làm tọa độ trạm xấp xỉ
+        // Gán tọa độ trạm bằng tọa độ GPS khách hàng (Single Source of Truth, 0ms latency)
         if (order.getGhnStationLatitude() == null || order.getGhnStationLatitude() == 0.0
                 || order.getGhnStationLongitude() == null || order.getGhnStationLongitude() == 0.0) {
             order.setGhnStationLatitude(customerLat);
             order.setGhnStationLongitude(customerLng);
-            log.info("[GHN] ✅ Sử dụng tọa độ KH làm tọa độ trạm xấp xỉ: lat={}, lng={}", customerLat, customerLng);
         }
 
         Order savedOrder = orderRepository.save(order);
@@ -581,6 +544,17 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
                 variant.setStockQuantity(currentVariantStock + item.getQuantity());
                 productVariantRepository.save(variant);
+            }
+        }
+
+        if (order.getCoupon() != null) {
+            Coupon coupon = order.getCoupon();
+            int used = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
+            if (used > 0) {
+                coupon.setUsedCount(used - 1);
+                couponRepository.save(coupon);
+                log.info("Hoàn trả lượt dùng mã giảm giá [{}] cho đơn hàng #{}: {} -> {}",
+                        coupon.getCode(), order.getOrderCode(), used, used - 1);
             }
         }
     }

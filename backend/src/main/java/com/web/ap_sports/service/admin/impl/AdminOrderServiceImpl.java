@@ -64,6 +64,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final ProductVariantRepository productVariantRepository;
     private final ProductImageRepository productImageRepository;
     private final UserRepository userRepository;
+    private final CouponRepository couponRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -307,6 +308,17 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
                 variant.setStockQuantity(currentVariantStock + item.getQuantity());
                 productVariantRepository.save(variant);
+            }
+        }
+
+        if (order.getCoupon() != null) {
+            com.web.ap_sports.entity.Coupon coupon = order.getCoupon();
+            int used = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
+            if (used > 0) {
+                coupon.setUsedCount(used - 1);
+                couponRepository.save(coupon);
+                log.info("Admin hoàn trả lượt dùng mã giảm giá [{}] cho đơn hàng #{}: {} -> {}",
+                        coupon.getCode(), order.getOrderCode(), used, used - 1);
             }
         }
     }

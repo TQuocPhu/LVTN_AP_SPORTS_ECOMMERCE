@@ -26,6 +26,7 @@ public class EmailServiceImpl implements EmailService {
     private String fromEmail;
 
     @Override
+    @org.springframework.scheduling.annotation.Async
     public void sendActivationEmail(String toEmail, String userName, String activationToken) {
         String activationUrl = "http://localhost:3000/activate?token=" + activationToken;
 
@@ -73,6 +74,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @org.springframework.scheduling.annotation.Async
     public void sendPasswordResetEmail(String toEmail, String userName, String resetToken) {
         String resetUrl = "http://localhost:3000/reset-password?token=" + resetToken + "&email=" + toEmail;
 
@@ -123,6 +125,7 @@ public class EmailServiceImpl implements EmailService {
             java.util.regex.Pattern.compile("src=[\"']data:(image/[^;]+);base64,([^\"']+)[\"']", java.util.regex.Pattern.CASE_INSENSITIVE);
 
     @Override
+    @org.springframework.scheduling.annotation.Async
     public void sendContactReplyEmail(String toEmail, String customerName, String originalMessage, String replyHtmlContent) {
         log.info("==================================================================");
         log.info("📩 AP SPORTS CONTACT REPLY EMAIL TO {}:", toEmail);
@@ -239,6 +242,7 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    @org.springframework.scheduling.annotation.Async
     public void sendOrderConfirmationEmail(String toEmail, String customerName, String orderCode, String totalAmount, String paymentMethod) {
         log.info("==================================================================");
         log.info("🛒 AP SPORTS ORDER CONFIRMATION EMAIL FOR {}: OrderCode = {}", toEmail, orderCode);
