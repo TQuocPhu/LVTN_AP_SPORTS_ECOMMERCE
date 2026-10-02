@@ -3,6 +3,7 @@ import { AdminOrderDetail } from '@/types/admin-order';
 import { OrderStatus } from '@/types/order';
 import { adminOrderController } from '@/controllers/admin-order-controller';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
+import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 
 interface UseAdminOrderDetailModalParams {
   order: AdminOrderDetail | null;
@@ -34,10 +35,14 @@ export function useAdminOrderDetailModal({
     }
 
     const updateProgress = () => {
+      const distKm = calculateOrderDistanceKm(
+        currentOrder.gpsLatitude || currentOrder.shippingAddress?.latitude,
+        currentOrder.gpsLongitude || currentOrder.shippingAddress?.longitude
+      );
       const prog = calculateRealTimeProgress(
         currentOrder.status,
         currentOrder.updatedAt,
-        171.9
+        distKm
       );
       setSimProgress(prog);
     };

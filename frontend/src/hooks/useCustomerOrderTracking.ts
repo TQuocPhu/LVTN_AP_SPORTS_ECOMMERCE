@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { orderController } from '@/controllers/order-controller';
 import { OrderResponse } from '@/types/order';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
+import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 
 export function useCustomerOrderTracking(orderCode: string) {
   const [order, setOrder] = useState<OrderResponse | null>(null);
@@ -18,10 +19,14 @@ export function useCustomerOrderTracking(orderCode: string) {
       const res = await orderController.getOrderByCode(orderCode);
       if (res && res.data) {
         setOrder(res.data);
+        const distKm = calculateOrderDistanceKm(
+          res.data.gpsLatitude || res.data.shippingAddress?.latitude,
+          res.data.gpsLongitude || res.data.shippingAddress?.longitude
+        );
         const target = calculateRealTimeProgress(
           res.data.status,
           res.data.updatedAt,
-          171.9
+          distKm
         );
         setSimProgress(target);
       } else {
@@ -43,10 +48,14 @@ export function useCustomerOrderTracking(orderCode: string) {
     if (!order) return;
 
     const updateProgress = () => {
+      const distKm = calculateOrderDistanceKm(
+        order.gpsLatitude || order.shippingAddress?.latitude,
+        order.gpsLongitude || order.shippingAddress?.longitude
+      );
       const target = calculateRealTimeProgress(
         order.status,
         order.updatedAt,
-        171.9
+        distKm
       );
       setSimProgress(target);
     };
