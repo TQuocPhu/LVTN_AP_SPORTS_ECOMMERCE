@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Link from 'next/link';
+import React from "react";
+import Link from "next/link";
 import {
   Truck,
   PackageCheck,
@@ -10,8 +10,8 @@ import {
   CheckCircle2,
   RefreshCw,
   Navigation,
-} from 'lucide-react';
-import { useDemoLogistics } from '@/hooks/useDemoLogistics';
+} from "lucide-react";
+import { useDemoLogistics } from "@/hooks/useDemoLogistics";
 
 export function CarrierLogisticsPortalContentUI() {
   const {
@@ -22,7 +22,7 @@ export function CarrierLogisticsPortalContentUI() {
     handleUpdateStatus,
     formatCurrency,
     formatDate,
-  } = useDemoLogistics('shipped');
+  } = useDemoLogistics("shipped");
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans">
@@ -43,7 +43,8 @@ export function CarrierLogisticsPortalContentUI() {
                 </h1>
               </div>
               <p className="text-xs text-blue-100">
-                Điều phối đội xe tải phân loại & luân chuyển kiện hàng tới trạm Shipper
+                Điều phối đội xe tải phân loại & luân chuyển kiện hàng tới trạm
+                Shipper
               </p>
             </div>
           </div>
@@ -77,7 +78,10 @@ export function CarrierLogisticsPortalContentUI() {
               <span>Danh Sách Kiện Hàng Đã Bán Giao Cho GHN (`shipped`)</span>
             </h3>
             <p className="text-xs text-slate-500">
-              Nhân viên điều hành Trung tâm Vận chuyển bấm <strong>&quot;Xe Tải Xuất Phát Giao Hàng&quot;</strong> để phân công Shipper và bắt đầu quá trình di chuyển đường bộ (<strong>SHIPPING</strong>).
+              Nhân viên điều hành Trung tâm Vận chuyển bấm{" "}
+              <strong>&quot;Xe Tải Xuất Phát Giao Hàng&quot;</strong> để phân
+              công Shipper và bắt đầu quá trình di chuyển đường bộ (
+              <strong>SHIPPING</strong>).
             </p>
           </div>
           <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 font-extrabold text-xs shrink-0">
@@ -91,15 +95,20 @@ export function CarrierLogisticsPortalContentUI() {
             <div className="py-20 text-center space-y-3">
               <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="font-bold text-slate-500 text-xs">
-                Đang nạp danh sách kiện hàng tại Trung Tâm Điều Hành Xe Tải GHN...
+                Đang nạp danh sách kiện hàng tại Trung Tâm Điều Hành Xe Tải
+                GHN...
               </p>
             </div>
           ) : orders.length === 0 ? (
             <div className="py-16 text-center space-y-3 text-slate-400">
               <Truck className="w-12 h-12 mx-auto text-slate-300" />
-              <p className="font-bold text-sm">Hiện không có kiện hàng nào đang chờ xuất phát xe tải</p>
+              <p className="font-bold text-sm">
+                Hiện không có kiện hàng nào đang chờ xuất phát xe tải
+              </p>
               <p className="text-xs text-slate-500">
-                Hãy tiếp nhận đơn từ <strong>Portal 1: Bưu Cục GHN (`/demo/ghn-station`)</strong> để chuyển đơn sang trạng thái `shipped`.
+                Hãy tiếp nhận đơn từ{" "}
+                <strong>Portal 1: Bưu Cục GHN (`/demo/ghn-station`)</strong> để
+                chuyển đơn sang trạng thái `shipped`.
               </p>
             </div>
           ) : (
@@ -111,7 +120,9 @@ export function CarrierLogisticsPortalContentUI() {
                     <th className="py-3 px-4">Địa Chỉ Nhận Hàng</th>
                     <th className="py-3 px-4">Tọa Độ GPS Đích</th>
                     <th className="py-3 px-4 text-right">Giá Trị Kiện Hàng</th>
-                    <th className="py-3 px-4 text-center">Thao Tác Điều Hành Logistics</th>
+                    <th className="py-3 px-4 text-center">
+                      Thao Tác Điều Hành Logistics
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -122,14 +133,17 @@ export function CarrierLogisticsPortalContentUI() {
                           #{order.orderCode}
                         </span>
                         <span className="font-mono text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 font-bold text-[10px] inline-block mt-1">
-                          {order.trackingCode || 'GHN-AUTO'}
+                          {order.trackingCode || "GHN-AUTO"}
                         </span>
                       </td>
 
                       <td className="py-4 px-4">
-                        <p className="font-bold text-slate-900">{order.customerName}</p>
+                        <p className="font-bold text-slate-900">
+                          {order.customerName}
+                        </p>
                         <p className="text-slate-500 text-[11px] line-clamp-1">
-                          {order.shippingAddress?.address}, {order.shippingAddress?.city}
+                          {order.shippingAddress?.address},{" "}
+                          {order.shippingAddress?.city}
                         </p>
                       </td>
 
@@ -139,7 +153,7 @@ export function CarrierLogisticsPortalContentUI() {
                           <span>
                             {order.gpsLatitude
                               ? `${order.gpsLatitude.toFixed(4)}, ${order.gpsLongitude?.toFixed(4)}`
-                              : 'Chưa có GPS'}
+                              : "Chưa có GPS"}
                           </span>
                         </div>
                       </td>
@@ -155,8 +169,8 @@ export function CarrierLogisticsPortalContentUI() {
                           onClick={() =>
                             handleUpdateStatus(
                               order.id,
-                              'shipping',
-                              'Xe tải vận chuyển liên tỉnh GHN đã xuất kho bàn giao cho Shipper phát hàng'
+                              "shipping",
+                              "Xe tải vận chuyển liên tỉnh GHN đã xuất kho bàn giao cho Shipper phát hàng",
                             )
                           }
                           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
@@ -164,8 +178,8 @@ export function CarrierLogisticsPortalContentUI() {
                           <Navigation className="w-4 h-4" />
                           <span>
                             {updatingId === order.id
-                              ? 'Đang Điều Xe...'
-                              : 'Xe Tải Xuất Phát Giao Hàng (Kích Hoạt Map Shipping)'}
+                              ? "Đang Điều Xe..."
+                              : "Xe Tải Xuất Phát Giao Hàng (Kích Hoạt Map Shipping)"}
                           </span>
                         </button>
                       </td>
