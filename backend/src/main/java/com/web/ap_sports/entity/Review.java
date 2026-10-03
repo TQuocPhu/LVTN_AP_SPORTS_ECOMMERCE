@@ -25,6 +25,14 @@ public class Review {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_item_id")
+    private OrderItem orderItem;
+
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private java.util.List<ReviewImage> images = new java.util.ArrayList<>();
+
     @Column(nullable = false)
     private Integer rating; // 1-5 stars
 

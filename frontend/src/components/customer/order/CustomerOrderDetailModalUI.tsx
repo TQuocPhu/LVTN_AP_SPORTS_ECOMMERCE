@@ -19,17 +19,20 @@ import {
   RefreshCw,
   Phone,
   User,
+  Star,
 } from 'lucide-react';
 import { OrderResponse, OrderItem } from '@/types/order';
 import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
 import { LogisticsMapWrapper } from '@/components/common/map/LogisticsMapWrapper';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
+import { OrderItemToReview } from '@/hooks/useCustomerOrderReviewModal';
 
 interface CustomerOrderDetailModalUIProps {
   isOpen: boolean;
   order: OrderResponse | null;
   onClose: () => void;
   onOpenActionModal: (type: 'cancel' | 'return', order: OrderResponse) => void;
+  onOpenReviewModal?: (item: OrderItemToReview) => void;
   formatCurrency: (val?: number) => string;
   formatDate: (dateStr?: string) => string;
 }
@@ -39,6 +42,7 @@ export function CustomerOrderDetailModalUI({
   order,
   onClose,
   onOpenActionModal,
+  onOpenReviewModal,
   formatCurrency,
   formatDate,
 }: CustomerOrderDetailModalUIProps) {
@@ -249,6 +253,9 @@ export function CustomerOrderDetailModalUI({
                     <th className="py-2.5 px-4">Đơn Giá</th>
                     <th className="py-2.5 px-4 text-center">Số Lượng</th>
                     <th className="py-2.5 px-4 text-right">Thành Tiền</th>
+                    {['delivered', 'completed'].includes(currentStatus) && (
+                      <th className="py-2.5 px-4 text-center">Đánh Giá</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -287,6 +294,28 @@ export function CustomerOrderDetailModalUI({
                       <td className="py-3 px-4 text-right font-black">
                         {formatCurrency(item.price * item.quantity)}
                       </td>
+                      {['delivered', 'completed'].includes(currentStatus) && (
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onOpenReviewModal?.({
+                                id: item.id || 0,
+                                productId: item.productId || 0,
+                                productName: item.productName || '',
+                                productImage: item.image,
+                                price: item.price,
+                                quantity: item.quantity,
+                              });
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[11px] shadow-sm transition-all cursor-pointer"
+                          >
+                            <Star className="w-3.5 h-3.5 fill-white" />
+                            <span>Đánh Giá</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

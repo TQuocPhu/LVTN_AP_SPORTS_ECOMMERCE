@@ -15,6 +15,7 @@ import {
   Building2,
   Mail,
   Tag,
+  MessageSquare,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -88,6 +89,13 @@ export function useAdminSidebar() {
       href: '/admin/contacts',
       icon: Mail,
       permission: 'MANAGE_CONTACTS',
+      allowedRoles: ['ADMIN', 'STAFF'],
+    },
+    {
+      title: 'Quản Lý Đánh Giá',
+      href: '/admin/reviews',
+      icon: MessageSquare,
+      permission: 'MANAGE_PRODUCTS',
       allowedRoles: ['ADMIN', 'STAFF'],
     },
     {
