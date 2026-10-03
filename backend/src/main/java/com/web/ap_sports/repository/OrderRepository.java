@@ -22,6 +22,8 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     Page<Order> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
     Page<Order> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, OrderStatus status, Pageable pageable);
     long countByUserIdAndCouponIdAndStatusNotIn(Long userId, Long couponId, List<OrderStatus> excludedStatuses);
+    long countByUserIdAndStatusIn(Long userId, List<OrderStatus> statuses);
+    List<Order> findByUserIdAndStatusIn(Long userId, List<OrderStatus> statuses);
 
     long countByStatus(OrderStatus status);
     boolean existsByShippingAddressId(Long shippingAddressId);

@@ -1,5 +1,8 @@
 package com.web.ap_sports.config;
 
+import com.web.ap_sports.entity.User;
+import com.web.ap_sports.enums.UserStatus;
+import com.web.ap_sports.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -19,6 +22,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Filter xác thực JWT Access Token cho mỗi HTTP Request.
@@ -30,6 +34,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(
@@ -44,6 +49,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Long userId = jwtTokenProvider.getUserIdFromToken(jwt);
                 String email = jwtTokenProvider.getEmailFromToken(jwt);
                 String role = jwtTokenProvider.getRoleFromToken(jwt);
+
+                if (userId != null) {
+                    Optional<User> userOpt = userRepository.findById(userId);
+                    if (userOpt.isPresent() && userOpt.get().getStatus() != UserStatus.active) {
+                        log.warn("Chặn truy cập từ tài khoản ID [{}] ({}) do trạng thái là [{}]", userId, email, userOpt.get().getStatus());
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"status\":403,\"message\":\"Tài khoản của bạn đã bị khóa hoặc tạm dừng hoạt động. Vui lòng liên hệ bộ phận hỗ trợ.\",\"success\":false}");
+                        return;
+                    }
+                }
 
                 if (email != null && role != null) {
                     // Đảm bảo role có tiền tố ROLE_ cho Spring Security Authority

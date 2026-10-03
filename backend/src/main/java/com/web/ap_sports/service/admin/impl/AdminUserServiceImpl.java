@@ -5,11 +5,27 @@ import com.web.ap_sports.dto.request.admin.UpdateUserStatusRequest;
 import com.web.ap_sports.dto.response.admin.UserAdminResponse;
 import com.web.ap_sports.dto.response.admin.UserDetailAdminResponse;
 import com.web.ap_sports.dto.response.customer.ShippingAddressResponse;
+import com.web.ap_sports.entity.Coupon;
+import com.web.ap_sports.entity.Order;
+import com.web.ap_sports.entity.OrderItem;
+import com.web.ap_sports.entity.OrderStatusHistory;
+import com.web.ap_sports.entity.Payment;
+import com.web.ap_sports.entity.Product;
+import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.entity.Role;
 import com.web.ap_sports.entity.User;
+import com.web.ap_sports.enums.OrderStatus;
 import com.web.ap_sports.enums.UserStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.exception.ResourceNotFoundException;
+import com.web.ap_sports.repository.CouponRepository;
+import com.web.ap_sports.repository.OrderItemRepository;
+import com.web.ap_sports.repository.OrderRepository;
+import com.web.ap_sports.repository.OrderStatusHistoryRepository;
+import com.web.ap_sports.repository.PaymentRepository;
+import com.web.ap_sports.repository.ProductRepository;
+import com.web.ap_sports.repository.ProductVariantRepository;
+import com.web.ap_sports.repository.RefreshTokenRepository;
 import com.web.ap_sports.repository.RoleRepository;
 import com.web.ap_sports.repository.ShippingAddressRepository;
 import com.web.ap_sports.repository.UserRepository;
@@ -21,6 +37,8 @@ import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +66,14 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final RoleRepository roleRepository;
     private final ShippingAddressRepository shippingAddressRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
+    private final CouponRepository couponRepository;
+    private final PaymentRepository paymentRepository;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     /**
      * Mật khẩu mặc định hệ thống khi Admin tạo tài khoản nhân viên mới.
@@ -188,7 +214,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + id));
 
-        // Kiểm tra quyền Admin tối cao: Không cho phép đổi trạng thái Admin
+        // Safeguard 1: Quyền Admin tối cao: Không cho phép đổi trạng thái Admin
         if (user.getRole() != null && "ADMIN".equalsIgnoreCase(user.getRole().getName())) {
             throw new AppException("Không thể thay đổi trạng thái của tài khoản Quản trị viên tối cao (ADMIN)!", HttpStatus.FORBIDDEN);
         }
@@ -205,6 +231,15 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new AppException("Không thể chuyển trạng thái tài khoản về 'Chờ kích hoạt' (pending) thủ công!", HttpStatus.BAD_REQUEST);
         }
 
+        // Safeguard 2: Chặn tự khóa / xóa chính mình
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() != null) {
+            String currentEmail = auth.getPrincipal().toString();
+            if (currentEmail.equalsIgnoreCase(user.getEmail()) && (UserStatus.banned.equals(newStatus) || UserStatus.deleted.equals(newStatus))) {
+                throw new AppException("Bạn không thể tự khóa hoặc xóa tài khoản của chính mình!", HttpStatus.BAD_REQUEST);
+            }
+        }
+
         UserStatus previousStatus = user.getStatus();
 
         // 1. NGHIỆP VỤ KÍCH HOẠT (pending -> active): Xóa activation_token trong DB và cập nhật email_verified_at
@@ -217,22 +252,94 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
 
         // 2. NGHIỆP VỤ BANNED (Khóa tài khoản):
-        // TODO: Lấy danh sách số lượng đơn hàng đang chờ xử lý của User này để thông báo cho Admin khi có Order module
         if (UserStatus.banned.equals(newStatus)) {
-            int pendingOrdersCount = 0; // Thay thế bằng orderRepository.countByUserIdAndStatusPending(id) khi hoàn thiện Order module
-            log.info("Khóa tài khoản User ID [{}]. Lưu ý: Người dùng này hiện có {} đơn hàng đang chờ xử lý.", id, pendingOrdersCount);
+            long pendingOrdersCount = orderRepository.countByUserIdAndStatusIn(
+                    id,
+                    List.of(OrderStatus.pending, OrderStatus.confirmed, OrderStatus.processing, OrderStatus.shipped, OrderStatus.shipping)
+            );
+            log.info("Khóa tài khoản User ID [{}]. Lưu ý: Người dùng này hiện có {} đơn hàng đang xử lý/giao hàng.", id, pendingOrdersCount);
+            // Force logout: Thu hồi tất cả Session Refresh Token của User này ngay lập tức
+            refreshTokenRepository.revokeAllUserTokens(user);
         }
 
         // 3. NGHIỆP VỤ DELETED (Đã xóa tài khoản):
-        // TODO: Lấy danh sách đơn hàng cần xử lý trước khi đổi trạng thái sang xóa -> tự động hủy đơn hàng chưa hoàn tất khi có Order module
         if (UserStatus.deleted.equals(newStatus)) {
-            log.info("Đổi trạng thái tài khoản ID [{}] sang DELETED: Tự động kiểm tra và hủy các đơn hàng chưa hoàn tất.", id);
+            // Safeguard 3: Cấm xóa nếu đang có đơn hàng trong quá trình vận chuyển (shipped, shipping)
+            long shippingOrdersCount = orderRepository.countByUserIdAndStatusIn(id, List.of(OrderStatus.shipped, OrderStatus.shipping));
+            if (shippingOrdersCount > 0) {
+                throw new AppException("Khách hàng đang có " + shippingOrdersCount + " đơn hàng đang trong quá trình vận chuyển. Không thể xóa tài khoản lúc này!", HttpStatus.CONFLICT);
+            }
+
+            // Safeguard 4: Tự động HỦY các đơn hàng chưa hoàn tất (pending, confirmed, processing) và HOÀN TRẢ TỒN KHO
+            List<Order> unfulfilledOrders = orderRepository.findByUserIdAndStatusIn(
+                    id,
+                    List.of(OrderStatus.pending, OrderStatus.confirmed, OrderStatus.processing)
+            );
+            for (Order unfulfilledOrder : unfulfilledOrders) {
+                unfulfilledOrder.setStatus(OrderStatus.cancelled);
+                orderRepository.save(unfulfilledOrder);
+
+                rollbackOrderStock(unfulfilledOrder);
+
+                paymentRepository.findByOrderId(unfulfilledOrder.getId()).ifPresent(payment -> {
+                    if (payment.getStatus() == Payment.PaymentStatus.completed) {
+                        payment.setStatus(Payment.PaymentStatus.refunded);
+                    } else if (payment.getStatus() == Payment.PaymentStatus.pending) {
+                        payment.setStatus(Payment.PaymentStatus.failed);
+                    }
+                    paymentRepository.save(payment);
+                });
+
+                OrderStatusHistory history = OrderStatusHistory.builder()
+                        .order(unfulfilledOrder)
+                        .status("cancelled")
+                        .note("Đơn hàng tự động bị hủy do tài khoản người dùng đã bị xóa bởi Quản trị viên.")
+                        .build();
+                orderStatusHistoryRepository.save(history);
+            }
+
+            log.info("Đổi trạng thái tài khoản ID [{}] sang DELETED: Tự động hủy {} đơn hàng dở dang và thu hồi Refresh Token.", id, unfulfilledOrders.size());
+            refreshTokenRepository.revokeAllUserTokens(user);
         }
 
         user.setStatus(newStatus);
         User savedUser = userRepository.save(user);
 
         return mapToUserAdminResponse(savedUser);
+    }
+
+    /**
+     * Hoàn trả tồn kho cho Product, ProductVariant và lượt dùng Coupon khi hủy đơn hàng.
+     */
+    private void rollbackOrderStock(Order order) {
+        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+        for (OrderItem item : items) {
+            if (item.getProduct() != null) {
+                Product product = item.getProduct();
+                int currentStock = product.getStock() != null ? product.getStock() : 0;
+                int restoredStock = currentStock + item.getQuantity();
+                product.setStock(restoredStock);
+                if ("out_of_stock".equals(product.getStatus()) && restoredStock > 0) {
+                    product.setStatus("in_stock");
+                }
+                productRepository.save(product);
+            }
+            if (item.getVariant() != null) {
+                ProductVariant variant = item.getVariant();
+                int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
+                variant.setStockQuantity(currentVariantStock + item.getQuantity());
+                productVariantRepository.save(variant);
+            }
+        }
+
+        if (order.getCoupon() != null) {
+            Coupon coupon = order.getCoupon();
+            int used = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
+            if (used > 0) {
+                coupon.setUsedCount(used - 1);
+                couponRepository.save(coupon);
+            }
+        }
     }
 
     /**
