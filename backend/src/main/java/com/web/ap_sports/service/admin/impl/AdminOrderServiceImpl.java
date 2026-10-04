@@ -37,6 +37,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.context.ApplicationEventPublisher;
+import com.web.ap_sports.event.OrderStatusChangedEvent;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -66,6 +68,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final UserRepository userRepository;
     private final CouponRepository couponRepository;
     private final com.web.ap_sports.service.common.EmailService emailService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -193,6 +196,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             throw new AppException("Đơn hàng phải ở trạng thái [Đang Giao - shipping] mới có thể xác nhận đã giao thành công!", HttpStatus.BAD_REQUEST);
         }
 
+        String oldStatusStr = order.getStatus().getValue();
         order.setStatus(newStatus);
         if (order.getProcessedByStaff() == null) {
             order.setProcessedByStaff(staff);
@@ -230,6 +234,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         orderStatusHistoryRepository.save(history);
 
         log.info("Nhân viên [{}] đã cập nhật đơn hàng #{} sang trạng thái [{}]", staff.getEmail(), savedOrder.getOrderCode(), newStatus.getValue());
+
+        eventPublisher.publishEvent(OrderStatusChangedEvent.builder()
+                .orderId(savedOrder.getId())
+                .orderCode(savedOrder.getOrderCode())
+                .oldStatus(oldStatusStr)
+                .newStatus(newStatus.getValue())
+                .customerId(savedOrder.getUser().getId())
+                .adminId(staff.getId())
+                .build());
+
         return mapToAdminOrderDetailResponse(savedOrder);
     }
 
@@ -247,6 +261,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             throw new AppException("Đơn hàng này đã bị hủy từ trước.", HttpStatus.BAD_REQUEST);
         }
 
+        String oldStatusStr = order.getStatus().getValue();
         order.setStatus(OrderStatus.cancelled);
         order.setProcessedByStaff(staff);
         Order savedOrder = orderRepository.save(order);
@@ -283,6 +298,16 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         orderStatusHistoryRepository.save(history);
 
         log.info("Nhân viên [{}] đã hủy đơn hàng #{} với lý do: {}", staff.getEmail(), savedOrder.getOrderCode(), request.getReason());
+
+        eventPublisher.publishEvent(OrderStatusChangedEvent.builder()
+                .orderId(savedOrder.getId())
+                .orderCode(savedOrder.getOrderCode())
+                .oldStatus(oldStatusStr)
+                .newStatus(OrderStatus.cancelled.getValue())
+                .customerId(savedOrder.getUser().getId())
+                .adminId(staff.getId())
+                .build());
+
         return mapToAdminOrderDetailResponse(savedOrder);
     }
 

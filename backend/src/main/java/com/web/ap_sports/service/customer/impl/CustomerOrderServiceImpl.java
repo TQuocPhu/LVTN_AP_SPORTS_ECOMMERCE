@@ -9,6 +9,8 @@ import com.web.ap_sports.dto.response.customer.ShippingAddressResponse;
 import com.web.ap_sports.entity.*;
 import com.web.ap_sports.enums.OrderStatus;
 import com.web.ap_sports.enums.PaymentStatus;
+import com.web.ap_sports.event.OrderPlacedEvent;
+import com.web.ap_sports.event.OrderCancelledByCustomerEvent;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.common.EmailService;
@@ -31,8 +33,8 @@ import org.springframework.web.client.RestTemplate;
 import com.web.ap_sports.service.customer.ShippingAddressService;
 import com.web.ap_sports.service.common.geocoding.GeocodingCascadeService;
 import com.web.ap_sports.service.common.geocoding.GeoCoordinate;
-import com.web.ap_sports.event.NotificationSendEvent;
-import com.web.ap_sports.enums.NotificationActionType;
+import com.web.ap_sports.event.OrderPlacedEvent;
+import com.web.ap_sports.event.OrderCancelledByCustomerEvent;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
@@ -391,13 +393,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         }
 
         // Bắn event thông báo tới Admin và Staff
-        String payload = String.format("{\"orderId\": %d, \"orderCode\": \"%s\", \"totalPrice\": %s}", 
-                savedOrder.getId(), savedOrder.getOrderCode(), finalAmount.toString());
-        eventPublisher.publishEvent(NotificationSendEvent.builder()
-                .roles(Arrays.asList("ADMIN", "STAFF"))
-                .actionType(NotificationActionType.ORDER_PLACED)
-                .targetUrl("/admin/orders/" + savedOrder.getId())
-                .payload(payload)
+        eventPublisher.publishEvent(OrderPlacedEvent.builder()
+                .orderId(savedOrder.getId())
+                .orderCode(savedOrder.getOrderCode())
+                .totalAmount(finalAmount)
+                .senderId(user.getId())
                 .build());
 
         return mapToOrderResponse(savedOrder, orderItems, payment, paymentUrl);
@@ -688,6 +688,14 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         List<OrderItem> items = orderItemRepository.findByOrderId(savedOrder.getId());
         Payment payment = paymentRepository.findByOrderId(savedOrder.getId()).orElse(null);
+
+        // Bắn Event
+        eventPublisher.publishEvent(OrderCancelledByCustomerEvent.builder()
+                .orderId(savedOrder.getId())
+                .orderCode(savedOrder.getOrderCode())
+                .customerId(user.getId())
+                .build());
+
         return mapToOrderResponse(savedOrder, items, payment, null);
     }
 
@@ -718,6 +726,14 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         List<OrderItem> items = orderItemRepository.findByOrderId(savedOrder.getId());
         Payment payment = paymentRepository.findByOrderId(savedOrder.getId()).orElse(null);
+
+        // Bắn Event
+        eventPublisher.publishEvent(OrderCancelledByCustomerEvent.builder()
+                .orderId(savedOrder.getId())
+                .orderCode(savedOrder.getOrderCode())
+                .customerId(user.getId())
+                .build());
+
         return mapToOrderResponse(savedOrder, items, payment, null);
     }
 

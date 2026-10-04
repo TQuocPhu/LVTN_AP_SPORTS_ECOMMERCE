@@ -7,6 +7,8 @@ import com.web.ap_sports.entity.*;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.common.CloudinaryService;
 import com.web.ap_sports.service.customer.CustomerReviewService;
+import org.springframework.context.ApplicationEventPublisher;
+import com.web.ap_sports.event.NewReviewEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,6 +36,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
     private final CloudinaryService cloudinaryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -120,6 +123,14 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
 
         log.info("Tạo mới thành công bài đánh giá ID: {} cho sản phẩm ID: {} từ khách hàng: {}",
                 savedReview.getId(), product.getId(), user.getEmail());
+
+        eventPublisher.publishEvent(NewReviewEvent.builder()
+                .reviewId(savedReview.getId())
+                .productId(product.getId())
+                .productName(product.getName())
+                .rating(savedReview.getRating())
+                .customerId(user.getId())
+                .build());
 
         return mapToReviewResponse(savedReview);
     }

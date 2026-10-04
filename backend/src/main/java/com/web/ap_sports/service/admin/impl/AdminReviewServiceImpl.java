@@ -10,6 +10,8 @@ import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ReviewRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.admin.AdminReviewService;
+import org.springframework.context.ApplicationEventPublisher;
+import com.web.ap_sports.event.ReviewRepliedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +40,7 @@ public class AdminReviewServiceImpl implements AdminReviewService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final ProductImageRepository productImageRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional(readOnly = true)
@@ -84,6 +87,14 @@ public class AdminReviewServiceImpl implements AdminReviewService {
 
         Review updatedReview = reviewRepository.save(review);
         log.info("Admin {} đã phản hồi 1-1 bài đánh giá ID: {}", adminUser.getEmail(), reviewId);
+
+        eventPublisher.publishEvent(ReviewRepliedEvent.builder()
+                .reviewId(updatedReview.getId())
+                .productId(updatedReview.getProduct().getId())
+                .productName(updatedReview.getProduct().getName())
+                .customerId(updatedReview.getUser().getId())
+                .adminId(adminUser.getId())
+                .build());
 
         return mapToAdminReviewDetailResponse(updatedReview);
     }
