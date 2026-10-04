@@ -31,6 +31,9 @@ import org.springframework.web.client.RestTemplate;
 import com.web.ap_sports.service.customer.ShippingAddressService;
 import com.web.ap_sports.service.common.geocoding.GeocodingCascadeService;
 import com.web.ap_sports.service.common.geocoding.GeoCoordinate;
+import com.web.ap_sports.event.NotificationSendEvent;
+import com.web.ap_sports.enums.NotificationActionType;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -60,6 +63,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final EmailService emailService;
     private final ShippingAddressService shippingAddressService;
     private final GeocodingCascadeService geocodingCascadeService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${app.shipping.ghn.api-url:https://online-gateway.ghn.vn/shiip/public-api/v2}")
     private String ghnApiUrl;
@@ -385,6 +389,16 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     "Thanh toán khi nhận hàng (COD)"
             );
         }
+
+        // Bắn event thông báo tới Admin và Staff
+        String payload = String.format("{\"orderId\": %d, \"orderCode\": \"%s\", \"totalPrice\": %s}", 
+                savedOrder.getId(), savedOrder.getOrderCode(), finalAmount.toString());
+        eventPublisher.publishEvent(NotificationSendEvent.builder()
+                .roles(Arrays.asList("ADMIN", "STAFF"))
+                .actionType(NotificationActionType.ORDER_PLACED)
+                .targetUrl("/admin/orders/" + savedOrder.getId())
+                .payload(payload)
+                .build());
 
         return mapToOrderResponse(savedOrder, orderItems, payment, paymentUrl);
     }

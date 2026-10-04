@@ -8,6 +8,7 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -20,53 +21,82 @@ import java.util.List;
 /**
  * Interceptor kiểm tra JWT Access Token trong STOMP CONNECT Frame cho kết nối WebSocket.
  */
+import com.web.ap_sports.enums.UserStatus;
+import com.web.ap_sports.repository.UserRepository;
+
 @Component
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
 @Slf4j
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
     @Override
     public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        if (accessor == null || accessor.getCommand() == null) {
+            return message; // heartbeat
+        }
 
-        if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-            String authHeader = accessor.getFirstNativeHeader("Authorization");
-            String token = null;
+        StompCommand command = accessor.getCommand();
 
-            if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
-                token = authHeader.substring(7);
-            } else if (StringUtils.hasText(authHeader)) {
-                token = authHeader;
-            } else {
-                // Thử lấy token từ header "token" tùy chọn
-                token = accessor.getFirstNativeHeader("token");
+        if (StompCommand.CONNECT.equals(command)) {
+            accessor.setUser(authenticate(accessor));
+            return message;
+        }
+
+        if (StompCommand.DISCONNECT.equals(command)) {
+            return message;
+        }
+
+        // Mọi frame còn lại bắt buộc đã xác thực
+        if (accessor.getUser() == null) {
+            throw new MessageDeliveryException("Chưa xác thực WebSocket.");
+        }
+
+        if (StompCommand.SUBSCRIBE.equals(command)) {
+            if (!"/user/queue/notifications".equals(accessor.getDestination())) {
+                log.warn("SUBSCRIBE bị từ chối: {}", accessor.getDestination());
+                throw new MessageDeliveryException("Không có quyền subscribe destination này.");
             }
-
-            if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
-                Long userId = jwtTokenProvider.getUserIdFromToken(token);
-                String email = jwtTokenProvider.getEmailFromToken(token);
-                String role = jwtTokenProvider.getRoleFromToken(token);
-
-                if (email != null && role != null) {
-                    String authorityName = role.startsWith("ROLE_") ? role : "ROLE_" + role;
-                    List<SimpleGrantedAuthority> authorities = Collections.singletonList(
-                            new SimpleGrantedAuthority(authorityName)
-                    );
-
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(email, null, authorities);
-
-                    accessor.setUser(authentication);
-                    log.info("WebSocket STOMP CONNECT thành công cho user ID: {}, email: {}", userId, email);
-                }
-            } else {
-                log.warn("WebSocket STOMP CONNECT bị từ chối: Token không hợp lệ hoặc thiếu header Authorization.");
-                throw new IllegalArgumentException("Xác thực WebSocket thất bại: Token JWT không hợp lệ.");
-            }
+        } else if (StompCommand.SEND.equals(command)) {
+            throw new MessageDeliveryException("Không cho phép gửi message lên server.");
         }
 
         return message;
+    }
+
+    private org.springframework.security.core.Authentication authenticate(StompHeaderAccessor accessor) {
+        String authHeader = accessor.getFirstNativeHeader("Authorization");
+        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+            throw new MessageDeliveryException("Thiếu token.");
+        }
+        String token = authHeader.substring(7);
+
+        if (!jwtTokenProvider.validateToken(token)) {
+            throw new MessageDeliveryException("Token không hợp lệ.");
+        }
+
+        Long userId = jwtTokenProvider.getUserIdFromToken(token);
+        String role = jwtTokenProvider.getRoleFromToken(token);
+        if (userId == null || role == null) {
+            throw new MessageDeliveryException("Token thiếu thông tin.");
+        }
+
+        boolean active = userRepository.findById(userId)
+                .map(u -> u.getStatus() == UserStatus.active)
+                .orElse(false);
+        if (!active) {
+            throw new MessageDeliveryException("Tài khoản bị khóa.");
+        }
+
+        String authority = role.startsWith("ROLE_") ? role : "ROLE_" + role;
+        log.info("STOMP CONNECT thành công, userId={}", userId);
+
+        // Principal name PHẢI là userId để khớp convertAndSendToUser
+        return new UsernamePasswordAuthenticationToken(
+                String.valueOf(userId), null,
+                List.of(new SimpleGrantedAuthority(authority)));
     }
 }
