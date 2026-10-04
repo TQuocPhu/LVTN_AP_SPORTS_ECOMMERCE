@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useNotificationContext } from '@/context/NotificationContext';
 import { warehouseInventoryController } from '@/controllers/warehouse-inventory-controller';
 import {
   LayoutDashboard,
@@ -31,24 +32,36 @@ export function useAdminSidebar() {
   const { user } = useAdminAuth();
   const [lowStockCount, setLowStockCount] = useState<number>(0);
 
+  const { notifications } = useNotificationContext();
+
+  const loadLowStockAlerts = async (isMounted = true) => {
+    try {
+      const res = await warehouseInventoryController.getLowStockVariants(5, 0, 50);
+      if (isMounted && res.data) {
+        setLowStockCount(res.data.totalElements || res.data.content?.length || 0);
+      }
+    } catch {
+      // Silent catch
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
-    const loadLowStockAlerts = async () => {
-      try {
-        const res = await warehouseInventoryController.getLowStockVariants(5, 0, 50);
-        if (isMounted && res.data) {
-          setLowStockCount(res.data.totalElements || res.data.content?.length || 0);
-        }
-      } catch {
-        // Silent catch
-      }
-    };
-
-    loadLowStockAlerts();
+    loadLowStockAlerts(isMounted);
     return () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (notifications && notifications.length > 0) {
+      const latest = notifications[0];
+      // Nếu có thông báo báo hiệu tồn kho thấp hoặc cập nhật kho -> Load lại
+      if (latest.actionType === 'LOW_INVENTORY' || latest.actionType === 'ORDER_PLACED' || latest.actionType === 'ORDER_CANCELLED_BY_CUSTOMER' || latest.actionType === 'ORDER_STATUS_CHANGED') {
+         loadLowStockAlerts();
+      }
+    }
+  }, [notifications]);
 
   const menuItems: MenuItem[] = [
     {

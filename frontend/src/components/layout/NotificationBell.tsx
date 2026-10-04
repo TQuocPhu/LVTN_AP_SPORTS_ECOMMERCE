@@ -11,12 +11,7 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const [hasToken, setHasToken] = useState(false);
-
   useEffect(() => {
-    setHasToken(!!getCookie('accessToken'));
-    const interval = setInterval(() => setHasToken(!!getCookie('accessToken')), 2000);
-    
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -25,13 +20,9 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handleClickOutside);
     
     return () => {
-      clearInterval(interval);
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-  // Ẩn chuông nếu chưa đăng nhập
-  if (!hasToken) return null;
 
   const handleNotificationClick = async (id: number, url?: string) => {
     await markAsRead(id);
@@ -97,12 +88,20 @@ export default function NotificationBell() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium leading-snug" style={{ color: "var(--nav-text)" }}>
                             {notif.actionType === "ORDER_PLACED" ? `Đơn hàng mới #${payloadObj.orderCode || 'N/A'}` :
-                             notif.actionType === "ORDER_SHIPPED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đang được giao` :
-                             notif.actionType === "ORDER_CANCELLED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã bị hủy` :
+                             notif.actionType === "ORDER_STATUS_CHANGED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} cập nhật trạng thái` :
+                             notif.actionType === "ORDER_CANCELLED_BY_CUSTOMER" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã bị hủy bởi khách` :
+                             notif.actionType === "NEW_REVIEW" ? `Đánh giá mới cho ${payloadObj.productName || 'sản phẩm'}` :
+                             notif.actionType === "REVIEW_REPLIED" ? `Phản hồi đánh giá ${payloadObj.productName || 'sản phẩm'}` :
+                             notif.actionType === "LOW_INVENTORY" ? `Cảnh báo tồn kho thấp` :
                              "Thông báo mới"}
                           </p>
                           <p className="text-xs mt-0.5 opacity-80 truncate" style={{ color: "var(--nav-text)" }}>
-                            {notif.actionType === "ORDER_PLACED" ? `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalPrice || 0} VNĐ` :
+                            {notif.actionType === "ORDER_PLACED" ? `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalAmount ? payloadObj.totalAmount.toLocaleString('vi-VN') : 0} VNĐ` :
+                             notif.actionType === "ORDER_STATUS_CHANGED" ? `Trạng thái đã chuyển từ "${payloadObj.oldStatus || ''}" sang "${payloadObj.newStatus || ''}"` :
+                             notif.actionType === "ORDER_CANCELLED_BY_CUSTOMER" ? `Khách hàng đã tự động hủy đơn hàng này` :
+                             notif.actionType === "NEW_REVIEW" ? `Khách hàng vừa đánh giá ${payloadObj.rating || 0} sao` :
+                             notif.actionType === "REVIEW_REPLIED" ? `Quản trị viên đã phản hồi đánh giá của bạn` :
+                             notif.actionType === "LOW_INVENTORY" ? `Sản phẩm ${payloadObj.productName || ''} chỉ còn ${payloadObj.remaining || 0} sản phẩm trong kho` :
                              "Nhấp để xem chi tiết"}
                           </p>
                           <p className="text-[10px] mt-1 text-orange-500 font-medium">

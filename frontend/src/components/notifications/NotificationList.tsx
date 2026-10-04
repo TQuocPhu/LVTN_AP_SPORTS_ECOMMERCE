@@ -63,12 +63,20 @@ export default function NotificationList() {
                     <div>
                       <h3 className="font-bold text-base mb-1" style={{ color: "var(--nav-text)" }}>
                         {notif.actionType === "ORDER_PLACED" ? `Đơn hàng mới #${payloadObj.orderCode || 'N/A'}` :
-                         notif.actionType === "ORDER_SHIPPED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đang được giao` :
-                         notif.actionType === "ORDER_CANCELLED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã bị hủy` :
+                         notif.actionType === "ORDER_STATUS_CHANGED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} cập nhật trạng thái` :
+                         notif.actionType === "ORDER_CANCELLED_BY_CUSTOMER" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã bị hủy bởi khách` :
+                         notif.actionType === "NEW_REVIEW" ? `Đánh giá mới cho ${payloadObj.productName || 'sản phẩm'}` :
+                         notif.actionType === "REVIEW_REPLIED" ? `Phản hồi đánh giá ${payloadObj.productName || 'sản phẩm'}` :
+                         notif.actionType === "LOW_INVENTORY" ? `Cảnh báo tồn kho thấp` :
                          "Thông báo hệ thống"}
                       </h3>
                       <p className="text-sm opacity-80 mb-2 leading-relaxed max-w-2xl" style={{ color: "var(--nav-text)" }}>
-                        {notif.actionType === "ORDER_PLACED" ? `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalPrice || 0} VNĐ. Vui lòng kiểm tra và xác nhận.` :
+                        {notif.actionType === "ORDER_PLACED" ? `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalAmount ? payloadObj.totalAmount.toLocaleString('vi-VN') : 0} VNĐ.` :
+                         notif.actionType === "ORDER_STATUS_CHANGED" ? `Trạng thái đã chuyển từ "${payloadObj.oldStatus || ''}" sang "${payloadObj.newStatus || ''}".` :
+                         notif.actionType === "ORDER_CANCELLED_BY_CUSTOMER" ? `Khách hàng đã tự động hủy đơn hàng này.` :
+                         notif.actionType === "NEW_REVIEW" ? `Khách hàng vừa đánh giá ${payloadObj.rating || 0} sao.` :
+                         notif.actionType === "REVIEW_REPLIED" ? `Quản trị viên đã phản hồi đánh giá của bạn.` :
+                         notif.actionType === "LOW_INVENTORY" ? `Sản phẩm ${payloadObj.productName || ''} chỉ còn ${payloadObj.remaining || 0} sản phẩm trong kho.` :
                          "Vui lòng nhấn vào thông báo để xem chi tiết."}
                       </p>
                       <p className="text-xs font-medium text-orange-500 flex items-center gap-2">
