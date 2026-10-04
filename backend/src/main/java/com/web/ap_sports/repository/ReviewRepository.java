@@ -27,13 +27,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     /**
      * Lọc các đánh giá công khai có hình ảnh cho sản phẩm
      */
-    @Query("SELECT r FROM Review r WHERE r.product.id = :productId AND r.status = :status AND SIZE(r.images) > 0 ORDER BY r.createdAt DESC")
+    @Query("SELECT r FROM Review r WHERE r.product.id = :productId AND r.status = :status AND EXISTS (SELECT 1 FROM ReviewImage ri WHERE ri.review = r) ORDER BY r.createdAt DESC")
     Page<Review> findWithImagesByProductIdAndStatus(@Param("productId") Long productId, @Param("status") String status, Pageable pageable);
 
     /**
      * Lọc các đánh giá công khai có hình ảnh kết hợp số sao cho sản phẩm
      */
-    @Query("SELECT r FROM Review r WHERE r.product.id = :productId AND r.status = :status AND r.rating = :rating AND SIZE(r.images) > 0 ORDER BY r.createdAt DESC")
+    @Query("SELECT r FROM Review r WHERE r.product.id = :productId AND r.status = :status AND r.rating = :rating AND EXISTS (SELECT 1 FROM ReviewImage ri WHERE ri.review = r) ORDER BY r.createdAt DESC")
     Page<Review> findWithImagesAndRatingByProductIdAndStatus(@Param("productId") Long productId, @Param("rating") Integer rating, @Param("status") String status, Pageable pageable);
 
     /**
@@ -62,6 +62,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * Đếm số lượt đánh giá từng mốc sao (1-5)
      */
     Long countByProductIdAndStatusAndRating(Long productId, String status, Integer rating);
+
+    /**
+     * Thống kê số lượt đánh giá theo từng mốc sao (1-5) bằng 1 query duy nhất.
+     * Mỗi phần tử trả về: [rating (Integer), count (Long)]
+     */
+    @Query("SELECT r.rating, COUNT(r) FROM Review r WHERE r.product.id = :productId AND r.status = 'approved' GROUP BY r.rating")
+    List<Object[]> countApprovedByRating(@Param("productId") Long productId);
 
     /**
      * Tìm kiếm & Lọc đánh giá cho Admin với Bộ lọc Phân trang

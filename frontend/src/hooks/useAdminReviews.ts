@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminReviewController } from '@/controllers/admin-review-controller';
 import { AdminReviewDetail, AdminReviewFilterRequest } from '@/types/review';
 
+export const MIN_ADMIN_REPLY_LENGTH = 5;
+
 export function useAdminReviews() {
   const [reviews, setReviews] = useState<AdminReviewDetail[]>([]);
   const [filter, setFilter] = useState<AdminReviewFilterRequest>({
@@ -71,7 +73,7 @@ export function useAdminReviews() {
 
   const submitReply = async () => {
     if (!selectedReview) return;
-    if (replyText.trim().length < 2) return;
+    if (replyText.trim().length < MIN_ADMIN_REPLY_LENGTH) return;
 
     setIsSubmittingReply(true);
     try {

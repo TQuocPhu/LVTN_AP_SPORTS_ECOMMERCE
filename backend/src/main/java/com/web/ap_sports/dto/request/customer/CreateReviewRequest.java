@@ -24,7 +24,7 @@ public class CreateReviewRequest {
     private Integer rating;
 
     @NotBlank(message = "Nội dung nhận xét không được để trống")
-    @Size(min = 5, max = 2000, message = "Nội dung nhận xét từ 5 đến 2000 ký tự")
+    @Size(min = 10, max = 2000, message = "Nội dung nhận xét từ 10 đến 2000 ký tự")
     private String comment;
 
     @Size(max = 5, message = "Đính kèm tối đa 5 hình ảnh thực tế")

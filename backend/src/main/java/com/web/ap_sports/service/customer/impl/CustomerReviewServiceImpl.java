@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,7 +69,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
             throw new IllegalArgumentException("Mục đơn hàng này đã được gửi đánh giá trước đó");
         }
 
-        // 6. Xử lý tải ảnh song song lên Cloudinary (nếu có)
+        // 6. Xử lý tải ảnh song song lên Cloudinary (nếu có) - giữ nguyên thứ tự ảnh người dùng chọn
         List<String> uploadedCloudinaryUrls = new ArrayList<>();
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             log.info("Bắt đầu tải {} hình ảnh đánh giá sản phẩm lên Cloudinary...", request.getImageUrls().size());
@@ -76,7 +77,15 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                     request.getImageUrls(),
                     REVIEW_FOLDER
             );
-            uploadedCloudinaryUrls = new ArrayList<>(uploadMap.values());
+            for (String source : request.getImageUrls()) {
+                String uploadedUrl = uploadMap.get(source);
+                if (uploadedUrl == null || uploadedUrl.isBlank()) {
+                    throw new IllegalStateException("Tải ảnh đánh giá lên Cloudinary thất bại, vui lòng thử lại");
+                }
+                if (!uploadedCloudinaryUrls.contains(uploadedUrl)) {
+                    uploadedCloudinaryUrls.add(uploadedUrl);
+                }
+            }
         }
 
         // 7. Tạo Entity Review
@@ -89,7 +98,13 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                 .status("approved") // Mặc định phê duyệt hiển thị ngay
                 .build();
 
-        Review savedReview = reviewRepository.save(review);
+        // saveAndFlush để unique constraint (order_item_id) được kiểm tra ngay, chống gửi trùng khi đồng thời
+        Review savedReview;
+        try {
+            savedReview = reviewRepository.saveAndFlush(review);
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException("Mục đơn hàng này đã được gửi đánh giá trước đó");
+        }
 
         // 8. Lưu các hình ảnh đính kèm
         if (!uploadedCloudinaryUrls.isEmpty()) {
@@ -135,23 +150,29 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
     @Transactional(readOnly = true)
     public ProductReviewSummaryResponse getProductReviewSummary(Long productId) {
         Double avgRating = reviewRepository.findAverageRatingByProductId(productId);
-        Long total = reviewRepository.countByProductIdAndStatus(productId, "approved");
-        Long c5 = reviewRepository.countByProductIdAndStatusAndRating(productId, "approved", 5);
-        Long c4 = reviewRepository.countByProductIdAndStatusAndRating(productId, "approved", 4);
-        Long c3 = reviewRepository.countByProductIdAndStatusAndRating(productId, "approved", 3);
-        Long c2 = reviewRepository.countByProductIdAndStatusAndRating(productId, "approved", 2);
-        Long c1 = reviewRepository.countByProductIdAndStatusAndRating(productId, "approved", 1);
+
+        // 1 query GROUP BY thay cho 6 query đếm riêng lẻ
+        Map<Integer, Long> starCounts = new HashMap<>();
+        for (Object[] row : reviewRepository.countApprovedByRating(productId)) {
+            starCounts.put(((Number) row[0]).intValue(), ((Number) row[1]).longValue());
+        }
+        long c1 = starCounts.getOrDefault(1, 0L);
+        long c2 = starCounts.getOrDefault(2, 0L);
+        long c3 = starCounts.getOrDefault(3, 0L);
+        long c4 = starCounts.getOrDefault(4, 0L);
+        long c5 = starCounts.getOrDefault(5, 0L);
+        long total = c1 + c2 + c3 + c4 + c5;
 
         double roundedAvg = avgRating != null ? Math.round(avgRating * 10.0) / 10.0 : 5.0;
 
         return ProductReviewSummaryResponse.builder()
                 .averageRating(roundedAvg)
-                .totalReviews(total != null ? total : 0L)
-                .fiveStarCount(c5 != null ? c5 : 0L)
-                .fourStarCount(c4 != null ? c4 : 0L)
-                .threeStarCount(c3 != null ? c3 : 0L)
-                .twoStarCount(c2 != null ? c2 : 0L)
-                .oneStarCount(c1 != null ? c1 : 0L)
+                .totalReviews(total)
+                .fiveStarCount(c5)
+                .fourStarCount(c4)
+                .threeStarCount(c3)
+                .twoStarCount(c2)
+                .oneStarCount(c1)
                 .build();
     }
 
@@ -181,7 +202,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                 .repliedByName(review.getRepliedBy() != null ? review.getRepliedBy().getName() : null)
                 .repliedAt(review.getRepliedAt())
                 .createdAt(review.getCreatedAt())
-                .verifiedPurchase(true)
+                .verifiedPurchase(review.getOrderItem() != null)
                 .build();
     }
 }

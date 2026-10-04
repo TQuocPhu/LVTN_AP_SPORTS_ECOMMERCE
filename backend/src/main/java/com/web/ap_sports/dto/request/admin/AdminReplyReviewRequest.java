@@ -12,6 +12,6 @@ import lombok.*;
 public class AdminReplyReviewRequest {
 
     @NotBlank(message = "Nội dung phản hồi không được để trống")
-    @Size(min = 2, max = 2000, message = "Nội dung phản hồi từ 2 đến 2000 ký tự")
+    @Size(min = 5, max = 2000, message = "Nội dung phản hồi từ 5 đến 2000 ký tự")
     private String replyContent;
 }

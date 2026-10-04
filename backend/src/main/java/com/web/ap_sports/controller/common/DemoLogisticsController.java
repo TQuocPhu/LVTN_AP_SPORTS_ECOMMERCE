@@ -4,39 +4,81 @@ import com.web.ap_sports.dto.request.admin.AdminOrderFilterRequest;
 import com.web.ap_sports.dto.request.admin.UpdateOrderStatusRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
 import com.web.ap_sports.dto.response.admin.AdminOrderDetailResponse;
+import com.web.ap_sports.dto.response.admin.OrderStatusHistoryResponse;
+import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.service.admin.AdminOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Set;
+
+/**
+ * API phục vụ 3 Portal mô phỏng Logistics (GHN Station, Carrier Transit, Shipper App).
+ *
+ * Các portal này không có màn hình đăng nhập nên endpoint được mở ở tầng Spring Security,
+ * nhưng được bảo vệ bằng các lớp sau:
+ *  1. Bật/tắt bằng cấu hình `app.demo.logistics.enabled` (tắt ở production → controller không được đăng ký).
+ *  2. Bắt buộc header `X-Demo-Key` khớp với `app.demo.logistics.key`.
+ *  3. Chỉ xem được đơn ở các trạng thái vận chuyển, chỉ được chuyển sang shipped/shipping/delivered
+ *     (không hủy, không thao tác trước khâu xuất kho). State machine chi tiết do AdminOrderService kiểm tra.
+ *  4. Tài khoản thực hiện thao tác do server quyết định (tài khoản dịch vụ GHN), không nhận từ client.
+ *  5. SĐT / Email khách hàng bị che một phần trong phản hồi.
+ */
 @RestController
 @RequestMapping("/api/v1/demo/logistics")
+@ConditionalOnProperty(name = "app.demo.logistics.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class DemoLogisticsController {
 
+    private static final String DEMO_KEY_HEADER = "X-Demo-Key";
+    private static final int MAX_PAGE_SIZE = 50;
+
+    private static final Set<String> VIEWABLE_STATUSES = Set.of("processing", "shipped", "shipping", "delivered");
+    private static final Set<String> ALLOWED_TARGET_STATUSES = Set.of("shipped", "shipping", "delivered");
+
+    private static final String STATION_ACCOUNT_EMAIL = "ghn_station@apsports.com";
+    private static final String SHIPPER_ACCOUNT_EMAIL = "ghn_shipper@apsports.com";
+
     private final AdminOrderService adminOrderService;
 
+    @Value("${app.demo.logistics.key}")
+    private String demoKey;
+
     /**
-     * Lấy danh sách đơn hàng mô phỏng theo trạng thái (processing, shipped, shipping...)
+     * Lấy danh sách đơn hàng mô phỏng theo trạng thái vận chuyển (processing, shipped, shipping, delivered)
      */
     @GetMapping("/orders")
     public ResponseEntity<ApiResponse<Page<AdminOrderDetailResponse>>> getDemoOrders(
-            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestHeader(value = DEMO_KEY_HEADER, required = false) String providedKey,
+            @RequestParam String status,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size) {
-        log.info("Demo Logistics REST request truy vấn đơn hàng với status: {}", status);
+        verifyDemoKey(providedKey);
+
+        String normalizedStatus = status == null ? "" : status.trim().toLowerCase();
+        if (!VIEWABLE_STATUSES.contains(normalizedStatus)) {
+            throw new AppException("Portal mô phỏng chỉ được xem đơn ở trạng thái: " + VIEWABLE_STATUSES, HttpStatus.BAD_REQUEST);
+        }
+
+        log.info("Demo Logistics REST request truy vấn đơn hàng với status: {}", normalizedStatus);
         AdminOrderFilterRequest filterRequest = new AdminOrderFilterRequest();
-        filterRequest.setStatus(status);
-        filterRequest.setPage(page);
-        filterRequest.setSize(size);
+        filterRequest.setStatus(normalizedStatus);
+        filterRequest.setPage(Math.max(0, page));
+        filterRequest.setSize(Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
         filterRequest.setSortBy("createdAt");
         filterRequest.setSortDir("DESC");
 
-        Page<AdminOrderDetailResponse> response = adminOrderService.getAdminOrders(filterRequest);
+        Page<AdminOrderDetailResponse> response = adminOrderService.getAdminOrders(filterRequest).map(this::maskSensitiveData);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng mô phỏng logistics thành công!", response));
     }
 
@@ -45,21 +87,58 @@ public class DemoLogisticsController {
      */
     @PutMapping("/orders/{id}/status")
     public ResponseEntity<ApiResponse<AdminOrderDetailResponse>> updateDemoOrderStatus(
+            @RequestHeader(value = DEMO_KEY_HEADER, required = false) String providedKey,
             @PathVariable Long id,
-            @RequestParam(required = false) String updatedByEmail,
             @Valid @RequestBody UpdateOrderStatusRequest request) {
-        log.info("Demo Logistics REST request cập nhật đơn #{} sang status [{}]", id, request.getStatus());
-        
-        String emailToUse = updatedByEmail;
-        if (emailToUse == null || emailToUse.isBlank()) {
-            if ("delivered".equalsIgnoreCase(request.getStatus())) {
-                emailToUse = "ghn_shipper@apsports.com";
-            } else {
-                emailToUse = "ghn_station@apsports.com";
+        verifyDemoKey(providedKey);
+
+        String targetStatus = request.getStatus() == null ? "" : request.getStatus().trim().toLowerCase();
+        if (!ALLOWED_TARGET_STATUSES.contains(targetStatus)) {
+            throw new AppException("Portal mô phỏng chỉ được chuyển đơn sang: " + ALLOWED_TARGET_STATUSES, HttpStatus.FORBIDDEN);
+        }
+        log.info("Demo Logistics REST request cập nhật đơn #{} sang status [{}]", id, targetStatus);
+
+        String actorEmail = "delivered".equals(targetStatus) ? SHIPPER_ACCOUNT_EMAIL : STATION_ACCOUNT_EMAIL;
+        AdminOrderDetailResponse response = adminOrderService.updateOrderStatus(id, request, actorEmail);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đơn hàng logistics thành công!", maskSensitiveData(response)));
+    }
+
+    private void verifyDemoKey(String providedKey) {
+        boolean valid = providedKey != null && demoKey != null && MessageDigest.isEqual(
+                providedKey.getBytes(StandardCharsets.UTF_8),
+                demoKey.getBytes(StandardCharsets.UTF_8));
+        if (!valid) {
+            log.warn("Demo Logistics: từ chối request thiếu hoặc sai {}", DEMO_KEY_HEADER);
+            throw new AppException("Thiếu hoặc sai khóa truy cập Portal mô phỏng logistics.", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private AdminOrderDetailResponse maskSensitiveData(AdminOrderDetailResponse order) {
+        order.setCustomerPhone(maskPhone(order.getCustomerPhone()));
+        order.setCustomerEmail(maskEmail(order.getCustomerEmail()));
+        if (order.getShippingAddress() != null) {
+            order.getShippingAddress().setPhone(maskPhone(order.getShippingAddress().getPhone()));
+        }
+        if (order.getProcessedByStaff() != null) {
+            order.getProcessedByStaff().setEmail(maskEmail(order.getProcessedByStaff().getEmail()));
+        }
+        if (order.getStatusHistories() != null) {
+            for (OrderStatusHistoryResponse h : order.getStatusHistories()) {
+                h.setChangedByEmail(maskEmail(h.getChangedByEmail()));
             }
         }
+        return order;
+    }
 
-        AdminOrderDetailResponse response = adminOrderService.updateOrderStatus(id, request, emailToUse);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đơn hàng logistics thành công!", response));
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 6) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 3);
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) return email;
+        int at = email.indexOf('@');
+        if (at <= 1) return email;
+        return email.charAt(0) + "***" + email.substring(at);
     }
 }

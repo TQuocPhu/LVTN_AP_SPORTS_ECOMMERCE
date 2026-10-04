@@ -81,6 +81,12 @@ spring:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  # Mô phỏng Logistics (3 portal GHN Station / Carrier / Shipper App) - không cần đăng nhập nhưng bắt buộc có khóa X-Demo-Key.
+  # Production: đặt DEMO_LOGISTICS_ENABLED=false hoặc đổi DEMO_LOGISTICS_KEY thành chuỗi bí mật riêng.
+  demo:
+    logistics:
+      enabled: ${DEMO_LOGISTICS_ENABLED:true}
+      key: ${DEMO_LOGISTICS_KEY:ap-sports-demo-logistics-key}
   jwt:
     secret: ${JWT_SECRET}
     access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:1800000}

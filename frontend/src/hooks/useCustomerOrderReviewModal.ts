@@ -3,6 +3,8 @@
 import { useState, useCallback } from 'react';
 import { reviewController } from '@/controllers/review-controller';
 
+export const MIN_REVIEW_COMMENT_LENGTH = 10;
+
 export interface OrderItemToReview {
   id: number;
   productId: number;
@@ -55,7 +57,7 @@ export function useCustomerOrderReviewModal(onReviewSuccess?: () => void) {
 
   const submitReview = useCallback(async () => {
     if (!selectedOrderItem) return;
-    if (comment.trim().length < 5) return;
+    if (comment.trim().length < MIN_REVIEW_COMMENT_LENGTH) return;
 
     setIsSubmitting(true);
     try {

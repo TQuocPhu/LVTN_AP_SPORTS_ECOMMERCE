@@ -21,13 +21,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AdminReviewServiceImpl implements AdminReviewService {
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("createdAt", "rating", "status", "id");
+    private static final int MAX_PAGE_SIZE = 50;
 
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
@@ -37,8 +43,9 @@ public class AdminReviewServiceImpl implements AdminReviewService {
     @Transactional(readOnly = true)
     public Page<AdminReviewDetailResponse> getAdminReviews(AdminReviewFilterRequest filterRequest) {
         int page = (filterRequest.getPage() != null && filterRequest.getPage() >= 0) ? filterRequest.getPage() : 0;
-        int size = (filterRequest.getSize() != null && filterRequest.getSize() > 0) ? filterRequest.getSize() : 10;
-        String sortBy = (filterRequest.getSortBy() != null && !filterRequest.getSortBy().isBlank()) ? filterRequest.getSortBy() : "createdAt";
+        int requestedSize = (filterRequest.getSize() != null && filterRequest.getSize() > 0) ? filterRequest.getSize() : 10;
+        int size = Math.min(requestedSize, MAX_PAGE_SIZE);
+        String sortBy = (filterRequest.getSortBy() != null && ALLOWED_SORT_FIELDS.contains(filterRequest.getSortBy())) ? filterRequest.getSortBy() : "createdAt";
         Sort.Direction sortDirection = "ASC".equalsIgnoreCase(filterRequest.getSortDir()) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
@@ -50,7 +57,16 @@ public class AdminReviewServiceImpl implements AdminReviewService {
                 pageable
         );
 
-        return reviewPage.map(this::mapToAdminReviewDetailResponse);
+        // Lấy ảnh đại diện của tất cả sản phẩm trong trang bằng 1 query duy nhất (tránh N+1)
+        List<Long> productIds = reviewPage.getContent().stream()
+                .map(Review::getProduct)
+                .filter(p -> p != null)
+                .map(com.web.ap_sports.entity.Product::getId)
+                .distinct()
+                .collect(Collectors.toList());
+        Map<Long, String> primaryImageByProduct = loadPrimaryImages(productIds);
+
+        return reviewPage.map(r -> mapToAdminReviewDetailResponse(r, primaryImageByProduct));
     }
 
     @Override
@@ -87,7 +103,29 @@ public class AdminReviewServiceImpl implements AdminReviewService {
         return mapToAdminReviewDetailResponse(updatedReview);
     }
 
+    private Map<Long, String> loadPrimaryImages(List<Long> productIds) {
+        Map<Long, String> result = new HashMap<>();
+        if (productIds.isEmpty()) return result;
+        for (com.web.ap_sports.entity.ProductImage img : productImageRepository.findByProductIdIn(productIds)) {
+            Long pid = img.getProduct() != null ? img.getProduct().getId() : null;
+            if (pid == null) continue;
+            // Ảnh primary luôn được ưu tiên; nếu chưa có ảnh nào thì lấy ảnh đầu tiên gặp
+            if (img.isPrimary() || !result.containsKey(pid)) {
+                result.put(pid, img.getImagePath());
+            }
+        }
+        return result;
+    }
+
+    /** Dùng cho các thao tác đơn lẻ (reply, toggle) - chỉ cần ảnh của 1 sản phẩm. */
     private AdminReviewDetailResponse mapToAdminReviewDetailResponse(Review review) {
+        Map<Long, String> images = review.getProduct() != null
+                ? loadPrimaryImages(List.of(review.getProduct().getId()))
+                : Collections.emptyMap();
+        return mapToAdminReviewDetailResponse(review, images);
+    }
+
+    private AdminReviewDetailResponse mapToAdminReviewDetailResponse(Review review, Map<Long, String> primaryImageByProduct) {
         List<String> imageUrls = review.getImages() != null ?
                 review.getImages().stream().map(ReviewImage::getImageUrl).collect(Collectors.toList())
                 : Collections.emptyList();
@@ -96,14 +134,7 @@ public class AdminReviewServiceImpl implements AdminReviewService {
         String productImage = null;
         if (review.getProduct() != null) {
             productName = review.getProduct().getName();
-            List<com.web.ap_sports.entity.ProductImage> pImages = productImageRepository.findByProductId(review.getProduct().getId());
-            if (pImages != null && !pImages.isEmpty()) {
-                productImage = pImages.stream()
-                        .filter(com.web.ap_sports.entity.ProductImage::isPrimary)
-                        .map(com.web.ap_sports.entity.ProductImage::getImagePath)
-                        .findFirst()
-                        .orElse(pImages.get(0).getImagePath());
-            }
+            productImage = primaryImageByProduct.get(review.getProduct().getId());
         }
 
         return AdminReviewDetailResponse.builder()

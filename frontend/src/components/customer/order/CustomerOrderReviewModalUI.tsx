@@ -9,7 +9,10 @@ import {
   MessageSquare,
   CheckCircle2,
 } from "lucide-react";
-import { OrderItemToReview } from "@/hooks/useCustomerOrderReviewModal";
+import {
+  OrderItemToReview,
+  MIN_REVIEW_COMMENT_LENGTH,
+} from "@/hooks/useCustomerOrderReviewModal";
 
 interface CustomerOrderReviewModalUIProps {
   isOpen: boolean;
@@ -144,7 +147,15 @@ export const CustomerOrderReviewModalUI: React.FC<
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
             />
             <div className="flex justify-between text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              <span>Tối thiểu 5 ký tự</span>
+              <span
+                className={
+                  comment.trim().length < MIN_REVIEW_COMMENT_LENGTH
+                    ? "text-amber-600 dark:text-amber-400"
+                    : undefined
+                }
+              >
+                Tối thiểu {MIN_REVIEW_COMMENT_LENGTH} ký tự
+              </span>
               <span>{comment.length}/2000</span>
             </div>
           </div>
@@ -204,8 +215,11 @@ export const CustomerOrderReviewModalUI: React.FC<
           <button
             type="button"
             onClick={onSubmit}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 active:bg-amber-700 rounded-xl shadow-md shadow-amber-500/20 transition-all disabled:opacity-50"
+            disabled={
+              isSubmitting ||
+              comment.trim().length < MIN_REVIEW_COMMENT_LENGTH
+            } 
+            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 active:bg-amber-700 rounded-xl shadow-md shadow-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>

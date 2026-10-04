@@ -3,6 +3,7 @@
 import React from 'react';
 import { X, MessageSquare, Loader2, Send } from 'lucide-react';
 import { AdminReviewDetail } from '@/types/review';
+import { MIN_ADMIN_REPLY_LENGTH } from '@/hooks/useAdminReviews';
 
 interface AdminReviewReplyModalUIProps {
   isOpen: boolean;
@@ -68,7 +69,7 @@ export const AdminReviewReplyModalUI: React.FC<AdminReviewReplyModalUIProps> = (
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              Câu trả lời này sẽ hiển thị trang trọng ngay bên dưới nhận xét của khách hàng trên trang chi tiết sản phẩm.
+              Tối thiểu {MIN_ADMIN_REPLY_LENGTH} ký tự. Câu trả lời này sẽ hiển thị trang trọng ngay bên dưới nhận xét của khách hàng trên trang chi tiết sản phẩm.
             </p>
           </div>
         </div>
@@ -86,8 +87,8 @@ export const AdminReviewReplyModalUI: React.FC<AdminReviewReplyModalUIProps> = (
           <button
             type="button"
             onClick={onSubmit}
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-all disabled:opacity-50"
+            disabled={isSubmitting || replyText.trim().length < MIN_ADMIN_REPLY_LENGTH}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>
