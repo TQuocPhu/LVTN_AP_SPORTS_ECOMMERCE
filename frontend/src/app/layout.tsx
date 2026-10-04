@@ -63,6 +63,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { CartProvider } from "@/context/CartContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import ToastProvider from "@/components/providers/ToastProvider";
 
 export default function RootLayout({
@@ -95,23 +96,24 @@ export default function RootLayout({
         className="min-h-full flex flex-col text-slate-100 transition-colors duration-300"
       >
         <ThemeProvider>
-          {/* Global Auth State Provider – chia sẻ user state toàn app */}
           <AuthProvider>
-            <CartProvider>
-              <WishlistProvider>
-                {/* Top-Right Sonner Toast Notification Container */}
-                <ToastProvider />
+            <NotificationProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  {/* Top-Right Sonner Toast Notification Container */}
+                  <ToastProvider />
 
-                {/* Master Shell Navbar Header */}
-                <Navbar />
+                  {/* Master Shell Navbar Header */}
+                  <Navbar />
 
-                {/* Main Application Page Content */}
-                <div className="flex-1 flex flex-col">{children}</div>
+                  {/* Main Application Page Content */}
+                  <div className="flex-1 flex flex-col">{children}</div>
 
-                {/* Master Shell Footer */}
-                <Footer />
-              </WishlistProvider>
-            </CartProvider>
+                  {/* Master Shell Footer */}
+                  <Footer />
+                </WishlistProvider>
+              </CartProvider>
+            </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
