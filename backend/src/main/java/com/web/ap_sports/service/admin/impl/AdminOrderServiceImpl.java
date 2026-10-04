@@ -39,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.context.ApplicationEventPublisher;
 import com.web.ap_sports.event.OrderStatusChangedEvent;
+import com.web.ap_sports.service.common.InventoryAlertService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -69,6 +70,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final CouponRepository couponRepository;
     private final com.web.ap_sports.service.common.EmailService emailService;
     private final ApplicationEventPublisher eventPublisher;
+    private final InventoryAlertService inventoryAlertService;
 
     @Override
     @Transactional(readOnly = true)
@@ -344,7 +346,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             if (item.getVariant() != null) {
                 ProductVariant variant = item.getVariant();
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                variant.setStockQuantity(currentVariantStock + item.getQuantity());
+                int newVariantStock = currentVariantStock + item.getQuantity();
+                variant.setStockQuantity(newVariantStock);
+                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(variant);
             }
         }

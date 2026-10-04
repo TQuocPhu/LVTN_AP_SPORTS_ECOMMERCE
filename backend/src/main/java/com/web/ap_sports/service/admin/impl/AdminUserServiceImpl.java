@@ -30,6 +30,7 @@ import com.web.ap_sports.repository.RoleRepository;
 import com.web.ap_sports.repository.ShippingAddressRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.admin.AdminUserService;
+import com.web.ap_sports.service.common.InventoryAlertService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,6 +75,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final PaymentRepository paymentRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final InventoryAlertService inventoryAlertService;
 
     /**
      * Mật khẩu mặc định hệ thống khi Admin tạo tài khoản nhân viên mới.
@@ -327,7 +329,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             if (item.getVariant() != null) {
                 ProductVariant variant = item.getVariant();
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                variant.setStockQuantity(currentVariantStock + item.getQuantity());
+                int newVariantStock = currentVariantStock + item.getQuantity();
+                variant.setStockQuantity(newVariantStock);
+                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(variant);
             }
         }

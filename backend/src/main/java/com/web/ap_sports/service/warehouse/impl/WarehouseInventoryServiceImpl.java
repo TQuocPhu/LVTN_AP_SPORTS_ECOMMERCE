@@ -10,6 +10,7 @@ import com.web.ap_sports.entity.*;
 import com.web.ap_sports.entity.InventoryTransaction.TransactionType;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
+import com.web.ap_sports.service.common.InventoryAlertService;
 import com.web.ap_sports.service.warehouse.WarehouseInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,6 +37,7 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
     private final SupplierRepository supplierRepository;
     private final UserRepository userRepository;
     private final ProductImageRepository productImageRepository;
+    private final InventoryAlertService inventoryAlertService;
 
     @Override
     @Transactional
@@ -75,19 +77,22 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
                     .orElseThrow(() -> new AppException("Biến thể sản phẩm với ID " + item.getVariantId() + " không tồn tại", HttpStatus.NOT_FOUND));
 
             int qty = item.getQuantity();
+            int oldStock = variant.getStockQuantity();
             if (request.getType() == TransactionType.IMPORT) {
-                variant.setStockQuantity(variant.getStockQuantity() + qty);
+                variant.setStockQuantity(oldStock + qty);
                 if (item.getUnitCost() != null && item.getUnitCost().compareTo(BigDecimal.ZERO) > 0) {
                     variant.setCostPrice(item.getUnitCost());
                 }
             } else if (request.getType() == TransactionType.EXPORT) {
-                if (variant.getStockQuantity() < qty) {
-                    throw new AppException("Số lượng xuất (" + qty + ") của " + variant.getSku() + " vượt quá số lượng tồn kho (" + variant.getStockQuantity() + ")", HttpStatus.BAD_REQUEST);
+                if (oldStock < qty) {
+                    throw new AppException("Số lượng xuất (" + qty + ") của " + variant.getSku() + " vượt quá số lượng tồn kho (" + oldStock + ")", HttpStatus.BAD_REQUEST);
                 }
-                variant.setStockQuantity(variant.getStockQuantity() - qty);
+                variant.setStockQuantity(oldStock - qty);
             } else {
                 throw new AppException("Loại giao dịch không hợp lệ", HttpStatus.BAD_REQUEST);
             }
+
+            inventoryAlertService.checkAndAlert(variant, oldStock, variant.getStockQuantity());
 
             variantRepository.save(variant);
             syncProductStock(variant.getProduct());
@@ -127,6 +132,7 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         }
 
         variant.setStockQuantity(actualStock);
+        inventoryAlertService.checkAndAlert(variant, currentStock, actualStock);
         variantRepository.save(variant);
 
         syncProductStock(variant.getProduct());

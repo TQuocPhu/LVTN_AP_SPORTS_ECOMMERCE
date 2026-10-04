@@ -14,6 +14,7 @@ import com.web.ap_sports.event.OrderCancelledByCustomerEvent;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.common.EmailService;
+import com.web.ap_sports.service.common.InventoryAlertService;
 import com.web.ap_sports.service.common.VNPayService;
 import com.web.ap_sports.service.customer.CustomerOrderService;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final ShippingAddressService shippingAddressService;
     private final GeocodingCascadeService geocodingCascadeService;
     private final ApplicationEventPublisher eventPublisher;
+    private final InventoryAlertService inventoryAlertService;
 
     @Value("${app.shipping.ghn.api-url:https://online-gateway.ghn.vn/shiip/public-api/v2}")
     private String ghnApiUrl;
@@ -340,6 +342,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
                 int newVariantStock = Math.max(0, currentVariantStock - cartItem.getQuantity());
                 variant.setStockQuantity(newVariantStock);
+                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(variant);
             }
         }
@@ -556,7 +559,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             if (item.getVariant() != null) {
                 ProductVariant variant = item.getVariant();
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                variant.setStockQuantity(currentVariantStock + item.getQuantity());
+                int newVariantStock = currentVariantStock + item.getQuantity();
+                variant.setStockQuantity(newVariantStock);
+                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(variant);
             }
         }
@@ -591,6 +596,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
                 int newVariantStock = Math.max(0, currentVariantStock - item.getQuantity());
                 variant.setStockQuantity(newVariantStock);
+                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(variant);
             }
         }
