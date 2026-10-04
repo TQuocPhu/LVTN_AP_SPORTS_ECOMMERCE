@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { LogOut, User, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 export default function AdminHeader() {
   const { user, logout } = useAdminAuth();
@@ -68,6 +69,11 @@ export default function AdminHeader() {
 
       {/* User info & Actions */}
       <div className="flex items-center space-x-4">
+        {/* Chuông thông báo */}
+        <div className="mr-2">
+          <NotificationBell />
+        </div>
+
         {user && (
           <Link
             href="/admin/profile"

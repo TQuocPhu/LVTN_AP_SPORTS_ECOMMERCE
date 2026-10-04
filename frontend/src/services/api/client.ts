@@ -101,6 +101,7 @@ export async function apiClient<T>(
               "/account",
               "/orders",
               "/checkout",
+              "/notifications",
             ].some((p) => window.location.pathname.startsWith(p));
             if (isProtectedRoute) {
               window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(window.location.pathname)}`;

@@ -25,6 +25,7 @@ import {
 import MiniCartDrawer from "./MiniCartDrawer";
 import ConfirmLogoutModal from "@/components/ui/ConfirmLogoutModal";
 import NavbarSearchBar from "./NavbarSearchBar";
+import NotificationBell from "./NotificationBell";
 
 import { useTheme } from "@/context/ThemeContext";
 import { useWishlist } from "@/hooks/useWishlist";
@@ -179,6 +180,11 @@ export default function Navbar() {
                 <Sun className="w-5 h-5 text-amber-500 fill-amber-400" />
               )}
             </button>
+
+            {/* Notification Bell */}
+            <div className="hidden sm:block">
+              <NotificationBell />
+            </div>
 
             {/* Wishlist Icon */}
             <Link
