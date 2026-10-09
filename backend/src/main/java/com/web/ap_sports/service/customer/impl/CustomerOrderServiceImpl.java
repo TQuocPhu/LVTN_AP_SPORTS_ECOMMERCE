@@ -564,6 +564,31 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(variant);
             }
+
+            // Hoàn lại sản phẩm vào giỏ hàng
+            if (item.getVariant() != null) {
+                if (cartItemRepository.findByUserIdAndProductIdAndVariantId(order.getUser().getId(), item.getProduct().getId(), item.getVariant().getId()).isEmpty()) {
+                    CartItem cartItem = CartItem.builder()
+                            .user(order.getUser())
+                            .product(item.getProduct())
+                            .variant(item.getVariant())
+                            .quantity(item.getQuantity())
+                            .isSelected(true)
+                            .build();
+                    cartItemRepository.save(cartItem);
+                }
+            } else {
+                if (cartItemRepository.findByUserIdAndProductIdAndVariantIsNull(order.getUser().getId(), item.getProduct().getId()).isEmpty()) {
+                    CartItem cartItem = CartItem.builder()
+                            .user(order.getUser())
+                            .product(item.getProduct())
+                            .variant(null)
+                            .quantity(item.getQuantity())
+                            .isSelected(true)
+                            .build();
+                    cartItemRepository.save(cartItem);
+                }
+            }
         }
 
         if (order.getCoupon() != null) {

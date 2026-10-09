@@ -71,7 +71,7 @@ export default function AdminHeader() {
       <div className="flex items-center space-x-4">
         {/* Chuông thông báo */}
         <div className="mr-2">
-          <NotificationBell />
+          <NotificationBell noBorder={true} />
         </div>
 
         {user && (

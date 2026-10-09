@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { OrderResponse } from '@/types/order';
 import { customerOrderController } from '@/controllers/customer-order-controller';
+import { useCart } from '@/context/CartContext';
 
 export type CustomerOrderStatusTab =
   | 'ALL'
@@ -14,6 +15,7 @@ export type CustomerOrderStatusTab =
   | 'returned';
 
 export function useCustomerOrders() {
+  const { refreshCart } = useCart();
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<CustomerOrderStatusTab>('ALL');
@@ -95,6 +97,7 @@ export function useCustomerOrders() {
       if (type === 'cancel') {
         res = await customerOrderController.cancelMyOrder(order.orderCode, reason);
         setToastMessage(`Đã hủy thành công đơn hàng #${order.orderCode}`);
+        await refreshCart(); // Gọi refresh để update số lượng trên icon giỏ hàng
       } else {
         res = await customerOrderController.returnMyOrder(order.orderCode, reason);
         setToastMessage(`Đã gửi yêu cầu Trả Hàng / Hoàn Tiền cho đơn #${order.orderCode}`);

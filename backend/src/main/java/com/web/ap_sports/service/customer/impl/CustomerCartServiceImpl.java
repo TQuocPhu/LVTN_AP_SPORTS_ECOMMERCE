@@ -77,6 +77,12 @@ public class CustomerCartServiceImpl implements CustomerCartService {
             if (!variant.getProduct().getId().equals(product.getId())) {
                 throw new AppException("Biến thể không thuộc sản phẩm này", HttpStatus.BAD_REQUEST);
             }
+        } else {
+            // Validate: Nếu sản phẩm có biến thể mà không truyền variantId thì báo lỗi
+            List<ProductVariant> existingVariants = productVariantRepository.findByProductId(product.getId());
+            if (existingVariants != null && !existingVariants.isEmpty()) {
+                throw new AppException("Sản phẩm có nhiều phân loại, vui lòng chọn phân loại sản phẩm trước khi thêm vào giỏ hàng.", HttpStatus.BAD_REQUEST);
+            }
         }
 
         int availableStock = (variant != null) ? variant.getStockQuantity() : product.getStock();

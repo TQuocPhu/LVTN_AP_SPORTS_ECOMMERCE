@@ -11,6 +11,7 @@ export const cartController = {
   async getCart(): Promise<ApiResponse<CartSummary>> {
     return apiClient.get<ApiResponse<CartSummary>>('/customer/cart', {
       suppressErrorToast: true,
+      cache: 'no-store',
     });
   },
 

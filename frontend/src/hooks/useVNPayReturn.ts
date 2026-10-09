@@ -47,9 +47,8 @@ export function useVNPayReturn(): UseVNPayReturnResult {
         const res = await orderController.processVNPayReturn(paramsObj);
         if (res.data) {
           setOrder(res.data);
-          if (paramsObj.vnp_ResponseCode === '00') {
-            await refreshCart();
-          }
+          // Luôn refresh lại giỏ hàng (nếu thành công thì giỏ hàng trống, nếu thất bại thì giỏ hàng được hoàn lại)
+          await refreshCart();
         } else {
           setErrorMsg(res.message || 'Không thể xử lý kết quả thanh toán VNPay.');
         }

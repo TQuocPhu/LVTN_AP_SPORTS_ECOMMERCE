@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/hooks/useWishlist";
+import { QuickAddToCartModal } from "./QuickAddToCartModal";
 
 interface CustomerProductCardProps {
   product: Product;
@@ -16,8 +17,9 @@ interface CustomerProductCardProps {
 
 export function CustomerProductCard({ product }: CustomerProductCardProps) {
   const { isInWishlist, toggleWishlist } = useWishlist();
-  const { addToCart } = useCart();
   const isFavorite = isInWishlist(product.id);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const formattedPrice = new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -31,10 +33,10 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
       }).format(product.originalPrice)
     : null;
 
-  const handleAddToCart = async (e: React.MouseEvent) => {
+  const handleAddToCartClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    await addToCart(product.id, null, 1);
+    setIsModalOpen(true);
   };
 
   const handleWishlistToggle = async (e: React.MouseEvent) => {
@@ -173,7 +175,7 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
           </div>
 
           <button
-            onClick={handleAddToCart}
+            onClick={handleAddToCartClick}
             className="inline-flex items-center gap-1.5 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold px-3 py-2 rounded-xl transition-all shadow-md shadow-orange-500/20 active:scale-95 text-xs"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
@@ -181,6 +183,13 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
           </button>
         </div>
       </div>
+
+      {/* Add To Cart Modal */}
+      <QuickAddToCartModal 
+        product={product} 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
     </div>
   );
 }

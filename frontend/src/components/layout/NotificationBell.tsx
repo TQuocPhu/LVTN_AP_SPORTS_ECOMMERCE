@@ -4,9 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Bell, Check, CheckCheck } from "lucide-react";
 import { useNotificationContext } from "@/context/NotificationContext";
-import { getCookie } from "@/services/api-client";
+interface NotificationBellProps {
+  noBorder?: boolean;
+}
 
-export default function NotificationBell() {
+export default function NotificationBell({ noBorder = false }: NotificationBellProps) {
   const { unreadCount, notifications, markAsRead, markAllAsRead } = useNotificationContext();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -37,7 +39,7 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="nav-icon-btn relative p-2.5 rounded-xl border transition-colors group flex items-center justify-center cursor-pointer"
+        className={`nav-icon-btn relative p-2.5 rounded-xl transition-colors group flex items-center justify-center cursor-pointer ${noBorder ? '' : 'border'}`}
         title="Thông báo"
       >
         <Bell className="w-5 h-5 group-hover:text-orange-500 transition-colors" />
