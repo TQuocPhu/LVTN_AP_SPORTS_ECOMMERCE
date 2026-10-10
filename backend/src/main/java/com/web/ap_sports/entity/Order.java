@@ -94,6 +94,10 @@ public class Order {
     @JoinColumn(name = "coupon_id")
     private Coupon coupon;
 
+    @Builder.Default
+    @Column(name = "stock_released", nullable = false, columnDefinition = "boolean default false")
+    private boolean stockReleased = false;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

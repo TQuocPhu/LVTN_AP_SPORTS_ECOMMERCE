@@ -51,6 +51,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CustomerOrderServiceImpl implements CustomerOrderService {
 
+    private static final String DEFAULT_CLIENT_IP = "127.0.0.1";
+
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
@@ -68,6 +70,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final GeocodingCascadeService geocodingCascadeService;
     private final ApplicationEventPublisher eventPublisher;
     private final InventoryAlertService inventoryAlertService;
+    private final com.web.ap_sports.service.common.OrderInventoryService orderInventoryService;
+    private final com.web.ap_sports.config.VNPayConfig vnPayConfig;
+    private final com.web.ap_sports.service.common.GhnService ghnService;
 
     @Value("${app.shipping.ghn.api-url:https://online-gateway.ghn.vn/shiip/public-api/v2}")
     private String ghnApiUrl;
@@ -78,15 +83,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     @Value("${app.shipping.ghn.shop-id:}")
     private String ghnShopId;
 
-    /**
-     * Resolve thông tin Trạm GHN và tọa độ GPS trước khi bắt đầu transaction tạo đơn.
-     * Chạy NGOÀI @Transactional để tránh giữ DB connection trong suốt HTTP call (HikariCP leak).
-     */
-    @org.springframework.transaction.annotation.Transactional(
-            propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
-    protected Map<String, Object> resolveGhnStationBeforeOrder(Integer districtId, String wardCode) {
-        return fetchNearestGhnStation(districtId, wardCode);
-    }
 
     @Override
     @Transactional
@@ -212,10 +208,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         // Mã vận đơn GHN tự động
         String trackingCode = "GHN-" + orderCode;
 
-        // 7. Tra cứu bưu cục kho GHN gần nhất (đã chạy ngoài transaction để tránh DB connection leak)
-        //    Vì createOrder là @Transactional, gọi resolveGhnStationBeforeOrder qua self-proxy
-        //    hoặc dùng trực tiếp (HikariCP leak-detection sẽ warn nhưng kết nối vẫn được trả đúng)
-        Map<String, Object> ghnStationInfo = fetchNearestGhnStation(address.getDistrictId(), address.getWardCode());
+        // 7. Tra cứu bưu cục kho GHN gần nhất (gọi qua GhnService Bean riêng biệt để đảm bảo Propagation.NOT_SUPPORTED hoạt động, tránh HikariCP leak)
+        Map<String, Object> ghnStationInfo = ghnService.fetchNearestGhnStation(address.getDistrictId(), address.getWardCode());
 
         // 8. Tọa độ GPS thực của Khách Hàng (lấy từ ShippingAddress, self-heal nếu thiếu)
         if (address.getLatitude() == null || address.getLatitude() == 0.0
@@ -328,27 +322,44 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             // Khấu trừ số lượng tồn kho sản phẩm (Cả Product lẫn ProductVariant)
             Product product = cartItem.getProduct();
             if (product != null) {
-                int currentProductStock = product.getStock() != null ? product.getStock() : 0;
-                int newProductStock = Math.max(0, currentProductStock - cartItem.getQuantity());
-                product.setStock(newProductStock);
-                if (newProductStock == 0) {
-                    product.setStatus("out_of_stock");
+                Product lockedProduct = productRepository.findByIdForUpdate(product.getId())
+                        .orElseThrow(() -> new AppException("Sản phẩm không tồn tại", HttpStatus.NOT_FOUND));
+                int currentProductStock = lockedProduct.getStock() != null ? lockedProduct.getStock() : 0;
+                if (currentProductStock < cartItem.getQuantity()) {
+                    throw new AppException("Sản phẩm " + lockedProduct.getName() + " không đủ số lượng trong kho.", HttpStatus.BAD_REQUEST);
                 }
-                productRepository.save(product);
+                int newProductStock = currentProductStock - cartItem.getQuantity();
+                lockedProduct.setStock(newProductStock);
+                if (newProductStock == 0) {
+                    lockedProduct.setStatus("out_of_stock");
+                }
+                productRepository.save(lockedProduct);
             }
 
             if (cartItem.getVariant() != null) {
                 ProductVariant variant = cartItem.getVariant();
-                int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                int newVariantStock = Math.max(0, currentVariantStock - cartItem.getQuantity());
-                variant.setStockQuantity(newVariantStock);
-                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
-                productVariantRepository.save(variant);
+                ProductVariant lockedVariant = productVariantRepository.findByIdForUpdate(variant.getId())
+                        .orElseThrow(() -> new AppException("Phân loại hàng không tồn tại", HttpStatus.NOT_FOUND));
+                int currentVariantStock = lockedVariant.getStockQuantity() != null ? lockedVariant.getStockQuantity() : 0;
+                if (currentVariantStock < cartItem.getQuantity()) {
+                    throw new AppException("Phân loại hàng đã chọn của sản phẩm không đủ số lượng trong kho.", HttpStatus.BAD_REQUEST);
+                }
+                int newVariantStock = currentVariantStock - cartItem.getQuantity();
+                lockedVariant.setStockQuantity(newVariantStock);
+                inventoryAlertService.checkAndAlert(lockedVariant, currentVariantStock, newVariantStock);
+                productVariantRepository.save(lockedVariant);
             }
         }
 
         // 9.5. Xóa sản phẩm đã được đặt khỏi giỏ hàng trong Database
         cartItemRepository.deleteAll(cartItems);
+
+        // 9.6. Khóa lượt sử dụng Coupon ngay khi tạo đơn (để rollback đúng nếu thất bại)
+        if (appliedCoupon != null) {
+            int used = appliedCoupon.getUsedCount() != null ? appliedCoupon.getUsedCount() : 0;
+            appliedCoupon.setUsedCount(used + 1);
+            couponRepository.save(appliedCoupon);
+        }
 
         // 10. Ghi vết Lịch sử Trạng thái Đơn hàng (OrderStatusHistory)
         OrderStatusHistory history = OrderStatusHistory.builder()
@@ -376,16 +387,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         if (isVnPay) {
             paymentUrl = vnPayService.generatePaymentUrl(savedOrder, clientIp);
         } else {
-            // Thanh toán COD: Dọn các sản phẩm đã mua khỏi giỏ hàng & Gửi email xác nhận ngay
-            List<Long> purchasedCartItemIds = cartItems.stream().map(CartItem::getId).collect(Collectors.toList());
-            cartItemRepository.deleteAllByUserIdAndIdIn(user.getId(), purchasedCartItemIds);
-
-            if (appliedCoupon != null) {
-                int used = appliedCoupon.getUsedCount() != null ? appliedCoupon.getUsedCount() : 0;
-                appliedCoupon.setUsedCount(used + 1);
-                couponRepository.save(appliedCoupon);
-            }
-
+            // Thanh toán COD: Gửi email xác nhận ngay
             emailService.sendOrderConfirmationEmail(
                     user.getEmail(),
                     user.getName() != null ? user.getName() : user.getEmail(),
@@ -410,6 +412,11 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     @Transactional
     public OrderResponse processVNPayReturn(Map<String, String> queryParams) {
         String vnpTxnRef = queryParams.get("vnp_TxnRef");
+        if (!vnPayService.verifyChecksum(queryParams)) {
+            log.error("Cảnh báo: Chữ ký VNPay không hợp lệ! Dữ liệu có thể đã bị giả mạo. Mã đơn hàng (vnp_TxnRef): {}", vnpTxnRef);
+            throw new AppException("Dữ liệu thanh toán không hợp lệ hoặc đã bị thay đổi (Invalid Checksum).", HttpStatus.BAD_REQUEST);
+        }
+
         String vnpResponseCode = queryParams.get("vnp_ResponseCode");
         String vnpTransactionNo = queryParams.get("vnp_TransactionNo");
 
@@ -417,215 +424,214 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             throw new AppException("Thiếu tham số mã đơn hàng vnp_TxnRef.", HttpStatus.BAD_REQUEST);
         }
 
-        Order order = orderRepository.findByOrderCode(vnpTxnRef)
+        // Khóa bản ghi Order để chống race condition khi callback trùng hoặc gọi đồng thời
+        Order lockedOrder = orderRepository.findByOrderCodeForUpdate(vnpTxnRef)
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng mã " + vnpTxnRef, HttpStatus.NOT_FOUND));
 
-        Payment payment = paymentRepository.findByOrderId(order.getId())
+        Payment payment = paymentRepository.findByOrderId(lockedOrder.getId())
                 .orElseGet(() -> Payment.builder()
-                        .order(order)
+                        .order(lockedOrder)
                         .paymentMethod(Payment.PaymentMethod.vnpay)
                         .vnpTxnRef(vnpTxnRef)
-                        .amount(order.getFinalAmount())
+                        .amount(lockedOrder.getFinalAmount())
                         .status(Payment.PaymentStatus.pending)
                         .build());
 
+        // Kiểm tra phương thức thanh toán
+        if (payment.getPaymentMethod() != Payment.PaymentMethod.vnpay) {
+            throw new AppException("Phương thức thanh toán không hợp lệ.", HttpStatus.BAD_REQUEST);
+        }
+
+        // Kiểm tra TmnCode
+        String vnpTmnCode = queryParams.get("vnp_TmnCode");
+        if (vnpTmnCode == null || !vnpTmnCode.equals(vnPayConfig.getVnpTmnCode())) {
+            log.error("Cảnh báo: vnp_TmnCode không khớp! Đơn hàng: {}. Mong đợi: {}, VNPay trả về: {}", vnpTxnRef, vnPayConfig.getVnpTmnCode(), vnpTmnCode);
+            throw new AppException("Mã Merchant (vnp_TmnCode) không hợp lệ.", HttpStatus.BAD_REQUEST);
+        }
+
+        // Đối chiếu số tiền giao dịch (vnp_Amount) - bắt buộc
+        String vnpAmountStr = queryParams.get("vnp_Amount");
+        if (vnpAmountStr == null || vnpAmountStr.isBlank()) {
+            throw new AppException("Thiếu tham số vnp_Amount từ VNPay.", HttpStatus.BAD_REQUEST);
+        }
+        try {
+            long vnpAmount = Long.parseLong(vnpAmountStr);
+            long expectedAmount = payment.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).longValue();
+            if (vnpAmount != expectedAmount) {
+                log.error("Cảnh báo: Sai lệch số tiền thanh toán! Đơn hàng: {}. Mong đợi: {}, VNPay trả về: {}", vnpTxnRef, expectedAmount, vnpAmount);
+                throw new AppException("Số tiền thanh toán không khớp với đơn hàng.", HttpStatus.BAD_REQUEST);
+            }
+        } catch (NumberFormatException e) {
+            throw new AppException("Định dạng số tiền không hợp lệ từ VNPay.", HttpStatus.BAD_REQUEST);
+        }
+
+        // Idempotency check toàn cục: Sau khi đã xác minh chữ ký, mã bảo mật và số tiền, mới kiểm tra trạng thái
+        // Nếu giao dịch đã thành công/hoàn tiền thì không xử lý các callback đến sau (tránh cập nhật nhiều lần)
+        if (payment.getStatus() == Payment.PaymentStatus.completed || payment.getStatus() == Payment.PaymentStatus.refunded) {
+            return mapToOrderResponse(lockedOrder, orderItemRepository.findByOrderId(lockedOrder.getId()), payment, null);
+        }
+
         payment.setVnpResponseCode(vnpResponseCode);
         if (vnpTransactionNo != null) payment.setTransactionId(vnpTransactionNo);
+        
+        String vnpPayDate = queryParams.get("vnp_PayDate");
+        if (vnpPayDate != null && !vnpPayDate.isBlank()) {
+            payment.setVnpPayDate(vnpPayDate);
+        }
 
+        String vnpTransactionStatus = queryParams.get("vnp_TransactionStatus");
         String retryUrl = null;
-        if ("00".equals(vnpResponseCode)) {
-            // Thanh toán VNPay THÀNH CÔNG: Cập nhật Payment thành completed, giữ Order.status là pending chờ Admin xác nhận
+
+        if ("00".equals(vnpResponseCode) && "00".equals(vnpTransactionStatus)) {
+            // Thanh toán VNPay THÀNH CÔNG
             payment.setStatus(Payment.PaymentStatus.completed);
             payment.setPaidAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
-            order.setStatus("pending");
-            orderRepository.save(order);
+            // Kiểm tra trạng thái đơn hàng (đơn hàng bị hủy nhưng tiền vẫn được thu)
+            if (lockedOrder.getStatus() == OrderStatus.cancelled || lockedOrder.getStatus() == OrderStatus.returned) {
+                log.warn("Nhận được callback thành công nhưng đơn hàng {} đã bị hủy/trả hàng. Tiến hành hoàn tiền tự động.", lockedOrder.getOrderCode());
+                try {
+                    boolean refundResult = vnPayService.refundPayment(payment, lockedOrder, DEFAULT_CLIENT_IP, "SystemAuto");
+                    if (refundResult) {
+                        payment.setStatus(Payment.PaymentStatus.refunded);
+                        paymentRepository.save(payment);
+                        
+                        OrderStatusHistory history = OrderStatusHistory.builder()
+                                .order(lockedOrder)
+                                .status(lockedOrder.getStatus().getValue())
+                                .note("Nhận được tiền từ VNPay nhưng đơn hàng đã bị hủy. Hệ thống tự động hoàn tiền thành công.")
+                                .changedBy(lockedOrder.getUser())
+                                .build();
+                        orderStatusHistoryRepository.save(history);
+                    }
+                } catch (Exception e) {
+                    log.error("Hoàn tiền tự động thất bại cho đơn hàng {}: {}", lockedOrder.getOrderCode(), e.getMessage());
+                    OrderStatusHistory history = OrderStatusHistory.builder()
+                            .order(lockedOrder)
+                            .status(lockedOrder.getStatus().getValue())
+                            .note("Nhận được tiền từ VNPay nhưng đơn hàng đã bị hủy. Tự động hoàn tiền thất bại. Vui lòng đối soát thủ công: " + e.getMessage())
+                            .changedBy(lockedOrder.getUser())
+                            .build();
+                    orderStatusHistoryRepository.save(history);
+                }
+                return mapToOrderResponse(lockedOrder, orderItemRepository.findByOrderId(lockedOrder.getId()), payment, null);
+            }
+
+            // Nếu đơn hàng đang ở trạng thái không cho phép xử lý thành công (ngoại trừ pending, payment_failed)
+            if (lockedOrder.getStatus() != OrderStatus.pending && lockedOrder.getStatus() != OrderStatus.payment_failed) {
+                log.warn("Callback VNPay thành công nhưng đơn hàng đang ở trạng thái {}. Mã đơn: {}", lockedOrder.getStatus(), vnpTxnRef);
+                return mapToOrderResponse(lockedOrder, orderItemRepository.findByOrderId(lockedOrder.getId()), payment, null);
+            }
+
+            // Nếu đơn hàng đang là payment_failed thì trừ lại tồn kho (vì trước đó đã được hoàn kho khi thất bại)
+            if (lockedOrder.getStatus() == OrderStatus.payment_failed) {
+                orderInventoryService.reDeductOrderStock(lockedOrder);
+            }
+            lockedOrder.setStatus(OrderStatus.pending);
+            orderRepository.save(lockedOrder);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
-                    .order(order)
-                    .status("pending")
-                    .note("Thanh toán trực tuyến thành công qua cổng VNPay (Mã giao dịch VNPay: " + vnpTransactionNo + "). Đơn hàng đang chờ Admin xác nhận.")
-                    .changedBy(order.getUser())
+                    .order(lockedOrder)
+                    .status(OrderStatus.pending.getValue())
+                    .note("Thanh toán trực tuyến thành công qua cổng VNPay (Mã giao dịch VNPay: " + (vnpTransactionNo != null ? vnpTransactionNo : "") + "). Đơn hàng đang chờ Admin xác nhận.")
+                    .changedBy(lockedOrder.getUser())
                     .build();
             orderStatusHistoryRepository.save(history);
 
-            // Dọn các sản phẩm đã mua khỏi giỏ hàng & Gửi email xác nhận
-            List<OrderItem> purchasedOrderItems = orderItemRepository.findByOrderId(order.getId());
-            for (OrderItem item : purchasedOrderItems) {
-                if (item.getVariant() != null) {
-                    cartItemRepository.findByUserIdAndProductIdAndVariantId(order.getUser().getId(), item.getProduct().getId(), item.getVariant().getId())
-                            .ifPresent(cartItemRepository::delete);
-                } else {
-                    cartItemRepository.findByUserIdAndProductIdAndVariantIsNull(order.getUser().getId(), item.getProduct().getId())
-                            .ifPresent(cartItemRepository::delete);
-                }
-            }
-
-            if (order.getCoupon() != null) {
-                Coupon c = order.getCoupon();
-                int used = c.getUsedCount() != null ? c.getUsedCount() : 0;
-                c.setUsedCount(used + 1);
-                couponRepository.save(c);
-            }
-
             emailService.sendOrderConfirmationEmail(
-                    order.getUser().getEmail(),
-                    order.getUser().getName() != null ? order.getUser().getName() : order.getUser().getEmail(),
-                    order.getOrderCode(),
-                    order.getFinalAmount().toString(),
+                    lockedOrder.getUser().getEmail(),
+                    lockedOrder.getUser().getName() != null ? lockedOrder.getUser().getName() : lockedOrder.getUser().getEmail(),
+                    lockedOrder.getOrderCode(),
+                    lockedOrder.getFinalAmount().toString(),
                     "Thanh toán trực tuyến qua VNPay"
             );
         } else {
+            if (payment.getStatus() == Payment.PaymentStatus.failed) {
+                return mapToOrderResponse(lockedOrder, orderItemRepository.findByOrderId(lockedOrder.getId()), payment, null);
+            }
+            
+            // Nếu đơn hàng đang ở trạng thái không cho phép thất bại (ngoại trừ pending, payment_failed)
+            if (lockedOrder.getStatus() != OrderStatus.pending && lockedOrder.getStatus() != OrderStatus.payment_failed) {
+                log.warn("Callback VNPay thất bại nhưng đơn hàng đang ở trạng thái {}. Mã đơn: {}", lockedOrder.getStatus(), vnpTxnRef);
+                return mapToOrderResponse(lockedOrder, orderItemRepository.findByOrderId(lockedOrder.getId()), payment, null);
+            }
+
             // Thanh toán VNPay THẤT BẠI hoặc HỦY BỎ
             payment.setStatus(Payment.PaymentStatus.failed);
             paymentRepository.save(payment);
 
-            // Nếu đơn hàng chưa ở trạng thái payment_failed, tiến hành Hoàn lại Tồn kho
-            if (order.getStatus() != OrderStatus.payment_failed) {
-                order.setStatus(OrderStatus.payment_failed);
-                orderRepository.save(order);
-                rollbackOrderStock(order);
-            }
+            lockedOrder.setStatus(OrderStatus.payment_failed);
+            orderRepository.save(lockedOrder);
+            
+            // Tiến hành Hoàn lại Tồn kho và Giỏ hàng thông qua InventoryService (có cờ tránh lặp)
+            orderInventoryService.releaseOrderResources(lockedOrder, true);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
-                    .order(order)
+                    .order(lockedOrder)
                     .status(OrderStatus.payment_failed.getValue())
                     .note("Thanh toán VNPay không thành công hoặc bị hủy bỏ (Mã lỗi VNPay: " + vnpResponseCode + "). Tồn kho đã được hoàn trả.")
-                    .changedBy(order.getUser())
+                    .changedBy(lockedOrder.getUser())
                     .build();
             orderStatusHistoryRepository.save(history);
 
             // Tự động tạo URL thanh toán mới sẵn sàng cho nút "Thanh toán lại"
             try {
-                retryUrl = vnPayService.generatePaymentUrl(order, "127.0.0.1");
+                retryUrl = vnPayService.generatePaymentUrl(lockedOrder, DEFAULT_CLIENT_IP);
             } catch (Exception e) {
-                log.warn("Không thể sinh lại paymentUrl cho đơn hàng #{}: {}", order.getOrderCode(), e.getMessage());
+                log.warn("Không thể sinh lại paymentUrl cho đơn hàng #{}: {}", lockedOrder.getOrderCode(), e.getMessage());
             }
         }
 
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        return mapToOrderResponse(order, items, payment, retryUrl);
+        List<OrderItem> items = orderItemRepository.findByOrderId(lockedOrder.getId());
+        return mapToOrderResponse(lockedOrder, items, payment, retryUrl);
     }
 
     @Override
     @Transactional
     public OrderResponse retryVNPayPayment(String email, String orderCode, String clientIp) {
         User user = getUserByEmail(email);
-        Order order = orderRepository.findByOrderCodeAndUserId(orderCode, user.getId())
+        Order lockedOrder = orderRepository.findByOrderCodeAndUserIdForUpdate(orderCode, user.getId())
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng yêu cầu.", HttpStatus.NOT_FOUND));
 
-        if (order.getStatus() == OrderStatus.confirmed || order.getStatus() == OrderStatus.delivered || order.getStatus() == OrderStatus.completed) {
-            throw new AppException("Đơn hàng này đã được thanh toán hoặc xác nhận.", HttpStatus.BAD_REQUEST);
+        if (lockedOrder.getStatus() != OrderStatus.pending && lockedOrder.getStatus() != OrderStatus.payment_failed) {
+            throw new AppException("Đơn hàng không ở trạng thái cho phép thanh toán lại.", HttpStatus.BAD_REQUEST);
+        }
+
+        Payment payment = paymentRepository.findByOrderId(lockedOrder.getId())
+                .orElseGet(() -> Payment.builder()
+                        .order(lockedOrder)
+                        .paymentMethod(Payment.PaymentMethod.vnpay)
+                        .vnpTxnRef(orderCode)
+                        .amount(lockedOrder.getFinalAmount())
+                        .status(Payment.PaymentStatus.pending)
+                        .build());
+                        
+        if (payment.getPaymentMethod() != Payment.PaymentMethod.vnpay) {
+            throw new AppException("Phương thức thanh toán của đơn hàng không phải là VNPay.", HttpStatus.BAD_REQUEST);
+        }
+
+        if (payment.getStatus() == Payment.PaymentStatus.completed || payment.getStatus() == Payment.PaymentStatus.refunded) {
+            throw new AppException("Đơn hàng này đã được thanh toán hoặc hoàn tiền.", HttpStatus.BAD_REQUEST);
         }
 
         // Nếu đơn hàng đang bị payment_failed, tiến hành Trừ lại Tồn kho và chuyển về pending
-        if (order.getStatus() == OrderStatus.payment_failed) {
-            reDeductOrderStock(order);
-            order.setStatus(OrderStatus.pending);
-            orderRepository.save(order);
+        if (lockedOrder.getStatus() == OrderStatus.payment_failed) {
+            orderInventoryService.reDeductOrderStock(lockedOrder);
+            lockedOrder.setStatus(OrderStatus.pending);
+            orderRepository.save(lockedOrder);
         }
 
-        Payment payment = paymentRepository.findByOrderId(order.getId())
-                .orElseGet(() -> Payment.builder()
-                        .order(order)
-                        .paymentMethod(Payment.PaymentMethod.vnpay)
-                        .vnpTxnRef(orderCode)
-                        .amount(order.getFinalAmount())
-                        .status(Payment.PaymentStatus.pending)
-                        .build());
 
         payment.setStatus(Payment.PaymentStatus.pending);
         paymentRepository.save(payment);
 
-        String paymentUrl = vnPayService.generatePaymentUrl(order, clientIp);
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        return mapToOrderResponse(order, items, payment, paymentUrl);
+        String paymentUrl = vnPayService.generatePaymentUrl(lockedOrder, clientIp);
+        List<OrderItem> items = orderItemRepository.findByOrderId(lockedOrder.getId());
+        return mapToOrderResponse(lockedOrder, items, payment, paymentUrl);
     }
 
-    private void rollbackOrderStock(Order order) {
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        for (OrderItem item : items) {
-            if (item.getProduct() != null) {
-                Product product = item.getProduct();
-                int currentStock = product.getStock() != null ? product.getStock() : 0;
-                int restoredStock = currentStock + item.getQuantity();
-                product.setStock(restoredStock);
-                if ("out_of_stock".equals(product.getStatus()) && restoredStock > 0) {
-                    product.setStatus("in_stock");
-                }
-                productRepository.save(product);
-            }
-            if (item.getVariant() != null) {
-                ProductVariant variant = item.getVariant();
-                int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                int newVariantStock = currentVariantStock + item.getQuantity();
-                variant.setStockQuantity(newVariantStock);
-                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
-                productVariantRepository.save(variant);
-            }
 
-            // Hoàn lại sản phẩm vào giỏ hàng
-            if (item.getVariant() != null) {
-                if (cartItemRepository.findByUserIdAndProductIdAndVariantId(order.getUser().getId(), item.getProduct().getId(), item.getVariant().getId()).isEmpty()) {
-                    CartItem cartItem = CartItem.builder()
-                            .user(order.getUser())
-                            .product(item.getProduct())
-                            .variant(item.getVariant())
-                            .quantity(item.getQuantity())
-                            .isSelected(true)
-                            .build();
-                    cartItemRepository.save(cartItem);
-                }
-            } else {
-                if (cartItemRepository.findByUserIdAndProductIdAndVariantIsNull(order.getUser().getId(), item.getProduct().getId()).isEmpty()) {
-                    CartItem cartItem = CartItem.builder()
-                            .user(order.getUser())
-                            .product(item.getProduct())
-                            .variant(null)
-                            .quantity(item.getQuantity())
-                            .isSelected(true)
-                            .build();
-                    cartItemRepository.save(cartItem);
-                }
-            }
-        }
-
-        if (order.getCoupon() != null) {
-            Coupon coupon = order.getCoupon();
-            int used = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
-            if (used > 0) {
-                coupon.setUsedCount(used - 1);
-                couponRepository.save(coupon);
-                log.info("Hoàn trả lượt dùng mã giảm giá [{}] cho đơn hàng #{}: {} -> {}",
-                        coupon.getCode(), order.getOrderCode(), used, used - 1);
-            }
-        }
-    }
-
-    private void reDeductOrderStock(Order order) {
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        for (OrderItem item : items) {
-            if (item.getProduct() != null) {
-                Product product = item.getProduct();
-                int currentStock = product.getStock() != null ? product.getStock() : 0;
-                int newStock = Math.max(0, currentStock - item.getQuantity());
-                product.setStock(newStock);
-                if (newStock == 0) {
-                    product.setStatus("out_of_stock");
-                }
-                productRepository.save(product);
-            }
-            if (item.getVariant() != null) {
-                ProductVariant variant = item.getVariant();
-                int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                int newVariantStock = Math.max(0, currentVariantStock - item.getQuantity());
-                variant.setStockQuantity(newVariantStock);
-                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
-                productVariantRepository.save(variant);
-            }
-        }
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -680,27 +686,46 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     @Transactional
     public OrderResponse cancelMyOrder(String email, String orderCode, String reason) {
         User user = getUserByEmail(email);
-        Order order = orderRepository.findByOrderCodeAndUserId(orderCode, user.getId())
+        Order lockedOrder = orderRepository.findByOrderCodeAndUserIdForUpdate(orderCode, user.getId())
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng #" + orderCode, HttpStatus.NOT_FOUND));
 
         // Khách hàng chỉ được phép hủy đơn khi đơn CHƯA bàn giao bưu cục GHN (pending, confirmed, processing)
-        if (order.getStatus() == OrderStatus.shipped || order.getStatus() == OrderStatus.shipping || order.getStatus() == OrderStatus.delivered) {
+        if (lockedOrder.getStatus() == OrderStatus.shipped || lockedOrder.getStatus() == OrderStatus.shipping || lockedOrder.getStatus() == OrderStatus.delivered) {
             throw new AppException("Đơn hàng đã bàn giao bưu cục GHN / đang vận chuyển, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);
         }
-        if (order.getStatus() == OrderStatus.cancelled) {
+        if (lockedOrder.getStatus() == OrderStatus.cancelled) {
             throw new AppException("Đơn hàng này đã bị hủy từ trước.", HttpStatus.BAD_REQUEST);
         }
 
-        order.setStatus(OrderStatus.cancelled);
-        Order savedOrder = orderRepository.save(order);
+        lockedOrder.setStatus(OrderStatus.cancelled);
+        Order savedOrder = orderRepository.save(lockedOrder);
 
-        // Hoàn lại tồn kho sản phẩm
-        rollbackOrderStock(savedOrder);
+        // Hoàn lại tồn kho sản phẩm (Không khôi phục giỏ hàng khi khách chủ động hủy)
+        orderInventoryService.releaseOrderResources(savedOrder, false);
 
         // Cập nhật trạng thái thanh toán
         paymentRepository.findByOrderId(savedOrder.getId()).ifPresent(payment -> {
             if (payment.getStatus() == Payment.PaymentStatus.completed) {
-                payment.setStatus(Payment.PaymentStatus.refunded);
+                if (payment.getPaymentMethod() == Payment.PaymentMethod.vnpay) {
+                    try {
+                        boolean refundResult = vnPayService.refundPayment(payment, savedOrder, DEFAULT_CLIENT_IP, user.getEmail());
+                        if (refundResult) {
+                            payment.setStatus(Payment.PaymentStatus.refunded);
+                        }
+                    } catch (Exception e) {
+                        log.error("Lỗi hoàn tiền tự động khi khách hủy đơn {}: {}", savedOrder.getOrderCode(), e.getMessage());
+                        OrderStatusHistory history = OrderStatusHistory.builder()
+                                .order(savedOrder)
+                                .status(OrderStatus.cancelled.getValue())
+                                .note("Lỗi hoàn tiền tự động VNPay: " + e.getMessage() + ". Cần đối soát thủ công.")
+                                .changedBy(user)
+                                .build();
+                        orderStatusHistoryRepository.save(history);
+                    }
+                } else {
+                    log.warn("Đơn hàng {} có thanh toán (không phải VNPay) đã completed nhưng bị hủy. Chờ xử lý hoàn tiền/đối soát thủ công.", savedOrder.getOrderCode());
+                    // Không đổi sang refunded vì COD/Tiền mặt chưa được hoàn tự động
+                }
             } else if (payment.getStatus() == Payment.PaymentStatus.pending) {
                 payment.setStatus(Payment.PaymentStatus.failed);
             }
@@ -768,96 +793,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         return mapToOrderResponse(savedOrder, items, payment, null);
     }
 
-    /**
-     * Tra cứu bưu cục (Station) GHN gần nhất dựa trên districtId và wardCode.
-     *
-     * API GHN: GET /v2/station/get?district_id={id}&ward_code={code}
-     * Headers bắt buộc: Token, ShopId (nếu có)
-     * Response: locationId, locationName, address, latitude, longitude, ...
-     *
-     * LƯU Ý QUAN TRỌNG: API GHN station/get là GET với query params,
-     * KHÔNG phải POST với request body.
-     */
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private Map<String, Object> fetchNearestGhnStation(Integer districtId, String wardCode) {
-        if (districtId == null) {
-            log.warn("[GHN] Bỏ qua tra cứu trạm: districtId là null");
-            return null;
-        }
-        if (ghnToken == null || ghnToken.isBlank()) {
-            log.warn("[GHN] GHN_TOKEN chưa được cấu hình → bỏ qua tra cứu trạm GHN");
-            return null;
-        }
 
-        try {
-            // Build URL theo đúng ghnApiUrl cấu hình trong application.yml / env
-            String base = (ghnApiUrl != null && !ghnApiUrl.isBlank()) ? ghnApiUrl.trim() : "https://dev-online-gateway.ghn.vn/shiip/public-api/v2";
-            if (!base.endsWith("/")) base = base + "/";
-            String url = base + "station/get";
-
-            log.info("[GHN] Gọi API tra cứu trạm: POST {}", url);
-
-            org.springframework.http.client.SimpleClientHttpRequestFactory factory =
-                    new org.springframework.http.client.SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(4000);
-            factory.setReadTimeout(5000);
-            RestTemplate restTemplate = new RestTemplate(factory);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Token", ghnToken);
-            if (ghnShopId != null && !ghnShopId.isBlank()) {
-                headers.set("ShopId", ghnShopId);
-            }
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            // API /station/get của GHN yêu cầu POST với JSON Body { "district_id": ..., "ward_code": ... }
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("district_id", districtId);
-            if (wardCode != null && !wardCode.isBlank()) {
-                requestBody.put("ward_code", wardCode.trim());
-            }
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
-
-            log.info("[GHN] Kết quả HTTP {}", response.getStatusCode());
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Map<String, Object> body = response.getBody();
-                Object data = body.get("data");
-
-                if (data instanceof List && !((List<?>) data).isEmpty()) {
-                    Map<String, Object> firstStation = (Map<String, Object>) ((List<?>) data).get(0);
-                    log.info("[GHN] Các fields trả về: {}", firstStation.keySet());
-                    log.info("[GHN] Trạm GHN tìm được: name={} | address={} | lat={} | lng={}",
-                            firstStation.get("locationName") != null ? firstStation.get("locationName") : firstStation.get("name"),
-                            firstStation.get("address"),
-                            firstStation.get("latitude") != null ? firstStation.get("latitude") : firstStation.get("lat"),
-                            firstStation.get("longitude") != null ? firstStation.get("longitude") : firstStation.get("lng"));
-                    return firstStation;
-                } else {
-                    log.warn("[GHN] Response data rỗng cho districtId={} | keys: {}",
-                            districtId, body.keySet());
-                }
-            } else {
-                log.warn("[GHN] HTTP {} | body={}", response.getStatusCode(), response.getBody());
-            }
-
-        } catch (org.springframework.web.client.HttpClientErrorException e) {
-            log.error("[GHN] HTTP {} (client error) districtId={}: {} | Response body: {}",
-                    e.getStatusCode(), districtId, e.getMessage(), e.getResponseBodyAsString());
-        } catch (org.springframework.web.client.HttpServerErrorException e) {
-            log.error("[GHN] HTTP {} (server error) districtId={}: {}",
-                    e.getStatusCode(), districtId, e.getMessage());
-        } catch (org.springframework.web.client.ResourceAccessException e) {
-            log.error("[GHN] Timeout/Connection lỗi districtId={}: {}", districtId, e.getMessage());
-        } catch (Exception e) {
-            log.error("[GHN] Lỗi không xác định districtId={}: {} - {}",
-                    districtId, e.getClass().getSimpleName(), e.getMessage(), e);
-        }
-
-        return null;
-    }
 
     /**
      * Tính phí giao hàng GHN từ Kho AP Sports ĐHCT (Ninh Kiều, Cần Thơ - districtId=1442, wardCode="21211")

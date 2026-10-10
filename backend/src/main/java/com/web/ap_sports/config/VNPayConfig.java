@@ -27,6 +27,9 @@ public class VNPayConfig {
     @Value("${app.vnpay.return-url:http://localhost:3000/checkout/vnpay-return}")
     private String vnpReturnUrl;
 
+    @Value("${app.vnpay.api-url:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}")
+    private String vnpApiUrl;
+
     public static String hmacSHA512(final String key, final String data) {
         try {
             if (key == null || data == null) {
@@ -60,6 +63,11 @@ public class VNPayConfig {
             String fieldName = itr.next();
             String fieldValue = vnpParams.get(fieldName);
             if ((fieldValue != null) && (!fieldValue.isEmpty())) {
+                if (hashData.length() > 0) {
+                    hashData.append('&');
+                    query.append('&');
+                }
+                
                 // Build hash data
                 hashData.append(fieldName);
                 hashData.append('=');
@@ -69,16 +77,14 @@ public class VNPayConfig {
                 query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
                 query.append('=');
                 query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-
-                if (itr.hasNext()) {
-                    query.append('&');
-                    hashData.append('&');
-                }
             }
         }
 
         String queryUrl = query.toString();
         String vnpSecureHash = hmacSHA512(vnpHashSecret, hashData.toString());
+        if (vnpSecureHash == null || vnpSecureHash.isEmpty()) {
+            throw new RuntimeException("Lỗi sinh chữ ký VNPay (hmacSHA512 trả về rỗng).");
+        }
         queryUrl += "&vnp_SecureHash=" + vnpSecureHash;
 
         return vnpPayUrl + "?" + queryUrl;
@@ -93,15 +99,15 @@ public class VNPayConfig {
             String fieldName = itr.next();
             String fieldValue = fields.get(fieldName);
             if ((fieldValue != null) && (!fieldValue.isEmpty())) {
+                if (sb.length() > 0) {
+                    sb.append('&');
+                }
                 try {
                     sb.append(fieldName);
                     sb.append('=');
                     sb.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
                 } catch (UnsupportedEncodingException e) {
                     sb.append(fieldName).append('=').append(fieldValue);
-                }
-                if (itr.hasNext()) {
-                    sb.append('&');
                 }
             }
         }

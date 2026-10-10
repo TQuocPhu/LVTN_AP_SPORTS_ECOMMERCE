@@ -69,8 +69,10 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final UserRepository userRepository;
     private final CouponRepository couponRepository;
     private final com.web.ap_sports.service.common.EmailService emailService;
+    private final com.web.ap_sports.service.common.VNPayService vnPayService;
     private final ApplicationEventPublisher eventPublisher;
     private final InventoryAlertService inventoryAlertService;
+    private final com.web.ap_sports.service.common.OrderInventoryService orderInventoryService;
 
     @Override
     @Transactional(readOnly = true)
@@ -253,23 +255,26 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     @Transactional
     public AdminOrderDetailResponse cancelOrder(Long id, CancelOrderRequest request, String staffEmail) {
         User staff = getUserByEmail(staffEmail);
-        Order order = orderRepository.findById(id)
+        Order lockedOrder = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng ID #" + id, HttpStatus.NOT_FOUND));
 
-        if (order.getStatus() == OrderStatus.shipped || order.getStatus() == OrderStatus.shipping || order.getStatus() == OrderStatus.delivered) {
+        if (lockedOrder.getStatus() == OrderStatus.shipped || lockedOrder.getStatus() == OrderStatus.shipping || lockedOrder.getStatus() == OrderStatus.delivered) {
             throw new AppException("Đơn hàng đã bàn giao bưu cục GHN / đang vận chuyển, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);
         }
-        if (order.getStatus() == OrderStatus.cancelled) {
+        if (lockedOrder.getStatus() == OrderStatus.completed || lockedOrder.getStatus() == OrderStatus.returned) {
+            throw new AppException("Đơn hàng đã hoàn thành hoặc đã trả hàng, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);
+        }
+        if (lockedOrder.getStatus() == OrderStatus.cancelled) {
             throw new AppException("Đơn hàng này đã bị hủy từ trước.", HttpStatus.BAD_REQUEST);
         }
 
-        String oldStatusStr = order.getStatus().getValue();
-        order.setStatus(OrderStatus.cancelled);
-        order.setProcessedByStaff(staff);
-        Order savedOrder = orderRepository.save(order);
+        String oldStatusStr = lockedOrder.getStatus().getValue();
+        lockedOrder.setStatus(OrderStatus.cancelled);
+        lockedOrder.setProcessedByStaff(staff);
+        Order savedOrder = orderRepository.save(lockedOrder);
 
         // Hoàn trả tồn kho cho Product và Variant
-        rollbackOrderStock(savedOrder);
+        orderInventoryService.releaseOrderResources(savedOrder, false);
 
         // Quy tắc cập nhật trạng thái THANH TOÁN khi hủy đơn:
         // - Nếu payment.status = completed (KH đã thanh toán xong, chủ yếu qua VNPay)
@@ -278,9 +283,27 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         //   → Chuyển thành 'failed' (Đơn hủy không thu được tiền)
         paymentRepository.findByOrderId(savedOrder.getId()).ifPresent(payment -> {
             if (payment.getStatus() == Payment.PaymentStatus.completed) {
-                // Đã thanh toán → refund (mô phỏng hoàn tiền VNPay)
-                payment.setStatus(Payment.PaymentStatus.refunded);
-                log.info("Đơn #{}: hủy sau khi đã thanh toán → payment chuyển thành REFUNDED.", savedOrder.getOrderCode());
+                if (payment.getPaymentMethod() == Payment.PaymentMethod.vnpay) {
+                    try {
+                        boolean refundResult = vnPayService.refundPayment(payment, savedOrder, "127.0.0.1", staff.getEmail());
+                        if (refundResult) {
+                            payment.setStatus(Payment.PaymentStatus.refunded);
+                            log.info("Đơn #{}: hủy sau khi đã thanh toán → payment chuyển thành REFUNDED.", savedOrder.getOrderCode());
+                        }
+                    } catch (Exception e) {
+                        log.error("Lỗi hoàn tiền khi Admin hủy đơn {}: {}", savedOrder.getOrderCode(), e.getMessage());
+                        OrderStatusHistory history = OrderStatusHistory.builder()
+                                .order(savedOrder)
+                                .status(OrderStatus.cancelled.getValue())
+                                .note("Lỗi hoàn tiền tự động VNPay: " + e.getMessage() + ". Cần đối soát thủ công.")
+                                .changedBy(staff)
+                                .build();
+                        orderStatusHistoryRepository.save(history);
+                    }
+                } else {
+                    // Đã thanh toán qua phương thức khác (COD) → không tự động refund vì Admin thu tay
+                    log.info("Đơn #{}: hủy sau khi đã đánh dấu completed (COD) → chờ hoàn tiền/đối soát thủ công.", savedOrder.getOrderCode());
+                }
             } else if (payment.getStatus() == Payment.PaymentStatus.pending) {
                 // Chưa thanh toán → hủy đơn thì cũng hủy luôn payment
                 payment.setStatus(Payment.PaymentStatus.failed);
@@ -325,45 +348,6 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         log.info("Admin đã kích hoạt gửi Hóa đơn điện tử E-Invoice cho đơn hàng #{}, email: {}", detail.getOrderCode(), targetEmail);
     }
 
-    /**
-     * Hoàn trả tồn kho khi đơn hàng bị hủy hoặc thanh toán thất bại.
-     * Áp dụng cho cả Product tổng và ProductVariant.
-     */
-    private void rollbackOrderStock(Order order) {
-        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-        for (OrderItem item : items) {
-            if (item.getProduct() != null) {
-                Product product = item.getProduct();
-                int currentStock = product.getStock() != null ? product.getStock() : 0;
-                int restoredStock = currentStock + item.getQuantity();
-                product.setStock(restoredStock);
-                if ("out_of_stock".equals(product.getStatus()) && restoredStock > 0) {
-                    product.setStatus("in_stock");
-                }
-                productRepository.save(product);
-                log.debug("Hoàn kho sản phẩm [{}]: {} → {}", product.getId(), currentStock, restoredStock);
-            }
-            if (item.getVariant() != null) {
-                ProductVariant variant = item.getVariant();
-                int currentVariantStock = variant.getStockQuantity() != null ? variant.getStockQuantity() : 0;
-                int newVariantStock = currentVariantStock + item.getQuantity();
-                variant.setStockQuantity(newVariantStock);
-                inventoryAlertService.checkAndAlert(variant, currentVariantStock, newVariantStock);
-                productVariantRepository.save(variant);
-            }
-        }
-
-        if (order.getCoupon() != null) {
-            com.web.ap_sports.entity.Coupon coupon = order.getCoupon();
-            int used = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
-            if (used > 0) {
-                coupon.setUsedCount(used - 1);
-                couponRepository.save(coupon);
-                log.info("Admin hoàn trả lượt dùng mã giảm giá [{}] cho đơn hàng #{}: {} -> {}",
-                        coupon.getCode(), order.getOrderCode(), used, used - 1);
-            }
-        }
-    }
 
     private Specification<Order> buildSpecification(AdminOrderFilterRequest filter) {
         return (root, query, cb) -> {

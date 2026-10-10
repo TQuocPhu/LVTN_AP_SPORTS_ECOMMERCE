@@ -1,6 +1,7 @@
 package com.web.ap_sports.service.common;
 
 import com.web.ap_sports.entity.Order;
+import com.web.ap_sports.entity.Payment;
 import java.util.Map;
 
 public interface VNPayService {
@@ -13,4 +14,9 @@ public interface VNPayService {
      * Xác thực chữ ký checksum IPN/Callback từ VNPay
      */
     boolean verifyChecksum(Map<String, String> queryParams);
+
+    /**
+     * Gửi yêu cầu hoàn tiền tới VNPay
+     */
+    boolean refundPayment(Payment payment, Order order, String clientIp, String createBy);
 }

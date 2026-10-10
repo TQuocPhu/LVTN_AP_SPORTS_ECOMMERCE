@@ -17,7 +17,21 @@ import com.web.ap_sports.enums.OrderStatus;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecificationExecutor<Order> {
     Optional<Order> findByOrderCode(String orderCode);
+    
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.orderCode = :orderCode")
+    Optional<Order> findByOrderCodeForUpdate(@org.springframework.data.repository.query.Param("orderCode") String orderCode);
+    
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.id = :id")
+    Optional<Order> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") Long id);
+    
     Optional<Order> findByIdAndUserId(Long id, Long userId);
+    
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.orderCode = :orderCode AND o.user.id = :userId")
+    Optional<Order> findByOrderCodeAndUserIdForUpdate(@org.springframework.data.repository.query.Param("orderCode") String orderCode, @org.springframework.data.repository.query.Param("userId") Long userId);
+    
     Optional<Order> findByOrderCodeAndUserId(String orderCode, Long userId);
     Page<Order> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
     Page<Order> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, OrderStatus status, Pageable pageable);

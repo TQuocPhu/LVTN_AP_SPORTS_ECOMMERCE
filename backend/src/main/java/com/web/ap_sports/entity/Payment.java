@@ -53,6 +53,9 @@ public class Payment {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "vnp_pay_date")
+    private String vnpPayDate;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
