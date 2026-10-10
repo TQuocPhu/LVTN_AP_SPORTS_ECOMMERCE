@@ -58,10 +58,10 @@ export function CarrierLogisticsPortalContentUI() {
               <RefreshCw className="w-3.5 h-3.5" /> Làm Mới
             </button>
             <Link
-              href="/demo/shipper-app"
+              href="/demo"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-blue-800 hover:bg-blue-50 font-black text-xs shadow-sm transition-all"
             >
-              <span>Sang Portal 3: App Shipper Giao Hàng</span>
+              <span>Về Sảnh Chờ (Dashboard)</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>

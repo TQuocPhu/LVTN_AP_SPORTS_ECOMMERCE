@@ -60,10 +60,10 @@ export function GhnStationPortalContentUI() {
               <RefreshCw className="w-3.5 h-3.5" /> Làm Mới
             </button>
             <Link
-              href="/demo/carrier-logistics"
+              href="/demo"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-orange-700 hover:bg-orange-50 font-black text-xs shadow-sm transition-all"
             >
-              <span>Sang Portal 2: Trung Tâm Vận Chuyển</span>
+              <span>Về Sảnh Chờ (Dashboard)</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
