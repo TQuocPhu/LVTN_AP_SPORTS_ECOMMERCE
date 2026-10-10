@@ -101,10 +101,12 @@ public class DataInitializer implements CommandLineRunner {
         assignPermissionToRole(customerRole, pCustomerStorefront);
 
         // 7. Phân quyền cho Vai Trò GHN_STATION (Quyền quản lý vận chuyển logistics)
-        assignPermissionToRole(ghnStationRole, pOrderMgmt);
+        Permission pLogisticsStation = getOrCreatePermission("LOGISTICS_STATION_ACCESS");
+        assignPermissionToRole(ghnStationRole, pLogisticsStation);
 
         // 8. Phân quyền cho Vai Trò GHN_SHIPPER (Quyền giao hàng Shipper)
-        assignPermissionToRole(ghnShipperRole, pOrderMgmt);
+        Permission pLogisticsShipper = getOrCreatePermission("LOGISTICS_SHIPPER_ACCESS");
+        assignPermissionToRole(ghnShipperRole, pLogisticsShipper);
 
         log.info("Khởi tạo thành công dữ liệu mẫu cho bảng roles, permissions và role_permissions.");
     }
@@ -121,8 +123,9 @@ public class DataInitializer implements CommandLineRunner {
         getOrCreateUser("staff@example.com", "Staff@123", "Nhân Viên Bán Hàng", staffRole);
         getOrCreateUser("warehouse@example.com", "Warehouse@123", "Quản Lý Kho", warehouseRole);
         getOrCreateUser("customer@example.com", "Customer@123", "Khách Hàng Mẫu", customerRole);
-        getOrCreateUser("ghn_station@apsports.com", "GhnStation@123", "Bưu Cục Vận Chuyển GHN Express", ghnStationRole);
-        getOrCreateUser("ghn_shipper@apsports.com", "GhnShipper@123", "Shipper Nguyễn Văn Nam (GHN Express)", ghnShipperRole);
+        getOrCreateUser("station1@ghn.vn", "Station@123", "Quản lý Bưu Cục Port 1 (GHN)", ghnStationRole);
+        getOrCreateUser("station2@ghn.vn", "Station@123", "Quản lý Bưu Cục Port 2 (GHN)", ghnStationRole);
+        getOrCreateUser("shipper@ghn.vn", "Shipper@123", "Tài xế/Giao hàng (GHN Shipper)", ghnShipperRole);
 
         log.info("Khởi tạo thành công dữ liệu người dùng mẫu mặc định.");
     }

@@ -95,7 +95,7 @@ public class SecurityConfig {
                         "/api/v1/locations/**",
                         "/api/v1/reviews/product/**",
                         "/api/v1/reviews/summary/**",
-                        "/api/v1/demo/logistics/**",
+                        "/api/v1/demo/logistics/auth/login",
                         "/ws/**",
                         "/h2-console/**"
                 ).permitAll()
@@ -152,7 +152,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-Client-Type", "X-Demo-Key", "Accept"));
+        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-Client-Type", "Accept"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

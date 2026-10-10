@@ -17,6 +17,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Set;
@@ -35,39 +39,41 @@ import java.util.Set;
  */
 @RestController
 @RequestMapping("/api/v1/demo/logistics")
-@ConditionalOnProperty(name = "app.demo.logistics.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class DemoLogisticsController {
 
-    private static final String DEMO_KEY_HEADER = "X-Demo-Key";
     private static final int MAX_PAGE_SIZE = 50;
 
     private static final Set<String> VIEWABLE_STATUSES = Set.of("processing", "shipped", "shipping", "delivered");
-    private static final Set<String> ALLOWED_TARGET_STATUSES = Set.of("shipped", "shipping", "delivered");
-
-    private static final String STATION_ACCOUNT_EMAIL = "ghn_station@apsports.com";
-    private static final String SHIPPER_ACCOUNT_EMAIL = "ghn_shipper@apsports.com";
 
     private final AdminOrderService adminOrderService;
-
-    @Value("${app.demo.logistics.key}")
-    private String demoKey;
 
     /**
      * Lấy danh sách đơn hàng mô phỏng theo trạng thái vận chuyển (processing, shipped, shipping, delivered)
      */
     @GetMapping("/orders")
+    @PreAuthorize("hasAnyRole('GHN_STATION', 'GHN_SHIPPER')")
     public ResponseEntity<ApiResponse<Page<AdminOrderDetailResponse>>> getDemoOrders(
-            @RequestHeader(value = DEMO_KEY_HEADER, required = false) String providedKey,
             @RequestParam String status,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size) {
-        verifyDemoKey(providedKey);
-
+        
         String normalizedStatus = status == null ? "" : status.trim().toLowerCase();
         if (!VIEWABLE_STATUSES.contains(normalizedStatus)) {
             throw new AppException("Portal mô phỏng chỉ được xem đơn ở trạng thái: " + VIEWABLE_STATUSES, HttpStatus.BAD_REQUEST);
+        }
+
+        // Kiểm tra quyền nghiêm ngặt khi lấy danh sách
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isStation = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GHN_STATION"));
+        boolean isShipper = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GHN_SHIPPER"));
+
+        if (("processing".equals(normalizedStatus) || "shipped".equals(normalizedStatus)) && !isStation) {
+            throw new AppException("Chỉ quản lý bưu cục (GHN_STATION) mới được xem danh sách đơn hàng ở trạng thái " + normalizedStatus, HttpStatus.FORBIDDEN);
+        }
+        if ("shipping".equals(normalizedStatus) && !isShipper) {
+            throw new AppException("Chỉ tài xế giao hàng (GHN_SHIPPER) mới được xem danh sách đơn hàng đang đi giao (shipping)", HttpStatus.FORBIDDEN);
         }
 
         log.info("Demo Logistics REST request truy vấn đơn hàng với status: {}", normalizedStatus);
@@ -86,31 +92,32 @@ public class DemoLogisticsController {
      * Cập nhật trạng thái đơn hàng mô phỏng từ các Portal GHN Station, Carrier, Shipper
      */
     @PutMapping("/orders/{id}/status")
+    @PreAuthorize("hasAnyRole('GHN_STATION', 'GHN_SHIPPER')")
     public ResponseEntity<ApiResponse<AdminOrderDetailResponse>> updateDemoOrderStatus(
-            @RequestHeader(value = DEMO_KEY_HEADER, required = false) String providedKey,
             @PathVariable Long id,
-            @Valid @RequestBody UpdateOrderStatusRequest request) {
-        verifyDemoKey(providedKey);
+            @Valid @RequestBody UpdateOrderStatusRequest request,
+            Authentication authentication) {
 
         String targetStatus = request.getStatus() == null ? "" : request.getStatus().trim().toLowerCase();
-        if (!ALLOWED_TARGET_STATUSES.contains(targetStatus)) {
-            throw new AppException("Portal mô phỏng chỉ được chuyển đơn sang: " + ALLOWED_TARGET_STATUSES, HttpStatus.FORBIDDEN);
+        String actorEmail = authentication.getName();
+        
+        // Kiểm tra quyền theo từng hành động
+        if ("shipped".equals(targetStatus) || "shipping".equals(targetStatus)) {
+            if (authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_GHN_STATION"))) {
+                throw new AppException("Chỉ quản lý bưu cục (GHN_STATION) mới được chuyển trạng thái thành " + targetStatus, HttpStatus.FORBIDDEN);
+            }
+        } else if ("delivered".equals(targetStatus)) {
+            if (authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_GHN_SHIPPER"))) {
+                throw new AppException("Chỉ tài xế giao hàng (GHN_SHIPPER) mới được xác nhận giao thành công (delivered)", HttpStatus.FORBIDDEN);
+            }
+        } else {
+            throw new AppException("Portal mô phỏng chỉ được chuyển đơn sang: [shipped, shipping, delivered]", HttpStatus.FORBIDDEN);
         }
-        log.info("Demo Logistics REST request cập nhật đơn #{} sang status [{}]", id, targetStatus);
+        
+        log.info("Demo Logistics REST request cập nhật đơn #{} sang status [{}] bởi {}", id, targetStatus, actorEmail);
 
-        String actorEmail = "delivered".equals(targetStatus) ? SHIPPER_ACCOUNT_EMAIL : STATION_ACCOUNT_EMAIL;
         AdminOrderDetailResponse response = adminOrderService.updateOrderStatus(id, request, actorEmail);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đơn hàng logistics thành công!", maskSensitiveData(response)));
-    }
-
-    private void verifyDemoKey(String providedKey) {
-        boolean valid = providedKey != null && demoKey != null && MessageDigest.isEqual(
-                providedKey.getBytes(StandardCharsets.UTF_8),
-                demoKey.getBytes(StandardCharsets.UTF_8));
-        if (!valid) {
-            log.warn("Demo Logistics: từ chối request thiếu hoặc sai {}", DEMO_KEY_HEADER);
-            throw new AppException("Thiếu hoặc sai khóa truy cập Portal mô phỏng logistics.", HttpStatus.FORBIDDEN);
-        }
     }
 
     private AdminOrderDetailResponse maskSensitiveData(AdminOrderDetailResponse order) {

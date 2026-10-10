@@ -415,20 +415,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     private User getUserByEmail(String email) {
-        if (email != null && !email.isBlank()) {
-            Optional<User> userOpt = userRepository.findByEmail(email);
-            if (userOpt.isPresent()) {
-                return userOpt.get();
-            }
+        if (email == null || email.isBlank()) {
+            throw new AppException("Email người thao tác không hợp lệ (null hoặc rỗng).", HttpStatus.BAD_REQUEST);
         }
-        // Fallback cho Hệ thống / Mô phỏng Logistics: Ưu tiên lấy tài khoản Bưu Cục GHN Express (Role GHN_STATION)
-        return userRepository.findAll().stream()
-                .filter(u -> u.getRole() != null && ("GHN_STATION".equalsIgnoreCase(u.getRole().getName()) || "ROLE_GHN_STATION".equalsIgnoreCase(u.getRole().getName())))
-                .findFirst()
-                .orElseGet(() -> userRepository.findAll().stream()
-                        .filter(u -> u.getRole() != null && ("ROLE_ADMIN".equalsIgnoreCase(u.getRole().getName()) || "ADMIN".equalsIgnoreCase(u.getRole().getName()) || "ROLE_STAFF".equalsIgnoreCase(u.getRole().getName()) || "STAFF".equalsIgnoreCase(u.getRole().getName())))
-                        .findFirst()
-                        .orElseGet(() -> userRepository.findAll().stream().findFirst().orElse(null)));
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException("Không tìm thấy người thao tác với email: " + email, HttpStatus.NOT_FOUND));
     }
 
     private AdminOrderDetailResponse mapToAdminOrderDetailResponse(Order order) {
