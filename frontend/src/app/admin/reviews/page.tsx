@@ -17,6 +17,9 @@ export default function AdminReviewsPage() {
     replyText,
     setReplyText,
     isSubmittingReply,
+    zoomImageUrl,
+    openZoomModal,
+    closeZoomModal,
     setPage,
     setStatusFilter,
     setRatingFilter,
@@ -35,6 +38,9 @@ export default function AdminReviewsPage() {
         totalPages={totalPages}
         totalElements={totalElements}
         isLoading={isLoading}
+        zoomImageUrl={zoomImageUrl}
+        onZoomImage={openZoomModal}
+        onCloseZoomModal={closeZoomModal}
         onPageChange={setPage}
         onStatusFilter={setStatusFilter}
         onRatingFilter={setRatingFilter}

@@ -10,6 +10,13 @@ export interface Review {
   repliedAt?: string;
   createdAt: string;
   verifiedPurchase: boolean;
+  variantId?: number;
+  variantSku?: string;
+  variantColor?: string;
+  variantSize?: string;
+  variantSummary?: string;
+  attributes?: string;
+  variantAttributes?: string;
 }
 
 export interface ProductReviewSummary {
@@ -47,6 +54,13 @@ export interface AdminReviewDetail {
   repliedAt?: string;
   status: 'approved' | 'hidden' | string;
   createdAt: string;
+  variantId?: number;
+  variantSku?: string;
+  variantColor?: string;
+  variantSize?: string;
+  variantSummary?: string;
+  attributes?: string;
+  variantAttributes?: string;
 }
 
 export interface AdminReviewFilterRequest {

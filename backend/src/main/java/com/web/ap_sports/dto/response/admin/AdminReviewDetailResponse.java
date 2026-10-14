@@ -26,4 +26,11 @@ public class AdminReviewDetailResponse {
     private LocalDateTime repliedAt;
     private String status;
     private LocalDateTime createdAt;
+    private Long variantId;
+    private String variantSku;
+    private String variantColor;
+    private String variantSize;
+    private String variantSummary;
+    private String attributes;
+    private String variantAttributes;
 }

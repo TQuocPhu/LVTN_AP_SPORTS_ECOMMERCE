@@ -5,6 +5,7 @@ import { MessageSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AdminReviewDetail, AdminReviewFilterRequest } from '@/types/review';
 import { AdminReviewFilterToolbar } from './AdminReviewFilterToolbar';
 import { AdminReviewTableRow } from './AdminReviewTableRow';
+import { AdminReviewImageModal } from './AdminReviewImageModal';
 
 interface AdminReviewListUIProps {
   reviews: AdminReviewDetail[];
@@ -12,6 +13,9 @@ interface AdminReviewListUIProps {
   totalPages: number;
   totalElements: number;
   isLoading: boolean;
+  zoomImageUrl?: string | null;
+  onZoomImage?: (url: string) => void;
+  onCloseZoomModal?: () => void;
   onPageChange: (page: number) => void;
   onStatusFilter: (status: string) => void;
   onRatingFilter: (rating?: number) => void;
@@ -26,6 +30,9 @@ export const AdminReviewListUI: React.FC<AdminReviewListUIProps> = ({
   totalPages,
   totalElements,
   isLoading,
+  zoomImageUrl = null,
+  onZoomImage,
+  onCloseZoomModal,
   onPageChange,
   onStatusFilter,
   onRatingFilter,
@@ -88,6 +95,7 @@ export const AdminReviewListUI: React.FC<AdminReviewListUIProps> = ({
                     item={item}
                     onOpenReplyModal={onOpenReplyModal}
                     onToggleStatus={onToggleStatus}
+                    onZoomImage={onZoomImage}
                   />
                 ))}
               </tbody>
@@ -120,6 +128,12 @@ export const AdminReviewListUI: React.FC<AdminReviewListUIProps> = ({
           </div>
         )}
       </div>
+
+      {/* 4. Lightbox Modal xem ảnh to và mở ảnh gốc Cloudinary */}
+      <AdminReviewImageModal
+        imageUrl={zoomImageUrl}
+        onClose={onCloseZoomModal || (() => {})}
+      />
     </div>
   );
 };

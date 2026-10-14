@@ -3,6 +3,7 @@
 import React from 'react';
 import { Star, ShieldCheck } from 'lucide-react';
 import { Review } from '@/types/review';
+import { formatVariantSummary } from '@/utils/formatters';
 
 interface ProductReviewCardProps {
   item: Review;
@@ -10,6 +11,12 @@ interface ProductReviewCardProps {
 }
 
 export const ProductReviewCard: React.FC<ProductReviewCardProps> = ({ item, onZoomImage }) => {
+  const variantDisplay = formatVariantSummary(
+    item.variantSummary,
+    item.attributes || item.variantAttributes,
+    item.variantColor,
+    item.variantSize
+  );
   return (
     <div className="p-5 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/60 shadow-2xs transition-colors">
       {/* User Header */}
@@ -55,6 +62,16 @@ export const ProductReviewCard: React.FC<ProductReviewCardProps> = ({ item, onZo
                 • {new Date(item.createdAt).toLocaleDateString('vi-VN')}
               </span>
             </div>
+
+            {/* Thông tin Biến thể (Variant Info) */}
+            {variantDisplay && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs">
+                <span className="text-slate-400 dark:text-slate-500 font-medium text-[11px]">Phân loại:</span>
+                <span className="inline-block bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded text-[11px] font-semibold border border-slate-200/80 dark:border-slate-700">
+                  {variantDisplay}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -17,14 +17,17 @@ import {
 interface CustomerOrderReviewModalUIProps {
   isOpen: boolean;
   selectedOrderItem: OrderItemToReview | null;
+  variantDisplay?: string;
   rating: number;
   setRating: (val: number) => void;
   comment: string;
   setComment: (val: string) => void;
   photoFiles: string[];
-  onAddPhoto: (file: File) => void;
   onRemovePhoto: (index: number) => void;
+  onFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   isSubmitting: boolean;
+  isCompressingPhoto?: boolean;
+  isSubmitDisabled?: boolean;
   onClose: () => void;
   onSubmit: () => void;
 }
@@ -34,25 +37,21 @@ export const CustomerOrderReviewModalUI: React.FC<
 > = ({
   isOpen,
   selectedOrderItem,
+  variantDisplay,
   rating,
   setRating,
   comment,
   setComment,
   photoFiles,
-  onAddPhoto,
   onRemovePhoto,
+  onFileInputChange,
   isSubmitting,
+  isCompressingPhoto = false,
+  isSubmitDisabled = false,
   onClose,
   onSubmit,
 }) => {
   if (!isOpen || !selectedOrderItem) return null;
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onAddPhoto(e.target.files[0]);
-      e.target.value = "";
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -93,11 +92,7 @@ export const CustomerOrderReviewModalUI: React.FC<
                 {selectedOrderItem.productName}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {selectedOrderItem.variantSize &&
-                  `Size: ${selectedOrderItem.variantSize} | `}
-                {selectedOrderItem.variantColor &&
-                  `Màu: ${selectedOrderItem.variantColor} | `}
-                Số lượng: {selectedOrderItem.quantity}
+                {variantDisplay && `${variantDisplay} • `}Số lượng: {selectedOrderItem.quantity}
               </p>
             </div>
           </div>
@@ -187,14 +182,28 @@ export const CustomerOrderReviewModalUI: React.FC<
               ))}
 
               {photoFiles.length < 5 && (
-                <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-amber-500 dark:hover:border-amber-400 bg-slate-50 dark:bg-slate-700/30 flex flex-col items-center justify-center text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 cursor-pointer transition-colors">
-                  <Upload className="w-5 h-5 mb-0.5" />
-                  <span className="text-[10px] font-medium">Thêm ảnh</span>
+                <label className={`w-16 h-16 rounded-lg border-2 border-dashed flex flex-col items-center justify-center transition-colors ${
+                  isCompressingPhoto
+                    ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 text-amber-500 cursor-wait'
+                    : 'border-slate-300 dark:border-slate-600 hover:border-amber-500 dark:hover:border-amber-400 bg-slate-50 dark:bg-slate-700/30 text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 cursor-pointer'
+                }`}>
+                  {isCompressingPhoto ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mb-0.5 animate-spin" />
+                      <span className="text-[9px] font-bold">Đang nén</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 mb-0.5" />
+                      <span className="text-[10px] font-medium">Thêm ảnh</span>
+                    </>
+                  )}
                   <input
                     type="file"
                     accept="image/*"
+                    disabled={isCompressingPhoto}
                     className="hidden"
-                    onChange={handleFileChange}
+                    onChange={onFileInputChange}
                   />
                 </label>
               )}
@@ -215,10 +224,7 @@ export const CustomerOrderReviewModalUI: React.FC<
           <button
             type="button"
             onClick={onSubmit}
-            disabled={
-              isSubmitting ||
-              comment.trim().length < MIN_REVIEW_COMMENT_LENGTH
-            } 
+            disabled={isSubmitDisabled}
             className="flex items-center gap-2 px-5 py-2 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 active:bg-amber-700 rounded-xl shadow-md shadow-amber-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (

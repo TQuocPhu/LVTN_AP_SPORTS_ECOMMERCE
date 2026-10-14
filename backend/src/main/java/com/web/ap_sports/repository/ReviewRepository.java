@@ -48,6 +48,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Long> findReviewedOrderItemIdsByUser(@Param("userId") Long userId, @Param("orderItemIds") List<Long> orderItemIds);
 
     /**
+     * Tìm danh sách OrderItem IDs đã được đánh giá cho danh sách OrderItem IDs truyền vào
+     */
+    @Query("SELECT r.orderItem.id FROM Review r WHERE r.orderItem.id IN :orderItemIds")
+    List<Long> findReviewedOrderItemIds(@Param("orderItemIds") List<Long> orderItemIds);
+
+    /**
      * Tính điểm sao trung bình cho sản phẩm
      */
     @Query("SELECT AVG(r.rating) FROM Review r WHERE r.product.id = :productId AND r.status = 'approved'")

@@ -100,6 +100,17 @@ export function useAdminReviews() {
     }
   };
 
+  // Lightbox Modal xem ảnh to
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+
+  const openZoomModal = (url: string) => {
+    setZoomImageUrl(url);
+  };
+
+  const closeZoomModal = () => {
+    setZoomImageUrl(null);
+  };
+
   return {
     reviews,
     filter,
@@ -111,6 +122,9 @@ export function useAdminReviews() {
     replyText,
     setReplyText,
     isSubmittingReply,
+    zoomImageUrl,
+    openZoomModal,
+    closeZoomModal,
     setPage,
     setStatusFilter,
     setRatingFilter,

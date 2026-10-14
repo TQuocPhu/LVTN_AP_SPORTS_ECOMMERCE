@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -148,6 +149,24 @@ public class AdminReviewServiceImpl implements AdminReviewService {
             productImage = primaryImageByProduct.get(review.getProduct().getId());
         }
 
+        Long variantId = null;
+        String variantSku = null;
+        String variantColor = null;
+        String variantSize = null;
+        String variantSummary = null;
+        String variantAttributes = null;
+
+        if (review.getOrderItem() != null && review.getOrderItem().getVariant() != null) {
+            com.web.ap_sports.entity.ProductVariant v = review.getOrderItem().getVariant();
+            variantId = v.getId();
+            variantSku = v.getSku();
+            variantColor = v.getColor();
+            variantSize = v.getSize();
+            variantAttributes = v.getAttributes();
+            variantSummary = com.web.ap_sports.util.VariantAttributeUtil.buildSummary(
+                    variantAttributes, variantColor, variantSize, variantSku);
+        }
+
         return AdminReviewDetailResponse.builder()
                 .id(review.getId())
                 .userId(review.getUser() != null ? review.getUser().getId() : null)
@@ -165,6 +184,13 @@ public class AdminReviewServiceImpl implements AdminReviewService {
                 .repliedAt(review.getRepliedAt())
                 .status(review.getStatus())
                 .createdAt(review.getCreatedAt())
+                .variantId(variantId)
+                .variantSku(variantSku)
+                .variantColor(variantColor)
+                .variantSize(variantSize)
+                .variantSummary(variantSummary)
+                .attributes(review.getOrderItem() != null && review.getOrderItem().getVariant() != null ? review.getOrderItem().getVariant().getAttributes() : null)
+                .variantAttributes(review.getOrderItem() != null && review.getOrderItem().getVariant() != null ? review.getOrderItem().getVariant().getAttributes() : null)
                 .build();
     }
 }

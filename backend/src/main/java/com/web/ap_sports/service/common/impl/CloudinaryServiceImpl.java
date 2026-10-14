@@ -9,6 +9,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -103,9 +112,13 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         // Kiểm tra nếu là chuỗi Base64 Data URL hoặc chuỗi ảnh dài không phải là HTTP URL
         if (trimmed.startsWith("data:") || (!trimmed.startsWith("http://") && !trimmed.startsWith("https://") && trimmed.length() > 200)) {
             try {
-                log.info("Đang tải ảnh Base64 lên Cloudinary thư mục: {}", folder);
+                log.info("Đang xử lý & tải ảnh Base64 lên Cloudinary thư mục: {}", folder);
+                // Gọi hàm nén & thu nhỏ ảnh độc lập bên ngoài trước khi upload
+                byte[] optimizedBytes = optimizeAndResizeImageBase64(trimmed);
+                Object uploadPayload = (optimizedBytes != null && optimizedBytes.length > 0) ? optimizedBytes : trimmed;
+
                 Map<?, ?> uploadResult = cloudinary.uploader().upload(
-                        trimmed,
+                        uploadPayload,
                         ObjectUtils.asMap(
                                 "folder", folder,
                                 "overwrite", false,
@@ -121,6 +134,88 @@ public class CloudinaryServiceImpl implements CloudinaryService {
             }
         }
         return trimmed;
+    }
+
+    /**
+     * Hàm phụ trợ độc lập: Tự động thu nhỏ (resize) & nén ảnh JPEG chất lượng cao trước khi đẩy lên Cloudinary.
+     * Tách riêng hoàn toàn để dễ kiểm soát, phục vụ đồng bộ cho cả Web và Mobile App sau này.
+     * 
+     * @param base64Source Chuỗi data URL (data:image/...;base64,...) hoặc chuỗi base64 thô
+     * @return Mảng byte ảnh đã nén/resize hoặc mảng byte gốc nếu không cần nén / lỗi fallback
+     */
+    private byte[] optimizeAndResizeImageBase64(String base64Source) {
+        try {
+            String base64Data = base64Source;
+            int commaIdx = base64Source.indexOf(',');
+            if (commaIdx >= 0) {
+                base64Data = base64Source.substring(commaIdx + 1);
+            }
+            byte[] rawBytes = Base64.getDecoder().decode(base64Data.trim());
+
+            // Nếu ảnh ban đầu đã nhẹ sẵn (< 300KB), giữ nguyên để tiết kiệm chu kỳ CPU
+            if (rawBytes.length < 300 * 1024) {
+                return rawBytes;
+            }
+
+            BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(rawBytes));
+            if (originalImage == null) {
+                return rawBytes;
+            }
+
+            int originWidth = originalImage.getWidth();
+            int originHeight = originalImage.getHeight();
+            int maxDimension = 1280;
+
+            int targetWidth = originWidth;
+            int targetHeight = originHeight;
+
+            if (originWidth > maxDimension || originHeight > maxDimension) {
+                double ratio = Math.min((double) maxDimension / originWidth, (double) maxDimension / originHeight);
+                targetWidth = (int) Math.round(originWidth * ratio);
+                targetHeight = (int) Math.round(originHeight * ratio);
+            }
+
+            // Dùng BufferedImage TYPE_INT_RGB để tương thích chuẩn khi ghi file JPEG (tránh lỗi kênh Alpha)
+            BufferedImage resizedImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g2d = resizedImage.createGraphics();
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.drawImage(originalImage, 0, 0, targetWidth, targetHeight, null);
+            g2d.dispose();
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
+            if (writers.hasNext()) {
+                ImageWriter writer = writers.next();
+                try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                    writer.setOutput(ios);
+                    ImageWriteParam param = writer.getDefaultWriteParam();
+                    if (param.canWriteCompressed()) {
+                        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                        param.setCompressionQuality(0.80f); // 80% JPEG quality
+                    }
+                    writer.write(null, new javax.imageio.IIOImage(resizedImage, null, null), param);
+                } finally {
+                    writer.dispose();
+                }
+                byte[] optimized = baos.toByteArray();
+                log.info("⚡ Đã tối ưu ảnh trước khi upload: {} KB -> {} KB (Resize: {}x{} -> {}x{})",
+                        rawBytes.length / 1024, optimized.length / 1024, originWidth, originHeight, targetWidth, targetHeight);
+                return optimized;
+            } else {
+                ImageIO.write(resizedImage, "jpg", baos);
+                return baos.toByteArray();
+            }
+        } catch (Exception ex) {
+            log.warn("Không thể tối ưu ảnh Base64 trước upload, sử dụng dữ liệu gốc: {}", ex.getMessage());
+            try {
+                String base64Data = base64Source.contains(",") ? base64Source.substring(base64Source.indexOf(',') + 1) : base64Source;
+                return Base64.getDecoder().decode(base64Data.trim());
+            } catch (Exception e) {
+                return null;
+            }
+        }
     }
 
     @Override

@@ -3,18 +3,28 @@
 import React from 'react';
 import { Star, Eye, EyeOff, CheckCircle2, CornerDownRight } from 'lucide-react';
 import { AdminReviewDetail } from '@/types/review';
+import { formatVariantSummary } from '@/utils/formatters';
 
 interface AdminReviewTableRowProps {
   item: AdminReviewDetail;
   onOpenReplyModal: (review: AdminReviewDetail) => void;
   onToggleStatus: (reviewId: number) => void;
+  onZoomImage?: (url: string) => void;
 }
 
 export const AdminReviewTableRow: React.FC<AdminReviewTableRowProps> = ({
   item,
   onOpenReplyModal,
   onToggleStatus,
+  onZoomImage,
 }) => {
+  const variantDisplay = formatVariantSummary(
+    item.variantSummary,
+    item.attributes || item.variantAttributes,
+    item.variantColor,
+    item.variantSize
+  );
+
   return (
     <tr className="hover:bg-slate-50/60 transition-colors">
       {/* User */}
@@ -26,13 +36,22 @@ export const AdminReviewTableRow: React.FC<AdminReviewTableRowProps> = ({
         </div>
       </td>
 
-      {/* Product */}
-      <td className="py-4 px-4 align-top max-w-[200px]">
-        <div className="font-semibold text-slate-800 truncate" title={item.productName}>
+      {/* Product & Variant */}
+      <td className="py-4 px-4 align-top max-w-[220px]">
+        <div className="font-semibold text-slate-800 line-clamp-2" title={item.productName}>
           {item.productName || `SP #${item.productId}`}
         </div>
-        <div className="text-[11px] text-slate-500 mt-0.5">
-          Mục đơn: #{item.orderItemId}
+        {variantDisplay && (
+          <div className="mt-1">
+            <span className="inline-block px-2 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200 text-[10px] font-bold">
+              {variantDisplay}
+            </span>
+          </div>
+        )}
+        <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
+          {item.variantSku && <span>SKU: {item.variantSku}</span>}
+          {item.variantSku && <span>•</span>}
+          <span>Mục: #{item.orderItemId}</span>
         </div>
       </td>
 
@@ -65,21 +84,33 @@ export const AdminReviewTableRow: React.FC<AdminReviewTableRowProps> = ({
         )}
       </td>
 
-      {/* Images */}
+      {/* Images with Lightbox Trigger */}
       <td className="py-4 px-4 align-top">
         {item.imageUrls && item.imageUrls.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 max-w-[120px]">
+          <div className="flex flex-wrap gap-1.5 max-w-[130px]">
             {item.imageUrls.map((img, idx) => (
-              <img
+              <button
                 key={idx}
-                src={img}
-                alt="Review att"
-                className="w-10 h-10 object-cover rounded border border-slate-200"
-              />
+                type="button"
+                onClick={() => onZoomImage?.(img)}
+                title="Bấm để phóng to ảnh và xem ảnh gốc"
+                className="group relative w-11 h-11 rounded-lg overflow-hidden border border-slate-200 hover:border-orange-500 hover:shadow-md transition-all focus:outline-none"
+              >
+                <img
+                  src={img}
+                  alt={`Review att ${idx + 1}`}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-colors">
+                  <span className="opacity-0 group-hover:opacity-100 text-white text-[9px] font-bold drop-shadow">
+                    🔍
+                  </span>
+                </div>
+              </button>
             ))}
           </div>
         ) : (
-          <span className="text-slate-400 italic">Không có ảnh</span>
+          <span className="text-slate-400 italic text-[11px]">Không có ảnh</span>
         )}
       </td>
 

@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -109,7 +110,9 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
             throw new IllegalArgumentException("Mục đơn hàng này đã được gửi đánh giá trước đó");
         }
 
-        // 8. Lưu các hình ảnh đính kèm
+        // 8. Lưu các hình ảnh đính kèm (giống luồng ảnh sản phẩm: lưu qua Repository,
+        // KHÔNG setImages() vào collection orphanRemoval của entity)
+        List<String> savedImageUrls = new ArrayList<>();
         if (!uploadedCloudinaryUrls.isEmpty()) {
             List<ReviewImage> reviewImages = uploadedCloudinaryUrls.stream()
                     .map(url -> ReviewImage.builder()
@@ -117,8 +120,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                             .imageUrl(url)
                             .build())
                     .collect(Collectors.toList());
-            reviewImageRepository.saveAll(reviewImages);
-            savedReview.setImages(reviewImages);
+            reviewImageRepository.saveAll(reviewImages).forEach(img -> savedImageUrls.add(img.getImageUrl()));
         }
 
         log.info("Tạo mới thành công bài đánh giá ID: {} cho sản phẩm ID: {} từ khách hàng: {}",
@@ -132,7 +134,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                 .customerId(user.getId())
                 .build());
 
-        return mapToReviewResponse(savedReview);
+        return mapToReviewResponse(savedReview, savedImageUrls);
     }
 
     @Override
@@ -201,6 +203,27 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
         List<String> imageUrls = review.getImages() != null ?
                 review.getImages().stream().map(ReviewImage::getImageUrl).collect(Collectors.toList())
                 : Collections.emptyList();
+        return mapToReviewResponse(review, imageUrls);
+    }
+
+    private ReviewResponse mapToReviewResponse(Review review, List<String> imageUrls) {
+        Long variantId = null;
+        String variantSku = null;
+        String variantColor = null;
+        String variantSize = null;
+        String variantSummary = null;
+        String variantAttributes = null;
+
+        if (review.getOrderItem() != null && review.getOrderItem().getVariant() != null) {
+            ProductVariant v = review.getOrderItem().getVariant();
+            variantId = v.getId();
+            variantSku = v.getSku();
+            variantColor = v.getColor();
+            variantSize = v.getSize();
+            variantAttributes = v.getAttributes();
+            variantSummary = com.web.ap_sports.util.VariantAttributeUtil.buildSummary(
+                    variantAttributes, variantColor, variantSize, variantSku);
+        }
 
         return ReviewResponse.builder()
                 .id(review.getId())
@@ -214,6 +237,13 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                 .repliedAt(review.getRepliedAt())
                 .createdAt(review.getCreatedAt())
                 .verifiedPurchase(review.getOrderItem() != null)
+                .variantId(variantId)
+                .variantSku(variantSku)
+                .variantColor(variantColor)
+                .variantSize(variantSize)
+                .variantSummary(variantSummary)
+                .attributes(review.getOrderItem() != null && review.getOrderItem().getVariant() != null ? review.getOrderItem().getVariant().getAttributes() : null)
+                .variantAttributes(review.getOrderItem() != null && review.getOrderItem().getVariant() != null ? review.getOrderItem().getVariant().getAttributes() : null)
                 .build();
     }
 }
