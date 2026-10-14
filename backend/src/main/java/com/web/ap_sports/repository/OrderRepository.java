@@ -44,4 +44,19 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
 
     @Query("SELECT SUM(o.finalAmount) FROM Order o WHERE o.status = com.web.ap_sports.enums.OrderStatus.delivered OR o.status = com.web.ap_sports.enums.OrderStatus.completed")
     BigDecimal sumDeliveredRevenue();
+
+    @Query("SELECT o FROM Order o " +
+           "LEFT JOIN FETCH o.processedByStaff " +
+           "LEFT JOIN FETCH o.user " +
+           "WHERE (CAST(:fromDate AS java.time.LocalDateTime) IS NULL OR o.createdAt >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.LocalDateTime) IS NULL OR o.createdAt <= :toDate) " +
+           "AND (:staffId IS NULL OR (o.processedByStaff IS NOT NULL AND o.processedByStaff.id = :staffId)) " +
+           "ORDER BY o.createdAt ASC")
+    List<Order> findOrdersForReport(
+            @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDateTime fromDate,
+            @org.springframework.data.repository.query.Param("toDate") java.time.LocalDateTime toDate,
+            @org.springframework.data.repository.query.Param("staffId") Long staffId
+    );
+
+    Page<Order> findByProcessedByStaffIdOrderByCreatedAtDesc(Long staffId, Pageable pageable);
 }
