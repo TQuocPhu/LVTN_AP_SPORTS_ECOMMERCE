@@ -312,16 +312,25 @@ export function DashboardBiCharts({
   const renderCohortMatrix = () => {
     if (!cohortData || cohortData.length === 0) {
       return (
-        <div className="h-64 flex items-center justify-center text-slate-700 text-xs">
-          Chưa có dữ liệu phân tích giữ chân khách hàng.
+        <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-xs gap-2 p-6 text-center">
+          <Users2 className="w-10 h-10 text-slate-300 stroke-[1.5]" />
+          <span className="font-bold text-slate-700 text-sm">Chưa đủ dữ liệu chu kỳ khách hàng quay lại mua sắm</span>
+          <p className="text-[11px] text-slate-500 max-w-md">
+            Hệ thống phân tích giữ chân (Cohort Retention) tự động theo dõi và ghi nhận khi các khách hàng hiện tại phát sinh đơn hàng thứ 2, thứ 3 sau 30-60-90 ngày kể từ đơn đầu tiên.
+          </p>
         </div>
       );
     }
 
     return (
       <div className="space-y-4">
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
-          Phân tích <strong>Cohort Retention</strong> theo dõi tỷ lệ phần trăm khách hàng có đơn mua đầu tiên quay trở lại mua sắm đồ thể thao tại AP SPORTS sau 30, 60 và 90 ngày.
+        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 flex items-center justify-between">
+          <span>
+            Phân tích <strong>Cohort Retention</strong> theo dõi tỷ lệ phần trăm khách hàng có đơn mua đầu tiên quay trở lại mua sắm đồ thể thao tại AP SPORTS sau 30, 60 và 90 ngày.
+          </span>
+          <span className="font-extrabold text-slate-800 bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-[11px]">
+            {cohortData.length} nhóm kỳ ghi nhận
+          </span>
         </div>
 
         <div className="overflow-x-auto">
@@ -343,30 +352,30 @@ export function DashboardBiCharts({
                     {c.totalFirstTimeCustomers} khách
                   </td>
                   <td className="py-3 px-3 text-center">
-                    {c.retentionDay30Percent !== null ? (
+                    {c.retentionDay30Percent !== null && c.retentionDay30Percent > 0 ? (
                       <span className="inline-block px-2.5 py-1 rounded-lg font-bold bg-emerald-100 text-emerald-800 text-xs">
                         {c.retentionDay30Percent}%
                       </span>
                     ) : (
-                      <span className="text-slate-700 font-semibold">Đang theo dõi</span>
+                      <span className="text-slate-400 font-medium text-[11px]">Đang theo dõi</span>
                     )}
                   </td>
                   <td className="py-3 px-3 text-center">
-                    {c.retentionDay60Percent !== null ? (
+                    {c.retentionDay60Percent !== null && c.retentionDay60Percent > 0 ? (
                       <span className="inline-block px-2.5 py-1 rounded-lg font-bold bg-sky-100 text-sky-800 text-xs">
                         {c.retentionDay60Percent}%
                       </span>
                     ) : (
-                      <span className="text-slate-700 font-semibold">---</span>
+                      <span className="text-slate-400 font-medium text-[11px]">---</span>
                     )}
                   </td>
                   <td className="py-3 px-3 text-center">
-                    {c.retentionDay90Percent !== null ? (
+                    {c.retentionDay90Percent !== null && c.retentionDay90Percent > 0 ? (
                       <span className="inline-block px-2.5 py-1 rounded-lg font-bold bg-indigo-100 text-indigo-800 text-xs">
                         {c.retentionDay90Percent}%
                       </span>
                     ) : (
-                      <span className="text-slate-700 font-semibold">---</span>
+                      <span className="text-slate-400 font-medium text-[11px]">---</span>
                     )}
                   </td>
                 </tr>

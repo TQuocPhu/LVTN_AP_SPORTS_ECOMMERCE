@@ -62,12 +62,18 @@ export function DashboardScorecards({
             <div className="text-2xl font-black text-slate-900 tracking-tight">
               {formatCurrency(adminData.grossRevenue)}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-700 font-bold">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-[11px]">
-                <ArrowUpRight className="w-3 h-3 mr-0.5" /> +{adminData.revenueGrowthPercent}%
-              </span>
-              <span className="text-slate-700 font-normal">so với tháng trước</span>
-            </div>
+            {adminData.revenueGrowthPercent !== null && adminData.revenueGrowthPercent !== undefined ? (
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-700 font-bold">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-[11px]">
+                  <ArrowUpRight className="w-3 h-3 mr-0.5" /> +{adminData.revenueGrowthPercent}%
+                </span>
+                <span className="text-slate-700 font-normal">so với tháng trước</span>
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-slate-700">
+                Toàn bộ doanh thu tích lũy hệ thống
+              </div>
+            )}
           </div>
         </div>
 
@@ -83,12 +89,18 @@ export function DashboardScorecards({
             <div className="text-2xl font-black text-slate-900 tracking-tight">
               {adminData.totalOrders.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-700">đơn</span>
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-700 font-bold">
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-[11px]">
-                <ArrowUpRight className="w-3 h-3 mr-0.5" /> +{adminData.orderGrowthPercent}%
-              </span>
-              <span className="text-slate-700 font-normal">tổng phát sinh tháng này</span>
-            </div>
+            {adminData.orderGrowthPercent !== null && adminData.orderGrowthPercent !== undefined ? (
+              <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-700 font-bold">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-[11px]">
+                  <ArrowUpRight className="w-3 h-3 mr-0.5" /> +{adminData.orderGrowthPercent}%
+                </span>
+                <span className="text-slate-700 font-normal">so với tháng trước</span>
+              </div>
+            ) : (
+              <div className="mt-1 text-xs text-slate-700">
+                Toàn bộ đơn hàng đã ghi nhận
+              </div>
+            )}
           </div>
         </div>
 
