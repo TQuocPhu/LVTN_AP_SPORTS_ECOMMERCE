@@ -750,7 +750,67 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+### 📊 4.24. Phân Hệ Dashboard Điều Hành Doanh Nghiệp (Enterprise BI Dashboard) & Hệ Thống Báo Cáo Thống Kê Đa Phân Quyền (Phase 5 Executive Intelligence & Reporting Ecosystem)
+
+> **Trạng thái:** ✅ Đã hoàn thành 100% (Day 11)
+
+**Đặc tả Kiến trúc, CSDL & Quy trình Nghiệp vụ Nâng cấp Hệ thống:**
+
+1. **Kiến Trúc Truy Vấn Dữ Liệu OLAP Light & 100% Single Source of Truth**:
+   - Loại bỏ 100% dữ liệu giả (Mock Data); toàn bộ số liệu thống kê được tính toán trực tiếp từ các bảng thực tế trong PostgreSQL: `orders`, `order_items`, `payments`, `users`, `products`, `product_variants`, `categories`, `inventory_transactions`, `cart_items`.
+   - Sử dụng kỹ thuật **Fetch Join** (`LEFT JOIN FETCH o.processedByStaff LEFT JOIN FETCH o.user`) và **Aggregation Indexing** giúp truy vấn dữ liệu báo cáo diễn ra tức thì, loại bỏ triệt để bài toán N+1 Query.
+
+2. **Tầng Thống Kê Tổng Quan Đa Phân Quyền (Multi-Role Scorecards)**:
+   - **Vai Trò ADMIN**:
+     - *Tổng doanh thu tích lũy sàn*: Ưu tiên doanh thu các đơn hàng hoàn tất (`delivered`, `completed`); tự động phân loại dòng tiền Tiền mặt (COD) và Cổng thanh toán trực tuyến (VNPay).
+     - *Tốc độ tăng trưởng theo tháng (MoM Growth Rate)*: Tự động so sánh giữa Tháng này và Tháng trước theo công thức:
+       $$\text{Growth MoM (\%)} = \frac{V_{\text{current}} - V_{\text{previous}}}{V_{\text{previous}}} \times 100\%$$
+     - *Giá trị đơn trung bình (AOV)*: Tính toán chính xác theo tổng doanh thu chia cho số lượng đơn hoàn tất.
+     - *Tỷ lệ hủy đơn*: Tính theo tổng số đơn bị hủy (`cancelled`, `returned`, `payment_failed`) trên tổng đơn toàn hệ thống.
+   - **Vai Trò STAFF (Nhân viên kinh doanh)**:
+     - Giám sát doanh số xử lý cá nhân, số đơn giao thành công, tỷ lệ chốt đơn thành công.
+     - Tự động tính toán hoa hồng doanh thu $2\%$ trên đơn hoàn tất và thưởng KPI vượt chỉ tiêu ($+500.000\text{ ₫}$ hoặc $+1.000.000\text{ ₫}$).
+   - **Vai Trò WAREHOUSE_MANAGER (Quản lý kho)**:
+     - **Nguyên tắc bảo mật tiền tệ**: Tuyệt đối không hiển thị doanh thu bằng tiền.
+     - Giám sát tổng lượng hàng xuất/nhập hôm nay từ `inventory_transactions`, số lượng đơn đã xác nhận đang chờ kho đóng gói bàn giao bưu cục GHN, tổng lượng tồn kho toàn sàn và danh sách biến thể có nguy cơ cháy hàng ($\le 5$).
+
+3. **Tầng Phân Tích Chuyên Sâu Doanh Nghiệp (Business Intelligence - BI)**:
+   - **Mục Tiêu Doanh Thu & Nhịp Độ Pacing (Dual-Line Chart)**:
+     - Tự động hóa thiết lập mục tiêu tháng dựa trên doanh thu hoàn tất tháng trước:
+       $$\text{Target}_{\text{month}} = \text{Math.round}(\text{Revenue}_{\text{lastMonth}} \times 1.20) \quad (\text{kỳ vọng tăng trưởng 20\% MoM})$$
+     - Vẽ 2 đường xu hướng lũy kế theo từng ngày trong tháng ($1 \rightarrow \text{lengthOfMonth}$): Đường Kế Hoạch Chuẩn ($\text{TargetCumulative}$) và Đường Thực Tế Lũy Kế ($\text{ActualCumulative}$).
+     - Đánh giá độ lệch nhịp độ Pacing: **AHEAD** (Vượt tiến độ $\ge +200.000\text{ ₫}$), **ON_TRACK** (Đạt kế hoạch), **BEHIND** (Chậm tiến độ).
+   - **Phễu Mua Hàng Vận Hành (Sales Funnel)**:
+     - Đo lường 4 giai đoạn chuyển đổi: $\text{Giỏ Hàng (Cart)} \rightarrow \text{Đã Đặt Hàng (Placed)} \rightarrow \text{Đang Vận Chuyển (Shipping)} \rightarrow \text{Giao Hoàn Tất (Delivered)}$.
+     - Tính toán tỷ lệ rớt khách hàng (Drop-off Rate) tại từng bước giúp ban quản trị định vị chính xác điểm nghẽn chuyển đổi.
+   - **Ma Trận Giữ Chân Khách Hàng (Cohort Retention Analysis)**:
+     - Gom nhóm khách hàng theo Tháng Mua Hàng Đầu Tiên ($\text{Cohort Month} = \min(\text{created\_at})$).
+     - Theo dõi tỷ lệ quay lại mua hàng sau 30 ngày, 60 ngày và 90 ngày.
+     - Kiểm tra dữ liệu an toàn (`typeof === 'number'`), hiển thị dấu `---` cho các mốc thời gian chưa đủ điều kiện tính toán, triệt tiêu hoàn toàn lỗi `undefined%`.
+
+4. **Tầng Thống Kê Hệ Thống Nằm Ngang (System Analytics 2 Cột Song Song)**:
+   - **Cột Trái — Biểu Đồ Cột Kép Doanh Thu 4 Tuần (Custom Month Comparison)**:
+     - Tích hợp bộ chọn Dropdown linh hoạt: Cho phép chọn so sánh doanh thu 4 tuần của tháng hiện tại với **bất kỳ tháng nào trong 6 tháng gần nhất** (không bị ép buộc chỉ so sánh với tháng liền kề).
+     - Backend đóng gói sẵn dữ liệu 4 tuần của 6 tháng trong mảng `monthlyWeeklyRevenues` $\rightarrow$ Frontend chuyển đổi tháng tức thì với độ trễ **0ms latency** mà không cần reload trang.
+   - **Cột Phải — Biểu Đồ Donut Cơ Cấu Sản Phẩm Theo Danh Mục**:
+     - Tính toán tỷ trọng số lượng mặt hàng và tổng lượng tồn kho theo từng ngành hàng thể thao.
+     - **Hiệu ứng tương tác thông minh (Smart Hover Interactive)**: Khi rê chuột vào bất kỳ lát cắt nào, ngay **tâm hình tròn Donut sẽ hiển thị động**:
+       * Tên danh mục đang chọn.
+       * Số lượng sản phẩm & Tổng tồn kho.
+       * Tỷ trọng phần trăm ($\%$).
+     - Xử lý thuật toán giới hạn góc quét `sweepAngle = Math.min(endAngle - startAngle, 359.99)` loại bỏ lỗi ẩn lát cắt SVG khi một danh mục chiếm gần 100%.
+
+5. **Hệ Thống Báo Cáo Thống Kê Chuyên Sâu (`/admin/reports`)**:
+   - **Báo cáo Doanh thu tổng quan**: Biểu đồ chuỗi thời gian (Time-series), phân tích chiết khấu Voucher, phí vận chuyển và cơ cấu thanh toán (COD vs VNPay).
+   - **Báo cáo Hiệu suất nhân viên**: Bảng xếp hạng thi đua (Leaderboard) theo doanh thu xử lý, tỷ lệ hoàn tất, hoa hồng tự động và phân loại mức độ hoàn thành nhiệm vụ.
+   - **Báo cáo Top sản phẩm bán chạy**: Thống kê 10 mặt hàng có lượt bán cao nhất kèm doanh thu và tỷ trọng theo danh mục.
+   - **Báo cáo Luân chuyển kho hàng**: Tổng hợp lịch sử Nhập/Xuất kho từ `inventory_transactions`, tính toán tổng giá trị vốn lưu kho và cảnh báo sản phẩm tồn kho nguy cấp ($\le 5$).
+   - **Khả năng xuất bản**: Hỗ trợ xuất file CSV chuẩn **UTF-8 BOM (`\uFEFF`)** tương thích 100% với Microsoft Excel không bị lỗi font tiếng Việt, và chức năng In Báo Cáo chuyên dụng tối ưu khổ giấy A4.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+
 
 
 
