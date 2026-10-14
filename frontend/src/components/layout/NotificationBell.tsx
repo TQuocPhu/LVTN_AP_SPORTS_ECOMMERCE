@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell, Check, CheckCheck } from "lucide-react";
 import { useNotificationContext } from "@/context/NotificationContext";
 interface NotificationBellProps {
@@ -9,6 +10,8 @@ interface NotificationBellProps {
 }
 
 export default function NotificationBell({ noBorder = false }: NotificationBellProps) {
+  const pathname = usePathname();
+  const allNotificationsHref = pathname?.startsWith('/admin') ? '/admin/notifications' : '/notifications';
   const { unreadCount, notifications, markAsRead, markAllAsRead } = useNotificationContext();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -77,42 +80,93 @@ export default function NotificationBell({ noBorder = false }: NotificationBellP
                       payloadObj = JSON.parse(notif.payload || "{}");
                     } catch {}
 
-                    return (
-                      <button
-                        key={notif.id}
-                        onClick={() => handleNotificationClick(notif.id, notif.targetUrl)}
-                        className={`flex items-start gap-3 p-3 px-4 border-b last:border-b-0 text-left transition-colors hover:bg-orange-500/5 ${
-                          notif.isRead ? "opacity-70" : "bg-orange-500/10"
-                        }`}
-                        style={{ borderColor: "var(--nav-border)" }}
-                      >
-                        <div className={`mt-1 flex-shrink-0 w-2 h-2 rounded-full ${notif.isRead ? "bg-transparent" : "bg-orange-500"}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium leading-snug" style={{ color: "var(--nav-text)" }}>
-                            {notif.actionType === "ORDER_PLACED" ? `Đơn hàng mới #${payloadObj.orderCode || 'N/A'}` :
-                             notif.actionType === "ORDER_STATUS_CHANGED" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} cập nhật trạng thái` :
-                             notif.actionType === "ORDER_CANCELLED_BY_CUSTOMER" ? `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã bị hủy bởi khách` :
-                             notif.actionType === "NEW_REVIEW" ? `Đánh giá mới cho ${payloadObj.productName || 'sản phẩm'}` :
-                             notif.actionType === "REVIEW_REPLIED" ? `Phản hồi đánh giá ${payloadObj.productName || 'sản phẩm'}` :
-                             notif.actionType === "LOW_INVENTORY" ? `Cảnh báo tồn kho thấp` :
-                             "Thông báo mới"}
-                          </p>
-                          <p className="text-xs mt-0.5 opacity-80 truncate" style={{ color: "var(--nav-text)" }}>
-                            {notif.actionType === "ORDER_PLACED" ? `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalAmount ? payloadObj.totalAmount.toLocaleString('vi-VN') : 0} VNĐ` :
-                             notif.actionType === "ORDER_STATUS_CHANGED" ? `Trạng thái đã chuyển từ "${payloadObj.oldStatus || ''}" sang "${payloadObj.newStatus || ''}"` :
-                             notif.actionType === "ORDER_CANCELLED_BY_CUSTOMER" ? `Khách hàng đã tự động hủy đơn hàng này` :
-                             notif.actionType === "NEW_REVIEW" ? `Khách hàng vừa đánh giá ${payloadObj.rating || 0} sao` :
-                             notif.actionType === "REVIEW_REPLIED" ? `Quản trị viên đã phản hồi đánh giá của bạn` :
-                             notif.actionType === "LOW_INVENTORY" ? `Sản phẩm ${payloadObj.productName || ''} chỉ còn ${payloadObj.remaining || 0} sản phẩm trong kho` :
-                             "Nhấp để xem chi tiết"}
-                          </p>
-                          <p className="text-[10px] mt-1 text-orange-500 font-medium">
-                            {new Date(notif.createdAt).toLocaleString("vi-VN")}
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
+                      const isRead = notif.isRead ?? (notif as any).read ?? false;
+                      const getTitle = () => {
+                        switch (notif.actionType) {
+                          case "ORDER_PLACED":
+                            return `Đơn hàng mới #${payloadObj.orderCode || 'N/A'}`;
+                          case "ORDER_PLACED_CUSTOMER":
+                            return `Đặt hàng thành công #${payloadObj.orderCode || 'N/A'}`;
+                          case "ORDER_STATUS_CHANGED":
+                            return `Đơn hàng #${payloadObj.orderCode || 'N/A'} cập nhật trạng thái`;
+                          case "ORDER_DELIVERED":
+                            return `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã giao thành công`;
+                          case "ORDER_CANCELLED_BY_CUSTOMER":
+                            return `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã hủy`;
+                          case "ORDER_CANCELLED_BY_ADMIN":
+                            return `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã bị cửa hàng hủy`;
+                          case "PAYMENT_SUCCESS":
+                            return `Thanh toán thành công #${payloadObj.orderCode || 'N/A'}`;
+                          case "NEW_REVIEW":
+                            return `Đánh giá mới cho ${payloadObj.productName || 'sản phẩm'}`;
+                          case "REVIEW_REPLIED":
+                            return `Phản hồi đánh giá ${payloadObj.productName || 'sản phẩm'}`;
+                          case "LOW_INVENTORY":
+                            return `Cảnh báo tồn kho thấp`;
+                          case "OUT_OF_STOCK":
+                            return `Cảnh báo hết hàng`;
+                          case "WELCOME":
+                            return payloadObj.title || `Chào mừng bạn đến với AP Sports!`;
+                          default:
+                            return "Thông báo mới";
+                        }
+                      };
+
+                      const getDesc = () => {
+                        switch (notif.actionType) {
+                          case "ORDER_PLACED":
+                            return `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalAmount ? Number(payloadObj.totalAmount).toLocaleString('vi-VN') : 0} VNĐ`;
+                          case "ORDER_PLACED_CUSTOMER":
+                            return `Đơn hàng trị giá ${payloadObj.totalAmount ? Number(payloadObj.totalAmount).toLocaleString('vi-VN') : 0} VNĐ đang được xử lý`;
+                          case "ORDER_STATUS_CHANGED":
+                            return `Trạng thái: "${payloadObj.oldStatus || ''}" ➔ "${payloadObj.newStatus || ''}"`;
+                          case "ORDER_DELIVERED":
+                            return `Giao hàng thành công! Hãy để lại đánh giá cho sản phẩm nhé.`;
+                          case "ORDER_CANCELLED_BY_CUSTOMER":
+                            return `Đơn hàng đã được yêu cầu hủy thành công.`;
+                          case "ORDER_CANCELLED_BY_ADMIN":
+                            return `Đơn hàng đã bị hủy bởi cửa hàng. Vui lòng kiểm tra chi tiết.`;
+                          case "PAYMENT_SUCCESS":
+                            return `Thanh toán trực tuyến thành công cho đơn hàng.`;
+                          case "NEW_REVIEW":
+                            return `Khách hàng vừa gửi đánh giá ${payloadObj.rating || 0} sao`;
+                          case "REVIEW_REPLIED":
+                            return `Quản trị viên đã phản hồi đánh giá của bạn`;
+                          case "LOW_INVENTORY":
+                            return `Sản phẩm ${payloadObj.productName || ''} chỉ còn ${payloadObj.remaining || 0} sản phẩm`;
+                          case "OUT_OF_STOCK":
+                            return `Sản phẩm ${payloadObj.productName || ''} đã hết hàng trong kho`;
+                          case "WELCOME":
+                            return payloadObj.content || `Hệ thống thông báo thời gian thực đã sẵn sàng.`;
+                          default:
+                            return "Nhấp để xem chi tiết";
+                        }
+                      };
+
+                      return (
+                        <button
+                          key={notif.id}
+                          onClick={() => handleNotificationClick(notif.id, notif.targetUrl)}
+                          className={`flex items-start gap-3 p-3 px-4 border-b last:border-b-0 text-left transition-colors hover:bg-orange-500/5 ${
+                            isRead ? "opacity-70" : "bg-orange-500/10"
+                          }`}
+                          style={{ borderColor: "var(--nav-border)" }}
+                        >
+                          <div className={`mt-1 flex-shrink-0 w-2 h-2 rounded-full ${isRead ? "bg-transparent" : "bg-orange-500"}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium leading-snug" style={{ color: "var(--nav-text)" }}>
+                              {getTitle()}
+                            </p>
+                            <p className="text-xs mt-0.5 opacity-80 truncate" style={{ color: "var(--nav-text)" }}>
+                              {getDesc()}
+                            </p>
+                            <p className="text-[10px] mt-1 text-orange-500 font-medium">
+                              {new Date(notif.createdAt).toLocaleString("vi-VN")}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
                 </div>
               ) : (
                 <div className="p-8 text-center opacity-60 flex flex-col items-center">
@@ -125,7 +179,7 @@ export default function NotificationBell({ noBorder = false }: NotificationBellP
             {/* Footer */}
             <div className="p-2 border-t text-center" style={{ borderColor: "var(--nav-border)" }}>
               <Link 
-                href="/notifications" 
+                href={allNotificationsHref} 
                 onClick={() => setIsOpen(false)}
                 className="text-xs font-bold text-orange-500 hover:text-orange-400 py-1.5 block transition-colors"
               >

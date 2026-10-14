@@ -1,19 +1,28 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { getCookie } from '@/services/api-client';
+import { apiClient } from '@/services/api/client';
+import { ApiResponse } from '@/types/auth';
 
 export interface NotificationPayload {
   id: number;
   userId: number;
   senderId?: number;
+  senderName?: string;
+  senderAvatar?: string;
+  senderRole?: string;
   isRead: boolean;
   readAt?: string;
   targetUrl?: string;
+  title?: string;
+  message?: string;
   actionType: string;
   payload: string;
   createdAt: string;
 }
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const BASE_WS_URL = BASE_URL.replace('/api/v1', '/ws');
 
 export function useWebSocket() {
   const [client, setClient] = useState<Client | null>(null);
@@ -22,147 +31,163 @@ export function useWebSocket() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const clientRef = useRef<Client | null>(null);
-  const hasAttemptedConnectRef = useRef(false);
+  const isConnectingRef = useRef(false);
 
-  // Fetch initial notifications and unread count
-  const fetchInitialData = useCallback(async (token: string) => {
+  /** Tải dữ liệu ban đầu qua apiClient (tự động Silent Refresh nếu accessToken hết hạn) */
+  const fetchInitialData = useCallback(async (): Promise<boolean> => {
     try {
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-      const token = getCookie('accessToken');
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
       const [countRes, listRes] = await Promise.all([
-        fetch(`${BASE_URL}/notifications/unread-count`, { headers }),
-        fetch(`${BASE_URL}/notifications?page=0&size=20`, { headers })
+        apiClient.get<ApiResponse<number>>('/notifications/unread-count', { suppressErrorToast: true }),
+        apiClient.get<ApiResponse<{ content: NotificationPayload[] }>>('/notifications?page=0&size=20', { suppressErrorToast: true }),
       ]);
 
-      if (countRes.ok) {
-        const countData = await countRes.json();
-        setUnreadCount(countData.data || 0);
+      if (countRes && typeof countRes.data === 'number') {
+        setUnreadCount(countRes.data);
       }
 
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        if (listData.data && listData.data.content) {
-          setNotifications(listData.data.content);
-        }
+      if (listRes?.data?.content) {
+        const normalized = listRes.data.content.map((n: any) => ({
+          ...n,
+          isRead: n.isRead === true || n.read === true,
+        }));
+        setNotifications(normalized);
       }
-    } catch (error) {
-      console.error('Lỗi khi tải thông báo ban đầu:', error);
+      return true;
+    } catch {
+      return false;
     }
   }, []);
 
-  useEffect(() => {
-    const token = getCookie('accessToken');
-    
-    if (!token) {
-      if (clientRef.current) {
-        clientRef.current.deactivate();
-        clientRef.current = null;
-        setIsConnected(false);
-        setNotifications([]);
-        setUnreadCount(0);
-      }
-      return;
+  const disconnect = useCallback(() => {
+    if (clientRef.current) {
+      clientRef.current.deactivate();
+      clientRef.current = null;
     }
+    setClient(null);
+    setIsConnected(false);
+    isConnectingRef.current = false;
+  }, []);
 
-    // Nếu đã kết nối rồi thì không làm gì thêm
-    if (clientRef.current?.connected) return;
+  const connect = useCallback(() => {
+    if (clientRef.current || isConnectingRef.current) return;
+    isConnectingRef.current = true;
 
-    fetchInitialData(token);
-
-    const BASE_WS_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1').replace('/api/v1', '/ws');
-    
     const stompClient = new Client({
+      // SockJS tự gửi cookie HttpOnly (credentials: 'include') khi handshake -> backend xác thực
       webSocketFactory: () => new SockJS(BASE_WS_URL),
-      connectHeaders: { Authorization: `Bearer ${token}` },
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
+      reconnectDelay: 5000,
       debug: (str) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[STOMP]', str);
-        }
+        if (process.env.NODE_ENV === 'development') console.log('[STOMP]', str);
       },
-      reconnectDelay: 5000, // Tự động kết nối lại sau 5 giây nếu đứt
       onConnect: () => {
-        console.log('[STOMP] Kết nối thành công');
+        isConnectingRef.current = false;
         setIsConnected(true);
+        fetchInitialData(); // Resync dữ liệu thông báo sau khi (re)connect
 
-        // Sau khi kết nối, lấy lại dữ liệu mới nhất (resync)
-        fetchInitialData(token);
-
-        // Subscribe kênh cá nhân
         stompClient.subscribe('/user/queue/notifications', (message: IMessage) => {
-          if (message.body) {
-            try {
-              const newNotification: NotificationPayload = JSON.parse(message.body);
-              
-              // Cập nhật state với thông báo mới (thêm vào đầu danh sách)
-              setNotifications(prev => {
-                // Tránh trùng lặp nếu trùng ID (hiếm khi xảy ra nhưng an toàn)
-                if (prev.some(n => n.id === newNotification.id)) return prev;
-                return [newNotification, ...prev].slice(0, 50); // Giữ tối đa 50 cái trên giao diện memory
-              });
-              
-              // Tăng số lượng chưa đọc lên 1
-              setUnreadCount(prev => prev + 1);
-
-            } catch (e) {
-              console.error('Lỗi parse JSON thông báo:', e);
-            }
+          if (!message.body) return;
+          try {
+            const raw: any = JSON.parse(message.body);
+            const newNotification: NotificationPayload = {
+              ...raw,
+              isRead: raw.isRead === true || raw.read === true,
+            };
+            setNotifications((prev) => {
+              if (prev.some((n) => n.id === newNotification.id)) return prev;
+              return [newNotification, ...prev].slice(0, 50);
+            });
+            setUnreadCount((prev) => prev + 1);
+          } catch (e) {
+            console.error('Lỗi parse JSON thông báo:', e);
           }
         });
       },
-      onStompError: (frame) => {
-        console.error('[STOMP] Broker báo lỗi: ' + frame.headers['message']);
-        console.error('[STOMP] Chi tiết: ' + frame.body);
+      onStompError: async (frame) => {
+        console.warn('[STOMP] Broker từ chối kết nối:', frame.headers['message']);
+        disconnect();
+        // Khi token hết hạn, gọi fetchInitialData qua apiClient để kích hoạt Silent Refresh
+        try {
+          const hasSession = await fetchInitialData();
+          if (hasSession) {
+            connect();
+          }
+        } catch {
+          // Phiên thực sự đã kết thúc
+        }
       },
       onWebSocketClose: () => {
+        isConnectingRef.current = false;
         setIsConnected(false);
-      }
+      },
     });
 
     stompClient.activate();
     clientRef.current = stompClient;
     setClient(stompClient);
+  }, [fetchInitialData, disconnect]);
+
+  // Quản lý vòng đời kết nối:
+  // 1. Kiểm tra phiên 1 lần khi mount -> Nếu hợp lệ thì connect WebSocket
+  // 2. Lắng nghe event auth:login và auth:logout từ AuthContext / AdminAuthContext
+  // 3. Resync khi chuyển tab trở lại (visibilitychange)
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkAndConnect = async () => {
+      if (clientRef.current?.active) return;
+      const hasSession = await fetchInitialData();
+      if (cancelled) return;
+      if (hasSession) {
+        connect();
+      } else if (clientRef.current) {
+        disconnect();
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    };
+
+    // Kiểm tra ban đầu khi mount
+    checkAndConnect();
+
+    // Tự động kết nối ngay khi người dùng đăng nhập thành công
+    const handleLogin = () => {
+      checkAndConnect();
+    };
+
+    // Tự động ngắt kết nối và dọn sạch state khi đăng xuất
+    const handleLogout = () => {
+      disconnect();
+      setNotifications([]);
+      setUnreadCount(0);
+    };
+
+    // Kiểm tra và kết nối lại khi người dùng quay lại tab (nếu chưa kết nối)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && !clientRef.current?.active) {
+        checkAndConnect();
+      }
+    };
+
+    window.addEventListener('auth:login', handleLogin);
+    window.addEventListener('auth:logout', handleLogout);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      stompClient.deactivate();
-      clientRef.current = null;
-      setIsConnected(false);
+      cancelled = true;
+      window.removeEventListener('auth:login', handleLogin);
+      window.removeEventListener('auth:logout', handleLogout);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      disconnect();
     };
-  }, [fetchInitialData]);
-
-  // Lắng nghe sự kiện thay đổi cookie hoặc đăng nhập để re-trigger kết nối nếu cần
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const token = getCookie('accessToken');
-      if (token && !clientRef.current) {
-         // Nếu có token mà chưa có client (ví dụ vừa login xong), trigger lại state
-         setIsConnected(prev => prev); // force re-evaluate?
-         // Actually better to just refresh page or rely on page reload which happens on login in many apps.
-         // In this app, we can just trigger a dummy state update to run the main useEffect again.
-         setUnreadCount(prev => prev); 
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchInitialData, connect, disconnect]);
 
   const markAsRead = async (id: number) => {
     try {
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-      const token = getCookie('accessToken');
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
-      const res = await fetch(`${BASE_URL}/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers
-      });
-
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
+      await apiClient.patch<ApiResponse<void>>(`/notifications/${id}/read`, {}, { suppressErrorToast: true });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (e) {
       console.error('Lỗi khi đánh dấu đã đọc:', e);
     }
@@ -170,19 +195,9 @@ export function useWebSocket() {
 
   const markAllAsRead = async () => {
     try {
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-      const token = getCookie('accessToken');
-      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
-      const res = await fetch(`${BASE_URL}/notifications/read-all`, {
-        method: 'PATCH',
-        headers
-      });
-
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
-      }
+      await apiClient.patch<ApiResponse<void>>('/notifications/read-all', {}, { suppressErrorToast: true });
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
     } catch (e) {
       console.error('Lỗi khi đánh dấu tất cả đã đọc:', e);
     }
@@ -194,6 +209,6 @@ export function useWebSocket() {
     notifications,
     unreadCount,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
   };
 }
