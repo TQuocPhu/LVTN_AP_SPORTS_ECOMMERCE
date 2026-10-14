@@ -116,22 +116,42 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     ) {
         if ("ADMIN".equals(roleName)) {
             // ADMIN: Toàn quyền xem tài chính doanh thu, số đơn, AOV, tỷ lệ hủy
-            long deliveredRevenue = 0;      // Doanh thu đơn đã hoàn tất (delivered / completed)
-            long totalOrderValue = 0;       // Tổng giá trị đơn hàng phát sinh (tất cả các đơn không hủy)
+            LocalDateTime startOfThisMonth = now.withDayOfMonth(1).with(LocalTime.MIN);
+            LocalDateTime startOfLastMonth = now.minusMonths(1).withDayOfMonth(1).with(LocalTime.MIN);
+
+            long deliveredRevenue = 0;      // Doanh thu đơn đã hoàn tất toàn hệ thống
+            long totalOrderValue = 0;       // Tổng giá trị đơn hàng hợp lệ
             long totalOrders = allOrders.size();
             long completedOrders = 0;
             long cancelledOrders = 0;
+            long validOrdersCount = 0;
             long cashCod = 0;
             long vnpay = 0;
+
+            // Thống kê riêng cho Tháng này vs Tháng trước để tính % tăng trưởng MoM
+            long thisMonthDeliveredRev = 0;
+            long thisMonthCompletedOrders = 0;
+            long thisMonthValidOrders = 0;
+            long thisMonthTotalVal = 0;
+
+            long lastMonthDeliveredRev = 0;
+            long lastMonthCompletedOrders = 0;
+            long lastMonthValidOrders = 0;
+            long lastMonthTotalVal = 0;
 
             for (Order o : allOrders) {
                 OrderStatus st = o.getStatus();
                 long amt = o.getFinalAmount() != null ? o.getFinalAmount().longValue() : 0;
+                boolean isDelivered = (st == OrderStatus.delivered || st == OrderStatus.completed);
+                boolean isCancelled = (st == OrderStatus.cancelled || st == OrderStatus.returned || st == OrderStatus.payment_failed);
+                boolean isValid = !isCancelled;
+                LocalDateTime createdAt = o.getCreatedAt();
 
-                if (st == OrderStatus.delivered || st == OrderStatus.completed) {
+                if (isDelivered) {
                     completedOrders++;
                     deliveredRevenue += amt;
                     totalOrderValue += amt;
+                    validOrdersCount++;
 
                     Payment p = paymentRepository.findByOrderId(o.getId()).orElse(null);
                     if (p != null && p.getPaymentMethod() == Payment.PaymentMethod.vnpay) {
@@ -139,30 +159,73 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                     } else {
                         cashCod += amt;
                     }
-                } else if (st == OrderStatus.cancelled || st == OrderStatus.returned) {
+                } else if (isCancelled) {
                     cancelledOrders++;
                 } else {
-                    // Các đơn đang pending, confirmed, shipping -> tính vào tổng giá trị đơn hàng phát sinh
+                    // pending, confirmed, shipping, processing
                     totalOrderValue += amt;
+                    validOrdersCount++;
+                }
+
+                // Phân loại đơn theo kỳ Tháng này vs Tháng trước
+                if (createdAt != null) {
+                    if (!createdAt.isBefore(startOfThisMonth)) {
+                        // Tháng này
+                        if (isValid) {
+                            thisMonthValidOrders++;
+                            thisMonthTotalVal += amt;
+                            if (isDelivered) {
+                                thisMonthCompletedOrders++;
+                                thisMonthDeliveredRev += amt;
+                            }
+                        }
+                    } else if (!createdAt.isBefore(startOfLastMonth) && createdAt.isBefore(startOfThisMonth)) {
+                        // Tháng trước
+                        if (isValid) {
+                            lastMonthValidOrders++;
+                            lastMonthTotalVal += amt;
+                            if (isDelivered) {
+                                lastMonthCompletedOrders++;
+                                lastMonthDeliveredRev += amt;
+                            }
+                        }
+                    }
                 }
             }
 
-            // Doanh thu hiển thị: nếu đã có đơn hoàn tất thì lấy deliveredRevenue,
-            // nếu các đơn đều đang trong quá trình xử lý (pending/confirmed/shipping) thì lấy totalOrderValue
+            // Doanh thu hiển thị: ưu tiên doanh thu hoàn tất; nếu chưa có đơn giao xong thì hiển thị tổng giá trị đơn đang xử lý
             long revenueToDisplay = deliveredRevenue > 0 ? deliveredRevenue : totalOrderValue;
 
-            long aov = totalOrders > 0 ? revenueToDisplay / totalOrders : 0;
+            // Tính AOV chuẩn xác theo đơn hoàn tất; nếu chưa có đơn hoàn tất thì tính trên đơn hợp lệ
+            long aov = completedOrders > 0
+                    ? (deliveredRevenue / completedOrders)
+                    : (validOrdersCount > 0 ? (totalOrderValue / validOrdersCount) : 0);
+
             double cancelRate = totalOrders > 0
                     ? BigDecimal.valueOf((double) cancelledOrders * 100 / totalOrders).setScale(1, RoundingMode.HALF_UP).doubleValue()
                     : 0.0;
 
+            // Tính % tăng trưởng so với tháng trước (MoM - Month over Month)
+            long currentPeriodRev = thisMonthDeliveredRev > 0 ? thisMonthDeliveredRev : thisMonthTotalVal;
+            long previousPeriodRev = lastMonthDeliveredRev > 0 ? lastMonthDeliveredRev : lastMonthTotalVal;
+            Double revenueGrowth = calculateGrowthRate(currentPeriodRev, previousPeriodRev);
+            Double orderGrowth = calculateGrowthRate(thisMonthValidOrders, lastMonthValidOrders);
+
+            long currentPeriodAov = thisMonthCompletedOrders > 0
+                    ? (thisMonthDeliveredRev / thisMonthCompletedOrders)
+                    : (thisMonthValidOrders > 0 ? (thisMonthTotalVal / thisMonthValidOrders) : 0);
+            long previousPeriodAov = lastMonthCompletedOrders > 0
+                    ? (lastMonthDeliveredRev / lastMonthCompletedOrders)
+                    : (lastMonthValidOrders > 0 ? (lastMonthTotalVal / lastMonthValidOrders) : 0);
+            Double aovGrowth = calculateGrowthRate(currentPeriodAov, previousPeriodAov);
+
             responseBuilder.adminScorecards(AdminScorecardsDto.builder()
                     .grossRevenue(revenueToDisplay)
-                    .revenueGrowthPercent(null) // Dữ liệu tích lũy toàn hệ thống, không hiển thị % ảo
+                    .revenueGrowthPercent(revenueGrowth)
                     .totalOrders(totalOrders)
-                    .orderGrowthPercent(null)
+                    .orderGrowthPercent(orderGrowth)
                     .averageOrderValue(aov)
-                    .aovGrowthPercent(null)
+                    .aovGrowthPercent(aovGrowth)
                     .cancellationRate(cancelRate)
                     .cashCodRevenue(cashCod)
                     .vnpayRevenue(vnpay)
@@ -252,35 +315,77 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         int daysInMonth = now.toLocalDate().lengthOfMonth();
         int currentDay = now.getDayOfMonth();
 
-        // 1. TÍNH TOÁN KPI TARGET PACE THỰC TẾ
-        // Gom doanh thu thực tế theo ngày trong tháng hiện tại
+        // 1. TÍNH TOÁN KPI TARGET PACE THỰC TẾ (100% DỮ LIỆU THẬT)
+        // Gom doanh thu thực tế theo ngày trong tháng hiện tại (chỉ gom đơn hợp lệ)
         Map<Integer, Long> dailyRevenueMap = new HashMap<>();
         for (int d = 1; d <= daysInMonth; d++) {
             dailyRevenueMap.put(d, 0L);
         }
 
         long actualRevenueSoFar = 0;
+        long lastMonthDeliveredRev = 0;
+        long lastMonthTotalVal = 0;
         long totalOrderValueAllTime = 0;
+
+        LocalDateTime startOfThisMonth = now.withDayOfMonth(1).with(LocalTime.MIN);
+        LocalDateTime startOfLastMonth = now.minusMonths(1).withDayOfMonth(1).with(LocalTime.MIN);
 
         for (Order o : allOrders) {
             long amt = o.getFinalAmount() != null ? o.getFinalAmount().longValue() : 0;
-            totalOrderValueAllTime += amt;
+            OrderStatus st = o.getStatus();
+            boolean isCancelled = (st == OrderStatus.cancelled || st == OrderStatus.returned || st == OrderStatus.payment_failed);
+            boolean isValid = !isCancelled;
+            boolean isDelivered = (st == OrderStatus.delivered || st == OrderStatus.completed);
+            LocalDateTime createdAt = o.getCreatedAt();
 
-            if (o.getCreatedAt() != null && o.getCreatedAt().getMonth() == now.getMonth() && o.getCreatedAt().getYear() == now.getYear()) {
-                int day = o.getCreatedAt().getDayOfMonth();
-                dailyRevenueMap.put(day, dailyRevenueMap.getOrDefault(day, 0L) + amt);
-                actualRevenueSoFar += amt;
+            if (isValid) {
+                totalOrderValueAllTime += amt;
+            }
+
+            if (createdAt != null) {
+                if (!createdAt.isBefore(startOfThisMonth) && isValid) {
+                    // Đơn hợp lệ trong tháng hiện tại
+                    int day = createdAt.getDayOfMonth();
+                    dailyRevenueMap.put(day, dailyRevenueMap.getOrDefault(day, 0L) + amt);
+                    actualRevenueSoFar += amt;
+                } else if (!createdAt.isBefore(startOfLastMonth) && createdAt.isBefore(startOfThisMonth) && isValid) {
+                    // Đơn tháng trước
+                    lastMonthTotalVal += amt;
+                    if (isDelivered) {
+                        lastMonthDeliveredRev += amt;
+                    }
+                }
             }
         }
 
-        // Nếu doanh thu tháng này chưa có nhưng có doanh thu toàn sàn, lấy actualRevenueSoFar từ totalOrderValueAllTime
-        if (actualRevenueSoFar == 0 && totalOrderValueAllTime > 0) {
-            actualRevenueSoFar = totalOrderValueAllTime;
-            dailyRevenueMap.put(currentDay, totalOrderValueAllTime);
-        }
+        // Tự động hóa thiết lập mục tiêu tháng dựa trên quy mô thực tế
+        long monthlyTarget;
+        String rationaleNote;
 
-        // Xác lập mục tiêu thực tế (nếu doanh thu thực tế cao hơn mục tiêu mặc định thì đặt mục tiêu = doanh thu * 1.2)
-        long monthlyTarget = Math.max(DEFAULT_MONTHLY_REVENUE_TARGET, (long) (actualRevenueSoFar * DEFAULT_GROWTH_EXPECTATION_RATE));
+        if (lastMonthDeliveredRev > 0) {
+            long calculatedTarget = (long) (lastMonthDeliveredRev * 1.20);
+            monthlyTarget = Math.max(1_000_000L, calculatedTarget);
+            rationaleNote = String.format(
+                    "Mục tiêu tháng %02d/%d (%s) = Doanh thu hoàn tất tháng trước (%s) x 120%% (kỳ vọng tăng trưởng 20%% MoM).",
+                    now.getMonthValue(), now.getYear(), formatMoneyVND(monthlyTarget), formatMoneyVND(lastMonthDeliveredRev)
+            );
+        } else if (lastMonthTotalVal > 0) {
+            long calculatedTarget = (long) (lastMonthTotalVal * 1.20);
+            monthlyTarget = Math.max(1_000_000L, calculatedTarget);
+            rationaleNote = String.format(
+                    "Mục tiêu tháng %02d/%d (%s) = Tổng quy mô đơn tháng trước (%s) x 120%%.",
+                    now.getMonthValue(), now.getYear(), formatMoneyVND(monthlyTarget), formatMoneyVND(lastMonthTotalVal)
+            );
+        } else if (totalOrderValueAllTime > 0) {
+            monthlyTarget = Math.max(1_000_000L, (long) (totalOrderValueAllTime * 1.15));
+            rationaleNote = String.format(
+                    "Mục tiêu tháng %02d/%d (%s) = Quy mô đơn tích lũy sàn (%s) x 115%%.",
+                    now.getMonthValue(), now.getYear(), formatMoneyVND(monthlyTarget), formatMoneyVND(totalOrderValueAllTime)
+            );
+        } else {
+            monthlyTarget = 5_000_000L;
+            rationaleNote = "Mục tiêu cơ sở cho giai đoạn khởi tạo vận hành hệ thống.";
+        }
 
         List<DailyPacingPointDto> pacingPoints = new ArrayList<>();
         long runningActual = 0;
@@ -312,9 +417,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         long expectedTargetSoFar = (monthlyTarget * currentDay) / daysInMonth;
         long pacingVariance = runningActual - expectedTargetSoFar;
         String pacingStatus;
-        if (pacingVariance >= 500_000L) {
+        if (pacingVariance >= 200_000L) {
             pacingStatus = "AHEAD";     // Vượt tiến độ
-        } else if (pacingVariance >= -500_000L) {
+        } else if (pacingVariance >= -200_000L) {
             pacingStatus = "ON_TRACK";  // Đạt kế hoạch
         } else {
             pacingStatus = "BEHIND";    // Chậm tiến độ
@@ -330,7 +435,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 .progressPercentage(progressPercent)
                 .pacingStatus(pacingStatus)
                 .pacingVarianceAmount(pacingVariance)
-                .rationaleNote("Mục tiêu doanh thu được xác lập dựa trên kế hoạch kinh doanh và chỉ tiêu tăng trưởng thực tế của shop AP Sports.")
+                .rationaleNote(rationaleNote)
                 .dailyPacingPoints(pacingPoints)
                 .build());
 
@@ -563,5 +668,29 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
             }
             responseBuilder.recentReviews(reviewDtos);
         }
+    }
+
+    /**
+     * Tính toán tỷ lệ tăng trưởng phần trăm giữa 2 kỳ (Current Period vs Previous Period).
+     * @param current Giá trị kỳ hiện tại
+     * @param previous Giá trị kỳ trước
+     * @return Tỷ lệ % tăng/giảm làm tròn 1 chữ số thập phân, hoặc null nếu không thể xác định
+     */
+    private Double calculateGrowthRate(double current, double previous) {
+        if (previous > 0) {
+            double rate = ((current - previous) / previous) * 100.0;
+            return BigDecimal.valueOf(rate).setScale(1, RoundingMode.HALF_UP).doubleValue();
+        } else if (current > 0) {
+            return 100.0; // Kỳ trước = 0, kỳ này có số liệu -> +100%
+        } else {
+            return 0.0;   // Cả 2 kỳ đều = 0
+        }
+    }
+
+    /**
+     * Định dạng tiền tệ VND phục vụ ghi chú giải trình mục tiêu trực quan
+     */
+    private String formatMoneyVND(long amount) {
+        return java.text.NumberFormat.getInstance(new Locale("vi", "VN")).format(amount) + " ₫";
     }
 }

@@ -9,6 +9,7 @@ import {
   Award,
   Truck,
   ArrowUpRight,
+  ArrowDownRight,
   PackageCheck,
   PackagePlus,
   PackageMinus,
@@ -46,6 +47,31 @@ export function DashboardScorecards({
     );
   }
 
+  // Helper render badge tăng trưởng so với tháng trước (MoM)
+  const renderGrowthBadge = (percent: number | null | undefined, fallbackText: string) => {
+    if (percent === null || percent === undefined) {
+      return <div className="mt-1 text-xs text-slate-700">{fallbackText}</div>;
+    }
+    const isPositive = percent >= 0;
+    return (
+      <div className="flex items-center gap-1.5 mt-1 text-xs font-bold">
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] ${
+            isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+          }`}
+        >
+          {isPositive ? (
+            <ArrowUpRight className="w-3 h-3 mr-0.5" />
+          ) : (
+            <ArrowDownRight className="w-3 h-3 mr-0.5" />
+          )}
+          {isPositive ? `+${percent}%` : `${percent}%`}
+        </span>
+        <span className="text-slate-700 font-normal">so với tháng trước</span>
+      </div>
+    );
+  };
+
   // 1. GIAO DIỆN SCORECARDS DÀNH CHO ADMIN
   if (isAdmin && adminData) {
     return (
@@ -62,18 +88,7 @@ export function DashboardScorecards({
             <div className="text-2xl font-black text-slate-900 tracking-tight">
               {formatCurrency(adminData.grossRevenue)}
             </div>
-            {adminData.revenueGrowthPercent !== null && adminData.revenueGrowthPercent !== undefined ? (
-              <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-700 font-bold">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-[11px]">
-                  <ArrowUpRight className="w-3 h-3 mr-0.5" /> +{adminData.revenueGrowthPercent}%
-                </span>
-                <span className="text-slate-700 font-normal">so với tháng trước</span>
-              </div>
-            ) : (
-              <div className="mt-1 text-xs text-slate-700">
-                Toàn bộ doanh thu tích lũy hệ thống
-              </div>
-            )}
+            {renderGrowthBadge(adminData.revenueGrowthPercent, 'Toàn bộ doanh thu tích lũy hệ thống')}
           </div>
         </div>
 
@@ -89,18 +104,7 @@ export function DashboardScorecards({
             <div className="text-2xl font-black text-slate-900 tracking-tight">
               {adminData.totalOrders.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-700">đơn</span>
             </div>
-            {adminData.orderGrowthPercent !== null && adminData.orderGrowthPercent !== undefined ? (
-              <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-700 font-bold">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-100 text-[11px]">
-                  <ArrowUpRight className="w-3 h-3 mr-0.5" /> +{adminData.orderGrowthPercent}%
-                </span>
-                <span className="text-slate-700 font-normal">so với tháng trước</span>
-              </div>
-            ) : (
-              <div className="mt-1 text-xs text-slate-700">
-                Toàn bộ đơn hàng đã ghi nhận
-              </div>
-            )}
+            {renderGrowthBadge(adminData.orderGrowthPercent, 'Toàn bộ đơn hàng đã ghi nhận')}
           </div>
         </div>
 
@@ -116,8 +120,11 @@ export function DashboardScorecards({
             <div className="text-2xl font-black text-slate-900 tracking-tight">
               {formatCurrency(adminData.averageOrderValue)}
             </div>
-            <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-700">
-              <span className="font-semibold text-slate-800">COD: {formatCurrency(adminData.cashCodRevenue)}</span>
+            {renderGrowthBadge(adminData.aovGrowthPercent, 'Tính trên đơn hàng thực tế')}
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-700">
+              <span>COD: <b className="text-slate-800">{formatCurrency(adminData.cashCodRevenue)}</b></span>
+              <span>•</span>
+              <span>VNPay: <b className="text-slate-800">{formatCurrency(adminData.vnpayRevenue)}</b></span>
             </div>
           </div>
         </div>
