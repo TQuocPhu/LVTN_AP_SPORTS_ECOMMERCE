@@ -310,7 +310,20 @@ public class AdminReportServiceImpl implements AdminReportService {
         long outOfStockCount = productVariantRepository.countOutOfStockVariants();
 
         Long inboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.IMPORT, fromDate, toDate);
-        Long outboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.EXPORT, fromDate, toDate);
+        Long manualOutboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.EXPORT, fromDate, toDate);
+        if (manualOutboundQty == null) manualOutboundQty = 0L;
+
+        // Tính lượng sản phẩm đã xuất bán theo đơn hàng đã xuất kho bàn giao GHN trở đi (shipped, shipping, delivered, completed)
+        List<OrderStatus> outboundStatuses = List.of(
+                OrderStatus.shipped,
+                OrderStatus.shipping,
+                OrderStatus.delivered,
+                OrderStatus.completed
+        );
+        Long orderOutboundQty = orderItemRepository.sumQuantityByOrderStatusesInPeriod(outboundStatuses, fromDate, toDate);
+        if (orderOutboundQty == null) orderOutboundQty = 0L;
+
+        long totalOutboundQty = manualOutboundQty + orderOutboundQty;
 
         List<ProductVariant> lowVariants = productVariantRepository.findLowStockVariants(LOW_STOCK_THRESHOLD, PageRequest.of(0, 15));
         List<LowStockVariantItemResponse> lowStockItems = new ArrayList<>();
@@ -345,7 +358,9 @@ public class AdminReportServiceImpl implements AdminReportService {
                 .lowStockVariantCount(lowStockCount)
                 .outOfStockVariantCount(outOfStockCount)
                 .inboundQuantityInPeriod(inboundQty != null ? inboundQty : 0L)
-                .outboundQuantityInPeriod(outboundQty != null ? outboundQty : 0L)
+                .outboundQuantityInPeriod(totalOutboundQty)
+                .orderOutboundQuantity(orderOutboundQty)
+                .manualOutboundQuantity(manualOutboundQty)
                 .lowStockVariants(lowStockItems)
                 .build();
     }

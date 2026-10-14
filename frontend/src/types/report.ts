@@ -109,6 +109,8 @@ export interface WarehouseReportResponse {
   outOfStockVariantCount: number;
   inboundQuantityInPeriod: number;
   outboundQuantityInPeriod: number;
+  orderOutboundQuantity?: number;
+  manualOutboundQuantity?: number;
   lowStockVariants: LowStockVariantItemResponse[];
 }
 

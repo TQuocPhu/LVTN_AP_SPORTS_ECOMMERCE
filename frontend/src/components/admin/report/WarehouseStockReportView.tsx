@@ -49,6 +49,8 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
   const outOfStockCount = data?.outOfStockVariantCount || 0;
   const inboundQty = data?.inboundQuantityInPeriod || 0;
   const outboundQty = data?.outboundQuantityInPeriod || 0;
+  const orderOutboundQty = data?.orderOutboundQuantity || 0;
+  const manualOutboundQty = data?.manualOutboundQuantity || 0;
   const lowStockVariants = data?.lowStockVariants || [];
 
   // Math for stock health
@@ -141,8 +143,9 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
               <ArrowUpRight className="w-4 h-4" /> Xuất: -{outboundQty}
             </div>
           </div>
-          <div className="mt-2.5 text-[11px] text-slate-400 border-t border-slate-100 pt-2">
-            Tính theo phiếu trong kỳ báo cáo
+          <div className="mt-2.5 text-[10px] text-slate-400 border-t border-slate-100 pt-2 flex justify-between">
+            <span>Đơn GHN: -{orderOutboundQty}</span>
+            <span>Phiếu PXK: -{manualOutboundQty}</span>
           </div>
         </div>
       </div>
@@ -254,16 +257,16 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              So sánh lượng sản phẩm nhập kho bổ sung và lượng xuất giao đơn hàng
+              So sánh lượng hàng nhập bổ sung (PNK) và lượng hàng xuất khỏi kho
             </p>
           </div>
 
-          <div className="space-y-4 my-auto">
+          <div className="space-y-3.5 my-auto">
             {/* Inbound Bar */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-slate-700 flex items-center gap-1.5">
-                  <ArrowDownRight className="w-4 h-4 text-emerald-600" /> Nhập kho bổ sung:
+                  <ArrowDownRight className="w-4 h-4 text-emerald-600" /> Nhập kho bổ sung (PNK):
                 </span>
                 <span className="text-emerald-600 font-extrabold">+{inboundQty} sản phẩm</span>
               </div>
@@ -285,7 +288,7 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-slate-700 flex items-center gap-1.5">
-                  <ArrowUpRight className="w-4 h-4 text-orange-600" /> Xuất kho bán hàng:
+                  <ArrowUpRight className="w-4 h-4 text-orange-600" /> Tổng xuất khỏi kho:
                 </span>
                 <span className="text-orange-600 font-extrabold">-{outboundQty} sản phẩm</span>
               </div>
@@ -300,6 +303,11 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
                     }%`,
                   }}
                 />
+              </div>
+              {/* Detailed Breakdown */}
+              <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-0.5">
+                <span>• Xuất bán đơn GHN: <strong className="text-slate-700">-{orderOutboundQty}</strong> sp</span>
+                <span>• Xuất kho thủ công (PXK): <strong className="text-slate-700">-{manualOutboundQty}</strong> sp</span>
               </div>
             </div>
 

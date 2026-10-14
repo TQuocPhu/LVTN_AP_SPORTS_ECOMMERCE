@@ -19,5 +19,7 @@ public class WarehouseReportResponse {
     private long outOfStockVariantCount;
     private long inboundQuantityInPeriod;
     private long outboundQuantityInPeriod;
+    private long orderOutboundQuantity;
+    private long manualOutboundQuantity;
     private List<LowStockVariantItemResponse> lowStockVariants;
 }

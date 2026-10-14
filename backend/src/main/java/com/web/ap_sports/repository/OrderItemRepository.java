@@ -36,4 +36,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
             @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDateTime fromDate,
             @org.springframework.data.repository.query.Param("toDate") java.time.LocalDateTime toDate
     );
+
+    @org.springframework.data.jpa.repository.Query("SELECT SUM(oi.quantity) " +
+           "FROM OrderItem oi " +
+           "WHERE oi.order.status IN :statuses " +
+           "AND (CAST(:fromDate AS java.time.LocalDateTime) IS NULL OR oi.order.createdAt >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.LocalDateTime) IS NULL OR oi.order.createdAt <= :toDate)")
+    Long sumQuantityByOrderStatusesInPeriod(
+            @org.springframework.data.repository.query.Param("statuses") List<com.web.ap_sports.enums.OrderStatus> statuses,
+            @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDateTime fromDate,
+            @org.springframework.data.repository.query.Param("toDate") java.time.LocalDateTime toDate
+    );
 }
