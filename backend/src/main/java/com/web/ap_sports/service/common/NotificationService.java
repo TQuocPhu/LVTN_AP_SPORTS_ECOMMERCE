@@ -26,4 +26,14 @@ public interface NotificationService {
      * Send notification to users having any of the specified roles.
      */
     void sendToInternalUsers(List<String> roles, Long senderId, NotificationActionType actionType, String targetUrl, String payload);
+
+    /**
+     * Send notification to internal users who hold a specific permission (checked via role_permissions table).
+     */
+    void sendToUsersWithPermission(String permissionName, Long senderId, NotificationActionType actionType, String targetUrl, String payload);
+
+    /**
+     * Send notification to internal users who hold any of the specified permissions (checked via role_permissions table).
+     */
+    void sendToUsersWithAnyPermission(List<String> permissionNames, Long senderId, NotificationActionType actionType, String targetUrl, String payload);
 }

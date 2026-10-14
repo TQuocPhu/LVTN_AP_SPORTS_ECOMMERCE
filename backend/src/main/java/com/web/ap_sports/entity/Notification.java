@@ -36,6 +36,12 @@ public class Notification {
     @Column(name = "target_url", length = 500)
     private String targetUrl;
 
+    @Column(name = "title", length = 255)
+    private String title;
+
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "action_type", nullable = false)
     private NotificationActionType actionType;

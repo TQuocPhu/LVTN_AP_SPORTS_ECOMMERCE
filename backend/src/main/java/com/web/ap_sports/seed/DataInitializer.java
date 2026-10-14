@@ -53,6 +53,14 @@ public class DataInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Bỏ qua alter column image_path (có thể cột đã là TEXT hoặc DB khác): {}", e.getMessage());
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE notifications ALTER COLUMN message DROP NOT NULL;");
+            jdbcTemplate.execute("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(255);");
+            log.info("Đã cập nhật schema bảng notifications (bỏ NOT NULL message và thêm title) thành công.");
+        } catch (Exception e) {
+            log.debug("Bỏ qua alter notifications schema: {}", e.getMessage());
+        }
     }
 
     private void seedRolesAndPermissions() {

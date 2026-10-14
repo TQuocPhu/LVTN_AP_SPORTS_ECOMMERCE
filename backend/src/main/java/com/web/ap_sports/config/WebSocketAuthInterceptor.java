@@ -56,8 +56,9 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         }
 
         if (StompCommand.SUBSCRIBE.equals(command)) {
-            if (!"/user/queue/notifications".equals(accessor.getDestination())) {
-                log.warn("SUBSCRIBE bị từ chối: {}", accessor.getDestination());
+            String destination = accessor.getDestination();
+            if (!"/user/queue/notifications".equals(destination) && (destination == null || !destination.startsWith("/topic/"))) {
+                log.warn("SUBSCRIBE bị từ chối: {}", destination);
                 throw new MessageDeliveryException("Không có quyền subscribe destination này.");
             }
         } else if (StompCommand.SEND.equals(command)) {
@@ -68,11 +69,21 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     }
 
     private org.springframework.security.core.Authentication authenticate(StompHeaderAccessor accessor) {
+        // Ưu tiên header Authorization (Mobile), fallback cookie accessToken đã lấy lúc handshake (Web)
+        String token = null;
         String authHeader = accessor.getFirstNativeHeader("Authorization");
-        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+        } else if (accessor.getSessionAttributes() != null) {
+            Object cookieToken = accessor.getSessionAttributes()
+                    .get(WebSocketCookieHandshakeInterceptor.ACCESS_TOKEN_ATTR);
+            if (cookieToken instanceof String s && StringUtils.hasText(s)) {
+                token = s;
+            }
+        }
+        if (token == null) {
             throw new MessageDeliveryException("Thiếu token.");
         }
-        String token = authHeader.substring(7);
 
         if (!jwtTokenProvider.validateToken(token)) {
             throw new MessageDeliveryException("Token không hợp lệ.");

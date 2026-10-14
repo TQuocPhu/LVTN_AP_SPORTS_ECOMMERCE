@@ -16,4 +16,16 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     
     @Query ("SELECT u FROM User u WHERE u.role.name IN :roles AND u.status = com.web.ap_sports.enums.UserStatus.active")
     java.util.List<User> findActiveUsersByRoles(@org.springframework.data.repository.query.Param("roles") java.util.List<String> roles);
+
+    @Query("SELECT DISTINCT u FROM User u " +
+           "JOIN RolePermission rp ON rp.role.id = u.role.id " +
+           "JOIN rp.permission p " +
+           "WHERE p.name = :permissionName AND u.status = com.web.ap_sports.enums.UserStatus.active")
+    java.util.List<User> findActiveUsersByPermission(@org.springframework.data.repository.query.Param("permissionName") String permissionName);
+
+    @Query("SELECT DISTINCT u FROM User u " +
+           "JOIN RolePermission rp ON rp.role.id = u.role.id " +
+           "JOIN rp.permission p " +
+           "WHERE p.name IN :permissionNames AND u.status = com.web.ap_sports.enums.UserStatus.active")
+    java.util.List<User> findActiveUsersByPermissions(@org.springframework.data.repository.query.Param("permissionNames") java.util.List<String> permissionNames);
 }
