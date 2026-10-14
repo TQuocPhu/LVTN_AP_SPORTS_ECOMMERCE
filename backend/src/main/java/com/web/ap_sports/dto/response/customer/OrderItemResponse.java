@@ -21,7 +21,9 @@ public class OrderItemResponse {
     private String color;
     private String size;
     private String attributes;
+    private String variantSummary;
     private Integer quantity;
     private BigDecimal price;
     private String image;
+    private boolean isReviewed;
 }

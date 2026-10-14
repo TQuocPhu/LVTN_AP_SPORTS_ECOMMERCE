@@ -465,6 +465,13 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     .color(item.getVariant() != null ? item.getVariant().getColor() : null)
                     .size(item.getVariant() != null ? item.getVariant().getSize() : null)
                     .attributes(item.getVariant() != null ? item.getVariant().getAttributes() : null)
+                    .variantSummary(item.getVariant() != null
+                            ? com.web.ap_sports.util.VariantAttributeUtil.buildSummary(
+                                    item.getVariant().getAttributes(),
+                                    item.getVariant().getColor(),
+                                    item.getVariant().getSize(),
+                                    item.getVariant().getSku())
+                            : null)
                     .quantity(item.getQuantity())
                     .price(item.getPrice())
                     .image(img)

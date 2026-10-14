@@ -19,9 +19,11 @@ export interface OrderItem {
   color?: string;
   size?: string;
   attributes?: string;
+  variantSummary?: string;
   quantity: number;
   price: number;
   image?: string;
+  isReviewed?: boolean;
 }
 
 export type OrderStatus =

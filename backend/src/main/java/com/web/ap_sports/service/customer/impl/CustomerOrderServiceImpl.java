@@ -55,6 +55,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final ReviewRepository reviewRepository;
     private final PaymentRepository paymentRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final UserRepository userRepository;
@@ -940,6 +941,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .build();
         }
 
+        List<Long> itemIds = (items != null ? items : Collections.<OrderItem>emptyList()).stream()
+                .map(OrderItem::getId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toList());
+        Set<Long> reviewedItemIds = itemIds.isEmpty() ? Collections.emptySet()
+                : new HashSet<>(reviewRepository.findReviewedOrderItemIds(itemIds));
+
         List<OrderItemResponse> itemResps = (items != null ? items : Collections.<OrderItem>emptyList()).stream().map(item -> {
             String img = null;
             if (item.getProduct() != null) {
@@ -961,9 +969,17 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     .color(item.getVariant() != null ? item.getVariant().getColor() : null)
                     .size(item.getVariant() != null ? item.getVariant().getSize() : null)
                     .attributes(item.getVariant() != null ? item.getVariant().getAttributes() : null)
+                    .variantSummary(item.getVariant() != null
+                            ? com.web.ap_sports.util.VariantAttributeUtil.buildSummary(
+                                    item.getVariant().getAttributes(),
+                                    item.getVariant().getColor(),
+                                    item.getVariant().getSize(),
+                                    item.getVariant().getSku())
+                            : null)
                     .quantity(item.getQuantity())
                     .price(item.getPrice())
                     .image(img)
+                    .isReviewed(item.getId() != null && reviewedItemIds.contains(item.getId()))
                     .build();
         }).collect(Collectors.toList());
 

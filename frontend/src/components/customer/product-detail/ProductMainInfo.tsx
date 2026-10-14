@@ -5,12 +5,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Tag, Sparkles, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 import { ProductDetail, ProductVariant } from '@/types/product';
+import { ProductRatingStars } from '@/components/ui/ProductRatingStars';
 
 interface ProductMainInfoProps {
   product: ProductDetail;
   primaryCategory: string;
   selectedVariant: ProductVariant | null;
   effectivePrice: number;
+  averageRating?: number;
+  totalReviews?: number;
   attributeGroups?: Record<string, string[]>;
   selectedAttributes?: Record<string, string>;
   availableColors: string[];
@@ -28,6 +31,8 @@ export function ProductMainInfo({
   primaryCategory,
   selectedVariant,
   effectivePrice,
+  averageRating,
+  totalReviews,
   attributeGroups,
   selectedAttributes = {},
   availableColors,
@@ -63,6 +68,18 @@ export function ProductMainInfo({
         <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-snug tracking-tight">
           {product.name}
         </h1>
+
+        {/* Component Đánh Giá Sao Trung Bình (Click để cuộn xuống danh sách đánh giá) */}
+        <div className="pt-0.5">
+          <ProductRatingStars
+            rating={averageRating ?? 5.0}
+            totalReviews={totalReviews ?? 0}
+            size="sm"
+            showRatingValue={true}
+            showCount={true}
+            interactive={true}
+          />
+        </div>
 
         <div className="text-xs text-slate-500 dark:text-slate-400 flex flex-wrap items-center gap-2">
           <span>Danh mục: <strong className="text-slate-700 dark:text-slate-300">{primaryCategory}</strong></span>

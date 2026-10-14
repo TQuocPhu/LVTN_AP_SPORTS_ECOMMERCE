@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { productController } from "@/controllers/product-controller";
 import { Product, ProductDetail, ProductVariant } from "@/types/product";
 import { useCart } from "@/hooks/useCart";
+import { useProductReviews } from "@/hooks/useProductReviews";
 import { toast } from "sonner";
 
 export interface UseProductDetailReturn {
@@ -26,6 +27,7 @@ export interface UseProductDetailReturn {
   totalPrice: number;
   effectiveStock: number;
   isOutOfStock: boolean;
+  reviewsData: ReturnType<typeof useProductReviews>;
   handleAttributeSelect: (groupName: string, value: string) => void;
   handleColorSelect: (color: string) => void;
   handleSizeSelect: (size: string) => void;
@@ -362,6 +364,9 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     }
   };
 
+  // Quản lý Reviews & Đánh giá sao của sản phẩm hoàn toàn trong Hook
+  const reviewsData = useProductReviews(product?.id);
+
   return {
     product,
     relatedProducts,
@@ -382,6 +387,7 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     totalPrice,
     effectiveStock,
     isOutOfStock,
+    reviewsData,
     handleAttributeSelect,
     handleColorSelect,
     handleSizeSelect,

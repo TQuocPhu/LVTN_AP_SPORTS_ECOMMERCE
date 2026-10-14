@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft } from 'lucide-react';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
 import { CustomerProductCard } from '@/components/customer/product/CustomerProductCard';
 import { useProductDetail } from '@/hooks/useProductDetail';
+import { ProductReviewSectionUI } from '@/components/customer/review/ProductReviewSectionUI';
 
 // Import 5 Sub-components mô-đun hóa
 import { ProductImageGallery } from './ProductImageGallery';
@@ -55,6 +56,7 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
     handleQuantityChange,
     handleAddToCart,
     handleBuyNow,
+    reviewsData,
   } = useProductDetail(slug);
 
   if (isLoading) {
@@ -146,6 +148,8 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
                 primaryCategory={primaryCategory}
                 selectedVariant={selectedVariant}
                 effectivePrice={effectivePrice}
+                averageRating={reviewsData.summary?.averageRating}
+                totalReviews={reviewsData.summary?.totalReviews}
                 attributeGroups={attributeGroups}
                 selectedAttributes={selectedAttributes}
                 availableColors={availableColors}
@@ -199,7 +203,26 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
         </section>
 
         {/* ========================================================================= */}
-        {/* 3. LƯỚI SẢN PHẨM TƯƠNG TỰ (RELATED PRODUCTS GRID - 5 CARDS / ROW)         */}
+        {/* 3. KHU VỰC ĐÁNH GIÁ SẢN PHẨM HOÀN CHỈNH TỪ KHÁCH HÀNG                     */}
+        {/* ========================================================================= */}
+        <section id="product-reviews-section">
+          <ProductReviewSectionUI
+            reviews={reviewsData.reviews}
+            summary={reviewsData.summary}
+            selectedRating={reviewsData.selectedRating}
+            withImagesOnly={reviewsData.withImagesOnly}
+            page={reviewsData.page}
+            totalPages={reviewsData.totalPages}
+            totalElements={reviewsData.totalElements}
+            isLoading={reviewsData.isLoading}
+            onFilterRating={reviewsData.filterByRating}
+            onToggleWithImages={reviewsData.toggleWithImagesOnly}
+            onPageChange={reviewsData.setPage}
+          />
+        </section>
+
+        {/* ========================================================================= */}
+        {/* 4. LƯỚI SẢN PHẨM TƯƠNG TỰ (RELATED PRODUCTS GRID - 5 CARDS / ROW)         */}
         {/* ========================================================================= */}
         {relatedProducts.length > 0 && (
           <section id="related-products-section" className="space-y-6">

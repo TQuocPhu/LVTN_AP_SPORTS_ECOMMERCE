@@ -23,6 +23,7 @@ import {
   Truck,
   Warehouse,
   Star,
+  Check,
 } from "lucide-react";
 import {
   useCustomerOrders,
@@ -59,6 +60,7 @@ export function CustomerOrdersContentUI() {
     handleOpenActionModal,
     handleCloseActionModal,
     handleConfirmAction,
+    refetch,
     formatCurrency,
     formatDate,
   } = useCustomerOrders();
@@ -66,18 +68,21 @@ export function CustomerOrdersContentUI() {
   const {
     isOpen: isReviewModalOpen,
     selectedOrderItem: reviewItem,
+    variantDisplay: reviewVariantDisplay,
     rating,
     setRating,
     comment,
     setComment,
     photoFiles,
-    handleAddPhoto,
     handleRemovePhoto,
+    handleFileInputChange: handleReviewFileInputChange,
     isSubmitting: isSubmittingReview,
+    isCompressingPhoto,
+    isSubmitDisabled: isReviewSubmitDisabled,
     openReviewModal,
     closeReviewModal,
     submitReview,
-  } = useCustomerOrderReviewModal();
+  } = useCustomerOrderReviewModal(refetch);
 
   const statusTabs: {
     key: CustomerOrderStatusTab;
@@ -351,23 +356,33 @@ export function CustomerOrdersContentUI() {
                           {["delivered", "completed"].includes(
                             currentStatus,
                           ) && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openReviewModal({
-                                  id: item.id || 0,
-                                  productId: item.productId || 0,
-                                  productName: item.productName || "",
-                                  productImage: item.image,
-                                  price: item.price,
-                                  quantity: item.quantity,
-                                })
-                              }
-                              className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-extrabold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-                            >
-                              <Star className="w-3 h-3 fill-white" />
-                              <span>Đánh Giá</span>
-                            </button>
+                            item.isReviewed ? (
+                              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center gap-1 select-none">
+                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>Đã đánh giá</span>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openReviewModal({
+                                    id: item.id || 0,
+                                    productId: item.productId || 0,
+                                    productName: item.productName || "",
+                                    productImage: item.image,
+                                    variantSize: item.size,
+                                    variantColor: item.color,
+                                    attributes: item.attributes,
+                                    price: item.price,
+                                    quantity: item.quantity,
+                                  })
+                                }
+                                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-extrabold flex items-center gap-1 shadow-xs transition-all cursor-pointer"
+                              >
+                                <Star className="w-3 h-3 fill-white" />
+                                <span>Đánh Giá</span>
+                              </button>
+                            )
                           )}
                         </div>
                       </div>
@@ -466,14 +481,17 @@ export function CustomerOrdersContentUI() {
         <CustomerOrderReviewModalUI
           isOpen={isReviewModalOpen}
           selectedOrderItem={reviewItem}
+          variantDisplay={reviewVariantDisplay}
           rating={rating}
           setRating={setRating}
           comment={comment}
           setComment={setComment}
           photoFiles={photoFiles}
-          onAddPhoto={handleAddPhoto}
           onRemovePhoto={handleRemovePhoto}
+          onFileInputChange={handleReviewFileInputChange}
           isSubmitting={isSubmittingReview}
+          isCompressingPhoto={isCompressingPhoto}
+          isSubmitDisabled={isReviewSubmitDisabled}
           onClose={closeReviewModal}
           onSubmit={submitReview}
         />

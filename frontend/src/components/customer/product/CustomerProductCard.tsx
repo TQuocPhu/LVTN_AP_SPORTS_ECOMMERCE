@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { QuickAddToCartModal } from "./QuickAddToCartModal";
+import { ProductRatingStars } from "@/components/ui/ProductRatingStars";
 
 interface CustomerProductCardProps {
   product: Product;
@@ -133,14 +134,13 @@ export function CustomerProductCard({ product }: CustomerProductCardProps) {
               <Check className="w-3 h-3 text-emerald-500" />
               <span>Sẵn hàng</span>
             </span>
-            <div className="flex items-center gap-1 text-amber-500 text-[11px]">
-              <span
-                className="text-[10px]"
-                style={{ color: "var(--text-faint)" }}
-              >
-                ({reviewsCount} đánh giá)
-              </span>
-            </div>
+            <ProductRatingStars
+              rating={ratingValue}
+              totalReviews={reviewsCount}
+              size="xs"
+              showRatingValue={true}
+              showCount={true}
+            />
           </div>
 
           <Link
