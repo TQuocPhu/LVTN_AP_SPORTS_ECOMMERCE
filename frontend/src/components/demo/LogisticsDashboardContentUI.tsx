@@ -3,12 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { Building, Truck, CheckCircle2, LogOut } from 'lucide-react';
-import { useDemoLogisticsAuth } from '@/hooks/useDemoLogisticsAuth';
+import { useLogisticsDashboard } from '@/hooks/useLogisticsDashboard';
 import Image from 'next/image';
 
 export function LogisticsDashboardContentUI() {
-  const { user, logout } = useDemoLogisticsAuth();
+  const { user, role, isStation, isShipper, handleLogout: logout } = useLogisticsDashboard();
 
+  // Spinner chỉ hiển thị khi đang kiểm tra phiên hoặc đang redirect về /demo/login
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -16,10 +17,6 @@ export function LogisticsDashboardContentUI() {
       </div>
     );
   }
-
-  const role = user.roleName;
-  const isStation = role === 'GHN_STATION';
-  const isShipper = role === 'GHN_SHIPPER';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8 font-sans">

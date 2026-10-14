@@ -72,6 +72,9 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       const res = await adminAuthController.login(data);
       if (res?.data) {
         setUser(res.data);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("auth:login"));
+        }
       }
       return res;
     } catch (err: unknown) {
@@ -90,6 +93,9 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Lỗi đăng xuất admin:", err);
     } finally {
       setUser(null);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("auth:logout"));
+      }
     }
   };
 

@@ -96,15 +96,20 @@ export async function apiClient<T>(
           eraseCookie("accessToken");
           eraseCookie("refreshToken");
           if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
-            const isProtectedRoute = [
-              "/profile",
-              "/account",
-              "/orders",
-              "/checkout",
-              "/notifications",
-            ].some((p) => window.location.pathname.startsWith(p));
-            if (isProtectedRoute) {
-              window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(window.location.pathname)}`;
+            const currentPath = window.location.pathname;
+            if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
+              window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+            } else {
+              const isProtectedRoute = [
+                "/profile",
+                "/account",
+                "/orders",
+                "/checkout",
+                "/notifications",
+              ].some((p) => currentPath.startsWith(p));
+              if (isProtectedRoute) {
+                window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+              }
             }
           }
         }
@@ -112,6 +117,23 @@ export async function apiClient<T>(
         onRefreshed(false);
         eraseCookie("accessToken");
         eraseCookie("refreshToken");
+        if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
+          const currentPath = window.location.pathname;
+          if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
+            window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+          } else {
+            const isProtectedRoute = [
+              "/profile",
+              "/account",
+              "/orders",
+              "/checkout",
+              "/notifications",
+            ].some((p) => currentPath.startsWith(p));
+            if (isProtectedRoute) {
+              window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+            }
+          }
+        }
       } finally {
         setIsRefreshing(false);
       }

@@ -26,6 +26,7 @@ export default function LogisticsLoginForm() {
               src="/images/ap-sports_logo_no-back.png"
               alt="AP SPORTS Logo"
               fill
+              sizes="192px"
               className="object-contain"
               priority
             />
