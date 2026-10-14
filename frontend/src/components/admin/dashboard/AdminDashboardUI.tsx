@@ -5,6 +5,7 @@ import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import { DashboardHeader } from './DashboardHeader';
 import { DashboardScorecards } from './DashboardScorecards';
 import { DashboardBiCharts } from './DashboardBiCharts';
+import { DashboardSystemAnalytics } from './DashboardSystemAnalytics';
 import { DashboardQuickWidgets } from './DashboardQuickWidgets';
 import { AlertCircle } from 'lucide-react';
 
@@ -54,12 +55,27 @@ export function AdminDashboardUI() {
         loading={loading}
       />
 
-      {/* 3. TẦNG 2: BI CHARTS (KPI TARGET PACE, PHỄU MUA HÀNG THỰC TẾ, COHORT RETENTION) */}
+      {/* 3. TẦNG 2: PHÂN TÍCH NGHIỆP VỤ BI (MỤC TIÊU KPI, PHỄU CHUYỂN ĐỔI, COHORT) */}
       <DashboardBiCharts
         isAdmin={isAdmin}
+        isStaff={isStaff}
+        isWarehouse={isWarehouse}
         kpiData={data?.kpiTargetTrend}
         funnelData={data?.salesFunnel}
         cohortData={data?.cohortRetention}
+        loading={loading}
+      />
+
+      {/* 4. TẦNG THỐNG KÊ HỆ THỐNG: 2 BIỂU ĐỒ CỘT & TRÒN THEO CHIỀU NGANG CÓ HOVER TƯƠNG TÁC */}
+      <DashboardSystemAnalytics
+        isAdmin={isAdmin}
+        isStaff={isStaff}
+        isWarehouse={isWarehouse}
+        categoryShares={data?.categoryShares}
+        revenueComparison={data?.revenueComparison}
+        monthlyWeeklyRevenues={data?.monthlyWeeklyRevenues}
+        warehouseActivityTrend={data?.warehouseActivityTrend}
+        staffOrderStatusShare={data?.staffOrderStatusShare}
         loading={loading}
       />
 

@@ -109,6 +109,41 @@ export interface RecentReviewWidget {
   createdAt: string;
 }
 
+export interface CategoryShare {
+  categoryId: number;
+  categoryName: string;
+  productCount: number;
+  stockQuantity: number;
+  percentage: number;
+  color: string;
+}
+
+export interface RevenueComparison {
+  periodName: string;
+  currentMonthRevenue: number;
+  previousMonthRevenue: number;
+}
+
+export interface MonthlyWeeklyRevenue {
+  monthKey: string;            // YYYY-MM
+  monthLabel: string;          // "Tháng 10/2026", "Tháng 09/2026"
+  weeklyRevenues: number[];    // [Tuần 1, Tuần 2, Tuần 3, Tuần 4]
+  totalRevenue: number;
+}
+
+export interface WarehouseActivityTrend {
+  date: string;
+  inboundQuantity: number;
+  outboundQuantity: number;
+}
+
+export interface StaffOrderStatusShare {
+  statusName: string;
+  count: number;
+  percentage: number;
+  color: string;
+}
+
 export interface AdminDashboardData {
   userRole: 'ADMIN' | 'STAFF' | 'WAREHOUSE_MANAGER' | string;
   userName: string;
@@ -120,6 +155,12 @@ export interface AdminDashboardData {
   kpiTargetTrend: KpiTargetTrend;
   salesFunnel: SalesFunnel;
   cohortRetention: CohortRetentionItem[];
+
+  categoryShares?: CategoryShare[];
+  revenueComparison?: RevenueComparison[];
+  monthlyWeeklyRevenues?: MonthlyWeeklyRevenue[];
+  warehouseActivityTrend?: WarehouseActivityTrend[];
+  staffOrderStatusShare?: StaffOrderStatusShare[];
 
   recentOrders: RecentOrderWidget[];
   topSellingProducts?: TopProductWidget[];

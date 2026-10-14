@@ -75,6 +75,8 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private final ReviewRepository reviewRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final PaymentRepository paymentRepository;
+    private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     @Override
     public AdminDashboardResponse getDashboardData(User currentUser) {
@@ -545,6 +547,180 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
         // Trả về danh sách Cohort thực tế (Nếu chưa có ai thì trả về danh sách rỗng, không fake số)
         responseBuilder.cohortRetention(realCohorts);
+
+        // 4. BIỂU ĐỒ TRÒN: CƠ CẤU DANH MỤC SẢN PHẨM & TỒN KHO (100% DỮ LIỆU THẬT)
+        List<com.web.ap_sports.entity.Product> allProducts = productRepository.findAll();
+        List<ProductVariant> allVariants = productVariantRepository.findAll();
+
+        Map<Long, Long> stockByProductId = new HashMap<>();
+        for (ProductVariant v : allVariants) {
+            if (v.getProduct() != null && v.getStockQuantity() != null) {
+                stockByProductId.merge(v.getProduct().getId(), v.getStockQuantity().longValue(), Long::sum);
+            }
+        }
+
+        List<com.web.ap_sports.entity.Category> allCategories = categoryRepository.findAll();
+        Map<Long, String> categoryNameMap = new HashMap<>();
+        Map<Long, Long> productCountByCat = new HashMap<>();
+        Map<Long, Long> stockQuantityByCat = new HashMap<>();
+
+        for (com.web.ap_sports.entity.Category c : allCategories) {
+            categoryNameMap.put(c.getId(), c.getName());
+        }
+
+        for (com.web.ap_sports.entity.Product p : allProducts) {
+            if (p.getCategory() != null) {
+                Long cId = p.getCategory().getId();
+                productCountByCat.merge(cId, 1L, Long::sum);
+                Long st = stockByProductId.getOrDefault(p.getId(), 0L);
+                stockQuantityByCat.merge(cId, st, Long::sum);
+            }
+        }
+
+        long totalCatalogProducts = allProducts.size();
+        String[] PALETTE = {"#0284c7", "#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316"};
+        List<CategoryShareDto> categoryShares = new ArrayList<>();
+        int colorIdx = 0;
+
+        for (Map.Entry<Long, Long> entry : productCountByCat.entrySet()) {
+            Long cId = entry.getKey();
+            Long pCount = entry.getValue();
+            Long sQty = stockQuantityByCat.getOrDefault(cId, 0L);
+            String cName = categoryNameMap.getOrDefault(cId, "Khác");
+            double pct = totalCatalogProducts > 0
+                    ? BigDecimal.valueOf((double) pCount * 100 / totalCatalogProducts).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                    : 0.0;
+
+            categoryShares.add(CategoryShareDto.builder()
+                    .categoryId(cId)
+                    .categoryName(cName)
+                    .productCount(pCount)
+                    .stockQuantity(sQty)
+                    .percentage(pct)
+                    .color(PALETTE[colorIdx % PALETTE.length])
+                    .build());
+            colorIdx++;
+        }
+        categoryShares.sort((a, b) -> Long.compare(b.getProductCount(), a.getProductCount()));
+        responseBuilder.categoryShares(categoryShares);
+
+        // 5. BIỂU ĐỒ CỘT KÉP: SO SÁNH DOANH THU THEO TUẦN (HỖ TRỢ CHỌN THÁNG TÙY BIẾN)
+        if ("ADMIN".equals(roleName)) {
+            // Thu thập doanh thu theo tháng (YYYY-MM) và tuần (1..4)
+            Map<String, Map<Integer, Long>> monthlyWeeklyMap = new HashMap<>();
+            DateTimeFormatter MONTH_KEY_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
+            DateTimeFormatter MONTH_LABEL_FMT = DateTimeFormatter.ofPattern("'Tháng 'MM/yyyy");
+
+            for (Order o : allOrders) {
+                OrderStatus st = o.getStatus();
+                boolean isCancelled = (st == OrderStatus.cancelled || st == OrderStatus.returned || st == OrderStatus.payment_failed);
+                if (isCancelled || o.getCreatedAt() == null) continue;
+
+                long amt = o.getFinalAmount() != null ? o.getFinalAmount().longValue() : 0;
+                String mKey = o.getCreatedAt().format(MONTH_KEY_FMT);
+                int day = o.getCreatedAt().getDayOfMonth();
+                int week = day <= 7 ? 1 : (day <= 14 ? 2 : (day <= 21 ? 3 : 4));
+
+                monthlyWeeklyMap.computeIfAbsent(mKey, k -> new HashMap<>())
+                        .merge(week, amt, Long::sum);
+            }
+
+            // Tạo danh sách 6 tháng gần nhất cho người dùng tùy chọn so sánh
+            List<MonthlyWeeklyRevenueDto> monthlyWeeklyList = new ArrayList<>();
+            for (int m = 0; m < 6; m++) {
+                LocalDateTime targetM = now.minusMonths(m);
+                String mKey = targetM.format(MONTH_KEY_FMT);
+                String mLabel = targetM.format(MONTH_LABEL_FMT);
+
+                Map<Integer, Long> weeksMap = monthlyWeeklyMap.getOrDefault(mKey, Collections.emptyMap());
+                List<Long> weeklyRevs = new ArrayList<>();
+                long mTotal = 0;
+                for (int w = 1; w <= 4; w++) {
+                    long wAmt = weeksMap.getOrDefault(w, 0L);
+                    weeklyRevs.add(wAmt);
+                    mTotal += wAmt;
+                }
+
+                monthlyWeeklyList.add(MonthlyWeeklyRevenueDto.builder()
+                        .monthKey(mKey)
+                        .monthLabel(mLabel)
+                        .weeklyRevenues(weeklyRevs)
+                        .totalRevenue(mTotal)
+                        .build());
+            }
+            responseBuilder.monthlyWeeklyRevenues(monthlyWeeklyList);
+
+            // Mặc định so sánh Tháng này vs Tháng trước để tương thích
+            List<Long> thisMonthWeeks = monthlyWeeklyList.get(0).getWeeklyRevenues();
+            List<Long> lastMonthWeeks = monthlyWeeklyList.size() > 1 ? monthlyWeeklyList.get(1).getWeeklyRevenues() : Arrays.asList(0L, 0L, 0L, 0L);
+
+            List<RevenueComparisonDto> revenueCompList = new ArrayList<>();
+            String[] weekLabels = {"Tuần 1 (1-7)", "Tuần 2 (8-14)", "Tuần 3 (15-21)", "Tuần 4 (22-cuối)"};
+            for (int w = 1; w <= 4; w++) {
+                revenueCompList.add(RevenueComparisonDto.builder()
+                        .periodName(weekLabels[w - 1])
+                        .currentMonthRevenue(thisMonthWeeks.get(w - 1))
+                        .previousMonthRevenue(lastMonthWeeks.get(w - 1))
+                        .build());
+            }
+            responseBuilder.revenueComparison(revenueCompList);
+        }
+
+        // 6. BIỂU ĐỒ CỘT KÉP: BIẾN ĐỘNG NHẬP - XUẤT KHO 7 NGÀY GẦN NHẤT (CHO WAREHOUSE_MANAGER & ADMIN)
+        if ("ADMIN".equals(roleName) || "WAREHOUSE_MANAGER".equals(roleName)) {
+            List<WarehouseActivityTrendDto> whTrend = new ArrayList<>();
+            DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("dd/MM");
+            for (int i = 6; i >= 0; i--) {
+                LocalDateTime targetDate = now.minusDays(i);
+                LocalDateTime startOfDay = targetDate.with(LocalTime.MIN);
+                LocalDateTime endOfDay = targetDate.with(LocalTime.MAX);
+
+                Long inQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.IMPORT, startOfDay, endOfDay);
+                Long outQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.EXPORT, startOfDay, endOfDay);
+
+                whTrend.add(WarehouseActivityTrendDto.builder()
+                        .date(targetDate.format(DAY_FMT))
+                        .inboundQuantity(inQty != null ? inQty : 0L)
+                        .outboundQuantity(outQty != null ? Math.abs(outQty) : 0L)
+                        .build());
+            }
+            responseBuilder.warehouseActivityTrend(whTrend);
+        }
+
+        // 7. BIỂU ĐỒ TRÒN: PHÂN BỔ TRẠNG THÁI ĐƠN PHỤ TRÁCH (CHO STAFF)
+        if ("STAFF".equals(roleName)) {
+            Long staffId = currentUser != null ? currentUser.getId() : null;
+            long deliveredCount = 0;
+            long shippingCount = 0;
+            long confirmedCount = 0;
+            long pendingCount = 0;
+            long cancelledCount = 0;
+            long totalStaffOrders = 0;
+
+            for (Order o : allOrders) {
+                if (staffId == null || (o.getProcessedByStaff() != null && staffId.equals(o.getProcessedByStaff().getId()))) {
+                    totalStaffOrders++;
+                    OrderStatus st = o.getStatus();
+                    if (st == OrderStatus.delivered || st == OrderStatus.completed) deliveredCount++;
+                    else if (st == OrderStatus.shipping || st == OrderStatus.shipped) shippingCount++;
+                    else if (st == OrderStatus.confirmed || st == OrderStatus.processing) confirmedCount++;
+                    else if (st == OrderStatus.pending) pendingCount++;
+                    else cancelledCount++;
+                }
+            }
+
+            List<StaffOrderStatusShareDto> staffShares = new ArrayList<>();
+            if (totalStaffOrders > 0) {
+                staffShares.add(StaffOrderStatusShareDto.builder().statusName("Đã giao thành công").count(deliveredCount).percentage(BigDecimal.valueOf(deliveredCount * 100.0 / totalStaffOrders).setScale(1, RoundingMode.HALF_UP).doubleValue()).color("#10b981").build());
+                staffShares.add(StaffOrderStatusShareDto.builder().statusName("Đang giao hàng GHN").count(shippingCount).percentage(BigDecimal.valueOf(shippingCount * 100.0 / totalStaffOrders).setScale(1, RoundingMode.HALF_UP).doubleValue()).color("#0284c7").build());
+                staffShares.add(StaffOrderStatusShareDto.builder().statusName("Đang xử lý / Đóng gói").count(confirmedCount).percentage(BigDecimal.valueOf(confirmedCount * 100.0 / totalStaffOrders).setScale(1, RoundingMode.HALF_UP).doubleValue()).color("#f59e0b").build());
+                staffShares.add(StaffOrderStatusShareDto.builder().statusName("Chờ duyệt").count(pendingCount).percentage(BigDecimal.valueOf(pendingCount * 100.0 / totalStaffOrders).setScale(1, RoundingMode.HALF_UP).doubleValue()).color("#8b5cf6").build());
+                if (cancelledCount > 0) {
+                    staffShares.add(StaffOrderStatusShareDto.builder().statusName("Đã hủy / Thất bại").count(cancelledCount).percentage(BigDecimal.valueOf(cancelledCount * 100.0 / totalStaffOrders).setScale(1, RoundingMode.HALF_UP).doubleValue()).color("#ef4444").build());
+                }
+            }
+            responseBuilder.staffOrderStatusShare(staffShares);
+        }
     }
 
     /**

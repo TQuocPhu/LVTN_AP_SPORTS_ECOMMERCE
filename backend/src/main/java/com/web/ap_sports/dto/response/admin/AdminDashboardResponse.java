@@ -31,6 +31,13 @@ public class AdminDashboardResponse {
     private SalesFunnelDto salesFunnel;
     private List<CohortRetentionDto> cohortRetention;
 
+    // CÁC BIỂU ĐỒ BỔ SUNG CHUẨN ENTERPRISE DASHBOARD
+    private List<CategoryShareDto> categoryShares;               // Biểu đồ tròn Cơ cấu danh mục sản phẩm (Admin & Warehouse)
+    private List<RevenueComparisonDto> revenueComparison;        // Biểu đồ cột kép so sánh doanh thu mặc định (Admin)
+    private List<MonthlyWeeklyRevenueDto> monthlyWeeklyRevenues; // Dữ liệu doanh thu 4 tuần của các tháng cho phép chọn tùy biến so sánh (Admin)
+    private List<WarehouseActivityTrendDto> warehouseActivityTrend; // Biểu đồ cột kép Nhập - Xuất kho 7 ngày (Warehouse)
+    private List<StaffOrderStatusShareDto> staffOrderStatusShare;   // Biểu đồ tròn Trạng thái đơn hàng phụ trách (Staff)
+
     // TẦNG 3: CÁC WIDGET TOP 5 DÒNG (KÈM LINK ĐIỀU HƯỚNG THEO QUYỀN)
     private List<RecentOrderWidgetDto> recentOrders;      // Top 5 đơn hàng gần đây
     private List<TopProductWidgetDto> topSellingProducts;  // Top 5 sản phẩm bán chạy (Admin & Staff)
@@ -196,5 +203,63 @@ public class AdminDashboardResponse {
         private String comment;
         private String status;
         private String createdAt;
+    }
+
+    // ==========================================
+    // 4. DTO CÁC BIỂU ĐỒ BỔ SUNG (BI CHARTS)
+    // ==========================================
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CategoryShareDto {
+        private Long categoryId;
+        private String categoryName;
+        private Long productCount;          // Số lượng sản phẩm thuộc danh mục
+        private Long stockQuantity;         // Tổng số lượng tồn kho (cái)
+        private Double percentage;          // Tỷ lệ %
+        private String color;               // Mã màu hiển thị trên biểu đồ
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RevenueComparisonDto {
+        private String periodName;          // Tuần 1, Tuần 2, Tuần 3, Tuần 4
+        private Long currentMonthRevenue;   // Doanh thu tháng này (T10/2026)
+        private Long previousMonthRevenue;  // Doanh thu tháng trước (T09/2026)
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WarehouseActivityTrendDto {
+        private String date;                // DD/MM
+        private Long inboundQuantity;       // Số lượng nhập kho
+        private Long outboundQuantity;      // Số lượng xuất kho
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StaffOrderStatusShareDto {
+        private String statusName;          // Tên trạng thái (Hoàn tất, Đang giao, Đang đóng gói...)
+        private Long count;                 // Số lượng đơn
+        private Double percentage;          // Tỷ lệ %
+        private String color;               // Mã màu
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MonthlyWeeklyRevenueDto {
+        private String monthKey;            // YYYY-MM, ví dụ "2026-10", "2026-09"
+        private String monthLabel;          // "Tháng 10/2026", "Tháng 09/2026"
+        private List<Long> weeklyRevenues;  // Doanh thu 4 tuần [Tuần 1, Tuần 2, Tuần 3, Tuần 4]
+        private Long totalRevenue;          // Tổng doanh thu của tháng đó
     }
 }
