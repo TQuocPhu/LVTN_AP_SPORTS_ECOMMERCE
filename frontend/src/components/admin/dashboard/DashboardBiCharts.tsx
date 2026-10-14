@@ -42,6 +42,7 @@ export function DashboardBiCharts({
   }
 
   // Helper tính chiều cao cho SVG Line chart
+  // Helper tính chiều cao cho SVG Line chart
   const renderKpiLineChart = () => {
     if (!kpiData || !kpiData.dailyPacingPoints || kpiData.dailyPacingPoints.length === 0) {
       return (
@@ -53,31 +54,64 @@ export function DashboardBiCharts({
 
     const points = kpiData.dailyPacingPoints;
     const maxVal = Math.max(kpiData.monthlyTargetRevenue * 1.1, 1);
-    const width = 800;
-    const height = 220;
-    const padding = { top: 20, bottom: 30, left: 20, right: 20 };
+    const width = 850;
+    const height = 260;
+    const padding = { top: 30, bottom: 50, left: 70, right: 30 };
 
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
-    // Tọa độ đường Target Pace (Mục tiêu chuẩn)
+    // Trích xuất thông tin ngày/tháng/năm thực tế
+    const firstDateStr = points[0]?.date || '';
+    const dateParts = firstDateStr.split('-');
+    const currentYear = dateParts[0] || `${new Date().getFullYear()}`;
+    const currentMonth = dateParts[1] || `${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const currentDayNumber = new Date().getDate();
+
+    // Helper tính tọa độ X và Y chuẩn xác cho từng ngày trong tháng
+    const getPointX = (dayOfMonth: number) => {
+      if (points.length <= 1) return padding.left;
+      return padding.left + ((dayOfMonth - 1) / (points.length - 1)) * chartW;
+    };
+
+    const getPointY = (val: number) => {
+      return padding.top + chartH - (val / maxVal) * chartH;
+    };
+
+    // 1. Tọa độ đường Target Pace (Mục tiêu chuẩn chạy suốt từ ngày 1 đến ngày cuối tháng)
     const targetPath = points
       .map((p, idx) => {
-        const x = padding.left + (idx / (points.length - 1)) * chartW;
-        const y = padding.top + chartH - (p.targetCumulative / maxVal) * chartH;
+        const x = getPointX(p.dayOfMonth);
+        const y = getPointY(p.targetCumulative);
         return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
       })
       .join(' ');
 
-    // Tọa độ đường Actual Revenue (Doanh thu thực tế)
-    const actualPoints = points.filter((p) => p.actualCumulative !== null);
-    const actualPath = actualPoints
-      .map((p, idx) => {
-        const x = padding.left + (idx / (points.length - 1)) * chartW;
-        const y = padding.top + chartH - ((p.actualCumulative || 0) / maxVal) * chartH;
-        return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
-      })
-      .join(' ');
+    // 2. Tọa độ đường Actual Revenue (Chỉ vẽ từ ngày 1 đến ngày hiện tại, KHÔNG vẽ sang tương lai)
+    const validActualPoints = points.filter(
+      (p) => p.dayOfMonth <= currentDayNumber && p.actualCumulative !== null && p.actualCumulative !== undefined
+    );
+
+    const actualPath = validActualPoints.length > 0
+      ? validActualPoints
+          .map((p, idx) => {
+            const x = getPointX(p.dayOfMonth);
+            const y = getPointY(p.actualCumulative || 0);
+            return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+          })
+          .join(' ')
+      : '';
+
+    // Điểm thực tế cuối cùng tính đến hôm nay
+    const lastActualPoint = validActualPoints.length > 0 ? validActualPoints[validActualPoints.length - 1] : null;
+    const lastX = lastActualPoint ? getPointX(lastActualPoint.dayOfMonth) : 0;
+    const lastY = lastActualPoint ? getPointY(lastActualPoint.actualCumulative || 0) : 0;
+
+    // Các mốc ngày trục X cần hiển thị nhãn
+    const rawTickDays = [1, 5, 10, currentDayNumber, 20, 25, points.length];
+    const tickDays = Array.from(new Set(rawTickDays))
+      .filter((d) => d >= 1 && d <= points.length)
+      .sort((a, b) => a - b);
 
     return (
       <div className="space-y-4">
@@ -88,8 +122,15 @@ export function DashboardBiCharts({
               <Target className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-700 uppercase">Tiến Độ Kế Hoạch Tháng</div>
-              <div className="text-lg font-black text-slate-900">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Tiến Độ Kế Hoạch Tháng {currentMonth}/{currentYear}
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                  Hôm nay: Ngày {currentDayNumber}/{points.length}
+                </span>
+              </div>
+              <div className="text-lg font-black text-slate-900 mt-0.5">
                 {formatCurrency(kpiData.actualRevenueSoFar)}{' '}
                 <span className="text-xs font-semibold text-slate-700">
                   / {formatCurrency(kpiData.monthlyTargetRevenue)} ({kpiData.progressPercentage}%)
@@ -122,8 +163,8 @@ export function DashboardBiCharts({
 
         {/* SVG Dual-Line Chart */}
         <div className="w-full overflow-x-auto">
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56 select-none">
-            {/* Grid lines */}
+          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-64 select-none">
+            {/* Lưới ngang trục Y và giá trị tiền */}
             {[0, 0.25, 0.5, 0.75, 1].map((r, i) => {
               const y = padding.top + chartH * (1 - r);
               return (
@@ -136,35 +177,112 @@ export function DashboardBiCharts({
                     stroke="#e2e8f0"
                     strokeDasharray="4 4"
                   />
-                  <text x={padding.left} y={y - 4} fontSize="9" fill="#64748b" fontWeight="600">
+                  <text
+                    x={padding.left - 8}
+                    y={y + 4}
+                    textAnchor="end"
+                    fontSize="10"
+                    fill="#64748b"
+                    fontWeight="600"
+                  >
                     {formatCurrency(maxVal * r)}
                   </text>
                 </g>
               );
             })}
 
-            {/* Target Pace Line (Nét đứt xám) */}
+            {/* Trục X đáy */}
+            <line
+              x1={padding.left}
+              y1={padding.top + chartH}
+              x2={width - padding.right}
+              y2={padding.top + chartH}
+              stroke="#cbd5e1"
+              strokeWidth="1.5"
+            />
+
+            {/* Các vạch tick và nhãn ngày trục X */}
+            {tickDays.map((d) => {
+              const x = getPointX(d);
+              const isToday = d === currentDayNumber;
+              return (
+                <g key={d}>
+                  <line
+                    x1={x}
+                    y1={padding.top + chartH}
+                    x2={x}
+                    y2={padding.top + chartH + 5}
+                    stroke={isToday ? '#0284c7' : '#94a3b8'}
+                    strokeWidth={isToday ? 2 : 1}
+                  />
+                  <text
+                    x={x}
+                    y={padding.top + chartH + 18}
+                    textAnchor="middle"
+                    fontSize={isToday ? '10.5' : '9.5'}
+                    fill={isToday ? '#0284c7' : '#64748b'}
+                    fontWeight={isToday ? '800' : '600'}
+                  >
+                    {isToday ? `Hôm nay (${String(d).padStart(2, '0')}/${currentMonth})` : `${String(d).padStart(2, '0')}/${currentMonth}`}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Đường dóng đứng nét đứt tại mốc ngày hiện tại (Hôm nay) */}
+            {lastActualPoint && (
+              <line
+                x1={lastX}
+                y1={padding.top}
+                x2={lastX}
+                y2={padding.top + chartH}
+                stroke="#0284c7"
+                strokeWidth="1.5"
+                strokeDasharray="3 3"
+                opacity="0.7"
+              />
+            )}
+
+            {/* Target Pace Line (Mục tiêu lũy kế chuẩn cả tháng - Nét đứt màu xám) */}
             <path d={targetPath} fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeDasharray="6 6" />
 
-            {/* Actual Revenue Line (Nét liền xanh đậm) */}
+            {/* Actual Revenue Line (Thực tế đạt được đến nay - Nét liền xanh đậm) */}
             {actualPath && (
               <path d={actualPath} fill="none" stroke="#0284c7" strokeWidth="3.5" strokeLinecap="round" />
             )}
 
-            {/* Điểm nút thực tế cuối cùng */}
-            {actualPoints.length > 0 && (
-              <circle
-                cx={padding.left + ((actualPoints.length - 1) / (points.length - 1)) * chartW}
-                y={
-                  padding.top +
-                  chartH -
-                  ((actualPoints[actualPoints.length - 1].actualCumulative || 0) / maxVal) * chartH
-                }
-                r="5"
-                fill="#0284c7"
-                stroke="#ffffff"
-                strokeWidth="2"
-              />
+            {/* Điểm nút thực tế hôm nay kèm thẻ giá trị nổi bật */}
+            {lastActualPoint && (
+              <g>
+                <circle
+                  cx={lastX}
+                  cy={lastY}
+                  r="6"
+                  fill="#0284c7"
+                  stroke="#ffffff"
+                  strokeWidth="2.5"
+                  className="filter drop-shadow-sm"
+                />
+                <rect
+                  x={lastX - 44}
+                  y={lastY - 26}
+                  width="88"
+                  height="20"
+                  rx="6"
+                  fill="#0284c7"
+                  className="filter drop-shadow-sm"
+                />
+                <text
+                  x={lastX}
+                  y={lastY - 13}
+                  textAnchor="middle"
+                  fill="#ffffff"
+                  fontSize="10"
+                  fontWeight="bold"
+                >
+                  {formatCurrency(lastActualPoint.actualCumulative || 0)}
+                </text>
+              </g>
             )}
           </svg>
         </div>
@@ -174,16 +292,16 @@ export function DashboardBiCharts({
           <div className="flex items-center gap-5">
             <span className="flex items-center gap-2">
               <span className="w-5 h-1 bg-sky-600 rounded-full inline-block" />
-              <strong className="text-slate-800">Doanh thu thực tế (Actual)</strong>
+              <strong className="text-slate-800">Doanh thu thực tế đến nay (Actual)</strong>
             </span>
             <span className="flex items-center gap-2">
               <span className="w-5 h-1 bg-slate-400 rounded-full inline-block border-b border-dashed border-slate-600" />
-              <span>Tiến độ mục tiêu (Target Pace)</span>
+              <span>Kế hoạch mục tiêu (Target Pace)</span>
             </span>
           </div>
 
           <div className="text-[11px] text-slate-700 italic flex items-center gap-1">
-            <HelpCircle className="w-3.5 h-3.5 text-slate-700" />
+            <HelpCircle className="w-3.5 h-3.5 text-slate-700 shrink-0" />
             {kpiData.rationaleNote}
           </div>
         </div>
