@@ -57,9 +57,9 @@ export function ReportFilterBar({
   };
 
   return (
-    <div className="space-y-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+    <div className="space-y-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
       {/* 1. Main Navigation Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-100 dark:border-slate-800/80">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-100">
         {REPORT_TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -69,8 +69,8 @@ export function ReportFilterBar({
               onClick={() => onTabChange(tab.key)}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                 isActive
-                  ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/25 ring-2 ring-orange-500/20'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                  ? 'bg-orange-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
               {getTabIcon(tab.key)}
@@ -97,8 +97,8 @@ export function ReportFilterBar({
                 onClick={() => onPresetChange(opt.value)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/80'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 {opt.label}
@@ -111,20 +111,20 @@ export function ReportFilterBar({
         <div className="flex items-center gap-3 flex-wrap">
           {/* Custom Date Pickers */}
           {timeRange === 'CUSTOM' && (
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
               <span className="text-slate-400 font-medium">Từ:</span>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => onCustomDateChange(e.target.value, endDate)}
-                className="bg-transparent text-slate-800 dark:text-slate-200 font-semibold focus:outline-hidden"
+                className="bg-transparent text-slate-800 font-semibold focus:outline-hidden"
               />
               <span className="text-slate-400 font-medium">Đến:</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => onCustomDateChange(startDate, e.target.value)}
-                className="bg-transparent text-slate-800 dark:text-slate-200 font-semibold focus:outline-hidden"
+                className="bg-transparent text-slate-800 font-semibold focus:outline-hidden"
               />
             </div>
           )}
@@ -133,7 +133,7 @@ export function ReportFilterBar({
           {isAdmin && activeTab !== 'warehouse' && (
             <div className="relative">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">
+                <span className="text-xs text-slate-500 font-semibold whitespace-nowrap">
                   Nhân viên:
                 </span>
                 <div className="relative">
@@ -143,7 +143,7 @@ export function ReportFilterBar({
                       const val = e.target.value;
                       onStaffChange(val === '' ? null : Number(val));
                     }}
-                    className="appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl pl-3 pr-8 py-2 focus:ring-2 focus:ring-orange-500 focus:outline-hidden cursor-pointer"
+                    className="appearance-none bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl pl-3 pr-8 py-2 focus:ring-2 focus:ring-orange-500 focus:outline-hidden cursor-pointer"
                   >
                     <option value="">Toàn bộ nhân viên (Tất cả)</option>
                     {staffList.map((s) => (

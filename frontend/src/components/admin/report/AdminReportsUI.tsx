@@ -3,11 +3,14 @@
 import React from 'react';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { useAdminReports } from '@/hooks/useAdminReports';
+import { useStaffReports } from '@/hooks/useStaffReports';
 import { ReportHeader } from './ReportHeader';
 import { ReportFilterBar } from './ReportFilterBar';
 import { ReportKpiCards } from './ReportKpiCards';
 import { RevenueTimeSeriesChart } from './RevenueTimeSeriesChart';
+import { OrderVolumeBarChart } from './OrderVolumeBarChart';
 import { PaymentMethodPieChart } from './PaymentMethodPieChart';
+import { OrderStatusDistributionChart } from './OrderStatusDistributionChart';
 import { StaffLeaderboardTable } from './StaffLeaderboardTable';
 import { TopMerchandiseView } from './TopMerchandiseView';
 import { WarehouseStockReportView } from './WarehouseStockReportView';
@@ -20,6 +23,9 @@ export function AdminReportsUI() {
   const isStaff = user?.roleName === 'STAFF';
   const isWarehouse = user?.roleName === 'WAREHOUSE_MANAGER';
 
+  const adminReportState = useAdminReports();
+  const staffReportState = useStaffReports();
+
   const {
     activeTab,
     timeRange,
@@ -30,6 +36,16 @@ export function AdminReportsUI() {
     loading,
     overviewData,
     staffPerformance,
+    filteredStaffPerformance,
+    staffSummaryKpis,
+    staffSearchTerm,
+    setStaffSearchTerm,
+    revenueHoveredPoint,
+    revenueHoverPos,
+    setRevenueHoveredPoint,
+    setRevenueHoverPos,
+    volumeHoveredPoint,
+    setVolumeHoveredPoint,
     merchandiseData,
     warehouseData,
     handleTabChange,
@@ -39,30 +55,38 @@ export function AdminReportsUI() {
     handleRefresh,
     handleExportCSV,
     handlePrint,
-  } = useAdminReports();
+  } = adminReportState;
 
-  // If logged in as STAFF: render StaffPersonalReportView directly with header
+  // If logged in as STAFF: render StaffPersonalReportView with hook props
   if (isStaff) {
     return (
       <div className="space-y-6 max-w-7xl mx-auto pb-12">
         <ReportHeader
-          onRefresh={handleRefresh}
+          onRefresh={staffReportState.handleRefresh}
           onExportCSV={handleExportCSV}
           onPrint={handlePrint}
-          loading={loading}
+          loading={staffReportState.loading}
         />
-        <div className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-800 dark:text-orange-300 flex items-center justify-between text-xs font-semibold">
+        <div className="p-4 rounded-2xl bg-orange-50 border border-orange-200 text-orange-900 flex items-center justify-between text-xs font-semibold">
           <div className="flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-orange-600 shrink-0" />
             <span>
               Bạn đang xem báo cáo cá nhân với tài khoản Nhân viên bán hàng ({user?.name || user?.email}).
             </span>
           </div>
-          <span className="font-mono text-[10px] bg-white dark:bg-slate-800 px-2 py-0.5 rounded-full border border-orange-300 dark:border-orange-700/50">
+          <span className="font-mono text-[10px] bg-white px-2.5 py-0.5 rounded-full border border-orange-300 font-bold text-orange-700">
             STAFF VIEW
           </span>
         </div>
-        <StaffPersonalReportView />
+        <StaffPersonalReportView
+          timeRange={staffReportState.timeRange}
+          loading={staffReportState.loading}
+          performance={staffReportState.performance}
+          revenue={staffReportState.revenue}
+          myOrders={staffReportState.myOrders}
+          onPresetChange={staffReportState.handlePresetChange}
+          onRefresh={staffReportState.handleRefresh}
+        />
       </div>
     );
   }
@@ -124,28 +148,53 @@ export function AdminReportsUI() {
       {/* 3. Tab Contents */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* KPI Cards */}
           <ReportKpiCards data={overviewData} loading={loading} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8">
-              <RevenueTimeSeriesChart
-                data={overviewData?.timeSeries || []}
-                loading={loading}
-              />
-            </div>
-            <div className="lg:col-span-4">
-              <PaymentMethodPieChart
-                cashRevenue={overviewData?.cashPaymentRevenue || 0}
-                vnpayRevenue={overviewData?.vnpayPaymentRevenue || 0}
-              />
-            </div>
+          {/* Row 1: Symmetrical Charts (Revenue Curve vs Order Volume Bars) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <RevenueTimeSeriesChart
+              data={overviewData?.timeSeries || []}
+              loading={loading}
+              hoveredPoint={revenueHoveredPoint}
+              hoverPos={revenueHoverPos}
+              onHoverPoint={(pt, pos) => {
+                setRevenueHoveredPoint(pt);
+                setRevenueHoverPos(pos);
+              }}
+            />
+            <OrderVolumeBarChart
+              data={overviewData?.timeSeries || []}
+              loading={loading}
+              hoveredPoint={volumeHoveredPoint}
+              onHoverPoint={setVolumeHoveredPoint}
+            />
+          </div>
+
+          {/* Row 2: Symmetrical Charts (Payment Methods vs Order Statuses) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            <PaymentMethodPieChart
+              cashRevenue={overviewData?.cashPaymentRevenue || 0}
+              vnpayRevenue={overviewData?.vnpayPaymentRevenue || 0}
+            />
+            <OrderStatusDistributionChart
+              data={overviewData}
+              loading={loading}
+            />
           </div>
         </div>
       )}
 
       {activeTab === 'staff' && (
         <div className="space-y-6">
-          <StaffLeaderboardTable data={staffPerformance} loading={loading} />
+          <StaffLeaderboardTable
+            data={staffPerformance}
+            filteredData={filteredStaffPerformance}
+            searchTerm={staffSearchTerm}
+            onSearchChange={setStaffSearchTerm}
+            summaryKpis={staffSummaryKpis}
+            loading={loading}
+          />
         </div>
       )}
 

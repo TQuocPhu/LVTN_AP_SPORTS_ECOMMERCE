@@ -8,6 +8,7 @@ import {
   RevenueOverviewReportResponse,
   StaffPerformanceReportResponse,
   TimeRangePreset,
+  TimeSeriesPointResponse,
   TopMerchandiseReportResponse,
   WarehouseReportResponse,
 } from '@/types/report';
@@ -50,6 +51,16 @@ export function useAdminReports() {
   const [merchandiseData, setMerchandiseData] = useState<TopMerchandiseReportResponse | null>(null);
   const [warehouseData, setWarehouseData] = useState<WarehouseReportResponse | null>(null);
   const [staffList, setStaffList] = useState<UserResponse[]>([]);
+
+  // State tìm kiếm và lọc nhân viên (chuyển từ component ra hook)
+  const [staffSearchTerm, setStaffSearchTerm] = useState<string>('');
+
+  // State hover tooltip của biểu đồ chuỗi thời gian doanh thu
+  const [revenueHoveredPoint, setRevenueHoveredPoint] = useState<TimeSeriesPointResponse | null>(null);
+  const [revenueHoverPos, setRevenueHoverPos] = useState<{ x: number; y: number } | null>(null);
+
+  // State hover tooltip của biểu đồ sản lượng đơn hàng
+  const [volumeHoveredPoint, setVolumeHoveredPoint] = useState<TimeSeriesPointResponse | null>(null);
 
   const filterParams: ReportFilterParams = useMemo(() => {
     return {
@@ -110,6 +121,42 @@ export function useAdminReports() {
   useEffect(() => {
     loadReportData();
   }, [loadReportData]);
+
+  // Danh sách nhân viên sau khi tìm kiếm (tính toán thuần trong hook)
+  const filteredStaffPerformance = useMemo(() => {
+    if (!staffSearchTerm.trim()) return staffPerformance;
+    const q = staffSearchTerm.toLowerCase();
+    return staffPerformance.filter(
+      (s) =>
+        s.staffName.toLowerCase().includes(q) ||
+        s.staffEmail.toLowerCase().includes(q) ||
+        (s.employeeCode && s.employeeCode.toLowerCase().includes(q))
+    );
+  }, [staffPerformance, staffSearchTerm]);
+
+  // Thống kê tổng hợp hiệu suất nhân viên (cho các card KPI phụ)
+  const staffSummaryKpis = useMemo(() => {
+    const totalStaff = staffPerformance.length;
+    const topPerformer = staffPerformance.length > 0 ? staffPerformance[0] : null;
+    const totalCommissionPaid = staffPerformance.reduce(
+      (sum, s) => sum + (Number(s.estimatedCommission) || 0),
+      0
+    );
+    const avgSuccessRate =
+      totalStaff > 0
+        ? Math.round(
+            staffPerformance.reduce((sum, s) => sum + (Number(s.successRate) || 0), 0) /
+              totalStaff
+          )
+        : 0;
+
+    return {
+      totalStaff,
+      topPerformer,
+      totalCommissionPaid,
+      avgSuccessRate,
+    };
+  }, [staffPerformance]);
 
   const handleTabChange = (tab: ReportTabType) => {
     setActiveTab(tab);
@@ -206,6 +253,16 @@ export function useAdminReports() {
     error,
     overviewData,
     staffPerformance,
+    filteredStaffPerformance,
+    staffSummaryKpis,
+    staffSearchTerm,
+    setStaffSearchTerm,
+    revenueHoveredPoint,
+    revenueHoverPos,
+    setRevenueHoveredPoint,
+    setRevenueHoverPos,
+    volumeHoveredPoint,
+    setVolumeHoveredPoint,
     merchandiseData,
     warehouseData,
     handleTabChange,
