@@ -137,7 +137,7 @@ export function useAdminSidebar() {
       href: '/admin/reports',
       icon: BarChart3,
       permission: 'VIEW_REPORTS',
-      allowedRoles: ['ADMIN', 'STAFF'],
+      allowedRoles: ['ADMIN', 'STAFF', 'WAREHOUSE_MANAGER'],
     },
   ];
 
