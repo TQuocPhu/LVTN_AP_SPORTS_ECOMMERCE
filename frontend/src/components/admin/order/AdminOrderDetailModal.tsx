@@ -299,9 +299,20 @@ export function AdminOrderDetailModal({
                       </span>
                     </p>
                     <p>
-                      Nhân viên xử lý:{' '}
-                      <span className="font-medium text-slate-800">
+                      Nhân viên xác nhận đơn:{' '}
+                      <span className="font-semibold text-slate-800">
                         {currentOrder.processedByStaff?.name || 'Chưa phân công'}
+                      </span>
+                    </p>
+                    <p>
+                      Tài xế giao hàng (GHN):{' '}
+                      <span className="font-semibold text-slate-800">
+                        {currentOrder.assignedShipper?.name || currentOrder.shipperName || 'Đang điều phối'}
+                        {(currentOrder.assignedShipper?.phoneNumber || currentOrder.shipperPhone) && (
+                          <span className="text-slate-500 font-normal ml-1">
+                            ({currentOrder.assignedShipper?.phoneNumber || currentOrder.shipperPhone})
+                          </span>
+                        )}
                       </span>
                     </p>
                   </div>

@@ -201,9 +201,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         String oldStatusStr = order.getStatus().getValue();
-        order.setStatus(newStatus);
-        if (order.getProcessedByStaff() == null) {
+        String actorRole = staff.getRole() != null ? staff.getRole().getName() : "";
+        if (order.getProcessedByStaff() == null && ("STAFF".equals(actorRole) || "ADMIN".equals(actorRole))) {
             order.setProcessedByStaff(staff);
+        }
+        if ("GHN_SHIPPER".equals(actorRole)) {
+            order.setAssignedShipper(staff);
         }
         Order savedOrder = orderRepository.save(order);
 
@@ -270,7 +273,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         String oldStatusStr = lockedOrder.getStatus().getValue();
         lockedOrder.setStatus(OrderStatus.cancelled);
-        lockedOrder.setProcessedByStaff(staff);
+        // Bảo toàn nhân viên bán hàng đã phụ trách trước đó (nếu có), không ghi đè bởi người bấm hủy.
+        // Người thực hiện thao tác hủy đã được ghi nhận đầy đủ vào OrderStatusHistory.changedBy
         Order savedOrder = orderRepository.save(lockedOrder);
 
         // Hoàn trả tồn kho cho Product và Variant
@@ -528,6 +532,24 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Double shipperLat = stationLat + (destLat - stationLat) * 0.6;
         Double shipperLng = stationLng + (destLng - stationLng) * 0.6;
 
+        UserResponse assignedShipperResp = null;
+        String sName = DEFAULT_SHIPPER_NAME;
+        String sPhone = DEFAULT_SHIPPER_PHONE;
+        if (order.getAssignedShipper() != null) {
+            User ash = order.getAssignedShipper();
+            sName = ash.getName();
+            if (ash.getPhoneNumber() != null && !ash.getPhoneNumber().isBlank()) {
+                sPhone = ash.getPhoneNumber();
+            }
+            assignedShipperResp = UserResponse.builder()
+                    .id(ash.getId())
+                    .name(ash.getName())
+                    .email(ash.getEmail())
+                    .avatar(ash.getAvatar())
+                    .roleName(ash.getRole() != null ? ash.getRole().getName() : "")
+                    .build();
+        }
+
         return AdminOrderDetailResponse.builder()
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
@@ -545,6 +567,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .customerEmail(order.getUser() != null ? order.getUser().getEmail() : "")
                 .customerPhone(order.getShippingAddress() != null ? order.getShippingAddress().getPhone() : (order.getUser() != null ? order.getUser().getPhoneNumber() : ""))
                 .processedByStaff(staffResp)
+                .assignedShipper(assignedShipperResp)
                 .shippingAddress(addressResp)
                 .trackingCode(order.getTrackingCode())
                 .shippingProvider(order.getShippingProvider())
@@ -557,8 +580,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .ghnStationLongitude(stationLng)
                 .shipperCurrentLatitude(shipperLat)
                 .shipperCurrentLongitude(shipperLng)
-                .shipperName(DEFAULT_SHIPPER_NAME)
-                .shipperPhone(DEFAULT_SHIPPER_PHONE)
+                .shipperName(sName)
+                .shipperPhone(sPhone)
                 .note(order.getNote())
                 .items(itemResps)
                 .statusHistories(historyResps)

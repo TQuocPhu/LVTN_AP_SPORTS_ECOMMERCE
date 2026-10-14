@@ -61,6 +61,13 @@ public class DataInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.debug("Bỏ qua alter notifications schema: {}", e.getMessage());
         }
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_shipper_id BIGINT;");
+            log.info("Đã kiểm tra/thêm cột assigned_shipper_id vào bảng orders thành công.");
+        } catch (Exception e) {
+            log.debug("Bỏ qua alter orders schema: {}", e.getMessage());
+        }
     }
 
     private void seedRolesAndPermissions() {

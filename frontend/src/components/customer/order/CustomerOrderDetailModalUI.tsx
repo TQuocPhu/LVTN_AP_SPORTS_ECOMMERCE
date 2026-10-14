@@ -355,6 +355,31 @@ export function CustomerOrderDetailModalUI({
               </div>
             </div>
 
+            {/* Staff & Shipper Logistics Info */}
+            {(order.staffName || order.shipperName) && (
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <span className="font-black uppercase text-[10px] text-slate-500 tracking-wider block">
+                  Đơn Vị Xử Lý & Vận Chuyển
+                </span>
+                {order.staffName && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Nhân viên xác nhận:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {order.staffName} (AP Sports)
+                    </span>
+                  </div>
+                )}
+                {order.shipperName && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500">Tài xế giao hàng:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {order.shipperName} {order.shipperPhone ? `(${order.shipperPhone})` : ''} - GHN
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Financial Summary */}
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 space-y-2">
               <div className="flex justify-between text-slate-500">

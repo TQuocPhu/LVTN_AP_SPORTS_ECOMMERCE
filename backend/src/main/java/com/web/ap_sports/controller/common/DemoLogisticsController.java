@@ -129,6 +129,9 @@ public class DemoLogisticsController {
         if (order.getProcessedByStaff() != null) {
             order.getProcessedByStaff().setEmail(maskEmail(order.getProcessedByStaff().getEmail()));
         }
+        if (order.getAssignedShipper() != null) {
+            order.getAssignedShipper().setEmail(maskEmail(order.getAssignedShipper().getEmail()));
+        }
         if (order.getStatusHistories() != null) {
             for (OrderStatusHistoryResponse h : order.getStatusHistories()) {
                 h.setChangedByEmail(maskEmail(h.getChangedByEmail()));

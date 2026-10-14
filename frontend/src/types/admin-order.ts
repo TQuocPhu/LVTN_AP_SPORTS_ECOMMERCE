@@ -58,6 +58,7 @@ export interface AdminOrderDetail {
   customerEmail?: string;
   customerPhone?: string;
   processedByStaff?: Partial<UserResponse> & { name?: string };
+  assignedShipper?: Partial<UserResponse> & { name?: string; phoneNumber?: string };
 
   shippingAddress?: ShippingAddress;
   trackingCode?: string;

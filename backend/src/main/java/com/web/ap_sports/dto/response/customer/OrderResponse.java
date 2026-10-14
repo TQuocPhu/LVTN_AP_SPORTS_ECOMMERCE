@@ -41,6 +41,11 @@ public class OrderResponse {
     private Double ghnStationLatitude;
     private Double ghnStationLongitude;
 
+    // Thông tin nhân viên xác nhận & Shipper giao hàng
+    private String staffName;
+    private String shipperName;
+    private String shipperPhone;
+
     private String note;
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;

@@ -30,6 +30,10 @@ public class Order {
     @JoinColumn(name = "processed_by_staff_id")
     private User processedByStaff;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_shipper_id")
+    private User assignedShipper;
+
     @Column(name = "total_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalPrice;
 

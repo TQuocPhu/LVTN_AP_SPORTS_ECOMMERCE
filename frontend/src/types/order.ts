@@ -67,6 +67,9 @@ export interface OrderResponse {
   ghnStationAddress?: string;
   ghnStationLatitude?: number;
   ghnStationLongitude?: number;
+  staffName?: string;
+  shipperName?: string;
+  shipperPhone?: string;
   note?: string;
   items: OrderItem[];
   createdAt: string;

@@ -991,6 +991,14 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 ? payment.getStatus().name().toLowerCase()
                 : "pending";
 
+        String staffName = order.getProcessedByStaff() != null ? order.getProcessedByStaff().getName() : null;
+        String shipperName = null;
+        String shipperPhone = null;
+        if (order.getAssignedShipper() != null) {
+            shipperName = order.getAssignedShipper().getName();
+            shipperPhone = order.getAssignedShipper().getPhoneNumber();
+        }
+
         return OrderResponse.builder()
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
@@ -1014,6 +1022,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .ghnStationAddress(order.getGhnStationAddress())
                 .ghnStationLatitude(order.getGhnStationLatitude())
                 .ghnStationLongitude(order.getGhnStationLongitude())
+                .staffName(staffName)
+                .shipperName(shipperName)
+                .shipperPhone(shipperPhone)
                 .note(order.getNote())
                 .items(itemResps)
                 .createdAt(order.getCreatedAt())

@@ -36,6 +36,7 @@ public class AdminOrderDetailResponse {
     private String customerEmail;
     private String customerPhone;
     private UserResponse processedByStaff;
+    private UserResponse assignedShipper;
 
     // Shipping Address & GPS
     private ShippingAddressResponse shippingAddress;
