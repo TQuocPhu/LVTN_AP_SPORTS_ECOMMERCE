@@ -363,21 +363,19 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         String rationaleNote;
 
         if (lastMonthDeliveredRev > 0) {
-            long calculatedTarget = (long) (lastMonthDeliveredRev * 1.20);
-            monthlyTarget = Math.max(1_000_000L, calculatedTarget);
+            monthlyTarget = Math.round(lastMonthDeliveredRev * 1.20);
             rationaleNote = String.format(
                     "Mục tiêu tháng %02d/%d (%s) = Doanh thu hoàn tất tháng trước (%s) x 120%% (kỳ vọng tăng trưởng 20%% MoM).",
                     now.getMonthValue(), now.getYear(), formatMoneyVND(monthlyTarget), formatMoneyVND(lastMonthDeliveredRev)
             );
         } else if (lastMonthTotalVal > 0) {
-            long calculatedTarget = (long) (lastMonthTotalVal * 1.20);
-            monthlyTarget = Math.max(1_000_000L, calculatedTarget);
+            monthlyTarget = Math.round(lastMonthTotalVal * 1.20);
             rationaleNote = String.format(
                     "Mục tiêu tháng %02d/%d (%s) = Tổng quy mô đơn tháng trước (%s) x 120%%.",
                     now.getMonthValue(), now.getYear(), formatMoneyVND(monthlyTarget), formatMoneyVND(lastMonthTotalVal)
             );
         } else if (totalOrderValueAllTime > 0) {
-            monthlyTarget = Math.max(1_000_000L, (long) (totalOrderValueAllTime * 1.15));
+            monthlyTarget = Math.round(totalOrderValueAllTime * 1.15);
             rationaleNote = String.format(
                     "Mục tiêu tháng %02d/%d (%s) = Quy mô đơn tích lũy sàn (%s) x 115%%.",
                     now.getMonthValue(), now.getYear(), formatMoneyVND(monthlyTarget), formatMoneyVND(totalOrderValueAllTime)
