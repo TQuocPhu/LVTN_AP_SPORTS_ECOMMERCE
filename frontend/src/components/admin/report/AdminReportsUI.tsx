@@ -63,8 +63,8 @@ export function AdminReportsUI() {
       <div className="space-y-6 max-w-7xl mx-auto pb-12">
         <ReportHeader
           onRefresh={staffReportState.handleRefresh}
-          onExportCSV={handleExportCSV}
-          onPrint={handlePrint}
+          onExportCSV={staffReportState.handleExportCSV}
+          onPrint={staffReportState.handlePrint}
           loading={staffReportState.loading}
         />
         <div className="p-4 rounded-2xl bg-orange-50 border border-orange-200 text-orange-900 flex items-center justify-between text-xs font-semibold">

@@ -15,6 +15,11 @@ import {
 import { UserResponse } from '@/types/auth';
 import { toast } from 'sonner';
 
+import {
+  exportEnterpriseReportToCSV,
+  printEnterpriseReportDocument,
+} from '@/utils/reportExportPrinter';
+
 // ==========================================
 // CÁC HẰNG SỐ CẤU HÌNH BỘ LỌC BÁO CÁO ADMIN
 // ==========================================
@@ -182,64 +187,42 @@ export function useAdminReports() {
   };
 
   const handleExportCSV = () => {
-    let csvContent = 'data:text/csv;charset=utf-8,';
-
-    if (activeTab === 'overview' && overviewData) {
-      csvContent += 'BÁO CÁO DOANH THU & ĐƠN HÀNG AP SPORTS\n';
-      csvContent += `Tổng doanh thu hoàn thành,${overviewData.totalDeliveredRevenue}\n`;
-      csvContent += `Tổng doanh thu thuần,${overviewData.totalNetRevenue}\n`;
-      csvContent += `Tổng số đơn hàng,${overviewData.totalOrders}\n`;
-      csvContent += `Đơn hoàn thành,${overviewData.completedOrders}\n`;
-      csvContent += `Tỷ lệ giao thành công,${overviewData.successRate}%\n`;
-      csvContent += `Giá trị đơn trung bình (AOV),${overviewData.averageOrderValue}\n`;
-      csvContent += `Tiền mặt COD,${overviewData.cashPaymentRevenue}\n`;
-      csvContent += `Thanh toán VNPay,${overviewData.vnpayPaymentRevenue}\n\n`;
-
-      csvContent += 'NGÀY,DOANH THU,SỐ ĐƠN,ĐƠN HOÀN THÀNH,ĐƠN HỦY\n';
-      overviewData.timeSeries.forEach((pt) => {
-        csvContent += `${pt.date},${pt.revenue},${pt.orderCount},${pt.completedCount},${pt.cancelledCount}\n`;
+    try {
+      exportEnterpriseReportToCSV({
+        activeTab,
+        timeRange,
+        startDate,
+        endDate,
+        overviewData,
+        staffPerformance,
+        warehouseData,
+        merchandiseData,
+        currentUserName: 'Quản trị viên',
       });
-    } else if (activeTab === 'staff') {
-      csvContent += 'BẢNG XẾP HẠNG DOANH SỐ & HIỆU SUẤT NHÂN VIÊN\n';
-      csvContent += 'MÃ NV,HỌ TÊN,EMAIL,VAI TRÒ,ĐƠN TIẾP NHẬN,ĐƠN THÀNH CÔNG,TỶ LỆ THÀNH CÔNG,DOANH THU HOÀN THÀNH,AOV,HOA HỒNG ƯỚC TÍNH,THƯỞNG KPI,ĐÁNH GIÁ\n';
-      staffPerformance.forEach((s) => {
-        csvContent += `${s.employeeCode},"${s.staffName}",${s.staffEmail},${s.staffRole},${s.totalHandledOrders},${s.completedOrders},${s.successRate}%,${s.deliveredRevenue},${s.averageOrderValue},${s.estimatedCommission},${s.kpiBonus},${s.performanceBadge}\n`;
-      });
-    } else if (activeTab === 'warehouse' && warehouseData) {
-      csvContent += 'BÁO CÁO KHO VẬN & TỒN KHO\n';
-      csvContent += `Tổng giá trị vốn tồn kho,${warehouseData.totalInventoryValue}\n`;
-      csvContent += `Tổng số lượng tồn kho,${warehouseData.totalStockQuantity}\n`;
-      csvContent += `Số biến thể sắp hết,${warehouseData.lowStockVariantCount}\n`;
-      csvContent += `Số biến thể hết hàng,${warehouseData.outOfStockVariantCount}\n\n`;
-      csvContent += 'SKU,TÊN SẢN PHẨM,KÍCH CỠ,MÀU SẮC,GIÁ BÁN,GIÁ VỐN,SỐ LƯỢNG TỒN\n';
-      warehouseData.lowStockVariants.forEach((v) => {
-        csvContent += `${v.sku},"${v.productName}",${v.size || ''},${v.color || ''},${v.price},${v.costPrice || 0},${v.stockQuantity}\n`;
-      });
-    } else if (activeTab === 'merchandise' && merchandiseData) {
-      csvContent += 'TOP SẢN PHẨM BÁN CHẠY NHẤT\n';
-      csvContent += 'TÊN SẢN PHẨM,SỐ LƯỢNG ĐÃ BÁN,DOANH THU\n';
-      merchandiseData.topProducts.forEach((p) => {
-        csvContent += `"${p.productName}",${p.totalQuantitySold},${p.totalRevenue}\n`;
-      });
-      csvContent += '\nCƠ CẤU DOANH THU THEO DANH MỤC\n';
-      csvContent += 'DANH MỤC,SỐ LƯỢNG BÁN,DOANH THU,TỶ TRỌNG (%)\n';
-      merchandiseData.categoryBreakdown.forEach((c) => {
-        csvContent += `"${c.categoryName}",${c.totalQuantitySold},${c.totalRevenue},${c.percentage}%\n`;
-      });
+      toast.success('Đã xuất file báo cáo CSV thành công (chuẩn UTF-8)');
+    } catch (err) {
+      console.error('Lỗi khi xuất file CSV:', err);
+      toast.error('Không thể xuất file báo cáo CSV');
     }
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Bao_Cao_${activeTab}_${timeRange}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('Đã xuất file báo cáo CSV thành công');
   };
 
   const handlePrint = () => {
-    window.print();
+    try {
+      printEnterpriseReportDocument({
+        activeTab,
+        timeRange,
+        startDate,
+        endDate,
+        overviewData,
+        staffPerformance,
+        warehouseData,
+        merchandiseData,
+        currentUserName: 'Quản trị viên',
+      });
+    } catch (err) {
+      console.error('Lỗi khi chuẩn bị bản in:', err);
+      toast.error('Không thể khởi tạo bản in báo cáo');
+    }
   };
 
   return {

@@ -10,6 +10,10 @@ import {
 } from '@/types/report';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { toast } from 'sonner';
+import {
+  exportStaffPersonalReportToCSV,
+  printStaffPersonalReportDocument,
+} from '@/utils/reportExportPrinter';
 
 // ==========================================
 // CÁC HẰNG SỐ CẤU HÌNH BÁO CÁO CÁ NHÂN NHÂN VIÊN
@@ -80,6 +84,37 @@ export function useStaffReports() {
     toast.success('Đã cập nhật số liệu cá nhân');
   };
 
+  const handleExportCSV = () => {
+    try {
+      exportStaffPersonalReportToCSV({
+        timeRange,
+        performance,
+        revenue,
+        myOrders,
+        staffName: performance?.staffName || 'Nhân viên kinh doanh',
+      });
+      toast.success('Đã xuất bảng kê thu nhập cá nhân CSV (chuẩn UTF-8)');
+    } catch (err) {
+      console.error('Lỗi xuất CSV cá nhân:', err);
+      toast.error('Không thể xuất file CSV');
+    }
+  };
+
+  const handlePrint = () => {
+    try {
+      printStaffPersonalReportDocument({
+        timeRange,
+        performance,
+        revenue,
+        myOrders,
+        staffName: performance?.staffName || 'Nhân viên kinh doanh',
+      });
+    } catch (err) {
+      console.error('Lỗi in bảng kê cá nhân:', err);
+      toast.error('Không thể khởi tạo bản in');
+    }
+  };
+
   return {
     timeRange,
     loading,
@@ -92,5 +127,7 @@ export function useStaffReports() {
     handlePresetChange,
     handlePageChange,
     handleRefresh,
+    handleExportCSV,
+    handlePrint,
   };
 }
