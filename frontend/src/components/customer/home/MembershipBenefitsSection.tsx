@@ -3,8 +3,16 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Award, Zap, RefreshCw, ShieldCheck, ArrowRight } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function MembershipBenefitsSection() {
+  const { user, loading } = useAuth();
+
+  // Chỉ hiển thị cho khách vãng lai (chưa đăng nhập)
+  if (loading || user) {
+    return null;
+  }
+
   return (
     <section className="py-16 transition-colors duration-300 ap-membership-section">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
