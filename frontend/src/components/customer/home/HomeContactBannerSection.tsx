@@ -5,8 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PhoneCall, MessageSquare, Clock, Headphones, Sparkles, ArrowRight } from 'lucide-react';
 
-const HOTLINE_NUMBER = '0987.654.321';
-const HOTLINE_TEL = 'tel:0987654321';
+const HOTLINE_NUMBER = process.env.NEXT_PUBLIC_HOTLINE_NUMBER || '0987.654.321';
+const HOTLINE_TEL = process.env.NEXT_PUBLIC_HOTLINE_TEL || `tel:${HOTLINE_NUMBER.replace(/\D/g, '')}`;
 
 export default function HomeContactBannerSection() {
   return (

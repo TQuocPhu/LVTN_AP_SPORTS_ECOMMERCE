@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import HeroBannerSlider from '@/components/customer/home/HeroBannerSlider';
+import HomeFeaturedSportsBanners from '@/components/customer/home/HomeFeaturedSportsBanners';
 import FeaturedProducts from '@/components/customer/home/FeaturedProducts';
 import HomeContactBannerSection from '@/components/customer/home/HomeContactBannerSection';
 import MembershipBenefitsSection from '@/components/customer/home/MembershipBenefitsSection';
@@ -20,7 +21,10 @@ export default function HomePage() {
       {/* 1. Hero Master Banner Slider */}
       <HeroBannerSlider />
 
-      {/* 2. Featured Products Showcase */}
+      {/* 2. Featured Sports Banners (Bóng đá, Cầu lông, Karate) */}
+      <HomeFeaturedSportsBanners />
+
+      {/* 3. Featured Products Showcase */}
       <FeaturedProducts />
 
       {/* 4. 24/7 Hotline & Contact Assistance Banner */}
