@@ -25,12 +25,9 @@ export const metadata: Metadata = {
     "Dụng cụ Gym",
   ],
   icons: {
-    icon: [
-      { url: '/favicon.ico' },
-      { url: '/images/ap-sports_fav.png', type: 'image/png' },
-    ],
+    icon: '/favicon.ico',
     shortcut: '/favicon.ico',
-    apple: '/images/ap-sports_fav.png',
+    apple: '/favicon.ico',
   },
   authors: [{ name: "AP Sports Team" }],
   robots: {
