@@ -809,6 +809,90 @@ Dưới đây là chi tiết toàn bộ 25 bảng CSDL. Tất cả các trườn
 
 ---
 
+## 12. HỆ THỐNG TƯ VẤN TRỰC TUYẾN 1-1 REALTIME (ENTERPRISE LIVE SUPPORT CHAT SYSTEM)
+
+### 12.1. Kiến Trúc Realtime & Bản Đồ CSDL
+Hệ thống tư vấn trực tuyến 1-1 kết nối trực tiếp Khách hàng (Customer) và Chuyên viên tư vấn (Staff/Admin) trên nền tảng **WebSocket STOMP qua SockJS** (`/ws`), phối hợp chặt chẽ với cơ sở dữ liệu quan hệ bảo đảm tính toàn vẹn và khả năng kiểm toán:
+
+1. **Bảng `support_conversations` (Phiên tư vấn)**:
+   - `id`: Định danh phiên (`BIGINT AUTO_INCREMENT PRIMARY KEY`).
+   - `customer_id`: Khách hàng sở hữu phiên (Khóa ngoại trỏ về `users.id`, `ON DELETE CASCADE`).
+   - `staff_id`: Nhân viên đang tiếp nhận phụ trách (`NULL` khi phiên còn trong hàng đợi chờ xử lý).
+   - `status`: Trạng thái máy hữu hạn (`WAITING`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`).
+   - `created_at`, `updated_at`, `closed_at`: Dấu thời gian phục vụ đo lường KPI xử lý.
+   - `rating_score`: Điểm đánh giá mức độ hài lòng khách hàng ($1 - 5$ sao).
+   - `rating_feedback`: Nhận xét đóng góp ý kiến từ khách hàng khi kết thúc ca.
+
+2. **Bảng `support_messages` (Nội dung tin nhắn & Tệp đính kèm)**:
+   - `id`: Khóa chính tin nhắn.
+   - `conversation_id`: Liên kết phiên chat (`support_conversations.id`).
+   - `sender_type`: Phân loại đối tượng gửi (`CUSTOMER` / `STAFF` / `SYSTEM`).
+   - `sender_id`: Định danh người gửi (Dùng xác định danh tính và avatar).
+   - `message_type`: Phân loại nội dung (`TEXT` / `IMAGE`).
+   - `content`: Nội dung tin nhắn văn bản hoặc URL Cloudinary của ảnh được tải lên.
+   - `created_at`: Dấu thời gian gửi chuẩn ISO.
+
+3. **Bảng `support_reports` (Báo cáo vi phạm / Khiếu nại từ nhân viên)**:
+   - `id`: Khóa chính biên bản báo cáo.
+   - `conversation_id`: Phiên chat xảy ra sự vụ.
+   - `staff_id`: Nhân viên lập biên bản phản ánh.
+   - `customer_id`: Khách hàng bị báo cáo vi phạm.
+   - `reason`: Danh mục lý do (`SPAM`, `HARASSMENT`, `ABUSIVE`, `OTHER`).
+   - `details`: Nội dung mô tả chi tiết diễn biến sự việc.
+   - `created_at`: Thời gian lập báo cáo.
+
+---
+
+### 12.2. Cơ Chế Khởi Tạo Lười (Lazy Conversation Creation) Chống Ca Rác
+- **Vấn đề giải quyết**: Tránh tình trạng khách hàng chỉ mở widget chat hoặc bấm chuyển tab "Tư Vấn Trực Tiếp" mà chưa gửi nội dung nào đã tự động tạo một phiên `WAITING` rác trong hệ thống, làm loãng hàng đợi và quấy rầy nhân viên trực ca.
+- **Quy trình hoạt động**:
+  1. Khi khách hàng bấm vào tab "Tư Vấn Trực Tiếp", Frontend kiểm tra xem có phiên nào đang mở (`WAITING` hoặc `IN_PROGRESS`) thông qua API `GET /api/v1/customer/support-chat/active`.
+  2. Nếu không có phiên đang mở, client giữ trạng thái giao diện sẵn sàng (Hiển thị form nhập tin nhắn và hướng dẫn) nhưng **không hề gọi API tạo record**.
+  3. Chỉ khi khách hàng **nhập nội dung và nhấn gửi tin nhắn đầu tiên** (hoặc chọn gửi ảnh), hệ thống mới kích hoạt API `POST /api/v1/customer/support-chat/init-message`.
+  4. Backend thực hiện mở phiên mới, gán tin nhắn đầu vào, chuyển trạng thái sang `WAITING` và bắn WebSocket broadcast thông báo tới toàn bộ nhân viên qua kênh `/topic/support-queue`.
+
+---
+
+### 12.3. Khóa Nguyên Tử Tránh Tranh Chấp Nhận Ca (Atomic Conditional Update)
+- **Vấn đề tranh chấp**: Trong giờ cao điểm, nhiều nhân viên trực ca cùng thấy 1 ca mới xuất hiện trong hàng đợi `WAITING`. Nếu cùng bấm "Tiếp nhận ca" đồng thời, có thể dẫn đến việc ghi đè `staff_id` hoặc xung đột dữ liệu.
+- **Thuật toán xử lý**:
+  - Backend sử dụng câu truy vấn cập nhật có điều kiện nghiêm ngặt ở tầng CSDL:
+    ```sql
+    UPDATE support_conversations
+    SET staff_id = :staffId, status = 'IN_PROGRESS', updated_at = NOW()
+    WHERE id = :conversationId AND status = 'WAITING';
+    ```
+  - Nếu số dòng cập nhật trả về là `1`, nhân viên đó giành quyền tiếp nhận ca thành công.
+  - Nếu trả về `0`, hệ thống phản hồi lỗi `409 CONFLICT` ("Ca hỗ trợ này đã được một nhân viên khác tiếp nhận").
+  - Khi tiếp nhận thành công, Backend tự động sinh 1 tin nhắn hệ thống (`SYSTEM`) thông báo chuyên viên đã tham gia cuộc trò chuyện và đồng bộ trạng thái realtime tới cả khách hàng và danh sách hàng đợi.
+
+---
+
+### 12.4. Phân Quyền Thao Tác & Bảo Vệ Ca Trực (Staff Ownership & Guard Rules)
+- **Phân quyền vai trò (Role-Based Guard)**:
+  - Tài khoản có quyền quản trị (`ADMIN`, `STAFF`) bị chặn hoàn toàn không được phép tự đóng vai trò khách hàng mở ca tư vấn trên giao diện khách hàng nhằm bảo đảm tính minh bạch trong luồng giao tiếp.
+- **Ràng buộc chủ quyền ca trực (Ownership Check)**:
+  - Khi ca đang ở trạng thái `IN_PROGRESS`, chỉ có chính nhân viên tiếp nhận (`conversation.staff_id == currentStaffId`) mới có quyền gửi tin nhắn, gửi ảnh, hoàn tất ca (`resolve`) hoặc lập báo cáo vi phạm (`report`).
+  - Các nhân viên khác hoặc Admin khi xem ca này chỉ có quyền xem lịch sử ở chế độ chỉ đọc (Read-only), ngăn chặn can thiệp trái phép vào phiên đang phục vụ của đồng nghiệp.
+
+---
+
+### 12.5. Hệ Thống Đánh Giá Chất Lượng 5 Sao & Tra Cứu Lịch Sử Đa Phân Quyền
+1. **Hoàn tất ca & Khảo sát mức độ hài lòng**:
+   - Nhân viên khi hoàn tất hỗ trợ sẽ mở Modal xác nhận và kích hoạt API `POST /api/v1/staff/support-chat/conversations/{id}/resolve`.
+   - Trạng thái phiên chuyển sang `RESOLVED`. WebSocket STOMP bắn thông báo trực tiếp tới khách hàng.
+   - Giao diện khách hàng lập tức chuyển từ khung chat sang **Modal Đánh Giá Chất Lượng Phục Vụ 5 Sao** kèm ô nhận xét đóng góp ý kiến.
+   - Khách hàng có thể chấm điểm và gửi nhận xét qua API `POST /api/v1/customer/support-chat/rate`, hoặc bấm "Bắt đầu cuộc trò chuyện mới" để mở ca khác.
+
+2. **Lưu trữ & Tra cứu lịch sử phiên tư vấn**:
+   - **Phía Khách Hàng**: Khách hàng có thể tra cứu toàn bộ danh sách các cuộc hội thoại trong quá khứ thông qua API `GET /api/v1/customer/support-chat/history` và bấm vào để xem lại toàn bộ tin nhắn từng ca.
+   - **Phía Nhân Viên / Quản Trị**: Giao diện chia thành 3 Tabs nghiệp vụ rõ ràng:
+     - *Tab 1 - Hàng đợi chờ duyệt (`WAITING`)*: Ca mới chưa có người tiếp nhận.
+     - *Tab 2 - Đang phụ trách (`IN_PROGRESS`)*: Các ca do chính nhân viên đang đăng nhập phụ trách.
+     - *Tab 3 - Lịch sử hỗ trợ (`RESOLVED` / `CLOSED`)*: Toàn bộ các ca đã xử lý xong kèm thông tin điểm đánh giá sao, nhận xét khách hàng và lịch sử trao đổi.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
 
 

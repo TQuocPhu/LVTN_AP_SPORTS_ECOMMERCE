@@ -58,18 +58,23 @@ export function useWebSocket() {
     }
   }, []);
 
-  const disconnect = useCallback(() => {
-    if (clientRef.current) {
-      clientRef.current.deactivate();
-      clientRef.current = null;
+  const disconnect = useCallback(async () => {
+    isConnectingRef.current = false;
+    const currentClient = clientRef.current;
+    clientRef.current = null;
+    if (currentClient) {
+      try {
+        await currentClient.deactivate();
+      } catch {
+        // bỏ qua lỗi nếu socket đã đóng trước đó
+      }
     }
     setClient(null);
     setIsConnected(false);
-    isConnectingRef.current = false;
   }, []);
 
   const connect = useCallback(() => {
-    if (clientRef.current || isConnectingRef.current) return;
+    if (clientRef.current?.active || isConnectingRef.current) return;
     isConnectingRef.current = true;
 
     const stompClient = new Client({
@@ -104,18 +109,14 @@ export function useWebSocket() {
           }
         });
       },
-      onStompError: async (frame) => {
-        console.warn('[STOMP] Broker từ chối kết nối:', frame.headers['message']);
-        disconnect();
-        // Khi token hết hạn, gọi fetchInitialData qua apiClient để kích hoạt Silent Refresh
-        try {
-          const hasSession = await fetchInitialData();
-          if (hasSession) {
-            connect();
-          }
-        } catch {
-          // Phiên thực sự đã kết thúc
+      onStompError: (frame) => {
+        const errMsg = frame.headers['message'] || '';
+        // Bỏ qua cảnh báo nếu là session closed do unmount / handshake cleanup từ Strict Mode
+        if (errMsg.includes('Session closed')) {
+          return;
         }
+        console.warn('[STOMP] Thông báo từ broker:', errMsg);
+        // Không tự động gọi lại connect() tại đây vì thư viện STOMPjs đã có reconnectDelay tự động quản lý
       },
       onWebSocketClose: () => {
         isConnectingRef.current = false;
@@ -126,7 +127,7 @@ export function useWebSocket() {
     stompClient.activate();
     clientRef.current = stompClient;
     setClient(stompClient);
-  }, [fetchInitialData, disconnect]);
+  }, [fetchInitialData]);
 
   // Quản lý vòng đời kết nối:
   // 1. Kiểm tra phiên 1 lần khi mount -> Nếu hợp lệ thì connect WebSocket
