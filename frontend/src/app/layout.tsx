@@ -59,6 +59,7 @@ export const metadata: Metadata = {
 
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import ChatbotWidgetUI from "@/components/common/chatbot/ChatbotWidgetUI";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { WishlistProvider } from "@/context/WishlistContext";
@@ -80,16 +81,14 @@ export default function RootLayout({
       <head>
         <link
           rel="icon"
-          href="/images/ap-sports_fav.png"
-          type="image/png"
+          href="/favicon.ico"
           sizes="any"
         />
         <link
           rel="shortcut icon"
-          href="/images/ap-sports_fav.png"
-          type="image/png"
+          href="/favicon.ico"
         />
-        <link rel="apple-touch-icon" href="/images/ap-sports_fav.png" />
+        <link rel="apple-touch-icon" href="/favicon.ico" />
       </head>
       <body
         suppressHydrationWarning
@@ -111,6 +110,9 @@ export default function RootLayout({
 
                   {/* Master Shell Footer */}
                   <Footer />
+
+                  {/* Floating AI Chatbot Assistant Widget */}
+                  <ChatbotWidgetUI />
                 </WishlistProvider>
               </CartProvider>
             </NotificationProvider>
