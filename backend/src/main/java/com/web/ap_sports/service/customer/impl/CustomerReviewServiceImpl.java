@@ -36,6 +36,8 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderRepository orderRepository;
+    private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final CloudinaryService cloudinaryService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -133,6 +135,31 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                 .rating(savedReview.getRating())
                 .customerId(user.getId())
                 .build());
+
+        // 9. Tự động chuyển đơn hàng sang completed nếu tất cả sản phẩm trong đơn đã được đánh giá
+        try {
+            if (order != null && order.getStatus() == com.web.ap_sports.enums.OrderStatus.delivered) {
+                List<OrderItem> allItems = orderItemRepository.findByOrderId(order.getId());
+                boolean allReviewed = allItems.stream().allMatch(item ->
+                        item.getId().equals(orderItem.getId()) || reviewRepository.existsByOrderItemId(item.getId())
+                );
+                if (allReviewed) {
+                    order.setStatus(com.web.ap_sports.enums.OrderStatus.completed);
+                    orderRepository.save(order);
+
+                    OrderStatusHistory history = OrderStatusHistory.builder()
+                            .order(order)
+                            .status(com.web.ap_sports.enums.OrderStatus.completed.getValue())
+                            .note("Tất cả sản phẩm trong đơn hàng đã được đánh giá. Hệ thống tự động chuyển đơn sang trạng thái Hoàn Thành.")
+                            .changedBy(user)
+                            .build();
+                    orderStatusHistoryRepository.save(history);
+                    log.info("Đơn hàng #{} đã tự động hoàn thành (completed) sau khi khách hàng đánh giá đủ toàn bộ sản phẩm.", order.getOrderCode());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Lỗi khi tự động cập nhật trạng thái đơn hàng sang completed sau đánh giá: {}", e.getMessage());
+        }
 
         return mapToReviewResponse(savedReview, savedImageUrls);
     }

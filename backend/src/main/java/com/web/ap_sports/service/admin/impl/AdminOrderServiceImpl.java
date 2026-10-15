@@ -199,6 +199,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         if (newStatus == OrderStatus.delivered && order.getStatus() != OrderStatus.shipping) {
             throw new AppException("Đơn hàng phải ở trạng thái [Đang Giao - shipping] mới có thể xác nhận đã giao thành công!", HttpStatus.BAD_REQUEST);
         }
+        if (newStatus == OrderStatus.completed && order.getStatus() != OrderStatus.delivered) {
+            throw new AppException("Đơn hàng phải ở trạng thái [Đã Giao - delivered] mới có thể xác nhận hoàn tất đơn hàng!", HttpStatus.BAD_REQUEST);
+        }
 
         String oldStatusStr = order.getStatus().getValue();
         String actorRole = staff.getRole() != null ? staff.getRole().getName() : "";

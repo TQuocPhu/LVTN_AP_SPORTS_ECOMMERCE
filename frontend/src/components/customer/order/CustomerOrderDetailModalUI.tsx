@@ -32,7 +32,7 @@ interface CustomerOrderDetailModalUIProps {
   isOpen: boolean;
   order: OrderResponse | null;
   onClose: () => void;
-  onOpenActionModal: (type: 'cancel' | 'return', order: OrderResponse) => void;
+  onOpenActionModal: (type: 'cancel' | 'return' | 'complete', order: OrderResponse) => void;
   onOpenReviewModal?: (item: OrderItemToReview) => void;
   formatCurrency: (val?: number) => string;
   formatDate: (dateStr?: string) => string;
@@ -422,6 +422,20 @@ export function CustomerOrderDetailModalUI({
                 >
                   <XCircle className="w-4 h-4" />
                   <span>Hủy Đơn Hàng Này</span>
+                </button>
+              )}
+
+              {currentStatus === 'delivered' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenActionModal('complete', order);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
+                >
+                  <CircleCheck className="w-4 h-4" />
+                  <span>Đã Nhận Được Hàng</span>
                 </button>
               )}
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { orderController } from '@/controllers/order-controller';
+import { customerOrderController } from '@/controllers/customer-order-controller';
 import { OrderResponse } from '@/types/order';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
@@ -9,6 +10,7 @@ export function useCustomerOrderTracking(orderCode: string) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [retryingVNPay, setRetryingVNPay] = useState<boolean>(false);
+  const [completing, setCompleting] = useState<boolean>(false);
   const [simProgress, setSimProgress] = useState<number>(0);
 
   const fetchOrder = useCallback(async () => {
@@ -80,6 +82,21 @@ export function useCustomerOrderTracking(orderCode: string) {
     }
   }, [orderCode]);
 
+  const handleCompleteOrder = useCallback(async () => {
+    if (!orderCode) return;
+    setCompleting(true);
+    try {
+      const res = await customerOrderController.completeMyOrder(orderCode);
+      if (res && res.data) {
+        setOrder(res.data);
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi xác nhận hoàn tất đơn hàng:', err);
+    } finally {
+      setCompleting(false);
+    }
+  }, [orderCode]);
+
   const formatCurrency = useCallback((val?: number) => {
     if (val === undefined || val === null) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
@@ -104,10 +121,12 @@ export function useCustomerOrderTracking(orderCode: string) {
     loading,
     error,
     retryingVNPay,
+    completing,
     simProgress,
     setSimProgress,
     refetch: fetchOrder,
     handleRetryVNPay,
+    handleCompleteOrder,
     formatCurrency,
     formatDate,
   };

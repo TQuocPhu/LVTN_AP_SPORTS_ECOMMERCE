@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ShoppingBag,
   Package,
+  PackageCheck,
   Truck,
   CheckCircle2,
   Clock,
@@ -35,8 +36,10 @@ export function CustomerOrderTrackingContentUI({
     loading,
     error,
     retryingVNPay,
+    completing,
     simProgress,
     handleRetryVNPay,
+    handleCompleteOrder,
     formatCurrency,
     formatDate,
   } = useCustomerOrderTracking(orderCode);
@@ -88,6 +91,8 @@ export function CustomerOrderTrackingContentUI({
         return 3;
       case 'delivered':
         return 4;
+      case 'completed':
+        return 5;
       default:
         return 0;
     }
@@ -161,13 +166,14 @@ export function CustomerOrderTrackingContentUI({
           Tiến Độ Vận Chuyển Đơn Hàng
         </h3>
 
-        <div className="grid grid-cols-5 gap-2 text-center text-[10px] sm:text-xs font-bold uppercase">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-[10px] sm:text-xs font-bold uppercase">
           {[
             { key: 'pending', label: '1. Chờ Duyệt', icon: Clock },
             { key: 'confirmed', label: '2. Đã Xác Nhận', icon: CheckCircle2 },
             { key: 'processing', label: '3. Đang Đóng Gói', icon: Building },
             { key: 'shipping', label: '4. Đang Giao Hàng', icon: Truck },
-            { key: 'delivered', label: '5. Hoàn Thành', icon: CheckCircle2 },
+            { key: 'delivered', label: '5. Đã Giao', icon: PackageCheck },
+            { key: 'completed', label: '6. Hoàn Thành', icon: CheckCircle2 },
           ].map((step, idx) => {
             const Icon = step.icon;
             const isActive = idx <= stepIdx;
@@ -335,6 +341,18 @@ export function CustomerOrderTrackingContentUI({
                 <span className="font-bold text-emerald-600">{order.paymentStatus}</span>
               </div>
             </div>
+
+            {order.status?.toLowerCase() === 'delivered' && (
+              <button
+                type="button"
+                onClick={handleCompleteOrder}
+                disabled={completing}
+                className="w-full mt-3 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{completing ? 'Đang Xử Lý...' : 'Xác Nhận Đã Nhận Được Hàng'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

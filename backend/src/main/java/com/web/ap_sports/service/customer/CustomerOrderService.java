@@ -15,4 +15,5 @@ public interface CustomerOrderService {
     Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, Pageable pageable);
     OrderResponse cancelMyOrder(String email, String orderCode, String reason);
     OrderResponse returnMyOrder(String email, String orderCode, String reason);
+    OrderResponse completeMyOrder(String email, String orderCode);
 }

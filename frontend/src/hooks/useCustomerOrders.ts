@@ -11,6 +11,7 @@ export type CustomerOrderStatusTab =
   | 'shipped'
   | 'shipping'
   | 'delivered'
+  | 'completed'
   | 'cancelled'
   | 'returned';
 
@@ -29,9 +30,9 @@ export function useCustomerOrders() {
   const [updatingCode, setUpdatingCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modal xác nhận hủy / trả hàng
+  // Modal xác nhận hủy / trả hàng / hoàn tất đơn
   const [actionModal, setActionModal] = useState<{
-    type: 'cancel' | 'return' | null;
+    type: 'cancel' | 'return' | 'complete' | null;
     order: OrderResponse | null;
     reason: string;
   }>({ type: null, order: null, reason: '' });
@@ -78,7 +79,7 @@ export function useCustomerOrders() {
   }, []);
 
   const handleOpenActionModal = useCallback(
-    (type: 'cancel' | 'return', order: OrderResponse) => {
+    (type: 'cancel' | 'return' | 'complete', order: OrderResponse) => {
       setActionModal({ type, order, reason: '' });
     },
     []
@@ -98,6 +99,9 @@ export function useCustomerOrders() {
         res = await customerOrderController.cancelMyOrder(order.orderCode, reason);
         setToastMessage(`Đã hủy thành công đơn hàng #${order.orderCode}`);
         await refreshCart(); // Gọi refresh để update số lượng trên icon giỏ hàng
+      } else if (type === 'complete') {
+        res = await customerOrderController.completeMyOrder(order.orderCode);
+        setToastMessage(`Đã xác nhận nhận hàng và hoàn tất đơn hàng #${order.orderCode}`);
       } else {
         res = await customerOrderController.returnMyOrder(order.orderCode, reason);
         setToastMessage(`Đã gửi yêu cầu Trả Hàng / Hoàn Tiền cho đơn #${order.orderCode}`);
@@ -120,7 +124,7 @@ export function useCustomerOrders() {
     } finally {
       setUpdatingCode(null);
     }
-  }, [actionModal, selectedOrder, handleCloseActionModal, fetchOrders]);
+  }, [actionModal, selectedOrder, handleCloseActionModal, fetchOrders, refreshCart]);
 
   const formatCurrency = useCallback((val?: number) => {
     if (val === undefined || val === null) return '0 ₫';

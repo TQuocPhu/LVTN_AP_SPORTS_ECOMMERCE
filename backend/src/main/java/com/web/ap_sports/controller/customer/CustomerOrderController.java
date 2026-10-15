@@ -116,4 +116,14 @@ public class CustomerOrderController {
         OrderResponse response = orderService.returnMyOrder(user.getEmail(), orderCode, reason);
         return ResponseEntity.ok(ApiResponse.success("Gửi yêu cầu trả hàng thành công", response));
     }
+
+    @PutMapping("/{orderCode}/complete")
+    public ResponseEntity<ApiResponse<OrderResponse>> completeMyOrder(
+            Authentication authentication,
+            @PathVariable String orderCode) {
+        User user = getAuthenticatedUser(authentication);
+        OrderResponse response = orderService.completeMyOrder(user.getEmail(), orderCode);
+        return ResponseEntity.ok(ApiResponse.success("Xác nhận đã nhận hàng và hoàn tất đơn hàng thành công", response));
+    }
 }
+

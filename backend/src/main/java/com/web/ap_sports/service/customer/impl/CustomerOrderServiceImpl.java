@@ -794,6 +794,45 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         return mapToOrderResponse(savedOrder, items, payment, null);
     }
 
+    @Override
+    @Transactional
+    public OrderResponse completeMyOrder(String email, String orderCode) {
+        User user = getUserByEmail(email);
+        Order lockedOrder = orderRepository.findByOrderCodeAndUserIdForUpdate(orderCode, user.getId())
+                .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng #" + orderCode, HttpStatus.NOT_FOUND));
+
+        if (lockedOrder.getStatus() == OrderStatus.completed) {
+            List<OrderItem> items = orderItemRepository.findByOrderId(lockedOrder.getId());
+            Payment payment = paymentRepository.findByOrderId(lockedOrder.getId()).orElse(null);
+            return mapToOrderResponse(lockedOrder, items, payment, null);
+        }
+
+        // Khách hàng chỉ được phép xác nhận đã nhận hàng khi đơn hàng ĐÃ GIAO THÀNH CÔNG (delivered)
+        if (lockedOrder.getStatus() != OrderStatus.delivered) {
+            throw new AppException("Chỉ đơn hàng ở trạng thái [Đã Giao - delivered] mới có thể xác nhận đã nhận hàng!", HttpStatus.BAD_REQUEST);
+        }
+
+        lockedOrder.setStatus(OrderStatus.completed);
+        Order savedOrder = orderRepository.save(lockedOrder);
+
+        // Ghi vết lịch sử chuyển đổi trạng thái
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .order(savedOrder)
+                .status(OrderStatus.completed.getValue())
+                .note("Khách hàng [" + user.getName() + "] xác nhận đã nhận được hàng và hài lòng với sản phẩm.")
+                .changedBy(user)
+                .build();
+        orderStatusHistoryRepository.save(history);
+
+        log.info("Khách hàng [{}] đã xác nhận nhận hàng và hoàn tất đơn hàng #{}", user.getEmail(), savedOrder.getOrderCode());
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(savedOrder.getId());
+        Payment payment = paymentRepository.findByOrderId(savedOrder.getId()).orElse(null);
+
+        return mapToOrderResponse(savedOrder, items, payment, null);
+    }
+
+
 
 
     /**

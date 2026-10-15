@@ -71,4 +71,14 @@ export const customerOrderController = {
       { reason: reason || 'Khách hàng gửi yêu cầu Trả Hàng / Hoàn Tiền' }
     );
   },
+
+  /**
+   * Khách hàng xác nhận đã nhận được hàng và hoàn tất đơn hàng (Chuyển sang completed)
+   */
+  async completeMyOrder(orderCode: string): Promise<ApiResponse<OrderResponse>> {
+    return apiClient.put<ApiResponse<OrderResponse>>(
+      `/customer/orders/${encodeURIComponent(orderCode)}/complete`
+    );
+  },
 };
+

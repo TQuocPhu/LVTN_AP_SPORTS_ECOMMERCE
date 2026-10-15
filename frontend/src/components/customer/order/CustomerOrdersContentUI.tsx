@@ -9,6 +9,7 @@ import {
   MapPin,
   Clock,
   Package,
+  PackageCheck,
   CheckCircle2,
   CircleCheck,
   XCircle,
@@ -95,7 +96,8 @@ export function CustomerOrdersContentUI() {
     { key: "processing", label: "Đóng Gói Kho", icon: Warehouse },
     { key: "shipped", label: "Gửi Bưu Cục", icon: Package },
     { key: "shipping", label: "Đang Giao", icon: Truck },
-    { key: "delivered", label: "Hoàn Thành", icon: CircleCheck },
+    { key: "delivered", label: "Đã Giao", icon: PackageCheck },
+    { key: "completed", label: "Hoàn Thành", icon: CircleCheck },
     { key: "cancelled", label: "Đã Hủy", icon: XCircle },
     { key: "returned", label: "Trả Hàng", icon: RotateCcw },
   ];
@@ -139,11 +141,17 @@ export function CustomerOrdersContentUI() {
           </span>
         );
       case "delivered":
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 flex items-center gap-1">
+            <PackageCheck className="w-3 h-3" />
+            <span>Đã Giao Hàng</span>
+          </span>
+        );
       case "completed":
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
             <CircleCheck className="w-3 h-3" />
-            <span>Giao Thành Công</span>
+            <span>Hoàn Thành</span>
           </span>
         );
       case "cancelled":
@@ -422,6 +430,18 @@ export function CustomerOrdersContentUI() {
                         </button>
                       )}
 
+                      {currentStatus === "delivered" && (
+                        <button
+                          type="button"
+                          disabled={updatingCode === order.orderCode}
+                          onClick={() => handleOpenActionModal("complete", order)}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <CircleCheck className="w-3.5 h-3.5" />
+                          <span>Đã Nhận Được Hàng</span>
+                        </button>
+                      )}
+
                       {isReturnable && (
                         <button
                           type="button"
@@ -496,16 +516,22 @@ export function CustomerOrdersContentUI() {
           onSubmit={submitReview}
         />
 
-        {/* Confirmation Modal for Cancel or Return */}
+        {/* Confirmation Modal for Cancel, Return, or Complete */}
         {actionModal.type && actionModal.order && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
             <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4 my-auto transition-colors">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="font-black text-base uppercase flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-orange-500" />
+                  {actionModal.type === "complete" ? (
+                    <CircleCheck className="w-5 h-5 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                  )}
                   <span>
                     {actionModal.type === "cancel"
                       ? "Xác Nhận Hủy Đơn Hàng"
+                      : actionModal.type === "complete"
+                      ? "Xác Nhận Đã Nhận Hàng"
                       : "Yêu Cầu Trả Hàng / Hoàn Tiền"}
                   </span>
                 </h3>
@@ -519,32 +545,45 @@ export function CustomerOrdersContentUI() {
               </div>
 
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Bạn có chắc chắn muốn{" "}
-                <strong>
-                  {actionModal.type === "cancel"
-                    ? "hủy đơn hàng này"
-                    : "gửi yêu cầu trả hàng/hoàn tiền"}
-                </strong>{" "}
-                cho đơn <strong>#{actionModal.order.orderCode}</strong> không?
+                {actionModal.type === "complete" ? (
+                  <>
+                    Bạn xác nhận đã nhận được kiện hàng cho đơn{" "}
+                    <strong>#{actionModal.order.orderCode}</strong> và kiểm tra
+                    hài lòng với sản phẩm? Sau khi xác nhận, đơn hàng sẽ chuyển sang
+                    trạng thái <strong>Hoàn Thành</strong>.
+                  </>
+                ) : (
+                  <>
+                    Bạn có chắc chắn muốn{" "}
+                    <strong>
+                      {actionModal.type === "cancel"
+                        ? "hủy đơn hàng này"
+                        : "gửi yêu cầu trả hàng/hoàn tiền"}
+                    </strong>{" "}
+                    cho đơn <strong>#{actionModal.order.orderCode}</strong> không?
+                  </>
+                )}
               </p>
 
-              <div>
-                <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
-                  Lý do (Tùy chọn):
-                </label>
-                <textarea
-                  rows={3}
-                  value={actionModal.reason}
-                  onChange={(e) =>
-                    setActionModal((prev) => ({
-                      ...prev,
-                      reason: e.target.value,
-                    }))
-                  }
-                  placeholder="Nhập lý do thực hiện thao tác..."
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-                />
-              </div>
+              {actionModal.type !== "complete" && (
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Lý do (Tùy chọn):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={actionModal.reason}
+                    onChange={(e) =>
+                      setActionModal((prev) => ({
+                        ...prev,
+                        reason: e.target.value,
+                      }))
+                    }
+                    placeholder="Nhập lý do thực hiện thao tác..."
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
@@ -560,10 +599,14 @@ export function CustomerOrdersContentUI() {
                   className={`px-5 py-2 rounded-xl font-bold text-xs text-white shadow-md transition-all cursor-pointer ${
                     actionModal.type === "cancel"
                       ? "bg-rose-600 hover:bg-rose-700"
+                      : actionModal.type === "complete"
+                      ? "bg-emerald-600 hover:bg-emerald-700"
                       : "bg-amber-600 hover:bg-amber-700"
                   }`}
                 >
-                  Xác Nhận Thực Hiện
+                  {actionModal.type === "complete"
+                    ? "Xác Nhận Đã Nhận Hàng"
+                    : "Xác Nhận Thực Hiện"}
                 </button>
               </div>
             </div>
