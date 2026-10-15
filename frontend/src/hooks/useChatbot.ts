@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { adminAuthController } from '@/controllers/admin-auth-controller';
 
 export interface ChatMessage {
   id: string;
@@ -26,12 +27,32 @@ export const QUICK_PROMPTS = [
 ];
 
 export function useChatbot() {
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'ai' | 'live'>('ai');
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [isTyping, setIsTyping] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Kiểm tra tài khoản Quản trị viên (ADMIN) - Nếu là Admin thì ẩn hoàn toàn Chatbot
+  useEffect(() => {
+    let isMounted = true;
+    adminAuthController
+      .getCurrentAdmin()
+      .then((res) => {
+        if (isMounted && res?.data && res.data.roleName !== 'CUSTOMER') {
+          setIsAdmin(true);
+        }
+      })
+      .catch(() => {
+        // Không phải admin hoặc chưa đăng nhập
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Theo dõi vị trí cuộn trang để điều khiển trạng thái hiển thị nút Back To Top
   useEffect(() => {
@@ -135,7 +156,10 @@ export function useChatbot() {
   }, [sendMessage]);
 
   return {
+    isAdmin,
     isOpen,
+    activeTab,
+    setActiveTab,
     inputText,
     messages,
     isTyping,

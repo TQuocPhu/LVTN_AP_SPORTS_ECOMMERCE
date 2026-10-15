@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import {
   MessageCircle,
   X,
@@ -11,12 +12,19 @@ import {
   Minus,
   CheckCircle2,
   ChevronUp,
+  Headphones,
 } from 'lucide-react';
 import { useChatbot, QUICK_PROMPTS } from '@/hooks/useChatbot';
+import LiveSupportTabUI from './LiveSupportTabUI';
 
 export default function ChatbotWidgetUI() {
+  const pathname = usePathname();
+
   const {
+    isAdmin,
     isOpen,
+    activeTab,
+    setActiveTab,
     inputText,
     messages,
     isTyping,
@@ -30,6 +38,10 @@ export default function ChatbotWidgetUI() {
     handleSubmit,
   } = useChatbot();
 
+  if (isAdmin || pathname?.startsWith('/admin') || pathname?.startsWith('/demo')) {
+    return null;
+  }
+
   return (
     <aside
       aria-label="Cụm nút hỗ trợ người dùng & Trợ lý ảo"
@@ -42,72 +54,100 @@ export default function ChatbotWidgetUI() {
         <div
           role="dialog"
           aria-label="Cửa sổ trò chuyện AP Sports Assistant"
-          className="w-[calc(100vw-5.5rem)] sm:w-[380px] md:w-[410px] h-[540px] sm:h-[560px] max-h-[85vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all duration-300 animate-in fade-in slide-in-from-right-8"
+          className="w-[calc(100vw-5.5rem)] sm:w-[390px] md:w-[420px] h-[550px] sm:h-[580px] max-h-[85vh] flex flex-col rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all duration-300 animate-in fade-in slide-in-from-right-8"
         >
           {/* Header */}
-          <header className="p-3.5 sm:p-4 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white flex items-center justify-between shadow-md">
-            <div className="flex items-center space-x-2.5">
-              <div className="relative">
-                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white shadow-xs">
-                  <Bot className="w-5 h-5" />
+          <header className="p-3 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-500 text-white shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white">
+                  {activeTab === 'ai' ? <Bot className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-900" />
+                <div>
+                  <h3 className="font-bold text-xs tracking-wide">
+                    {activeTab === 'ai' ? 'Trợ Lý AI AP Sports' : 'Tư Vấn Viên Trực Tiếp'}
+                  </h3>
+                </div>
               </div>
-              <div>
-                <div className="flex items-center space-x-1.5">
-                  <h3 className="font-bold text-xs sm:text-sm tracking-wide">AP Sports Assistant</h3>
-                  <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-orange-100 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 inline-block" />
-                  <span>Trợ lý AI thể thao 24/7</span>
-                </p>
+
+              {/* Action buttons */}
+              <div className="flex items-center space-x-1">
+                <button
+                  type="button"
+                  onClick={closeChatbot}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center transition-colors cursor-pointer text-white"
+                  title="Thu nhỏ"
+                  aria-label="Thu nhỏ"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={closeChatbot}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center transition-colors cursor-pointer text-white"
+                  title="Đóng hộp chat"
+                  aria-label="Đóng hộp chat"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex items-center space-x-1">
+            {/* Segmented Tab Control */}
+            <div className="grid grid-cols-2 gap-1 p-1 bg-black/20 rounded-xl backdrop-blur-xs text-xs font-semibold">
               <button
                 type="button"
-                onClick={closeChatbot}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center transition-colors cursor-pointer text-white"
-                title="Thu nhỏ"
-                aria-label="Thu nhỏ"
+                onClick={() => setActiveTab('ai')}
+                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  activeTab === 'ai'
+                    ? 'bg-white text-orange-600 shadow-sm font-bold'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
               >
-                <Minus className="w-3.5 h-3.5" />
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Trợ Lý AI 24/7</span>
               </button>
               <button
                 type="button"
-                onClick={closeChatbot}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center transition-colors cursor-pointer text-white"
-                title="Đóng hộp chat"
-                aria-label="Đóng hộp chat"
+                onClick={() => setActiveTab('live')}
+                className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition-all cursor-pointer relative ${
+                  activeTab === 'live'
+                    ? 'bg-white text-orange-600 shadow-sm font-bold'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
               >
-                <X className="w-3.5 h-3.5" />
+                <Headphones className="w-3.5 h-3.5" />
+                <span>Tư Vấn Trực Tiếp</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 border border-white" />
               </button>
             </div>
           </header>
 
-          {/* Body: Messages List */}
-          <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 bg-slate-50/60 dark:bg-slate-950/40">
-            {/* Quick Prompts Chips */}
-            <div className="space-y-1.5 pt-0.5 pb-1.5">
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-1">
-                Gợi ý nhanh cho bạn:
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {QUICK_PROMPTS.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => selectQuickPrompt(prompt)}
-                    className="text-left text-xs px-3 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 hover:border-orange-400 dark:hover:border-orange-500 text-slate-700 dark:text-slate-200 transition-all shadow-2xs hover:translate-x-1 cursor-pointer"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* Body: Render theo Active Tab */}
+          {activeTab === 'live' ? (
+            <LiveSupportTabUI />
+          ) : (
+            <>
+              {/* Messages List AI */}
+              <div className="flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 bg-slate-50/60 dark:bg-slate-950/40">
+                {/* Quick Prompts Chips */}
+                <div className="space-y-1.5 pt-0.5 pb-1.5">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-1">
+                    Gợi ý nhanh cho bạn:
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {QUICK_PROMPTS.map((prompt, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => selectQuickPrompt(prompt)}
+                        className="text-left text-xs px-3 py-1.5 sm:py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 hover:border-orange-400 dark:hover:border-orange-500 text-slate-700 dark:text-slate-200 transition-all shadow-2xs hover:translate-x-1 cursor-pointer"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
             {/* Render Messages */}
             {messages.map((msg) => {
@@ -168,18 +208,26 @@ export default function ChatbotWidgetUI() {
 
           {/* Footer: Input Bar */}
           <footer className="p-2.5 sm:p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-            <form onSubmit={handleSubmit} className="flex items-center gap-2">
-              <input
-                type="text"
+            <form onSubmit={handleSubmit} className="flex items-end gap-2">
+              <textarea
+                rows={1}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Nhập câu hỏi của bạn..."
-                className="flex-1 px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500 dark:focus:border-orange-500 transition-colors"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    if (inputText.trim()) {
+                      handleSubmit(e);
+                    }
+                  }
+                }}
+                placeholder="Nhập câu hỏi (Enter gửi, Shift+Enter xuống dòng)..."
+                className="flex-1 px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500 dark:focus:border-orange-500 transition-colors resize-none min-h-[38px] max-h-28 overflow-y-auto"
               />
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="w-9 h-9 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-orange-500/20 cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                className="w-9 h-9 mb-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-orange-500/20 cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
                 title="Gửi câu hỏi"
                 aria-label="Gửi câu hỏi"
               >
@@ -194,6 +242,8 @@ export default function ChatbotWidgetUI() {
               <span>AP Sports Storefront</span>
             </div>
           </footer>
+            </>
+          )}
         </div>
       )}
 
