@@ -1,6 +1,5 @@
 package com.web.ap_sports.service.common;
 
-import com.web.ap_sports.service.common.impl.CloudinaryServiceImpl.CloudinaryUploadResult;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -20,6 +19,15 @@ public interface CloudinaryService {
      * @throws IllegalArgumentException nếu file vi phạm ràng buộc kích thước/định dạng
      */
     CloudinaryUploadResult uploadImage(MultipartFile file, String folder);
+
+    /**
+     * Tải file ảnh chat lên Cloudinary sau khi tự động nén & resize tối ưu (tối đa 1280px, chất lượng 80%).
+     *
+     * @param file   File ảnh từ Multipart Request (tối đa 5 MB, JPEG/PNG/WebP)
+     * @param folder Thư mục lưu trên Cloudinary
+     * @return {@link CloudinaryUploadResult} chứa secureUrl và publicId
+     */
+    CloudinaryUploadResult uploadChatImage(MultipartFile file, String folder);
 
     /**
      * Xóa ảnh khỏi Cloudinary theo public_id (best-effort — không ném exception khi thất bại).
@@ -47,4 +55,9 @@ public interface CloudinaryService {
      * @return Map ánh xạ từ chuỗi ảnh gốc -> URL Cloudinary đã upload
      */
     java.util.Map<String, String> uploadBase64OrUrlBatch(java.util.List<String> sources, String folder);
+
+    /**
+     * Kết quả upload Cloudinary — chứa cả URL (hiển thị) lẫn public_id (để xóa sau).
+     */
+    record CloudinaryUploadResult(String secureUrl, String publicId) {}
 }

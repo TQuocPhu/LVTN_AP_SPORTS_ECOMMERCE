@@ -39,6 +39,7 @@ public class StaffReportServiceImpl implements StaffReportService {
     private final UserRepository userRepository;
 
     @Override
+            
     public StaffPerformanceReportResponse getMyPerformance(String staffEmail, LocalDateTime fromDate, LocalDateTime toDate) {
         User staff = getUserByEmail(staffEmail);
         List<StaffPerformanceReportResponse> allStaffReports = adminReportService.getStaffPerformance(fromDate, toDate);
@@ -70,6 +71,7 @@ public class StaffReportServiceImpl implements StaffReportService {
     }
 
     @Override
+            
     public RevenueOverviewReportResponse getMyRevenueOverview(String staffEmail, LocalDateTime fromDate, LocalDateTime toDate) {
         User staff = getUserByEmail(staffEmail);
         return adminReportService.getRevenueOverview(fromDate, toDate, staff.getId());
@@ -77,7 +79,7 @@ public class StaffReportServiceImpl implements StaffReportService {
 
     @Override
     public Page<AdminOrderDetailResponse> getMyOrders(String staffEmail, Pageable pageable) {
-        User staff = getUserByEmail(staffEmail);
+        getUserByEmail(staffEmail);
         AdminOrderFilterRequest filter = AdminOrderFilterRequest.builder()
                 .page(pageable.getPageNumber())
                 .size(pageable.getPageSize())
@@ -85,9 +87,9 @@ public class StaffReportServiceImpl implements StaffReportService {
                 .sortDir("DESC")
                 .build();
 
-        // Sử dụng getAdminOrders và lọc theo staff
         return adminOrderService.getAdminOrders(filter);
     }
+                        
 
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)

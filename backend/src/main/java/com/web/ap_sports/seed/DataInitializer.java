@@ -89,6 +89,7 @@ public class DataInitializer implements CommandLineRunner {
         Permission pInventoryMgmt = getOrCreatePermission("MANAGE_INVENTORY");
         Permission pReportMgmt = getOrCreatePermission("VIEW_REPORTS");
         Permission pCustomerStorefront = getOrCreatePermission("CUSTOMER_STOREFRONT");
+        Permission pSupportLiveChat = getOrCreatePermission("SUPPORT_LIVE_CHAT");
 
         // 3. Phân quyền cho Vai Trò ADMIN (Toàn quyền quản trị)
         assignPermissionToRole(adminRole, pUserMgmt);
@@ -100,13 +101,15 @@ public class DataInitializer implements CommandLineRunner {
         assignPermissionToRole(adminRole, pInventoryMgmt);
         assignPermissionToRole(adminRole, pReportMgmt);
         assignPermissionToRole(adminRole, pCustomerStorefront);
+        assignPermissionToRole(adminRole, pSupportLiveChat);
 
-        // 4. Phân quyền cho Vai Trò STAFF (Quản lý đơn hàng, sản phẩm, đánh giá, liên hệ, báo cáo cá nhân)
+        // 4. Phân quyền cho Vai Trò STAFF (Quản lý đơn hàng, sản phẩm, đánh giá, liên hệ, báo cáo cá nhân, live chat)
         assignPermissionToRole(staffRole, pOrderMgmt);
         assignPermissionToRole(staffRole, pProductMgmt);
         assignPermissionToRole(staffRole, pReviewMgmt);
         assignPermissionToRole(staffRole, pContactMgmt);
         assignPermissionToRole(staffRole, pReportMgmt);
+        assignPermissionToRole(staffRole, pSupportLiveChat);
 
         // 5. Phân quyền cho Vai Trò WAREHOUSE_MANAGER (Quản lý kho hàng & nhập xuất)
         assignPermissionToRole(warehouseRole, pInventoryMgmt);

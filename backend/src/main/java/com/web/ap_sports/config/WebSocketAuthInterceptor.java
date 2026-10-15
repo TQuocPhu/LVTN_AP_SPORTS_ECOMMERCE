@@ -57,7 +57,11 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
         if (StompCommand.SUBSCRIBE.equals(command)) {
             String destination = accessor.getDestination();
-            if (!"/user/queue/notifications".equals(destination) && (destination == null || !destination.startsWith("/topic/"))) {
+            boolean isAllowedUserQueue = "/user/queue/notifications".equals(destination)
+                    || "/user/queue/support-chat".equals(destination);
+            boolean isAllowedTopic = destination != null && destination.startsWith("/topic/");
+
+            if (!isAllowedUserQueue && !isAllowedTopic) {
                 log.warn("SUBSCRIBE bị từ chối: {}", destination);
                 throw new MessageDeliveryException("Không có quyền subscribe destination này.");
             }

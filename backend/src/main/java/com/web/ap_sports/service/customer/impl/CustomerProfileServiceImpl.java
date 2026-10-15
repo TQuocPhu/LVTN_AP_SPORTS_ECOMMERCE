@@ -10,7 +10,7 @@ import com.web.ap_sports.entity.User;
 import com.web.ap_sports.repository.RefreshTokenRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.common.CloudinaryService;
-import com.web.ap_sports.service.common.impl.CloudinaryServiceImpl.CloudinaryUploadResult;
+import com.web.ap_sports.service.common.CloudinaryService.CloudinaryUploadResult;
 import com.web.ap_sports.service.customer.CustomerProfileService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

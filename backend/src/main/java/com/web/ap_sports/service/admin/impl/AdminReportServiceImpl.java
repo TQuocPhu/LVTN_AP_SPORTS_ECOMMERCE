@@ -32,12 +32,13 @@ public class AdminReportServiceImpl implements AdminReportService {
     // ==========================================
     // CÁC HẰNG SỐ CẤU HÌNH DOANH SỐ & HOA HỒNG
     // ==========================================
-    private static final BigDecimal DEFAULT_COMMISSION_RATE = new BigDecimal("0.02");       // 2% hoa hồng trên doanh thu hoàn thành
-    private static final double KPI_SUCCESS_RATE_EXCELLENT_THRESHOLD = 90.0;                 // Ngưỡng xuất sắc: >= 90%
-    private static final double KPI_SUCCESS_RATE_GOOD_THRESHOLD = 75.0;                      // Ngưỡng đạt: >= 75%
-    private static final BigDecimal KPI_BONUS_AMOUNT = new BigDecimal("1000000");            // Thưởng KPI xuất sắc: 1.000.000 VNĐ
-    private static final int DEFAULT_TOP_LIMIT = 10;                                         // Giới hạn hiển thị Top sản phẩm
-    private static final int LOW_STOCK_THRESHOLD = 5;                                        // Ngưỡng cảnh báo tồn kho thấp (<= 5)
+    private static final BigDecimal DEFAULT_COMMISSION_RATE = new BigDecimal("0.02"); // 2% hoa hồng trên doanh thu hoàn
+                                                                                      // thành
+    private static final double KPI_SUCCESS_RATE_EXCELLENT_THRESHOLD = 90.0; // Ngưỡng xuất sắc: >= 90%
+    private static final double KPI_SUCCESS_RATE_GOOD_THRESHOLD = 75.0; // Ngưỡng đạt: >= 75%
+    private static final BigDecimal KPI_BONUS_AMOUNT = new BigDecimal("1000000"); // Thưởng KPI xuất sắc: 1.000.000 VNĐ
+    private static final int DEFAULT_TOP_LIMIT = 10; // Giới hạn hiển thị Top sản phẩm
+    private static final int LOW_STOCK_THRESHOLD = 5; // Ngưỡng cảnh báo tồn kho thấp (<= 5)
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter LABEL_FORMATTER = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -50,7 +51,8 @@ public class AdminReportServiceImpl implements AdminReportService {
     private final PaymentRepository paymentRepository;
 
     @Override
-    public RevenueOverviewReportResponse getRevenueOverview(LocalDateTime fromDate, LocalDateTime toDate, Long staffId) {
+    public RevenueOverviewReportResponse getRevenueOverview(LocalDateTime fromDate, LocalDateTime toDate,
+            Long staffId) {
         List<Order> orders = orderRepository.findOrdersForReport(fromDate, toDate, staffId);
 
         BigDecimal totalDeliveredRevenue = BigDecimal.ZERO;
@@ -72,20 +74,22 @@ public class AdminReportServiceImpl implements AdminReportService {
             String dateKey = o.getCreatedAt() != null ? o.getCreatedAt().format(DATE_FORMATTER) : "N/A";
             String dateLabel = o.getCreatedAt() != null ? o.getCreatedAt().format(LABEL_FORMATTER) : "N/A";
 
-            TimeSeriesPointResponse point = timeSeriesMap.computeIfAbsent(dateKey, k -> TimeSeriesPointResponse.builder()
-                    .date(dateKey)
-                    .label(dateLabel)
-                    .revenue(BigDecimal.ZERO)
-                    .orderCount(0)
-                    .completedCount(0)
-                    .cancelledCount(0)
-                    .build());
+            TimeSeriesPointResponse point = timeSeriesMap.computeIfAbsent(dateKey,
+                    k -> TimeSeriesPointResponse.builder()
+                            .date(dateKey)
+                            .label(dateLabel)
+                            .revenue(BigDecimal.ZERO)
+                            .orderCount(0)
+                            .completedCount(0)
+                            .cancelledCount(0)
+                            .build());
 
             point.setOrderCount(point.getOrderCount() + 1);
 
             OrderStatus status = o.getStatus();
             boolean isCompleted = (status == OrderStatus.delivered || status == OrderStatus.completed);
-            boolean isDelivering = (status == OrderStatus.shipping || status == OrderStatus.shipped || status == OrderStatus.processing);
+            boolean isDelivering = (status == OrderStatus.shipping || status == OrderStatus.shipped
+                    || status == OrderStatus.processing);
             boolean isCancelled = (status == OrderStatus.cancelled);
             boolean isReturned = (status == OrderStatus.returned);
 
@@ -131,10 +135,12 @@ public class AdminReportServiceImpl implements AdminReportService {
                 : BigDecimal.ZERO;
 
         BigDecimal totalNetRevenue = totalDeliveredRevenue.subtract(totalShippingFee);
-        if (totalNetRevenue.compareTo(BigDecimal.ZERO) < 0) totalNetRevenue = BigDecimal.ZERO;
+        if (totalNetRevenue.compareTo(BigDecimal.ZERO) < 0)
+            totalNetRevenue = BigDecimal.ZERO;
 
         return RevenueOverviewReportResponse.builder()
-                .totalGrossRevenue(totalGrossRevenue.compareTo(BigDecimal.ZERO) > 0 ? totalGrossRevenue : totalDeliveredRevenue)
+                .totalGrossRevenue(
+                        totalGrossRevenue.compareTo(BigDecimal.ZERO) > 0 ? totalGrossRevenue : totalDeliveredRevenue)
                 .totalNetRevenue(totalNetRevenue)
                 .totalDeliveredRevenue(totalDeliveredRevenue)
                 .totalDiscountAmount(totalDiscountAmount)
@@ -174,7 +180,8 @@ public class AdminReportServiceImpl implements AdminReportService {
                     if (o.getFinalAmount() != null) {
                         deliveredRevenue = deliveredRevenue.add(o.getFinalAmount());
                     }
-                } else if (status == OrderStatus.shipping || status == OrderStatus.shipped || status == OrderStatus.processing) {
+                } else if (status == OrderStatus.shipping || status == OrderStatus.shipped
+                        || status == OrderStatus.processing) {
                     delivering++;
                 } else if (status == OrderStatus.cancelled || status == OrderStatus.returned) {
                     cancelled++;
@@ -187,7 +194,8 @@ public class AdminReportServiceImpl implements AdminReportService {
                     ? deliveredRevenue.divide(BigDecimal.valueOf(completed), 0, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
 
-            BigDecimal commission = deliveredRevenue.multiply(DEFAULT_COMMISSION_RATE).setScale(0, RoundingMode.HALF_UP);
+            BigDecimal commission = deliveredRevenue.multiply(DEFAULT_COMMISSION_RATE).setScale(0,
+                    RoundingMode.HALF_UP);
             BigDecimal bonus = (successRate >= KPI_SUCCESS_RATE_EXCELLENT_THRESHOLD && completed >= 5)
                     ? KPI_BONUS_AMOUNT
                     : BigDecimal.ZERO;
@@ -227,10 +235,12 @@ public class AdminReportServiceImpl implements AdminReportService {
                     .build());
         }
 
-        // Sắp xếp bảng xếp hạng: Doanh thu giảm dần, sau đó theo số đơn thành công giảm dần
+        // Sắp xếp bảng xếp hạng: Doanh thu giảm dần, sau đó theo số đơn thành công giảm
+        // dần
         result.sort((a, b) -> {
             int cmp = b.getDeliveredRevenue().compareTo(a.getDeliveredRevenue());
-            if (cmp != 0) return cmp;
+            if (cmp != 0)
+                return cmp;
             return Long.compare(b.getCompletedOrders(), a.getCompletedOrders());
         });
 
@@ -241,7 +251,8 @@ public class AdminReportServiceImpl implements AdminReportService {
     public TopMerchandiseReportResponse getTopMerchandise(LocalDateTime fromDate, LocalDateTime toDate, Integer limit) {
         int finalLimit = (limit != null && limit > 0) ? limit : DEFAULT_TOP_LIMIT;
 
-        List<Object[]> topProductRows = orderItemRepository.findTopSellingProducts(fromDate, toDate, PageRequest.of(0, finalLimit));
+        List<Object[]> topProductRows = orderItemRepository.findTopSellingProducts(fromDate, toDate,
+                PageRequest.of(0, finalLimit));
         List<TopProductItemResponse> topProducts = new ArrayList<>();
 
         for (Object[] row : topProductRows) {
@@ -303,29 +314,36 @@ public class AdminReportServiceImpl implements AdminReportService {
     @Override
     public WarehouseReportResponse getWarehouseReport(LocalDateTime fromDate, LocalDateTime toDate) {
         BigDecimal totalValue = inventoryTransactionRepository.sumTotalInventoryValue();
-        if (totalValue == null) totalValue = BigDecimal.ZERO;
+        if (totalValue == null)
+            totalValue = BigDecimal.ZERO;
 
         long totalStock = productVariantRepository.sumTotalStockQuantity();
         long lowStockCount = productVariantRepository.countLowStockVariants(LOW_STOCK_THRESHOLD);
         long outOfStockCount = productVariantRepository.countOutOfStockVariants();
 
-        Long inboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.IMPORT, fromDate, toDate);
-        Long manualOutboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.EXPORT, fromDate, toDate);
-        if (manualOutboundQty == null) manualOutboundQty = 0L;
+        Long inboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.IMPORT, fromDate,
+                toDate);
+        Long manualOutboundQty = inventoryTransactionRepository.sumQuantityByTypeInPeriod(TransactionType.EXPORT,
+                fromDate, toDate);
+        if (manualOutboundQty == null)
+            manualOutboundQty = 0L;
 
-        // Tính lượng sản phẩm đã xuất bán theo đơn hàng đã xuất kho bàn giao GHN trở đi (shipped, shipping, delivered, completed)
+        // Tính lượng sản phẩm đã xuất bán theo đơn hàng đã xuất kho bàn giao GHN trở đi
+        // (shipped, shipping, delivered, completed)
         List<OrderStatus> outboundStatuses = List.of(
                 OrderStatus.shipped,
                 OrderStatus.shipping,
                 OrderStatus.delivered,
-                OrderStatus.completed
-        );
-        Long orderOutboundQty = orderItemRepository.sumQuantityByOrderStatusesInPeriod(outboundStatuses, fromDate, toDate);
-        if (orderOutboundQty == null) orderOutboundQty = 0L;
+                OrderStatus.completed);
+        Long orderOutboundQty = orderItemRepository.sumQuantityByOrderStatusesInPeriod(outboundStatuses, fromDate,
+                toDate);
+        if (orderOutboundQty == null)
+            orderOutboundQty = 0L;
 
         long totalOutboundQty = manualOutboundQty + orderOutboundQty;
 
-        List<ProductVariant> lowVariants = productVariantRepository.findLowStockVariants(LOW_STOCK_THRESHOLD, PageRequest.of(0, 15));
+        List<ProductVariant> lowVariants = productVariantRepository.findLowStockVariants(LOW_STOCK_THRESHOLD,
+                PageRequest.of(0, 15));
         List<LowStockVariantItemResponse> lowStockItems = new ArrayList<>();
 
         for (ProductVariant v : lowVariants) {

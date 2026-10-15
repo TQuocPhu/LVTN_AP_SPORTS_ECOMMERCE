@@ -13,7 +13,7 @@ import com.web.ap_sports.repository.RolePermissionRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.admin.AdminProfileService;
 import com.web.ap_sports.service.common.CloudinaryService;
-import com.web.ap_sports.service.common.impl.CloudinaryServiceImpl.CloudinaryUploadResult;
+import com.web.ap_sports.service.common.CloudinaryService.CloudinaryUploadResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;

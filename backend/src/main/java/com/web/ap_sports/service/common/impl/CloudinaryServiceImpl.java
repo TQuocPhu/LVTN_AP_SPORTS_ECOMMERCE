@@ -83,6 +83,86 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         }
     }
 
+    @Override
+    public CloudinaryUploadResult uploadChatImage(MultipartFile file, String folder) {
+        validateImageFile(file);
+
+        try {
+            byte[] fileBytes = file.getBytes();
+            byte[] optimizedBytes = fileBytes;
+
+            // Nén và resize nếu ảnh vượt quá 200KB hoặc kích thước lớn
+            if (fileBytes.length > 200 * 1024) {
+                try {
+                    BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                    if (originalImage != null) {
+                        int originWidth = originalImage.getWidth();
+                        int originHeight = originalImage.getHeight();
+                        int maxDimension = 1280;
+
+                        int targetWidth = originWidth;
+                        int targetHeight = originHeight;
+
+                        if (originWidth > maxDimension || originHeight > maxDimension) {
+                            double ratio = Math.min((double) maxDimension / originWidth, (double) maxDimension / originHeight);
+                            targetWidth = (int) Math.round(originWidth * ratio);
+                            targetHeight = (int) Math.round(originHeight * ratio);
+                        }
+
+                        BufferedImage resizedImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+                        Graphics2D g2d = resizedImage.createGraphics();
+                        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2d.drawImage(originalImage, 0, 0, targetWidth, targetHeight, null);
+                        g2d.dispose();
+
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpeg");
+                        if (writers.hasNext()) {
+                            ImageWriter writer = writers.next();
+                            try (ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
+                                writer.setOutput(ios);
+                                ImageWriteParam param = writer.getDefaultWriteParam();
+                                if (param.canWriteCompressed()) {
+                                    param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                                    param.setCompressionQuality(0.80f);
+                                }
+                                writer.write(null, new javax.imageio.IIOImage(resizedImage, null, null), param);
+                            } finally {
+                                writer.dispose();
+                            }
+                            optimizedBytes = baos.toByteArray();
+                            log.info("⚡ Đã nén & tối ưu ảnh chat: {} KB -> {} KB (Resize: {}x{} -> {}x{})",
+                                    fileBytes.length / 1024, optimizedBytes.length / 1024, originWidth, originHeight, targetWidth, targetHeight);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Lỗi tối ưu ảnh chat, upload ảnh gốc: {}", ex.getMessage());
+                }
+            }
+
+            log.info("Đang tải ảnh chat lên Cloudinary thư mục: {}", folder);
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    optimizedBytes,
+                    ObjectUtils.asMap(
+                            "folder", folder,
+                            "overwrite", false,
+                            "resource_type", "image"
+                    )
+            );
+
+            String secureUrl  = (String) uploadResult.get("secure_url");
+            String publicId   = (String) uploadResult.get("public_id");
+            log.info("Tải ảnh chat lên Cloudinary thành công. public_id: {}, URL: {}", publicId, secureUrl);
+            return new CloudinaryUploadResult(secureUrl, publicId);
+
+        } catch (IOException e) {
+            log.error("Lỗi tải ảnh chat lên Cloudinary", e);
+            throw new RuntimeException("Không thể tải ảnh lên hệ thống lưu trữ Cloudinary", e);
+        }
+    }
+
     /**
      * {@inheritDoc}
      * Xóa ảnh khỏi Cloudinary theo public_id. Ghi log cảnh báo nếu xóa thất bại
@@ -286,13 +366,5 @@ public class CloudinaryServiceImpl implements CloudinaryService {
                     "Định dạng hiện tại: " + contentType);
         }
     }
-
-    // ─────────────────────────────────────────────────────────────
-    // Inner Result DTO
-    // ─────────────────────────────────────────────────────────────
-
-    /**
-     * Kết quả upload Cloudinary — chứa cả URL (hiển thị) lẫn public_id (để xóa sau).
-     */
-    public record CloudinaryUploadResult(String secureUrl, String publicId) {}
 }
+
