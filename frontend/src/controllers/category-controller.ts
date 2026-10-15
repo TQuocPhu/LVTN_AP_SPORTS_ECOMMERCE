@@ -23,6 +23,13 @@ export const categoryController = {
   },
 
   /**
+   * Lấy danh sách danh mục gốc (Primary/Root categories)
+   */
+  async getPrimaryCategories(): Promise<ApiResponse<CategoryResponse[]>> {
+    return apiClient.get<ApiResponse<CategoryResponse[]>>('/categories/primary', { suppressErrorToast: true });
+  },
+
+  /**
    * [ADMIN] Lấy danh sách danh mục phân trang & lọc
    */
   async getCategoriesAdmin(params: CategoryFilterParams): Promise<ApiResponse<PaginatedCategoriesResponse>> {

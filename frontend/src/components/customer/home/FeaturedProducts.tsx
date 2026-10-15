@@ -14,8 +14,12 @@ export default function FeaturedProducts() {
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 pb-4 border-b" style={{ borderColor: 'var(--bg-border)' }}>
           <div>
-            <div className="text-orange-500 font-bold text-xs uppercase tracking-widest mb-1">
-              SẢN PHẨM BÁN CHẠY NHẤT
+            <div className="flex items-center space-x-2 text-orange-500 font-bold text-xs uppercase tracking-widest mb-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+              </span>
+              <span>SẢN PHẨM BÁN CHẠY NHẤT</span>
             </div>
             <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>
               TRANG THIẾT BỊ NỔI BẬT
@@ -23,9 +27,10 @@ export default function FeaturedProducts() {
           </div>
           <Link
             href="/products"
-            className="mt-4 sm:mt-0 text-sm font-bold text-orange-400 hover:text-orange-300 transition-colors uppercase tracking-wider flex items-center gap-1"
+            className="group mt-4 sm:mt-0 text-sm font-bold text-orange-400 hover:text-orange-500 transition-all uppercase tracking-wider flex items-center gap-1.5"
           >
-            XEM TOÀN BỘ CỬA HÀNG →
+            <span>XEM TOÀN BỘ CỬA HÀNG</span>
+            <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
           </Link>
         </div>
 

@@ -7,6 +7,7 @@ import { CategoryResponse } from '@/types/category';
 export function useCategories() {
   const [categoryTree, setCategoryTree] = useState<CategoryResponse[]>([]);
   const [flatCategories, setFlatCategories] = useState<CategoryResponse[]>([]);
+  const [primaryCategories, setPrimaryCategories] = useState<CategoryResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,14 +38,27 @@ export function useCategories() {
     }
   }, []);
 
+  const fetchPrimaryCategories = useCallback(async () => {
+    try {
+      const res = await categoryController.getPrimaryCategories();
+      if (res && res.data) {
+        setPrimaryCategories(res.data);
+      }
+    } catch (err: any) {
+      console.error('Lỗi khi lấy danh mục gốc:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCategoryTree();
     fetchFlatCategories();
-  }, [fetchCategoryTree, fetchFlatCategories]);
+    fetchPrimaryCategories();
+  }, [fetchCategoryTree, fetchFlatCategories, fetchPrimaryCategories]);
 
   return {
     categoryTree,
     flatCategories,
+    primaryCategories,
     loading,
     error,
     refetchCategories: fetchCategoryTree,

@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import HeroBannerSlider from '@/components/customer/home/HeroBannerSlider';
-import CategoryGrid from '@/components/customer/home/CategoryGrid';
+import BrandPartnersStrip from '@/components/customer/home/BrandPartnersStrip';
 import FeaturedProducts from '@/components/customer/home/FeaturedProducts';
+import HomeContactBannerSection from '@/components/customer/home/HomeContactBannerSection';
 import MembershipBenefitsSection from '@/components/customer/home/MembershipBenefitsSection';
 
 export const metadata: Metadata = {
@@ -13,17 +14,23 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col font-sans selection:bg-orange-500 selection:text-white transition-colors duration-300" style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}>
+    <main
+      className="min-h-screen flex flex-col font-sans selection:bg-orange-500 selection:text-white transition-colors duration-300"
+      style={{ backgroundColor: 'var(--bg-page)', color: 'var(--text-primary)' }}
+    >
       {/* 1. Hero Master Banner Slider */}
       <HeroBannerSlider />
 
-      {/* 2. Sport Categories Highlight Grid */}
-      <CategoryGrid />
+      {/* 2. Top Brands & Service Value Strip */}
+      <BrandPartnersStrip />
 
       {/* 3. Featured Products Showcase */}
       <FeaturedProducts />
 
-      {/* 4. Membership Privileges & VIP Benefits */}
+      {/* 4. 24/7 Hotline & Contact Assistance Banner */}
+      <HomeContactBannerSection />
+
+      {/* 5. Membership Privileges & VIP Benefits */}
       <MembershipBenefitsSection />
     </main>
   );

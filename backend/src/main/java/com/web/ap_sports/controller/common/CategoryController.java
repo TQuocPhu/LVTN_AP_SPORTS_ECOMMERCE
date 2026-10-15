@@ -29,4 +29,10 @@ public class CategoryController {
         List<CategoryResponse> categories = categoryService.getAllCategoriesFlat();
         return ResponseEntity.ok(ApiResponse.success("Lấy tất cả danh mục thành công.", categories));
     }
+
+    @GetMapping("/primary")
+    public ResponseEntity<ApiResponse<List<CategoryResponse>>> getPrimaryCategories() {
+        List<CategoryResponse> categories = categoryService.getPrimaryCategories();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh mục gốc (primary) thành công.", categories));
+    }
 }

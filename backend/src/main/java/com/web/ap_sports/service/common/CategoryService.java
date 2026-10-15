@@ -9,4 +9,6 @@ public interface CategoryService {
     List<CategoryResponse> getCategoryTree();
 
     List<CategoryResponse> getAllCategoriesFlat();
+
+    List<CategoryResponse> getPrimaryCategories();
 }

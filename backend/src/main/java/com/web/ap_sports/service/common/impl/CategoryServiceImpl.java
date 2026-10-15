@@ -62,6 +62,14 @@ public class CategoryServiceImpl implements CategoryService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getPrimaryCategories() {
+        return categoryRepository.findByParentIsNull().stream()
+                .map(this::mapToResponseFlat)
+                .collect(Collectors.toList());
+    }
+
     private CategoryResponse mapToResponseTree(Category category, Map<Long, List<Category>> childrenMap, Map<Long, Long> directCountMap) {
         List<Category> children = childrenMap.getOrDefault(category.getId(), Collections.emptyList());
         List<CategoryResponse> childResponses = children.stream()
