@@ -17,6 +17,7 @@ import {
   Mail,
   Tag,
   MessageSquare,
+  Headphones,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -102,6 +103,13 @@ export function useAdminSidebar() {
       href: '/admin/contacts',
       icon: Mail,
       permission: 'MANAGE_CONTACTS',
+      allowedRoles: ['ADMIN', 'STAFF'],
+    },
+    {
+      title: 'Tư Vấn Trực Tiếp',
+      href: '/admin/support-chat',
+      icon: Headphones,
+      permission: 'SUPPORT_LIVE_CHAT',
       allowedRoles: ['ADMIN', 'STAFF'],
     },
     {
