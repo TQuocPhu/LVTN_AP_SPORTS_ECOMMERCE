@@ -2,10 +2,11 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { X, Printer, FileText, Calendar, Building2, User } from 'lucide-react';
+import { X, Printer, FileText, Calendar, Building2, User, Barcode } from 'lucide-react';
 import { InventoryTransaction } from '@/types/inventory';
 import { getTicketSummary } from '@/hooks/useWarehouseInventory';
 import { printStockTicketDocument } from '@/utils/stockTicketPrinter';
+import { BarcodeVisual } from '@/components/common/BarcodeVisual';
 
 interface StockTicketPrintModalProps {
   isOpen: boolean;
@@ -179,7 +180,7 @@ export function StockTicketPrintModal({
               <thead>
                 <tr className="bg-slate-100 border-b border-slate-200 text-slate-700 font-extrabold uppercase print:bg-gray-200 print:text-black">
                   <th className="p-2.5 pl-3">STT</th>
-                  <th className="p-2.5">Mã SKU</th>
+                  <th className="p-2.5">Mã Barcode / SKU</th>
                   <th className="p-2.5">Tên Sản Phẩm & Biến Thể</th>
                   <th className="p-2.5 text-center">Số Lượng</th>
                   <th className="p-2.5 text-right">Đơn Giá Vốn</th>
@@ -190,7 +191,12 @@ export function StockTicketPrintModal({
                 {itemsToRender.map((item, idx) => (
                   <tr key={idx}>
                     <td className="p-2.5 pl-3 font-bold">{idx + 1}</td>
-                    <td className="p-2.5 font-mono font-bold text-slate-800 print:text-black max-w-[120px] break-all">{item.variantSku}</td>
+                    <td className="p-2.5 font-mono font-bold text-slate-800 print:text-black max-w-[140px]">
+                      <div className="flex flex-col items-start gap-1">
+                        <BarcodeVisual text={item.variantSku} height={26} barWidth={1.05} showText={false} />
+                        <span className="text-[11px] font-mono tracking-tight text-slate-800 print:text-black">{item.variantSku}</span>
+                      </div>
+                    </td>
                     <td className="p-2.5 space-y-0.5 max-w-[200px]">
                       <div className="font-extrabold text-slate-900 print:text-black">{item.productName}</div>
                       <div className="text-[11px] text-slate-500 print:text-gray-600">
@@ -220,6 +226,51 @@ export function StockTicketPrintModal({
             <span className="text-lg font-black text-orange-600 print:text-black">
               {formattedTotalTicketValue}
             </span>
+          </div>
+
+          {/* Box Product Barcode Stickers (Tem Nhãn Dán Hộp Dụng Cụ / Sản Phẩm) */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2 print:border-black">
+              <div className="flex items-center gap-2">
+                <Barcode className="w-4 h-4 text-orange-600 print:text-black" />
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800 print:text-black">
+                  Tem Mã Vạch Dán Hộp Dụng Cụ / Bao Bì (Box Barcode Stickers)
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 italic print:text-black hidden sm:inline">
+                Dán lên hộp sản phẩm để quét kiểm kê & đóng gói WMS
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {itemsToRender.map((item, idx) => (
+                <div
+                  key={`sticker-${idx}`}
+                  className="border-2 border-dashed border-slate-300 rounded-2xl p-3.5 bg-slate-50/70 flex flex-col justify-between space-y-2.5 print:border-black print:bg-white print:break-inside-avoid shadow-xs"
+                >
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-200 pb-1.5 print:border-gray-300">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">AP SPORTS • PACKAGING LABEL</span>
+                      <h4 className="text-xs font-black text-slate-900 line-clamp-1 print:text-black">{item.productName}</h4>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="inline-block px-1.5 py-0.5 rounded bg-slate-200 text-[10px] font-extrabold text-slate-800 print:border print:border-black">
+                        {item.variantSize || 'F'} / {item.variantColor || 'STD'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center py-1.5 bg-white rounded-xl border border-slate-100 print:border-none shadow-xs">
+                    <BarcodeVisual text={item.variantSku} height={40} barWidth={1.3} showText={true} />
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100 print:border-gray-200">
+                    <span>Số lượng: <strong className="text-slate-800 print:text-black">{Math.abs(item.quantity)} cái</strong></span>
+                    <span className="font-mono text-[9px] text-slate-400">Tem dán hộp #{idx + 1}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Signature Grid */}

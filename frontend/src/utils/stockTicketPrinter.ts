@@ -1,5 +1,6 @@
 import { InventoryTransaction } from '@/types/inventory';
 import { getTicketSummary } from '@/hooks/useWarehouseInventory';
+import { generateBarcodeSvg } from '@/utils/barcodeGenerator';
 
 /**
  * Clean isolated iframe printer for Inventory Stock Tickets.
@@ -24,7 +25,12 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
       (item, idx) => `
     <tr>
       <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-      <td style="font-family: monospace; font-weight: bold;">${item.variantSku}</td>
+      <td style="vertical-align: middle;">
+        <div style="margin-bottom: 3px;">
+          ${generateBarcodeSvg(item.variantSku, { height: 24, barWidth: 1.05, showText: false })}
+        </div>
+        <div style="font-family: monospace; font-weight: bold; font-size: 11px; color: #0f172a;">${item.variantSku}</div>
+      </td>
       <td>
         <div style="font-weight: bold; color: #0f172a;">${item.productName}</div>
         <div style="font-size: 11px; color: #64748b;">Size: ${item.variantSize || 'Mặc định'} | Màu: ${item.variantColor || 'Mặc định'}</div>
@@ -33,6 +39,43 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
       <td style="text-align: right;">${item.formattedUnitCost}</td>
       <td style="text-align: right; font-weight: bold; color: #ea580c;">${item.formattedTotalAmount}</td>
     </tr>
+  `
+    )
+    .join('');
+
+  const boxLabelsHtml = itemsToRender
+    .map(
+      (item, idx) => `
+    <div style="
+      border: 1.5px dashed #64748b;
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #ffffff;
+      page-break-inside: avoid;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    ">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+        <div>
+          <div style="font-size: 8px; font-weight: 900; color: #ea580c; text-transform: uppercase; letter-spacing: 0.5px;">AP SPORTS • TEM NHÃN HỘP SẢN PHẨM</div>
+          <div style="font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">${item.productName}</div>
+        </div>
+        <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; color: #0f172a; shrink: 0;">
+          ${item.variantSize || 'F'} / ${item.variantColor || 'STD'}
+        </div>
+      </div>
+      
+      <div style="display: flex; justify-content: center; align-items: center; margin: 4px 0;">
+        ${generateBarcodeSvg(item.variantSku, { height: 38, barWidth: 1.3, showText: true, fontSize: 10 })}
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 4px; font-size: 9px; color: #64748b;">
+        <span>Số lượng: <strong style="color: #0f172a;">${Math.abs(item.quantity)} cái</strong></span>
+        <span style="font-style: italic;">Dán hộp kiểm kê WMS #${idx + 1}</span>
+      </div>
+    </div>
   `
     )
     .join('');
@@ -231,10 +274,10 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
       <table class="items-table">
         <thead>
           <tr>
-            <th style="width: 40px; text-align: center;">STT</th>
-            <th style="width: 130px;">Mã SKU</th>
+            <th style="width: 36px; text-align: center;">STT</th>
+            <th style="width: 140px;">Mã Barcode / SKU</th>
             <th>Tên Sản Phẩm & Biến Thể</th>
-            <th style="width: 70px; text-align: center;">Số Lượng</th>
+            <th style="width: 60px; text-align: center;">Số Lượng</th>
             <th style="width: 110px; text-align: right;">Đơn Giá Vốn</th>
             <th style="width: 120px; text-align: right;">Thành Tiền</th>
           </tr>
@@ -247,6 +290,16 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
       <div class="total-box">
         <span>TỔNG GIÁ TRỊ PHIẾU GIAO DỊCH:</span>
         <span class="amount">${formattedTotalTicketValue}</span>
+      </div>
+
+      <div style="margin-top: 24px; margin-bottom: 24px; page-break-inside: avoid;">
+        <div style="font-size: 11px; font-weight: 900; text-transform: uppercase; color: #0f172a; border-bottom: 1.5px solid #0f172a; padding-bottom: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>📦 TEM MÃ VẠCH DÁN HỘP DỤNG CỤ / SẢN PHẨM (BOX BARCODE STICKERS)</span>
+          <span style="font-size: 9px; color: #64748b; font-weight: normal; font-style: italic;">Cắt dán lên hộp để quét kiểm đếm đóng gói & kiểm kê WMS</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          ${boxLabelsHtml}
+        </div>
       </div>
 
       <div class="signature-grid">
