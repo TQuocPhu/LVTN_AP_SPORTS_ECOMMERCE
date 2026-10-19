@@ -986,26 +986,31 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                 runoutDays = 0;
             } else if (avgDaily > 0) {
                 runoutDays = (int) Math.round(stock / avgDaily);
+            } else if (stock <= LOW_STOCK_THRESHOLD) {
+                // Tồn kho chạm đáy (<= 5 cái), dù chưa có giao dịch trong 30 ngày nhưng kho đã cận kiệt
+                runoutDays = Math.max(stock, 1);
             } else {
-                runoutDays = 999; // Không phát sinh đơn trong 30 ngày qua
+                runoutDays = 999; // Tồn kho nhiều (> 5 cái) nhưng không phát sinh đơn trong 30 ngày qua
             }
 
             String healthStatus;
-            if (stock <= 0 || runoutDays < 7) {
-                healthStatus = "CRITICAL";
-            } else if (runoutDays <= 21) {
-                healthStatus = "WARNING";
+            if (stock <= 0 || stock <= 2 || runoutDays < 7) {
+                healthStatus = "CRITICAL"; // Hết hàng hoàn toàn hoặc chỉ còn <= 2 cái hoặc cạn trong 7 ngày
+            } else if (stock <= LOW_STOCK_THRESHOLD || runoutDays <= 21) {
+                healthStatus = "WARNING";  // Tồn kho thấp (<= 5 cái) hoặc sắp cạn trong 21 ngày
             } else if (runoutDays <= 60) {
-                healthStatus = "HEALTHY";
+                healthStatus = "HEALTHY";  // Cân đối an toàn 21 - 60 ngày
             } else {
-                healthStatus = "OVERSTOCK";
+                healthStatus = "OVERSTOCK"; // Tồn nhiều (> 5 cái) và chậm tiêu thụ (> 60 ngày)
             }
 
             // Gợi ý số lượng nhập hàng an toàn cho 30 ngày bán
             int targetSafety = (int) Math.ceil(avgDaily * 30.0);
             int suggestedQty = 0;
-            if (avgDaily == 0 && stock == 0) {
-                suggestedQty = 20; // Hàng cạn nhưng chưa có dữ liệu bán: nhập tối thiểu 20 cái thăm dò thị trường
+            if (stock <= LOW_STOCK_THRESHOLD) {
+                // Khi tồn kho chạm đáy (<= 5 cái), luôn đề xuất nhập bù lên mức an toàn tối thiểu 20 cái
+                int baseSafety = Math.max(targetSafety, 20);
+                suggestedQty = Math.max(baseSafety - stock, 15);
             } else if (stock < targetSafety) {
                 suggestedQty = targetSafety - stock;
             }
@@ -1027,12 +1032,15 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                     .build());
         }
 
-        // Sắp xếp ưu tiên: CRITICAL (0) -> WARNING (1) -> HEALTHY (2) -> OVERSTOCK (3), tiếp theo là runoutDays tăng dần
+        // Sắp xếp ưu tiên: CRITICAL (0) -> WARNING (1) -> HEALTHY (2) -> OVERSTOCK (3), tiếp theo là tồn kho ít nhất và runoutDays tăng dần
         runoutList.sort((a, b) -> {
             int priorityA = getHealthPriority(a.getHealthStatus());
             int priorityB = getHealthPriority(b.getHealthStatus());
             if (priorityA != priorityB) {
                 return Integer.compare(priorityA, priorityB);
+            }
+            if (!Objects.equals(a.getCurrentStock(), b.getCurrentStock())) {
+                return Integer.compare(a.getCurrentStock(), b.getCurrentStock());
             }
             return Integer.compare(a.getRunoutDays(), b.getRunoutDays());
         });

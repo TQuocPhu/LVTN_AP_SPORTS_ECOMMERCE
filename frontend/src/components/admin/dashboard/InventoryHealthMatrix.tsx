@@ -86,13 +86,13 @@ export function InventoryHealthMatrix({ items, loading }: InventoryHealthMatrixP
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              Ma Trận Phân Tích Runout Days & Đề Xuất Nhập Hàng
+              Top 20 Ma Trận Phân Tích Runout Days & Đề Xuất Nhập Hàng
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">
-                WMS Inventory Plan
+                Top 20 Ưu Tiên WMS
               </span>
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Ước tính số ngày còn hàng dựa trên tốc độ tiêu thụ 30 ngày qua và tính toán số lượng tái đặt hàng an toàn
+              Top 20 biến thể cần chú ý nhất: ước tính số ngày còn hàng dựa trên tốc độ tiêu thụ 30 ngày qua và đề xuất nhập bù an toàn
             </p>
           </div>
         </div>
@@ -297,7 +297,7 @@ export function InventoryHealthMatrix({ items, loading }: InventoryHealthMatrixP
       {/* 4. Footer ghi chú */}
       <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-500 gap-2 pt-3 border-t border-slate-100">
         <span>
-          * Runout Days = Tồn kho hiện tại / Tốc độ bán trung bình 30 ngày qua.
+          * Hiển thị Top 20 biến thể ưu tiên cần chú ý nhất (Runout Days = Tồn kho hiện tại / Tốc độ bán trung bình 30 ngày qua).
         </span>
         <span className="font-semibold text-slate-700">
           Tổng nhu cầu nhập bù an toàn: <b className="text-amber-700 font-bold">{metrics.totalSuggestedReorder.toLocaleString('vi-VN')}</b> cái
