@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { authController } from "@/controllers/auth-controller";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { toast } from "sonner";
  * Tuân thủ Clean Architecture: Tách biệt hoàn toàn Logic khỏi Component UI.
  */
 export function useResetPassword() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") || "";
   const email = searchParams.get("email") || "";
@@ -88,7 +89,7 @@ export function useResetPassword() {
 
       // Tự động chuyển hướng về trang đăng nhập sau 1.5 giây
       setTimeout(() => {
-        window.location.href = "/login?reason=password_reset_success";
+        router.push("/login?reason=password_reset_success");
       }, 1500);
     } catch (err: unknown) {
       const msg =

@@ -1,59 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
-import { Mail, Lock, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { useLoginForm } from '@/hooks/useLoginForm';
+import { Mail, Lock, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff, Info } from 'lucide-react';
 
 /**
  * UI Component Form Đăng Nhập Khách Hàng (LoginForm).
- * Tuân thủ Clean Page Rule: Toàn bộ JSX Form & State xử lý ở Component này, file page.tsx chỉ gọi nhúng.
+ * Pure UI Component: Toàn bộ State & Business Logic được quản lý bởi `useLoginForm()` hook.
+ * Không dùng useState/useEffect trong Component.
  */
 export default function LoginForm() {
-  const { login, loading } = useAuth();
-
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setFormError(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    setSuccessMessage(null);
-
-    if (!formData.email.trim()) {
-      setFormError('Email không được để trống.');
-      return;
-    }
-    if (!formData.password) {
-      setFormError('Mật khẩu không được để trống.');
-      return;
-    }
-
-    try {
-      const res = await login(formData);
-      setSuccessMessage(res.message || 'Đăng nhập thành công!');
-
-      // Hard redirect sau 800ms để show success message,
-      // AuthContext đã cập nhật user → Navbar re-render ngay trước khi redirect
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 800);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Thông tin đăng nhập không hợp lệ hoặc tài khoản chưa kích hoạt.';
-      setFormError(msg);
-    }
-  };
+  const {
+    formData,
+    showPassword,
+    isSubmitting,
+    formError,
+    successMessage,
+    noticeMessage,
+    hasInput,
+    handleChange,
+    toggleShowPassword,
+    handleSubmit,
+  } = useLoginForm();
 
   return (
     <div className="w-full max-w-md mx-auto bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
@@ -65,6 +34,14 @@ export default function LoginForm() {
           Chào mừng bạn quay trở lại với AP Sports
         </p>
       </div>
+
+      {/* Thông báo từ các luồng chuyển hướng (như vừa đổi mật khẩu thành công) */}
+      {noticeMessage && !successMessage && !formError && (
+        <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+          <span>{noticeMessage}</span>
+        </div>
+      )}
 
       {/* Thông báo Lỗi */}
       {formError && (
@@ -126,7 +103,7 @@ export default function LoginForm() {
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={toggleShowPassword}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-orange-400 transition-colors p-1"
               title={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
             >
@@ -136,28 +113,23 @@ export default function LoginForm() {
         </div>
 
         {/* Nút Submit */}
-        {(() => {
-          const hasInput = Boolean(formData.email.trim() && formData.password.trim());
-          return (
-            <button
-              type="submit"
-              disabled={loading || !hasInput}
-              className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>ĐANG XỬ LÝ...</span>
-                </>
-              ) : (
-                <>
-                  <span>ĐĂNG NHẬP</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
-          );
-        })()}
+        <button
+          type="submit"
+          disabled={isSubmitting || !hasInput}
+          className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>ĐANG XỬ LÝ...</span>
+            </>
+          ) : (
+            <>
+              <span>ĐĂNG NHẬP</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
       </form>
 
       {/* Footer Chuyển hướng */}
