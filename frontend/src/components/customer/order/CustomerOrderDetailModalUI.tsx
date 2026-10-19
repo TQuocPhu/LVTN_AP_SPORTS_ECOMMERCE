@@ -260,7 +260,7 @@ export function CustomerOrderDetailModalUI({
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
                     <th className="py-2.5 px-4">Sản Phẩm</th>
-                    <th className="py-2.5 px-4">Mã Vạch (Barcode)</th>
+                    <th className="py-2.5 px-4">Mã QR</th>
                     <th className="py-2.5 px-4">Đơn Giá</th>
                     <th className="py-2.5 px-4 text-center">Số Lượng</th>
                     <th className="py-2.5 px-4 text-right">Thành Tiền</th>
