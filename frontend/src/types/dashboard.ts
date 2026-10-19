@@ -166,4 +166,31 @@ export interface AdminDashboardData {
   topSellingProducts?: TopProductWidget[];
   lowStockAlerts?: LowStockAlertWidget[];
   recentReviews?: RecentReviewWidget[];
+
+  // TẦNG 4: BI NÂNG CAO CHO NGÀNH BÓNG ĐÁ VÀ KẾ HOẠCH TỒN KHO RUNOUT DAYS
+  topFootballProducts?: FootballTopProduct[];
+  inventoryRunoutMatrix?: InventoryRunoutAnalysis[];
+}
+
+export interface FootballTopProduct {
+  productId: number;
+  productName: string;
+  slug: string;
+  image?: string;
+  quantitySold: number;
+  revenue: number;
+  revenueSharePercent: number; // % tỷ trọng doanh thu trong toàn ngành bóng đá
+  volumeSharePercent: number;  // % tỷ trọng sản lượng trong toàn ngành bóng đá
+}
+
+export interface InventoryRunoutAnalysis {
+  variantId: number;
+  sku: string;
+  productName: string;
+  variantInfo: string;
+  currentStock: number;
+  avgDailySales: number;       // Tốc độ bán trung bình ngày (30 ngày qua)
+  runoutDays: number;          // Số ngày tồn kho còn lại (currentStock / avgDailySales)
+  healthStatus: 'CRITICAL' | 'WARNING' | 'HEALTHY' | 'OVERSTOCK'; // Phân loại sức khỏe tồn kho
+  suggestedReorderQty: number; // Đề xuất nhập thêm để duy trì 30 ngày bán an toàn
 }

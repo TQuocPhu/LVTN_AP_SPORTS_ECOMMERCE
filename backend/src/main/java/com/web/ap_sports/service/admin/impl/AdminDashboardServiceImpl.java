@@ -2,8 +2,10 @@ package com.web.ap_sports.service.admin.impl;
 
 import com.web.ap_sports.dto.response.admin.AdminDashboardResponse;
 import com.web.ap_sports.dto.response.admin.AdminDashboardResponse.*;
+import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.Order;
 import com.web.ap_sports.entity.Payment;
+import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductImage;
 import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.entity.Review;
@@ -102,6 +104,9 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
         // 3. XÂY DỰNG TẦNG 3: CÁC WIDGET TOP 5 DÒNG KÈM LINK CHUYỂN TRANG
         buildQuickWidgetsByRole(responseBuilder, roleName, currentUser);
+
+        // 4. XÂY DỰNG TẦNG 4: BI NÂNG CAO CHO NGÀNH BÓNG ĐÁ VÀ MA TRẬN RUNOUT DAYS
+        buildAdvancedBiModules(responseBuilder, roleName, now);
 
         return responseBuilder.build();
     }
@@ -866,5 +871,214 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
      */
     private String formatMoneyVND(long amount) {
         return java.text.NumberFormat.getInstance(new Locale("vi", "VN")).format(amount) + " ₫";
+    }
+
+    /**
+     * Xây dựng Tầng 4: BI Nâng Cao cho ngành Bóng Đá và Ma trận Tồn Kho Runout Days
+     */
+    private void buildAdvancedBiModules(
+            AdminDashboardResponse.AdminDashboardResponseBuilder responseBuilder,
+            String roleName,
+            LocalDateTime now
+    ) {
+        // 1. TOP 10 MẶT HÀNG BÓNG ĐÁ BÁN CHẠY & TỶ TRỌNG DOANH THU / SẢN LƯỢNG
+        List<Object[]> topRows = orderItemRepository.findTopSellingProducts(
+                null, null, PageRequest.of(0, 100)
+        );
+
+        Map<Long, Product> productCache = new HashMap<>();
+        List<FootballTopProductDto> footballCandidates = new ArrayList<>();
+        long totalFootballRevenue = 0L;
+        long totalFootballQuantity = 0L;
+
+        for (Object[] row : topRows) {
+            Long pId = ((Number) row[0]).longValue();
+            String pName = (String) row[1];
+            String slug = (String) row[2];
+            Long sold = row[3] != null ? ((Number) row[3]).longValue() : 0L;
+            BigDecimal revBg = row[4] != null ? (BigDecimal) row[4] : BigDecimal.ZERO;
+            long rev = revBg.longValue();
+
+            Product prod = productCache.computeIfAbsent(pId, id -> productRepository.findById(id).orElse(null));
+            if (isFootballProduct(prod, pName)) {
+                totalFootballRevenue += rev;
+                totalFootballQuantity += sold;
+
+                String imgUrl = productImageRepository.findFirstByProductIdAndIsPrimaryTrue(pId)
+                        .map(ProductImage::getImagePath)
+                        .orElseGet(() -> productImageRepository.findByProductId(pId).stream()
+                                .findFirst().map(ProductImage::getImagePath).orElse(""));
+
+                footballCandidates.add(FootballTopProductDto.builder()
+                        .productId(pId)
+                        .productName(pName)
+                        .slug(slug)
+                        .image(imgUrl)
+                        .quantitySold(sold)
+                        .revenue(rev)
+                        .build());
+            }
+        }
+
+        // Nếu hệ thống chưa có đơn hàng bóng đá phát sinh, lấy top sản phẩm bóng đá từ catalog để bảng luôn có dữ liệu sống động
+        if (footballCandidates.isEmpty()) {
+            List<Product> catalogProds = productRepository.findAll();
+            for (Product cp : catalogProds) {
+                if (isFootballProduct(cp, cp.getName()) && footballCandidates.size() < 10) {
+                    String imgUrl = productImageRepository.findFirstByProductIdAndIsPrimaryTrue(cp.getId())
+                            .map(ProductImage::getImagePath)
+                            .orElseGet(() -> productImageRepository.findByProductId(cp.getId()).stream()
+                                    .findFirst().map(ProductImage::getImagePath).orElse(""));
+
+                    footballCandidates.add(FootballTopProductDto.builder()
+                            .productId(cp.getId())
+                            .productName(cp.getName())
+                            .slug(cp.getSlug())
+                            .image(imgUrl)
+                            .quantitySold(0L)
+                            .revenue(0L)
+                            .revenueSharePercent(0.0)
+                            .volumeSharePercent(0.0)
+                            .build());
+                }
+            }
+        }
+
+        // Tính tỷ trọng % cho Top 10 bóng đá
+        final long finalTotalFootballRev = totalFootballRevenue;
+        final long finalTotalFootballQty = totalFootballQuantity;
+        List<FootballTopProductDto> top10Football = footballCandidates.stream()
+                .limit(10)
+                .peek(item -> {
+                    double revShare = finalTotalFootballRev > 0
+                            ? BigDecimal.valueOf((item.getRevenue() * 100.0) / finalTotalFootballRev).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                            : 0.0;
+                    double volShare = finalTotalFootballQty > 0
+                            ? BigDecimal.valueOf((item.getQuantitySold() * 100.0) / finalTotalFootballQty).setScale(1, RoundingMode.HALF_UP).doubleValue()
+                            : 0.0;
+                    item.setRevenueSharePercent(revShare);
+                    item.setVolumeSharePercent(volShare);
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        responseBuilder.topFootballProducts(top10Football);
+
+        // 2. MA TRẬN PHÂN TÍCH TỒN KHO RUNOUT DAYS & ĐỀ XUẤT NHẬP HÀNG (30 NGÀY QUA)
+        List<OrderStatus> excludedStatuses = List.of(OrderStatus.cancelled, OrderStatus.returned, OrderStatus.payment_failed);
+        List<Object[]> variantSalesRows = orderItemRepository.sumQuantityByVariantInPeriod(now.minusDays(30), excludedStatuses);
+        Map<Long, Long> variantSalesMap = new HashMap<>();
+        for (Object[] r : variantSalesRows) {
+            if (r[0] != null && r[1] != null) {
+                variantSalesMap.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
+            }
+        }
+
+        List<ProductVariant> allVariants = productVariantRepository.findAll();
+        List<InventoryRunoutAnalysisDto> runoutList = new ArrayList<>();
+
+        for (ProductVariant v : allVariants) {
+            int stock = v.getStockQuantity() != null ? v.getStockQuantity() : 0;
+            long sold30 = variantSalesMap.getOrDefault(v.getId(), 0L);
+            double avgDaily = BigDecimal.valueOf(sold30 / 30.0).setScale(2, RoundingMode.HALF_UP).doubleValue();
+
+            int runoutDays;
+            if (stock <= 0) {
+                runoutDays = 0;
+            } else if (avgDaily > 0) {
+                runoutDays = (int) Math.round(stock / avgDaily);
+            } else {
+                runoutDays = 999; // Không phát sinh đơn trong 30 ngày qua
+            }
+
+            String healthStatus;
+            if (stock <= 0 || runoutDays < 7) {
+                healthStatus = "CRITICAL";
+            } else if (runoutDays <= 21) {
+                healthStatus = "WARNING";
+            } else if (runoutDays <= 60) {
+                healthStatus = "HEALTHY";
+            } else {
+                healthStatus = "OVERSTOCK";
+            }
+
+            // Gợi ý số lượng nhập hàng an toàn cho 30 ngày bán
+            int targetSafety = (int) Math.ceil(avgDaily * 30.0);
+            int suggestedQty = 0;
+            if (avgDaily == 0 && stock == 0) {
+                suggestedQty = 20; // Hàng cạn nhưng chưa có dữ liệu bán: nhập tối thiểu 20 cái thăm dò thị trường
+            } else if (stock < targetSafety) {
+                suggestedQty = targetSafety - stock;
+            }
+
+            String variantInfo = String.format("Size: %s, Màu: %s",
+                    v.getSize() != null ? v.getSize() : "-",
+                    v.getColor() != null ? v.getColor() : "-");
+
+            runoutList.add(InventoryRunoutAnalysisDto.builder()
+                    .variantId(v.getId())
+                    .sku(v.getSku())
+                    .productName(v.getProduct() != null ? v.getProduct().getName() : "Sản phẩm")
+                    .variantInfo(variantInfo)
+                    .currentStock(stock)
+                    .avgDailySales(avgDaily)
+                    .runoutDays(runoutDays)
+                    .healthStatus(healthStatus)
+                    .suggestedReorderQty(suggestedQty)
+                    .build());
+        }
+
+        // Sắp xếp ưu tiên: CRITICAL (0) -> WARNING (1) -> HEALTHY (2) -> OVERSTOCK (3), tiếp theo là runoutDays tăng dần
+        runoutList.sort((a, b) -> {
+            int priorityA = getHealthPriority(a.getHealthStatus());
+            int priorityB = getHealthPriority(b.getHealthStatus());
+            if (priorityA != priorityB) {
+                return Integer.compare(priorityA, priorityB);
+            }
+            return Integer.compare(a.getRunoutDays(), b.getRunoutDays());
+        });
+
+        // Lấy Top 20 biến thể tiêu biểu cần chú ý nhất
+        List<InventoryRunoutAnalysisDto> topRunout = runoutList.stream().limit(20).collect(java.util.stream.Collectors.toList());
+        responseBuilder.inventoryRunoutMatrix(topRunout);
+    }
+
+    private int getHealthPriority(String status) {
+        if ("CRITICAL".equals(status)) return 0;
+        if ("WARNING".equals(status)) return 1;
+        if ("HEALTHY".equals(status)) return 2;
+        return 3; // OVERSTOCK
+    }
+
+    private boolean isFootballProduct(Product p, String fallbackName) {
+        String name = p != null && p.getName() != null ? p.getName().toLowerCase() : (fallbackName != null ? fallbackName.toLowerCase() : "");
+        if (name.contains("bóng đá") || name.contains("bong da") || name.contains("đá bóng") || name.contains("da bong")
+                || name.contains("giày đá banh") || name.contains("football") || name.contains("soccer")
+                || name.contains("găng tay") || name.contains("gang tay") || name.contains("quả bóng") || name.contains("qua bong")) {
+            return true;
+        }
+        if (p != null) {
+            if (p.getCategory() != null && isFootballCategory(p.getCategory())) return true;
+            if (p.getCategories() != null) {
+                for (Category c : p.getCategories()) {
+                    if (isFootballCategory(c)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isFootballCategory(Category c) {
+        if (c == null) return false;
+        String cName = c.getName() != null ? c.getName().toLowerCase() : "";
+        String cSlug = c.getSlug() != null ? c.getSlug().toLowerCase() : "";
+        if (cName.contains("bóng đá") || cName.contains("bong da") || cName.contains("football") || cName.contains("soccer")
+                || cSlug.contains("bong-da") || cSlug.contains("football") || cSlug.contains("soccer")
+                || cSlug.contains("giay-da-bong") || cSlug.contains("ao-bong-da")) {
+            return true;
+        }
+        if (c.getParent() != null) {
+            return isFootballCategory(c.getParent());
+        }
+        return false;
     }
 }

@@ -52,4 +52,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate
     );
+
+    @Query("SELECT oi.variant.id, SUM(oi.quantity) " +
+           "FROM OrderItem oi " +
+           "WHERE oi.variant IS NOT NULL " +
+           "AND oi.order.createdAt >= :fromDate " +
+           "AND oi.order.status NOT IN :excludedStatuses " +
+           "GROUP BY oi.variant.id")
+    List<Object[]> sumQuantityByVariantInPeriod(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("excludedStatuses") List<OrderStatus> excludedStatuses
+    );
 }

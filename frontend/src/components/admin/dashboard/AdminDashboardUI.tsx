@@ -6,6 +6,7 @@ import { DashboardHeader } from './DashboardHeader';
 import { DashboardScorecards } from './DashboardScorecards';
 import { DashboardBiCharts } from './DashboardBiCharts';
 import { DashboardSystemAnalytics } from './DashboardSystemAnalytics';
+import { DashboardAdvancedBI } from './DashboardAdvancedBI';
 import { DashboardQuickWidgets } from './DashboardQuickWidgets';
 import { AlertCircle } from 'lucide-react';
 
@@ -79,7 +80,17 @@ export function AdminDashboardUI() {
         loading={loading}
       />
 
-      {/* 4. TẦNG 3: CÁC WIDGET TOP 5 DÒNG KÈM LINK CHUYỂN TRANG THEO RBAC */}
+      {/* 5. TẦNG 4: BI NÂNG CAO - THỐNG KÊ TOP 10 BÓNG ĐÁ & MA TRẬN TỒN KHO RUNOUT DAYS */}
+      <DashboardAdvancedBI
+        isAdmin={isAdmin}
+        isStaff={isStaff}
+        isWarehouse={isWarehouse}
+        topFootballProducts={data?.topFootballProducts}
+        inventoryRunoutMatrix={data?.inventoryRunoutMatrix}
+        loading={loading}
+      />
+
+      {/* 6. TẦNG 3: CÁC WIDGET TOP 5 DÒNG KÈM LINK CHUYỂN TRANG THEO RBAC */}
       <DashboardQuickWidgets
         isAdmin={isAdmin}
         isStaff={isStaff}

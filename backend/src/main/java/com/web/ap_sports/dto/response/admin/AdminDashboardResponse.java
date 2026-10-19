@@ -44,6 +44,10 @@ public class AdminDashboardResponse {
     private List<LowStockAlertWidgetDto> lowStockAlerts;   // Top 5 SKU hết hàng (Admin & Warehouse)
     private List<RecentReviewWidgetDto> recentReviews;     // Top 5 đánh giá mới nhất (Admin & Staff)
 
+    // TẦNG 4: BI NÂNG CAO CHO NGÀNH BÓNG ĐÁ VÀ KẾ HOẠCH TỒN KHO RUNOUT DAYS
+    private List<FootballTopProductDto> topFootballProducts;
+    private List<InventoryRunoutAnalysisDto> inventoryRunoutMatrix;
+
     // ==========================================
     // 1. DTO SCORECARDS TẦNG 1
     // ==========================================
@@ -261,5 +265,36 @@ public class AdminDashboardResponse {
         private String monthLabel;          // "Tháng 10/2026", "Tháng 09/2026"
         private List<Long> weeklyRevenues;  // Doanh thu 4 tuần [Tuần 1, Tuần 2, Tuần 3, Tuần 4]
         private Long totalRevenue;          // Tổng doanh thu của tháng đó
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FootballTopProductDto {
+        private Long productId;
+        private String productName;
+        private String slug;
+        private String image;
+        private Long quantitySold;
+        private Long revenue;
+        private Double revenueSharePercent; // Tỷ trọng % doanh thu trong ngành bóng đá
+        private Double volumeSharePercent;  // Tỷ trọng % sản lượng trong ngành bóng đá
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class InventoryRunoutAnalysisDto {
+        private Long variantId;
+        private String sku;
+        private String productName;
+        private String variantInfo;
+        private Integer currentStock;
+        private Double avgDailySales;       // Tốc độ bán trung bình ngày (30 ngày qua)
+        private Integer runoutDays;         // Số ngày tồn kho còn lại (currentStock / avgDailySales)
+        private String healthStatus;        // CRITICAL (< 7 ngày), WARNING (7 - 21 ngày), HEALTHY (21 - 60 ngày), OVERSTOCK (> 60 ngày)
+        private Integer suggestedReorderQty;// Số lượng đề xuất nhập hàng (để đủ bán 30 ngày an toàn)
     }
 }
