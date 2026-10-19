@@ -14,5 +14,7 @@ public enum NotificationActionType {
     LOW_INVENTORY,
     OUT_OF_STOCK,
     WELCOME,
-    SYSTEM_ALERT
+    SYSTEM_ALERT,
+    PRODUCT_RESTOCKED,
+    ORDER_PACKED
 }

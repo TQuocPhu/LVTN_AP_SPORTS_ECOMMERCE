@@ -38,6 +38,7 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
     private final UserRepository userRepository;
     private final ProductImageRepository productImageRepository;
     private final InventoryAlertService inventoryAlertService;
+    private final com.web.ap_sports.service.customer.ProductRestockNotificationService restockNotificationService;
 
     @Override
     @Transactional
@@ -97,6 +98,11 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
             variantRepository.save(variant);
             syncProductStock(variant.getProduct());
 
+            // Tự động bắn thông báo Restock Alert (Email + WebSocket) nếu biến thể được nhập hàng và có tồn kho > 0
+            if (request.getType() == TransactionType.IMPORT && variant.getStockQuantity() > 0) {
+                restockNotificationService.notifySubscribersForRestockedVariant(variant.getId(), variant.getStockQuantity());
+            }
+
             InventoryTransaction transaction = InventoryTransaction.builder()
                     .code(ticketCode)
                     .variant(variant)
@@ -136,6 +142,10 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         variantRepository.save(variant);
 
         syncProductStock(variant.getProduct());
+
+        if (currentStock <= 0 && actualStock > 0) {
+            restockNotificationService.notifySubscribersForRestockedVariant(variant.getId(), actualStock);
+        }
 
         String ticketCode = generateTicketCode(TransactionType.ADJUSTMENT);
 

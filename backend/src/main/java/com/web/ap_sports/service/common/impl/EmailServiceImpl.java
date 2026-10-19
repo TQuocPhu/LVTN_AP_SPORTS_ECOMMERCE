@@ -504,6 +504,121 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
+    @Override
+    @org.springframework.scheduling.annotation.Async
+    public void sendRestockAlertEmail(String toEmail, String customerName, String productName, String variantInfo, String productSlug, String variantPrice, String imageUrl) {
+        String productUrl = "http://localhost:3000/products/" + productSlug;
+
+        log.info("==================================================================");
+        log.info("🔔 AP SPORTS RESTOCK ALERT EMAIL TO {}:", toEmail);
+        log.info("Sản phẩm: {} ({}) - Giá: {}", productName, variantInfo, variantPrice);
+        log.info("Link: {}", productUrl);
+        log.info("==================================================================");
+
+        String displayImage = (imageUrl != null && !imageUrl.isBlank())
+                ? imageUrl
+                : "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80";
+
+        String htmlContent = """
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; background-color: #0b0f19; border-radius: 16px; overflow: hidden; border: 1px solid #1f2937; color: #f3f4f6;">
+                <!-- Header Banner -->
+                <div style="background: linear-gradient(135deg, #ea580c 0%%, #f97316 50%%, #e11d48 100%%); padding: 32px 24px; text-align: center;">
+                    <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffffff; text-transform: uppercase; margin-bottom: 12px;">
+                        ⚡ AP SPORTS INVENTORY NOTIFICATION
+                    </div>
+                    <h1 style="margin: 0; font-size: 26px; font-weight: 800; color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                        HÀNG ĐÃ CÓ MẶT TẠI KHO!
+                    </h1>
+                    <p style="margin: 8px 0 0 0; color: rgba(255, 255, 255, 0.9); font-size: 15px;">
+                        Sản phẩm thể thao bạn chờ đợi đã chính thức được bổ sung số lượng
+                    </p>
+                </div>
+
+                <!-- Body Content -->
+                <div style="padding: 28px 24px; background-color: #111827;">
+                    <p style="font-size: 16px; color: #e5e7eb; margin: 0 0 16px 0;">
+                        Xin chào <strong style="color: #f97316;">%s</strong>,
+                    </p>
+                    <p style="font-size: 14px; color: #9ca3af; line-height: 1.6; margin: 0 0 24px 0;">
+                        Chúng tôi rất vui thông báo biến thể sản phẩm mà bạn đã đăng ký theo dõi trước đây vừa được kiểm đếm và nhập kho thành công. Số lượng có hạn, hãy nhanh tay đặt hàng ngay hôm nay!
+                    </p>
+
+                    <!-- Product Card -->
+                    <div style="background-color: #1f2937; border-radius: 12px; border: 1px solid #374151; padding: 20px; margin-bottom: 24px;">
+                        <table style="width: 100%%; border-collapse: collapse;">
+                            <tr>
+                                <td style="width: 120px; vertical-align: top; padding-right: 18px;">
+                                    <img src="%s" alt="%s" style="width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid #4b5563;" />
+                                </td>
+                                <td style="vertical-align: top;">
+                                    <h3 style="margin: 0 0 8px 0; font-size: 18px; color: #ffffff; font-weight: 700; line-height: 1.3;">
+                                        %s
+                                    </h3>
+                                    <div style="margin-bottom: 8px;">
+                                        <span style="display: inline-block; background-color: #374151; color: #60a5fa; font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 6px;">
+                                            Phân loại: %s
+                                        </span>
+                                    </div>
+                                    <div style="font-size: 20px; font-weight: 800; color: #22c55e; margin-bottom: 6px;">
+                                        %s VNĐ
+                                    </div>
+                                    <div style="font-size: 12px; color: #10b981; display: flex; align-items: center; gap: 4px;">
+                                        ● Sẵn sàng xuất kho ngay lập tức
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Call to Action Button -->
+                    <div style="text-align: center; margin: 28px 0 20px 0;">
+                        <a href="%s" style="display: inline-block; background: linear-gradient(135deg, #ea580c 0%%, #f97316 100%%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 700; padding: 14px 36px; border-radius: 10px; box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4); text-transform: uppercase; letter-spacing: 0.5px;">
+                            ⚡ MUA NGAY SẢN PHẨM NÀY
+                        </a>
+                    </div>
+                    <p style="text-align: center; font-size: 12px; color: #6b7280; margin: 0;">
+                        Liên kết trực tiếp: <a href="%s" style="color: #f97316; text-decoration: underline;">%s</a>
+                    </p>
+                </div>
+
+                <!-- Footer -->
+                <div style="background-color: #0b0f19; padding: 20px 24px; text-align: center; border-top: 1px solid #1f2937; font-size: 12px; color: #6b7280; line-height: 1.5;">
+                    <p style="margin: 0 0 6px 0;">
+                        Bạn nhận được thông báo này do tài khoản của bạn đã yêu cầu nhận tin khi biến thể sản phẩm này về hàng.
+                    </p>
+                    <p style="margin: 0;">
+                        © 2026 AP Sports Enterprise. Bản quyền thuộc về Hệ thống Thể thao Cao cấp AP Sports.
+                    </p>
+                </div>
+            </div>
+            """.formatted(
+                customerName != null ? customerName : "Quý khách",
+                displayImage,
+                productName,
+                productName,
+                variantInfo != null ? variantInfo : "Mặc định",
+                variantPrice != null ? variantPrice : "Liên hệ",
+                productUrl,
+                productUrl,
+                productUrl
+            );
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("🔔 [AP SPORTS] Sản phẩm " + productName + " (" + variantInfo + ") đã có hàng trở lại!");
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Đã gửi thành công email Restock Alert cho khách hàng {} tại địa chỉ {}", customerName, toEmail);
+        } catch (Exception e) {
+            log.warn("Không thể gửi email Restock Alert qua SMTP ({}), log liên kết mua hàng: {}", e.getMessage(), productUrl);
+        }
+    }
+
     private String formatMoney(java.math.BigDecimal amount) {
         if (amount == null) return "0";
         return String.format("%,d", amount.longValue()).replace(',', '.');

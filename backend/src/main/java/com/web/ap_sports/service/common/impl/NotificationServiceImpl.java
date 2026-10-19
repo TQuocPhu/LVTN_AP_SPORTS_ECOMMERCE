@@ -101,6 +101,8 @@ public class NotificationServiceImpl implements NotificationService {
             case LOW_INVENTORY -> "Cảnh báo tồn kho thấp";
             case OUT_OF_STOCK -> "Cảnh báo hết hàng trong kho";
             case WELCOME -> "Chào mừng bạn đến với AP Sports!";
+            case PRODUCT_RESTOCKED -> "Sản phẩm yêu thích đã có hàng!";
+            case ORDER_PACKED -> "Đơn hàng đã được kiểm đếm đóng gói";
             default -> "Thông báo mới từ hệ thống";
         };
     }
@@ -152,6 +154,8 @@ public class NotificationServiceImpl implements NotificationService {
                 case REVIEW_REPLIED -> "Cửa hàng AP Sports đã phản hồi bài đánh giá của bạn về sản phẩm " + productName + ".";
                 case LOW_INVENTORY -> "Sản phẩm \"" + productName + "\" sắp hết hàng trong kho, chỉ còn " + map.get("remaining") + " sản phẩm.";
                 case OUT_OF_STOCK -> "Sản phẩm \"" + productName + "\" đã hết hàng trong kho. Vui lòng nhập thêm hàng.";
+                case PRODUCT_RESTOCKED -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Biến thể của sản phẩm \"" + productName + "\" bạn đăng ký theo dõi đã có hàng trở lại!");
+                case ORDER_PACKED -> "Đơn hàng #" + orderCode + " đã được bộ phận kho kiểm đếm barcode 100% và đóng gói thành công.";
                 case WELCOME -> map.get("content") != null ? String.valueOf(map.get("content")) : "Hệ thống thông báo thời gian thực đã sẵn sàng phục vụ bạn.";
                 default -> defaultTitle;
             };

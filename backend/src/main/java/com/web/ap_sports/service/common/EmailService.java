@@ -51,4 +51,17 @@ public interface EmailService {
      * @param orderDetail Chi tiết đơn hàng tài chính & sản phẩm
      */
     void sendEInvoiceEmail(String toEmail, com.web.ap_sports.dto.response.admin.AdminOrderDetailResponse orderDetail);
+
+    /**
+     * Gửi Email thông báo Hàng Đã Về Kho (Restock Notification) dạng HTML cao cấp cho Khách hàng.
+     *
+     * @param toEmail Email người nhận
+     * @param customerName Tên khách hàng
+     * @param productName Tên sản phẩm
+     * @param variantInfo Thuộc tính biến thể (Màu sắc, kích cỡ)
+     * @param productSlug Đường dẫn định danh sản phẩm
+     * @param variantPrice Giá bán hiện tại của biến thể
+     * @param imageUrl Ảnh đại diện của sản phẩm/biến thể
+     */
+    void sendRestockAlertEmail(String toEmail, String customerName, String productName, String variantInfo, String productSlug, String variantPrice, String imageUrl);
 }

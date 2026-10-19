@@ -178,6 +178,9 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
               isOutOfStock={isOutOfStock}
               quantity={quantity}
               unit={productUnit}
+              selectedVariantId={selectedVariant?.id}
+              selectedVariantName={selectedVariant?.variantName || [selectedVariant?.color, selectedVariant?.size].filter(Boolean).join(' - ')}
+              productStatus={product.status}
               onQuantityChange={handleQuantityChange}
               onAddToCart={handleAddToCart}
               onBuyNow={handleBuyNow}
