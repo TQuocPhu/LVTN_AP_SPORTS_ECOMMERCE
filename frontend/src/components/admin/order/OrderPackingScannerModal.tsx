@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Scan,
@@ -54,7 +55,7 @@ export function OrderPackingScannerModal({
   progressPercentage,
   inputRef,
 }: OrderPackingScannerModalProps) {
-  if (!isOpen || !order) return null;
+  if (!isOpen || !order || typeof window === 'undefined') return null;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -63,7 +64,7 @@ export function OrderPackingScannerModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-fadeIn">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
@@ -290,6 +291,7 @@ export function OrderPackingScannerModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

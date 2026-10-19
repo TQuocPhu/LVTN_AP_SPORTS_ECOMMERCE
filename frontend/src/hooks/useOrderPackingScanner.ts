@@ -56,13 +56,24 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
   const [loading, setLoading] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Tự động focus con trỏ vào ô nhập mã barcode khi mở modal
+  // Tự động focus con trỏ vào ô nhập mã barcode khi mở modal & lắng nghe phím Escape để đóng
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
-      return () => clearTimeout(timer);
+
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          closeModal();
+        }
+      };
+      window.addEventListener('keydown', handleEscape);
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('keydown', handleEscape);
+      };
     }
   }, [isOpen]);
 
@@ -97,12 +108,24 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
   }, [order, scannedMap]);
 
   const openModal = useCallback(() => {
-    setScannedMap({});
+    // Nếu đơn hàng đã hoàn tất kiểm đếm trước đó, nạp sẵn số lượng đã quét đủ 100%
+    if (order?.packVerified && order?.items) {
+      const initialMap: Record<number, number> = {};
+      order.items.forEach((item) => {
+        const vId = item.variantId || item.productId;
+        if (vId) {
+          initialMap[vId] = item.quantity;
+        }
+      });
+      setScannedMap(initialMap);
+    } else {
+      setScannedMap({});
+    }
     setManualCode('');
     setIsCameraActive(false);
     setIsOpen(true);
     onOpenChange?.(true);
-  }, [onOpenChange]);
+  }, [order, onOpenChange]);
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
