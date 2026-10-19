@@ -3,9 +3,11 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Tag, Sparkles, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
+import { Tag, Sparkles, ChevronDown, ChevronUp, ShieldCheck, Ruler } from 'lucide-react';
 import { ProductDetail, ProductVariant } from '@/types/product';
 import { ProductRatingStars } from '@/components/ui/ProductRatingStars';
+import { useSizeGuideModal } from '@/hooks/useSizeGuideModal';
+import { ProductSizeGuideModal } from './ProductSizeGuideModal';
 
 interface ProductMainInfoProps {
   product: ProductDetail;
@@ -46,6 +48,13 @@ export function ProductMainInfo({
 }: ProductMainInfoProps) {
   const [isHighlightsOpen, setIsHighlightsOpen] = useState<boolean>(true);
 
+  // Hook nhận diện danh mục và tính toán size thông minh
+  const sizeGuide = useSizeGuideModal({
+    categoryName: primaryCategory,
+    productName: product.name,
+    availableSizes,
+  });
+
   const formattedPrice = new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -69,7 +78,7 @@ export function ProductMainInfo({
           {product.name}
         </h1>
 
-        {/* Component Đánh Giá Sao Trung Bình (Click để cuộn xuống danh sách đánh giá) */}
+        {/* Component Đánh Giá Sao Trung Bình */}
         <div className="pt-0.5">
           <ProductRatingStars
             rating={averageRating ?? 5.0}
@@ -115,12 +124,15 @@ export function ProductMainInfo({
         </div>
       </div>
 
-      {/* 3. Render Các Nhóm Thuộc Tính Động (Dynamic Attribute Groups) Separately */}
+      {/* 3. Render Các Nhóm Thuộc Tính Động (Dynamic Attribute Groups) */}
       {hasDynamicGroups ? (
         <div className="space-y-4">
           {Object.entries(attributeGroups!).map(([groupName, values]) => {
             const currentSelected = selectedAttributes[groupName] || values[0];
             const isColorGroup = groupName.toLowerCase().includes('màu');
+            const isSizeGroup =
+              groupName.toLowerCase().includes('size') ||
+              groupName.toLowerCase().includes('kích');
 
             return (
               <div key={groupName} className="space-y-2">
@@ -128,6 +140,16 @@ export function ProductMainInfo({
                   <span className="font-bold text-slate-900 dark:text-white">
                     {groupName}: <strong className="text-orange-600 dark:text-orange-400">{currentSelected}</strong>
                   </span>
+                  {isSizeGroup && sizeGuide.hasSizeGuide && (
+                    <button
+                      type="button"
+                      onClick={sizeGuide.openModal}
+                      className="text-xs font-bold text-orange-600 dark:text-orange-400 hover:text-orange-500 hover:underline flex items-center gap-1 transition-colors"
+                    >
+                      <Ruler className="w-3.5 h-3.5" />
+                      <span>Hướng dẫn chọn size</span>
+                    </button>
+                  )}
                 </div>
 
                 {isColorGroup ? (
@@ -245,6 +267,16 @@ export function ProductMainInfo({
                 <span className="font-bold text-slate-900 dark:text-white">
                   Kích thước: <strong className="text-orange-600 dark:text-orange-400">{selectedSize || 'Chọn size'}</strong>
                 </span>
+                {sizeGuide.hasSizeGuide && (
+                  <button
+                    type="button"
+                    onClick={sizeGuide.openModal}
+                    className="text-xs font-bold text-orange-600 dark:text-orange-400 hover:text-orange-500 hover:underline flex items-center gap-1 transition-colors"
+                  >
+                    <Ruler className="w-3.5 h-3.5" />
+                    <span>Hướng dẫn chọn size</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -271,7 +303,7 @@ export function ProductMainInfo({
         </>
       )}
 
-      {/* 5. Accordion Thông Số Nổi Bật (Top Highlights) */}
+      {/* 4. Accordion Thông Số Nổi Bật (Top Highlights) */}
       <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
         <button
           onClick={() => setIsHighlightsOpen(!isHighlightsOpen)}
@@ -305,6 +337,22 @@ export function ProductMainInfo({
           </div>
         )}
       </div>
+
+      {/* Modal Hướng Dẫn Chọn Kích Thước Trực Quan */}
+      <ProductSizeGuideModal
+        isOpen={sizeGuide.isOpen}
+        onClose={sizeGuide.closeModal}
+        activeCategory={sizeGuide.activeCategory}
+        onSelectCategory={sizeGuide.setActiveCategory}
+        footLength={sizeGuide.footLength}
+        onFootLengthChange={sizeGuide.setFootLength}
+        recommendedShoeSize={sizeGuide.recommendedShoeSize}
+        userHeight={sizeGuide.userHeight}
+        onUserHeightChange={sizeGuide.setUserHeight}
+        userWeight={sizeGuide.userWeight}
+        onUserWeightChange={sizeGuide.setUserWeight}
+        recommendedApparelSize={sizeGuide.recommendedApparelSize}
+      />
     </div>
   );
 }
