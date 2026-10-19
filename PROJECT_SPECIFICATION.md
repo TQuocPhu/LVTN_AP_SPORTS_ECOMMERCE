@@ -893,7 +893,128 @@ Hệ thống tư vấn trực tuyến 1-1 kết nối trực tiếp Khách hàng
 
 ---
 
-*Tài liệu này cam kết bảo tồn 100% các trường CSDL và chỉ bổ sung mở rộng các trường/bảng mới cho hệ thống Production Enterprise.*
+## 13. HỆ THỐNG CẢNH BÁO TỒN KHO AN TOÀN & THÔNG BÁO HÀNG VỀ (RESTOCK NOTIFICATION & LOW STOCK ALERTS)
+
+### 13.1. Cảnh Báo Tồn Kho Dưới Ngưỡng An Toàn (Safety Stock Level)
+- **Mục tiêu**: Ngăn chặn tình trạng đứt gãy nguồn cung các mặt hàng chủ lực thể thao.
+- **Ngưỡng an toàn mặc định**: Tồn kho biến thể $\le 5$ sản phẩm.
+- **Phía Backend**:
+  - API `GET /api/v1/warehouse/inventory/low-stock?threshold=5` lọc các bản ghi `product_variants` có `stock_quantity <= threshold`.
+- **Phía Frontend**:
+  - Tab *"Cảnh Báo Tồn Kho Thấp"* tại `/admin/inventory` hiển thị danh sách biến thể có nguy cơ cạn kho kèm chấm cảnh báo động (ping animation).
+  - Cho phép thủ kho chọn trực tiếp một hoặc nhiều mặt hàng để mở ngay Modal lập Phiếu Nhập Hàng (`CreateImportModal`) mà không cần nhập lại thông tin thủ công.
+
+### 13.2. Đăng Ký & Tự Động Gửi Email / WebSocket Thông Báo Khi Có Hàng (Restock Alert)
+- **Bảng `product_restock_notifications`**:
+  - `id`: Khóa chính định danh.
+  - `user_id`: Khách hàng đăng ký (Khóa ngoại trỏ `users.id`).
+  - `variant_id`: Biến thể size/màu cụ thể mà khách hàng mong muốn (`product_variants.id`).
+  - `status`: Trạng thái xử lý (`PENDING`, `NOTIFIED`, `CANCELLED`).
+  - `notified_at`: Thời gian bắn thông báo thành công.
+  - Ràng buộc: `UNIQUE KEY uk_user_variant (user_id, variant_id)`.
+- **Luồng kích hoạt tự động (Automatic Trigger)**:
+  - Khi thủ kho hoàn thành Phiếu Nhập Kho (`createImport`) hoặc Điều Chỉnh Tăng Kho (`adjustStock`), nếu số lượng tồn kho của biến thể tăng từ $0$ lên $>0$:
+  - Backend tự động truy vấn các bản ghi `PENDING` tương ứng và thực hiện gửi đồng thời:
+    1. **Email HTML Responsive**: Template HTML thương hiệu AP Sports hiển thị rõ tên sản phẩm, biến thể size/màu vừa có hàng, nút CTA trực tiếp tới trang chi tiết.
+    2. **WebSocket STOMP Realtime**: Bắn tin nhắn qua kênh `/user/queue/notifications` để khách hàng nhận được chuông thông báo ngay trên thanh điều hướng.
+
+---
+
+## 14. BẢNG HƯỚNG DẪN ĐO SIZE CHUẨN THỂ THAO ĐA DANH MỤC & CÔNG CỤ TÍNH SIZE NHANH
+
+- **Mục tiêu**: Giảm thiểu tối đa tỷ lệ đổi trả hàng thời trang thể thao do khách hàng chọn sai kích cỡ giày hoặc quần áo.
+- **Cơ chế nhận diện danh mục động (Dynamic Category-Aware)**:
+  - Hook `useProductSizeGuide.ts` phân tích tên và danh mục sản phẩm qua hệ thống biểu thức chính quy (Regex):
+    1. **Giày bóng đá / Giày thể thao**: Bảng đối chiếu chiều dài bàn chân ($24.0\text{ cm} - 29.0\text{ cm}$) tương ứng với chuẩn cỡ EU ($38 - 45$), US và UK.
+    2. **Quần áo bóng đá / Áo đấu / Bộ nỉ**: Bảng đối chiếu số đo 3 vòng (Vòng ngực, vòng eo, chiều cao $1\text{m}50 - 1\text{m}90$, cân nặng $45\text{kg} - 95\text{kg}$) tương ứng các size $S, M, L, XL, 2XL, 3XL$.
+    3. **Quả bóng đá**: Bảng tiêu chuẩn FIFA (Size 3 cho Futsal/trẻ em, Size 4 cho sân cỏ nhân tạo 7 người, Size 5 cho sân cỏ 11 người).
+    4. **Găng tay thủ môn**: Bảng đo chu vi và chiều dài lòng bàn tay tương ứng size $7 - 10$.
+    5. **Phụ kiện không có size (Băng keo, tất ngắn, túi rút)**: Hệ thống tự động ẩn nút hướng dẫn đo size để tránh rối mắt.
+- **Công cụ tính size nhanh (Quick Size Calculator)**:
+  - Tích hợp ô nhập số đo thực tế (Ví dụ: Chiều dài bàn chân $26.5\text{ cm}$ hoặc Chiều cao $172\text{ cm}$ & Cân nặng $68\text{ kg}$).
+  - Thuật toán tự động tính khoảng cách và đề xuất kích cỡ tối ưu nhất cho người dùng chỉ sau 1 click.
+
+---
+
+## 15. HỆ THỐNG BI DASHBOARD NÂNG CAO - MA TRẬN TỒN KHO RUNOUT DAYS & TOP BÓNG ĐÁ
+
+### 15.1. Phân Tích Top Mặt Hàng Bóng Đá & Cơ Cấu Doanh Thu
+- **Endpoint**: `GET /api/v1/admin/dashboard/bi/football-top-selling?period=month`.
+- **Chỉ số đo lường**:
+  - Doanh thu theo từng mặt hàng bóng đá ($\text{VND}$).
+  - Sản lượng tiêu thụ ($\text{Units}$).
+  - **Tỷ trọng Doanh thu (Revenue Share %)**: Tỷ lệ đóng góp doanh thu của sản phẩm trên tổng doanh thu ngành hàng bóng đá.
+  - **Tỷ trọng Sản lượng (Volume Share %)**: Tỷ lệ phần trăm số lượng bán ra.
+- **Trực quan hóa**:
+  - Biểu đồ cột đôi (Dual BarChart) Recharts so sánh tương quan Doanh thu vs Sản lượng.
+  - Biểu đồ tròn (PieChart) phân tích cơ cấu doanh thu với thuật toán giới hạn quét góc SVG chống lỗi render 360 độ.
+
+### 15.2. Ma Trận Phân Tích Tồn Kho Runout Days (Inventory Depletion Velocity)
+- **Endpoint**: `GET /api/v1/admin/dashboard/bi/inventory-performance`.
+- **Thuật toán cốt lõi**:
+  1. **Tốc độ bán hàng trung bình ngày (Velocity)**:
+     $$\text{Velocity} = \frac{\sum \text{Số lượng bán trong 30 ngày qua}}{30}$$
+  2. **Số ngày cạn kho ước tính (Runout Days)**:
+     $$\text{Runout Days} = \frac{\text{Số lượng tồn kho hiện tại}}{\text{Velocity}}$$
+  3. **Số lượng đề xuất nhập thêm (Suggested Reorder Units)**:
+     $$\text{Suggested Reorder} = \max(0, (\text{Velocity} \times 30) - \text{Tồn kho hiện tại})$$
+- **Phân loại 4 cấp độ sức khỏe tồn kho**:
+  - 🔴 **CRITICAL (< 7 ngày)**: Nguy cơ cạn kiệt hàng ngay lập tức; các sản phẩm có tồn kho $\le 5$ được thuật toán tự động ưu tiên đẩy lên đầu nhóm báo động đỏ.
+  - 🟡 **WARNING (7 - 15 ngày)**: Cần chuẩn bị lên kế hoạch đặt hàng từ nhà cung cấp.
+  - 🟢 **HEALTHY (15 - 45 ngày)**: Mức tồn kho lý tưởng, đáp ứng đủ chu kỳ bán hàng.
+  - ⚪ **OVERSTOCKED (> 45 ngày)**: Hàng tồn dư quá mức, cần cân nhắc khuyến mãi xả kho để tối ưu vốn lưu động.
+
+---
+
+## 16. QUY TRÌNH WMS KIỂM ĐẾM ĐÓNG GÓI BARCODE CODE 128 RÚT GỌN AP-{VARIANTID} & IN TEM NHÃN / PHIẾU XUẤT NHẬP KHO
+
+### 16.1. Chuẩn Hóa Mã Vạch WMS Rút Gọn `AP-{variantId}`
+- **Vấn đề giải quyết**: Mã SKU thương mại của ngành thời trang thể thao thường chứa tiếng Việt có dấu và chuỗi ký tự dài, khiến mã vạch Barcode dán lên tem hộp bị kéo giãn quá cỡ hoặc không thể quét được bởi đầu đọc máy quét.
+- **Giải pháp WMS tiêu chuẩn**:
+  - Sử dụng định dạng mã vạch rút gọn WMS: `AP-{variantId}` (Ví dụ: `AP-289`, `AP-1052`).
+  - Sinh mã vạch chuẩn **Code 128 (Subset B)** thuần Vector SVG độ phân giải cực cao, không bị vỡ hạt khi in ấn.
+  - Cơ chế so khớp đa năng: Máy quét đọc `AP-{variantId}`, hoặc SKU gốc, hoặc ID sản phẩm đều được hệ thống nhận diện và khớp lệnh ngay lập tức.
+
+### 16.2. Chặn Chuyển Trạng Thái Đơn Hàng Nghiêm Ngặt 2 Tầng (Pack Verification Guard)
+- **Tầng 1 (Giao diện người dùng)**:
+  - Nút *"Xuất kho AP Sports (processing)"* bị khóa ở trạng thái `disabled`, hiển thị tooltip cảnh báo yêu cầu kiểm đếm $100\%$ mặt hàng trước khi xuất kho.
+  - Phân quyền chặt chẽ: Ẩn hoàn toàn nút quét kiểm đếm Barcode đối với nhân viên bán hàng (`STAFF`); tính năng này chỉ mở cho Quản trị viên (`ADMIN`) và Quản lý kho (`WAREHOUSE_MANAGER`).
+- **Tầng 2 (Backend Service)**:
+  - `AdminOrderServiceImpl.java` kiểm tra cờ `order.getPackVerified()`. Nếu chưa kiểm đếm (`false` hoặc `null`), API lập tức từ chối và ném mã lỗi `400 BAD REQUEST`.
+  - `WarehouseFulfillmentServiceImpl.java` kiểm tra role của tài khoản đăng nhập, ném `403 FORBIDDEN` nếu tài khoản là `STAFF`.
+
+### 16.3. Tự Động Ghi Nhận Nhật Ký Giao Dịch Kho & In Ấn Tiêu Chuẩn
+- **Tự động xuất kho**: Ngay khi xác nhận kiểm đếm đủ $100\%$, Backend tự động tạo một phiếu xuất kho `InventoryTransaction` loại `EXPORT` (Mã phiếu `PXK-DH-...`) ghi nhận đầy đủ biến thể, số lượng xuất và giá vốn.
+- **Hệ thống In ấn tiêu chuẩn**:
+  - In Phiếu Nhập / Xuất kho khổ giấy A4 có đầy đủ chữ ký các bên, bảng sản phẩm và mã vạch Barcode Code 128 tách riêng theo từng dòng.
+  - In Tem nhãn dán dán trực tiếp lên hộp giày / dụng cụ thể thao (kích thước chuẩn $50 \times 30\text{ mm}$ hoặc $100 \times 75\text{ mm}$) phục vụ kiểm kê kho nhanh chóng.
+- **Đồng bộ thời gian thực không cần F5**:
+  - Ứng dụng `createPortal` để đưa Modal kiểm đếm ra `document.body` tránh lỗi lồng modal.
+  - Ứng dụng `BroadcastChannel API` và sự kiện `inventory_updated` để đồng bộ bảng đơn hàng và nhật ký kho tức thì giữa các tab trình duyệt mà không cần tải lại trang.
+
+---
+
+## 17. HỆ THỐNG ĐÁNH GIÁ SẢN PHẨM KÈM ẢNH CHỤP THỰC TẾ & XỬ LÝ NÉN ẢNH CANVAS 2D
+
+- **Mục tiêu**: Cho phép khách hàng sau khi nhận hàng chụp ảnh thực tế của giày đá bóng, quả bóng, dụng cụ thi đấu tải lên kèm nhận xét để tăng độ tin cậy và minh bạch cho cửa hàng.
+- **Bảng `reviews`**:
+  - `id`: Khóa chính đánh giá.
+  - `user_id`: Khách hàng thực hiện đánh giá (`users.id`).
+  - `product_id`: Sản phẩm được đánh giá (`products.id`).
+  - `order_item_id`: Chi tiết đơn hàng liên kết (Bảo đảm khách đã mua hàng thật mới được đánh giá - Verified Purchase).
+  - `rating`: Số sao đánh giá ($1 - 5$).
+  - `comment`: Nội dung nhận xét.
+  - `image_urls`: Danh sách URL ảnh thực tế (`JSON` hoặc bảng liên kết `review_images`).
+  - `admin_reply`: Phản hồi chính thức từ nhân viên cửa hàng.
+- **Xử lý nén ảnh chất lượng cao phía Client (Canvas 2D Optimization)**:
+  - Trước khi gửi ảnh lên API, hook `useCustomerOrderReviewModal.ts` sử dụng `HTML5 Canvas 2D`:
+    - Tự động kiểm tra tỷ lệ khung hình và giới hạn kích thước tối đa $1280 \times 1280\text{ px}$.
+    - Nén ảnh sang định dạng JPEG với hệ số chất lượng $0.82$.
+    - Giảm hơn $80\%$ dung lượng ảnh gốc từ điện thoại mà vẫn giữ độ nét chi tiết của sản phẩm, giúp tốc độ tải ảnh mượt mà và tiết kiệm lưu lượng máy chủ.
+
+---
+
+*Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc và chỉ mở rộng các phân hệ mới cho hệ thống AP Sports Enterprise Production.*
 
 
 
