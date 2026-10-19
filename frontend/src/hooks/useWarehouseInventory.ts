@@ -298,6 +298,7 @@ export function getTicketSummary(tx: InventoryTransaction | null) {
       ? tx.items
       : [
           {
+            variantId: tx.variantId,
             variantSku: tx.variantSku || "SKU",
             productName: tx.productName || "Sản phẩm",
             variantSize: tx.variantSize,
@@ -310,6 +311,7 @@ export function getTicketSummary(tx: InventoryTransaction | null) {
         ];
 
   const itemsToRender = rawItems.map((item: any) => ({
+    variantId: item.variantId || item.id || tx.variantId,
     variantSku: item.variantSku || "SKU",
     productName: item.productName || "Sản phẩm",
     variantSize: item.variantSize,

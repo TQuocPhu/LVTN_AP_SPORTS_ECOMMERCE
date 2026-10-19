@@ -7,6 +7,7 @@ import { InventoryTransaction } from '@/types/inventory';
 import { getTicketSummary } from '@/hooks/useWarehouseInventory';
 import { printStockTicketDocument } from '@/utils/stockTicketPrinter';
 import { BarcodeVisual } from '@/components/common/BarcodeVisual';
+import { getWmsBarcode } from '@/utils/barcodeGenerator';
 
 interface StockTicketPrintModalProps {
   isOpen: boolean;
@@ -214,13 +215,20 @@ export function StockTicketPrintModal({
                     {/* Dòng 2: Mã Barcode WMS - Trải dài 1 dòng riêng, gắn liền ngay dưới Dòng 1 */}
                     <tr className="border-b border-slate-200 print:border-black bg-slate-50/40 print:bg-white">
                       <td colSpan={4} className="p-2.5 pt-0 pb-2.5">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg bg-white border border-slate-200/90 print:border-gray-300 w-full overflow-hidden">
-                          <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-extrabold text-slate-600 print:text-black uppercase tracking-wider">
-                            <Barcode className="w-3.5 h-3.5 text-orange-600 print:text-black" />
-                            <span>Barcode SKU:</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 px-3 rounded-lg bg-white border border-slate-200/90 print:border-gray-300 w-full overflow-hidden">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Barcode className="w-4 h-4 text-orange-600 print:text-black" />
+                            <div className="space-y-0.5">
+                              <div className="text-[11px] font-black text-slate-800 print:text-black uppercase tracking-wider">
+                                Mã Barcode WMS: <strong className="font-mono text-orange-600 print:text-black">{getWmsBarcode(item.variantId, item.variantSku)}</strong>
+                              </div>
+                              <div className="text-[10px] text-slate-500 font-mono line-clamp-1 max-w-[320px]">
+                                SKU gốc: {item.variantSku}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0 max-w-full overflow-hidden">
-                            <BarcodeVisual text={item.variantSku} height={28} showText={true} />
+                          <div className="w-auto flex items-center justify-end overflow-hidden">
+                            <BarcodeVisual text={getWmsBarcode(item.variantId, item.variantSku)} height={32} showText={true} />
                           </div>
                         </div>
                       </td>
@@ -273,8 +281,12 @@ export function StockTicketPrintModal({
                     </div>
                   </div>
 
-                  <div className="w-full flex flex-col items-center justify-center p-2 bg-white rounded-xl border border-slate-200 print:border-none overflow-hidden">
-                    <BarcodeVisual text={item.variantSku} height={42} showText={true} />
+                  <div className="w-full flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-slate-200 print:border-none overflow-hidden">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MÃ VẠCH QUÉT KIỂM KÊ WMS</div>
+                    <BarcodeVisual text={getWmsBarcode(item.variantId, item.variantSku)} height={46} showText={true} />
+                    <div className="text-[10px] font-mono text-slate-500 mt-1 max-w-full truncate">
+                      SKU gốc: {item.variantSku}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100 print:border-gray-200">

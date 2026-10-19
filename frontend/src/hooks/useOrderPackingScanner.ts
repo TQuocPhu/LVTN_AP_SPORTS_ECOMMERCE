@@ -5,6 +5,8 @@ import { AdminOrderDetail } from '@/types/admin-order';
 import { warehouseFulfillmentController } from '@/controllers/warehouse-fulfillment-controller';
 import { toast } from 'sonner';
 
+import { removeVietnameseAccents } from '@/utils/barcodeGenerator';
+
 interface UseOrderPackingScannerParams {
   order: AdminOrderDetail | null;
   onSuccess?: (updatedOrder: AdminOrderDetail) => void;
@@ -110,15 +112,42 @@ export function useOrderPackingScanner({ order, onSuccess }: UseOrderPackingScan
       const code = rawCode.trim();
       if (!code || !order?.items) return;
 
-      const matchedItem = order.items.find(
-        (it) =>
-          (it.barcode && it.barcode.toLowerCase() === code.toLowerCase()) ||
-          (it.sku && it.sku.toLowerCase() === code.toLowerCase())
-      );
+      const targetCode = code.toLowerCase();
+      const normalizedTarget = removeVietnameseAccents(targetCode);
+
+      const matchedItem = order.items.find((it) => {
+        const vId = it.variantId || it.productId;
+        // 1. So khớp mã ngắn WMS AP-{variantId} hoặc AP{variantId} hoặc ID thuần
+        if (vId) {
+          const shortWmsCode = `ap-${vId}`.toLowerCase();
+          const shortWmsNoDash = `ap${vId}`.toLowerCase();
+          if (targetCode === shortWmsCode || targetCode === shortWmsNoDash || targetCode === String(vId)) {
+            return true;
+          }
+        }
+
+        // 2. So khớp barcode
+        if (it.barcode) {
+          const itBarcode = it.barcode.toLowerCase();
+          if (itBarcode === targetCode || removeVietnameseAccents(itBarcode) === normalizedTarget) {
+            return true;
+          }
+        }
+
+        // 3. So khớp SKU (hỗ trợ cả nguyên bản và không dấu)
+        if (it.sku) {
+          const itSku = it.sku.toLowerCase();
+          if (itSku === targetCode || removeVietnameseAccents(itSku) === normalizedTarget) {
+            return true;
+          }
+        }
+
+        return false;
+      });
 
       if (!matchedItem) {
         playBeep('error');
-        toast.error(`Mã vạch "${code}" không thuộc đơn hàng #${order.orderCode}!`);
+        toast.error(`Mã quét "${code}" không khớp bất kỳ mặt hàng nào trong đơn #${order.orderCode}!`);
         return;
       }
 

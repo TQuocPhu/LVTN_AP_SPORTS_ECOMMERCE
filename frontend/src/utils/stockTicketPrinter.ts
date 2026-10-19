@@ -1,6 +1,6 @@
 import { InventoryTransaction } from '@/types/inventory';
 import { getTicketSummary } from '@/hooks/useWarehouseInventory';
-import { generateBarcodeSvg } from '@/utils/barcodeGenerator';
+import { generateBarcodeSvg, getWmsBarcode } from '@/utils/barcodeGenerator';
 
 /**
  * Clean isolated iframe printer for Inventory Stock Tickets.
@@ -22,7 +22,9 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
 
   const itemsHtml = itemsToRender
     .map(
-      (item, idx) => `
+      (item, idx) => {
+        const wmsBarcode = getWmsBarcode(item.variantId, item.variantSku);
+        return `
     <tr>
       <td rowspan="2" style="text-align: center; font-weight: bold; vertical-align: middle; border-bottom: 1px solid #cbd5e1;">${idx + 1}</td>
       <td style="border-bottom: none; padding-bottom: 4px;">
@@ -35,21 +37,27 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
     </tr>
     <tr>
       <td colspan="4" style="padding-top: 0; padding-bottom: 8px; border-top: none; border-bottom: 1px solid #cbd5e1; background: #f8fafc;">
-        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff;">
-          <span style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; white-space: nowrap;">Barcode SKU:</span>
-          <div style="flex: 1; max-width: 100%; overflow: hidden;">
-            ${generateBarcodeSvg(item.variantSku, { height: 26, showText: true })}
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff;">
+          <div style="font-size: 10px; font-weight: 800; color: #0f172a; text-transform: uppercase;">
+            Mã Barcode WMS: <span style="color: #ea580c; font-family: monospace;">${wmsBarcode}</span>
+            <span style="font-size: 9px; color: #64748b; font-weight: normal; margin-left: 6px;">(SKU: ${item.variantSku})</span>
+          </div>
+          <div>
+            ${generateBarcodeSvg(wmsBarcode, { height: 28, showText: true })}
           </div>
         </div>
       </td>
     </tr>
-  `
+  `;
+      }
     )
     .join('');
 
   const boxLabelsHtml = itemsToRender
     .map(
-      (item, idx) => `
+      (item, idx) => {
+        const wmsBarcode = getWmsBarcode(item.variantId, item.variantSku);
+        return `
     <div style="
       border: 1.5px dashed #475569;
       border-radius: 8px;
@@ -71,8 +79,10 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
         </div>
       </div>
       
-      <div style="display: flex; justify-content: center; align-items: center; padding: 4px 0; background: #ffffff; overflow: hidden;">
-        ${generateBarcodeSvg(item.variantSku, { height: 40, showText: true })}
+      <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 6px 0; background: #ffffff; overflow: hidden;">
+        <div style="font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 2px;">Mã Vạch Quét Kiểm Kê WMS</div>
+        ${generateBarcodeSvg(wmsBarcode, { height: 44, showText: true })}
+        <div style="font-size: 9px; font-family: monospace; color: #64748b; margin-top: 2px;">SKU gốc: ${item.variantSku}</div>
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 4px; font-size: 10px; color: #64748b;">
@@ -80,7 +90,8 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
         <span style="font-style: italic;">Dán lên hộp dụng cụ để quét kiểm kê WMS • Tem #{idx + 1}</span>
       </div>
     </div>
-  `
+  `;
+      }
     )
     .join('');
 
