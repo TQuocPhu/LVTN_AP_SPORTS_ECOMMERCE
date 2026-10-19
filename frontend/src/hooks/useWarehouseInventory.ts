@@ -179,13 +179,15 @@ export function useWarehouseInventory() {
     try {
       const res = await warehouseInventoryController.createImport(data);
       if (res.data) {
-        // toast.success(`Tạo phiếu nhập kho [${res.data.code || 'MỚI'}] thành công!`);
+        toast.success(`Lập phiếu nhập kho [${res.data.code || 'MỚI'}] thành công!`);
         setTicketToPrint(res.data);
+        setPage(0);
         await refreshAll();
         return res.data;
       }
       return null;
-    } catch {
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Lỗi khi lập phiếu nhập kho!');
       return null;
     }
   };
@@ -196,13 +198,15 @@ export function useWarehouseInventory() {
     try {
       const res = await warehouseInventoryController.createExport(data);
       if (res.data) {
-        // toast.success(`Tạo phiếu xuất kho [${res.data.code || 'MỚI'}] thành công!`);
+        toast.success(`Lập phiếu xuất kho [${res.data.code || 'MỚI'}] thành công!`);
         setTicketToPrint(res.data);
+        setPage(0);
         await refreshAll();
         return res.data;
       }
       return null;
-    } catch {
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Lỗi khi lập phiếu xuất kho!');
       return null;
     }
   };

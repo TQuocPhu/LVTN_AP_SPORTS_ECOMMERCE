@@ -36,6 +36,7 @@ public class WarehouseFulfillmentServiceImpl implements WarehouseFulfillmentServ
     private final AdminOrderService adminOrderService;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
 
     @Override
     @Transactional
@@ -94,6 +95,34 @@ public class WarehouseFulfillmentServiceImpl implements WarehouseFulfillmentServ
         order.setPackedBy(staff);
         order.setPackedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
+
+        // Tự động ghi nhận phiếu xuất kho (Inventory Transaction EXPORT) vào Nhật ký giao dịch kho
+        String exportTicketCode = "PXK-DH-" + savedOrder.getOrderCode();
+        String customerName = savedOrder.getShippingAddress() != null && savedOrder.getShippingAddress().getFullName() != null
+                ? savedOrder.getShippingAddress().getFullName()
+                : (savedOrder.getUser() != null ? savedOrder.getUser().getName() : "Khách hàng");
+
+        for (OrderItem item : orderItems) {
+            if (item.getVariant() != null) {
+                java.math.BigDecimal unitCost = item.getVariant().getCostPrice() != null
+                        ? item.getVariant().getCostPrice()
+                        : item.getPrice();
+
+                InventoryTransaction exportTx = InventoryTransaction.builder()
+                        .code(exportTicketCode)
+                        .variant(item.getVariant())
+                        .supplier(null)
+                        .type(InventoryTransaction.TransactionType.EXPORT)
+                        .quantity(item.getQuantity())
+                        .unitCost(unitCost)
+                        .note("Xuất kho đóng gói đơn hàng #" + savedOrder.getOrderCode() + " - Khách hàng: " + customerName)
+                        .createdBy(staff)
+                        .build();
+
+                inventoryTransactionRepository.save(exportTx);
+            }
+        }
+        log.info("📦 Đã tự động tạo phiếu xuất kho [{}] cho đơn hàng #{}", exportTicketCode, savedOrder.getOrderCode());
 
         // Ghi log lịch sử đóng gói
         String historyNote = "Thủ kho [" + staff.getName() + "] đã kiểm đếm Barcode 100% và đóng gói niêm phong thành công.";

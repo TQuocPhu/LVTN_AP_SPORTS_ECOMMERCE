@@ -216,6 +216,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         if ("GHN_SHIPPER".equals(actorRole)) {
             order.setAssignedShipper(staff);
         }
+        order.setStatus(newStatus);
         Order savedOrder = orderRepository.save(order);
 
         // Quy tắc cập nhật trạng thái THANH TOÁN:

@@ -4,6 +4,7 @@ import { OrderStatus } from '@/types/order';
 import { adminOrderController } from '@/controllers/admin-order-controller';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
+import { toast } from 'sonner';
 
 interface UseAdminOrderDetailModalParams {
   order: AdminOrderDetail | null;
@@ -91,12 +92,18 @@ export function useAdminOrderDetailModal({
 
         if (res && res.data) {
           setLocalOrder(res.data);
-          setToastMessage(`Đã cập nhật trạng thái đơn sang "${newStatus.toUpperCase()}"`);
+          const successMsg = `Đã cập nhật trạng thái đơn sang "${newStatus.toUpperCase()}"`;
+          setToastMessage(successMsg);
+          toast.success(successMsg);
           setTimeout(() => setToastMessage(null), 3000);
           onStatusUpdated?.();
         }
       } catch (err: any) {
         console.error('Lỗi cập nhật trạng thái đơn:', err);
+        const errMsg = err?.response?.data?.message || err?.message || 'Không thể cập nhật trạng thái đơn hàng!';
+        toast.error(errMsg);
+        setToastMessage(errMsg);
+        setTimeout(() => setToastMessage(null), 4000);
       } finally {
         setUpdatingStatus(false);
       }
