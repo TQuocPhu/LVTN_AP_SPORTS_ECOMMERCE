@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
   X,
   Scan,
@@ -32,6 +32,7 @@ interface OrderPackingScannerModalProps {
   totalScanned: number;
   isAllScanned: boolean;
   progressPercentage: number;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function OrderPackingScannerModal({
@@ -51,17 +52,8 @@ export function OrderPackingScannerModal({
   totalScanned,
   isAllScanned,
   progressPercentage,
+  inputRef,
 }: OrderPackingScannerModalProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [isOpen]);
-
   if (!isOpen || !order) return null;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

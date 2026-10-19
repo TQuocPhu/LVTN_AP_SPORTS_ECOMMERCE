@@ -190,6 +190,7 @@ export function LogisticsControlPanel({
         totalScanned={scanner.totalScanned}
         isAllScanned={scanner.isAllScanned}
         progressPercentage={scanner.progressPercentage}
+        inputRef={scanner.inputRef}
       />
     </div>
   );

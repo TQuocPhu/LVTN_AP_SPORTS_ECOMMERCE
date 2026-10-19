@@ -178,6 +178,7 @@ export function PendingPackingOrdersTable({
         totalScanned={scanner.totalScanned}
         isAllScanned={scanner.isAllScanned}
         progressPercentage={scanner.progressPercentage}
+        inputRef={scanner.inputRef}
       />
     </div>
   );

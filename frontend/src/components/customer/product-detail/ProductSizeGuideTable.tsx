@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Layers, Footprints, Shirt, CircleDot, ShieldAlert } from 'lucide-react';
 import {
   SHOE_SIZE_DATA,
@@ -9,15 +9,14 @@ import {
   GLOVE_SIZE_DATA,
   SizeGuideCategoryType,
 } from '@/types/size-guide';
+import { useProductSizeGuideTable } from '@/hooks/useProductSizeGuideTable';
 
 interface ProductSizeGuideTableProps {
   initialCategory?: SizeGuideCategoryType;
 }
 
 export function ProductSizeGuideTable({ initialCategory = 'shoes' }: ProductSizeGuideTableProps) {
-  const [tab, setTab] = useState<SizeGuideCategoryType>(
-    initialCategory !== 'none' ? initialCategory : 'shoes'
-  );
+  const { tab, setTab } = useProductSizeGuideTable(initialCategory);
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">

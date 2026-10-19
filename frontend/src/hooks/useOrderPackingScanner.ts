@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { warehouseFulfillmentController } from '@/controllers/warehouse-fulfillment-controller';
 import { toast } from 'sonner';
@@ -51,6 +51,17 @@ export function useOrderPackingScanner({ order, onSuccess }: UseOrderPackingScan
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Tự động focus con trỏ vào ô nhập mã barcode khi mở modal
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Tổng số lượng mặt hàng yêu cầu và đã quét
   const { totalRequired, totalScanned, isAllScanned, progressPercentage } = useMemo(() => {
@@ -193,6 +204,7 @@ export function useOrderPackingScanner({ order, onSuccess }: UseOrderPackingScan
     totalScanned,
     isAllScanned,
     progressPercentage,
+    inputRef,
     handleScanCode,
     handleReset,
     handleSubmit,
