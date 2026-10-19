@@ -46,6 +46,7 @@ export function AdminOrderDetailModal({
 }: AdminOrderDetailModalProps) {
   const {
     currentOrder,
+    setLocalOrder,
     einvoiceSent,
     toastMessage,
     setToastMessage,
@@ -169,7 +170,12 @@ export function AdminOrderDetailModal({
               <LogisticsControlPanel
                 currentStatus={currentOrder.status}
                 trackingCode={currentOrder.trackingCode}
+                order={currentOrder}
                 onUpdateStatus={handleUpdateStatus}
+                onOrderRefresh={(updated) => {
+                  setLocalOrder(updated);
+                  onStatusUpdated?.();
+                }}
                 onProgressChange={(val) => setSimProgress(val)}
                 updating={updatingStatus}
               />
@@ -389,43 +395,65 @@ export function AdminOrderDetailModal({
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500">
                         <th className="py-2.5 px-4">Sản Phẩm & Biến Thể</th>
+                        <th className="py-2.5 px-4">Mã Barcode / QR</th>
                         <th className="py-2.5 px-4">Đơn Giá</th>
                         <th className="py-2.5 px-4 text-center">Số Lượng</th>
                         <th className="py-2.5 px-4 text-right">Thành Tiền</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {currentOrder.items?.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              {item.image ? (
-                                <img
-                                  src={item.image}
-                                  alt={item.productName}
-                                  className="w-10 h-10 object-cover rounded-lg border border-slate-200"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
-                                  SP
-                                </div>
-                              )}
-                              <div>
-                                <p className="font-bold text-slate-900">{item.productName}</p>
-                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                  {item.sku && (
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-mono border border-slate-200">
-                                      SKU: {item.sku}
-                                    </span>
-                                  )}
-                                  {item.attributes && renderVariantAttributes(item.attributes)}
+                      {currentOrder.items?.map((item, idx) => {
+                        const effectiveBarcode = item.barcode || item.sku || 'N/A';
+                        const productQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                          typeof window !== 'undefined'
+                            ? `${window.location.origin}/products/${item.productSlug}`
+                            : `http://localhost:3000/products/${item.productSlug}`
+                        )}`;
+
+                        return (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                {item.image ? (
+                                  <img
+                                    src={item.image}
+                                    alt={item.productName}
+                                    className="w-10 h-10 object-cover rounded-lg border border-slate-200"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
+                                    SP
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-bold text-slate-900">{item.productName}</p>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                    {item.sku && (
+                                      <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-mono border border-slate-200">
+                                        SKU: {item.sku}
+                                      </span>
+                                    )}
+                                    {item.attributes && renderVariantAttributes(item.attributes)}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-slate-800">
-                            {formatCurrency(item.price)}
-                          </td>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <img
+                                  src={productQrUrl}
+                                  alt="QR tra cứu"
+                                  className="w-8 h-8 rounded border border-slate-200 p-0.5 bg-white shrink-0"
+                                  title="Quét mã QR để mở trang sản phẩm & kiểm tra bảo hành"
+                                />
+                                <span className="font-mono text-[11px] font-bold text-slate-700">
+                                  {effectiveBarcode}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 font-semibold text-slate-800">
+                              {formatCurrency(item.price)}
+                            </td>
                           <td className="py-3 px-4 text-center font-bold text-slate-900">
                             x{item.quantity}
                           </td>
@@ -433,7 +461,8 @@ export function AdminOrderDetailModal({
                             {formatCurrency(item.price * item.quantity)}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

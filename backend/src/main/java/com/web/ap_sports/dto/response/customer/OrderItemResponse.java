@@ -18,6 +18,7 @@ public class OrderItemResponse {
     private String productSlug;
     private Long variantId;
     private String sku;
+    private String barcode;
     private String color;
     private String size;
     private String attributes;

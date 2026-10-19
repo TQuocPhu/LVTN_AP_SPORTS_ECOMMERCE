@@ -59,6 +59,9 @@ public class AdminOrderDetailResponse {
     private String shipperPhone;
 
     private String note;
+    private Boolean packVerified;
+    private String packedByName;
+    private LocalDateTime packedAt;
     private List<OrderItemResponse> items;
     private List<OrderStatusHistoryResponse> statusHistories;
 

@@ -6,6 +6,8 @@ import { useSuppliers } from '@/hooks/useSuppliers';
 import { InventoryOverviewCards } from './InventoryOverviewCards';
 import { InventoryTransactionTable } from './InventoryTransactionTable';
 import { LowStockAlertsTable } from './LowStockAlertsTable';
+import { PendingPackingOrdersTable } from './PendingPackingOrdersTable';
+import { usePendingPackingOrders } from '@/hooks/usePendingPackingOrders';
 import { CreateImportModal } from './CreateImportModal';
 import { CreateExportModal } from './CreateExportModal';
 import { StockAdjustmentModal } from './StockAdjustmentModal';
@@ -22,14 +24,16 @@ import {
   AlertTriangle,
   History,
   RotateCcw,
+  PackageCheck,
 } from 'lucide-react';
 
 export function InventoryPageContentUI() {
   const inventoryHook = useWarehouseInventory();
   const suppliersHook = useSuppliers();
+  const packingHook = usePendingPackingOrders();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'transactions' | 'low-stock'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'low-stock' | 'packing'>('transactions');
 
   // Modal States
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -132,6 +136,21 @@ export function InventoryPageContentUI() {
             <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-ping absolute top-0 right-2" />
           )}
         </button>
+
+        <button
+          onClick={() => setActiveTab('packing')}
+          className={`pb-3.5 px-4 text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 border-b-2 relative ${
+            activeTab === 'packing'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <PackageCheck className="w-4 h-4" />
+          <span>Đóng Gói & Xuất Kho Đơn Hàng ({packingHook.orders.length})</span>
+          {packingHook.orders.length > 0 && (
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping absolute top-0 right-2" />
+          )}
+        </button>
       </div>
 
       {/* Active Tab Content */}
@@ -157,10 +176,18 @@ export function InventoryPageContentUI() {
           onOpenDetailsModal={inventoryHook.openDetailsModal}
           onOpenPrintModal={inventoryHook.openPrintModal}
         />
-      ) : (
+      ) : activeTab === 'low-stock' ? (
         <LowStockAlertsTable
           items={inventoryHook.lowStockItems}
           onOpenImportModal={(items) => handleOpenImportModal(items)}
+        />
+      ) : (
+        <PendingPackingOrdersTable
+          orders={packingHook.orders}
+          loading={packingHook.loading}
+          selectedOrder={packingHook.selectedOrder}
+          onSelectOrder={packingHook.setSelectedOrder}
+          onOrderPacked={packingHook.handleOrderPacked}
         />
       )}
 

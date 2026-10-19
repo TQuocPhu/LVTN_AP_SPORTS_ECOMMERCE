@@ -47,6 +47,7 @@ public class OrderResponse {
     private String shipperPhone;
 
     private String note;
+    private Boolean packVerified;
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

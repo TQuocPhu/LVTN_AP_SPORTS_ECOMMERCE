@@ -102,6 +102,18 @@ public class Order {
     @Column(name = "stock_released", nullable = false, columnDefinition = "boolean default false")
     private boolean stockReleased = false;
 
+    // Quản lý kiểm đếm Barcode đóng gói đơn hàng trước khi xuất kho
+    @Builder.Default
+    @Column(name = "pack_verified", nullable = false, columnDefinition = "boolean default false")
+    private Boolean packVerified = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "packed_by_user_id")
+    private User packedBy;
+
+    @Column(name = "packed_at")
+    private LocalDateTime packedAt;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -110,6 +122,7 @@ public class Order {
         if (status == null) status = OrderStatus.pending;
         if (shippingFee == null) shippingFee = BigDecimal.ZERO;
         if (discountAmount == null) discountAmount = BigDecimal.ZERO;
+        if (packVerified == null) packVerified = false;
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }

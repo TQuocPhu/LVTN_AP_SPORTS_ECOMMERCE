@@ -241,16 +241,26 @@ export function CustomerOrderDetailModalUI({
 
           {/* Products List */}
           <div className="space-y-3">
-            <span className="font-black uppercase text-[11px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-orange-500" />
-              Sản Phẩm Trong Đơn Hàng
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="font-black uppercase text-[11px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-orange-500" />
+                Sản Phẩm Trong Đơn Hàng
+              </span>
+
+              {order.packVerified && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Kiện hàng đã kiểm đếm Barcode niêm phong</span>
+                </span>
+              )}
+            </div>
 
             <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
                     <th className="py-2.5 px-4">Sản Phẩm</th>
+                    <th className="py-2.5 px-4">Mã Vạch (Barcode)</th>
                     <th className="py-2.5 px-4">Đơn Giá</th>
                     <th className="py-2.5 px-4 text-center">Số Lượng</th>
                     <th className="py-2.5 px-4 text-right">Thành Tiền</th>
@@ -260,37 +270,58 @@ export function CustomerOrderDetailModalUI({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {order.items?.map((item: OrderItem, idx: number) => (
-                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.productName}
-                              className="w-10 h-10 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-400">
-                              SP
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-bold text-slate-900 dark:text-slate-100">
-                              {item.productName}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-1 mt-1">
-                              {item.sku && (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono border border-slate-200 dark:border-slate-700">
-                                  SKU: {item.sku}
-                                </span>
-                              )}
-                              {item.attributes && renderVariantAttributes(item.attributes)}
+                  {order.items?.map((item: OrderItem, idx: number) => {
+                    const effectiveBarcode = item.barcode || item.sku || 'N/A';
+                    const productQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                      typeof window !== 'undefined'
+                        ? `${window.location.origin}/products/${item.productSlug}`
+                        : `http://localhost:3000/products/${item.productSlug}`
+                    )}`;
+
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            {item.image ? (
+                              <img
+                                src={item.image}
+                                alt={item.productName}
+                                className="w-10 h-10 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-400">
+                                SP
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-bold text-slate-900 dark:text-slate-100">
+                                {item.productName}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-1 mt-1">
+                                {item.sku && (
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-mono border border-slate-200 dark:border-slate-700">
+                                    SKU: {item.sku}
+                                  </span>
+                                )}
+                                {item.attributes && renderVariantAttributes(item.attributes)}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 font-semibold">{formatCurrency(item.price)}</td>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={productQrUrl}
+                              alt="QR tra cứu"
+                              className="w-8 h-8 rounded border border-slate-200 dark:border-slate-700 p-0.5 bg-white shrink-0"
+                              title="Quét mã QR để tra cứu thông tin sản phẩm và bảo hành"
+                            />
+                            <div className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                              {effectiveBarcode}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-semibold">{formatCurrency(item.price)}</td>
                       <td className="py-3 px-4 text-center font-bold">x{item.quantity}</td>
                       <td className="py-3 px-4 text-right font-black">
                         {formatCurrency(item.price * item.quantity)}
@@ -328,7 +359,8 @@ export function CustomerOrderDetailModalUI({
                         </td>
                       )}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

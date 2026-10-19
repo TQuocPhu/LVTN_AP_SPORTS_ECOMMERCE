@@ -16,6 +16,7 @@ export interface OrderItem {
   productSlug: string;
   variantId?: number;
   sku?: string;
+  barcode?: string;
   color?: string;
   size?: string;
   attributes?: string;
@@ -71,7 +72,21 @@ export interface OrderResponse {
   shipperName?: string;
   shipperPhone?: string;
   note?: string;
+  packVerified?: boolean;
+  packedByName?: string;
+  packedAt?: string;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScannedPackItem {
+  variantId: number;
+  barcode: string;
+  scannedQuantity: number;
+}
+
+export interface VerifyOrderPackRequest {
+  scannedItems: ScannedPackItem[];
+  note?: string;
 }

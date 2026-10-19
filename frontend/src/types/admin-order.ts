@@ -79,6 +79,9 @@ export interface AdminOrderDetail {
   shipperPhone?: string;
 
   note?: string;
+  packVerified?: boolean;
+  packedByName?: string;
+  packedAt?: string;
   items: OrderItem[];
   statusHistories?: OrderStatusHistoryItem[];
 

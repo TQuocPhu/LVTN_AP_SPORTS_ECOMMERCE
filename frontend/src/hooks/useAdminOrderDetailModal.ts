@@ -126,6 +126,7 @@ export function useAdminOrderDetailModal({
 
   return {
     currentOrder,
+    setLocalOrder,
     einvoiceSent,
     toastMessage,
     setToastMessage,

@@ -187,8 +187,13 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         // Kiểm tra ràng buộc chuyển trạng thái nghiêm ngặt (Strict State Machine)
-        if (newStatus == OrderStatus.processing && order.getStatus() != OrderStatus.confirmed) {
-            throw new AppException("Đơn hàng phải ở trạng thái [Đã Duyệt - confirmed] mới có thể xuất kho AP Sports!", HttpStatus.BAD_REQUEST);
+        if (newStatus == OrderStatus.processing) {
+            if (order.getStatus() != OrderStatus.confirmed) {
+                throw new AppException("Đơn hàng phải ở trạng thái [Đã Duyệt - confirmed] mới có thể xuất kho AP Sports!", HttpStatus.BAD_REQUEST);
+            }
+            if (!Boolean.TRUE.equals(order.getPackVerified())) {
+                throw new AppException("Đơn hàng #" + order.getOrderCode() + " chưa được bộ phận kho kiểm đếm Barcode 100%. Vui lòng hoàn tất kiểm đếm Barcode & niêm phong đóng gói trước khi chuyển sang Đang đóng gói / xuất kho (processing)!", HttpStatus.BAD_REQUEST);
+            }
         }
         if (newStatus == OrderStatus.shipped && order.getStatus() != OrderStatus.processing) {
             throw new AppException("Đơn hàng phải ở trạng thái [Đang Đóng Gói - processing] mới có thể bàn giao Bưu cục GHN!", HttpStatus.BAD_REQUEST);
@@ -469,6 +474,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                     .productSlug(item.getProduct() != null ? item.getProduct().getSlug() : "")
                     .variantId(item.getVariant() != null ? item.getVariant().getId() : null)
                     .sku(item.getVariant() != null ? item.getVariant().getSku() : null)
+                    .barcode(item.getVariant() != null ? (item.getVariant().getBarcode() != null ? item.getVariant().getBarcode() : item.getVariant().getSku()) : null)
                     .color(item.getVariant() != null ? item.getVariant().getColor() : null)
                     .size(item.getVariant() != null ? item.getVariant().getSize() : null)
                     .attributes(item.getVariant() != null ? item.getVariant().getAttributes() : null)
@@ -586,6 +592,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .shipperName(sName)
                 .shipperPhone(sPhone)
                 .note(order.getNote())
+                .packVerified(Boolean.TRUE.equals(order.getPackVerified()))
+                .packedByName(order.getPackedBy() != null ? order.getPackedBy().getName() : null)
+                .packedAt(order.getPackedAt())
                 .items(itemResps)
                 .statusHistories(historyResps)
                 .createdAt(order.getCreatedAt())

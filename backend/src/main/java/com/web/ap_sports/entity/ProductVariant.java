@@ -25,6 +25,9 @@ public class ProductVariant {
     @Column(nullable = false, unique = true)
     private String sku;
 
+    @Column(name = "barcode", unique = true, length = 50)
+    private String barcode;
+
     private String size; // Size số: 38..43 hoặc Size chữ: S..XXL
 
     private String color;
@@ -54,6 +57,9 @@ public class ProductVariant {
     @PrePersist
     protected void onCreate() {
         if (stockQuantity == null) stockQuantity = 0;
+        if (barcode == null || barcode.trim().isEmpty()) {
+            barcode = sku;
+        }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
