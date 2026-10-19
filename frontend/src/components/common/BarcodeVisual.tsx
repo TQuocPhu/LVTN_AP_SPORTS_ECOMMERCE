@@ -18,7 +18,7 @@ export interface BarcodeVisualProps {
 export function BarcodeVisual({
   text,
   height = 34,
-  barWidth = 1.3,
+  barWidth,
   showText = true,
   className = '',
 }: BarcodeVisualProps) {
@@ -26,7 +26,7 @@ export function BarcodeVisual({
 
   return (
     <div
-      className={`inline-block bg-white p-1 rounded-md shadow-xs ${className}`}
+      className={`w-full max-w-full overflow-hidden bg-white p-1 rounded-md flex items-center justify-center ${className}`}
       dangerouslySetInnerHTML={{ __html: svgMarkup }}
     />
   );

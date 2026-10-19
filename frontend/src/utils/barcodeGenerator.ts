@@ -31,10 +31,12 @@ export interface BarcodeOptions {
  */
 export function generateBarcodeSvg(text: string, options?: BarcodeOptions): string {
   const safeText = (text || 'AP-SPORTS').trim();
-  const height = options?.height ?? 36;
-  const barWidth = options?.barWidth ?? 1.5;
+  // Tự động tinh chỉnh barWidth và fontSize nếu chuỗi ký tự quá dài (SKU dài)
+  const defaultBarWidth = safeText.length > 35 ? 0.95 : safeText.length > 20 ? 1.15 : 1.4;
+  const barWidth = options?.barWidth ?? defaultBarWidth;
+  const height = options?.height ?? 34;
   const showText = options?.showText ?? true;
-  const fontSize = options?.fontSize ?? 9;
+  const baseFontSize = options?.fontSize ?? 9;
 
   // Lọc ký tự hợp lệ Code 128B (ASCII 32 - 126)
   const codes: number[] = [];
@@ -63,7 +65,7 @@ export function generateBarcodeSvg(text: string, options?: BarcodeOptions): stri
   ].join('');
 
   // Vẽ các vạch đen
-  let currentX = 8; // Margin lề trái
+  let currentX = 6; // Margin lề trái
   let rects = '';
   let isBar = true; // Bắt đầu bằng vạch đen
 
@@ -72,18 +74,20 @@ export function generateBarcodeSvg(text: string, options?: BarcodeOptions): stri
     const pixelWidth = widthUnit * barWidth;
 
     if (isBar) {
-      rects += `<rect x="${currentX}" y="2" width="${pixelWidth}" height="${height}" fill="#000000" />`;
+      rects += `<rect x="${currentX.toFixed(2)}" y="2" width="${pixelWidth.toFixed(2)}" height="${height}" fill="#000000" />`;
     }
     currentX += pixelWidth;
     isBar = !isBar; // Đổi xen kẽ giữa vạch và khoảng trắng
   }
 
-  const totalWidth = currentX + 8; // Thêm margin phải
-  const totalHeight = showText ? height + fontSize + 4 : height + 4;
+  const totalWidth = Math.ceil(currentX + 6); // Thêm margin phải
+  const dynamicFontSize = safeText.length > 30 ? Math.max(7, Math.floor(baseFontSize * 0.85)) : baseFontSize;
+  const totalHeight = showText ? height + dynamicFontSize + 5 : height + 4;
 
   const textElement = showText
-    ? `<text x="${totalWidth / 2}" y="${totalHeight - 2}" text-anchor="middle" font-family="monospace, monospace" font-size="${fontSize}" font-weight="bold" fill="#000000" letter-spacing="1">${safeText}</text>`
+    ? `<text x="${(totalWidth / 2).toFixed(1)}" y="${totalHeight - 2}" text-anchor="middle" font-family="monospace, monospace" font-size="${dynamicFontSize}" font-weight="bold" fill="#000000" letter-spacing="0.5">${safeText}</text>`
     : '';
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}" style="display: block; background: #ffffff;">${rects}${textElement}</svg>`;
+  // SVG responsive hoàn toàn: max-width 100%, tự co giãn theo container cha qua viewBox
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" style="max-width: 100%; width: 100%; height: auto; display: block; margin: 0 auto; background: #ffffff;">${rects}${textElement}</svg>`;
 }

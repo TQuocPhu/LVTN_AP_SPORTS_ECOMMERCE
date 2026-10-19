@@ -24,20 +24,24 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
     .map(
       (item, idx) => `
     <tr>
-      <td style="text-align: center; font-weight: bold;">${idx + 1}</td>
-      <td style="vertical-align: middle;">
-        <div style="margin-bottom: 3px;">
-          ${generateBarcodeSvg(item.variantSku, { height: 24, barWidth: 1.05, showText: false })}
+      <td rowspan="2" style="text-align: center; font-weight: bold; vertical-align: middle; border-bottom: 1px solid #cbd5e1;">${idx + 1}</td>
+      <td style="border-bottom: none; padding-bottom: 4px;">
+        <div style="font-weight: bold; color: #0f172a; font-size: 12px;">${item.productName}</div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Size: <strong style="color: #0f172a;">${item.variantSize || 'Mặc định'}</strong> | Màu: <strong style="color: #0f172a;">${item.variantColor || 'Mặc định'}</strong></div>
+      </td>
+      <td style="text-align: center; font-weight: bold; vertical-align: middle; border-bottom: none;">${item.quantity > 0 ? `+${item.quantity}` : item.quantity}</td>
+      <td style="text-align: right; vertical-align: middle; border-bottom: none;">${item.formattedUnitCost}</td>
+      <td style="text-align: right; font-weight: bold; color: #ea580c; vertical-align: middle; border-bottom: none;">${item.formattedTotalAmount}</td>
+    </tr>
+    <tr>
+      <td colspan="4" style="padding-top: 0; padding-bottom: 8px; border-top: none; border-bottom: 1px solid #cbd5e1; background: #f8fafc;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff;">
+          <span style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; white-space: nowrap;">Barcode SKU:</span>
+          <div style="flex: 1; max-width: 100%; overflow: hidden;">
+            ${generateBarcodeSvg(item.variantSku, { height: 26, showText: true })}
+          </div>
         </div>
-        <div style="font-family: monospace; font-weight: bold; font-size: 11px; color: #0f172a;">${item.variantSku}</div>
       </td>
-      <td>
-        <div style="font-weight: bold; color: #0f172a;">${item.productName}</div>
-        <div style="font-size: 11px; color: #64748b;">Size: ${item.variantSize || 'Mặc định'} | Màu: ${item.variantColor || 'Mặc định'}</div>
-      </td>
-      <td style="text-align: center; font-weight: bold;">${item.quantity > 0 ? `+${item.quantity}` : item.quantity}</td>
-      <td style="text-align: right;">${item.formattedUnitCost}</td>
-      <td style="text-align: right; font-weight: bold; color: #ea580c;">${item.formattedTotalAmount}</td>
     </tr>
   `
     )
@@ -47,33 +51,33 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
     .map(
       (item, idx) => `
     <div style="
-      border: 1.5px dashed #64748b;
+      border: 1.5px dashed #475569;
       border-radius: 8px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       background: #ffffff;
       page-break-inside: avoid;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      gap: 6px;
     ">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
         <div>
-          <div style="font-size: 8px; font-weight: 900; color: #ea580c; text-transform: uppercase; letter-spacing: 0.5px;">AP SPORTS • TEM NHÃN HỘP SẢN PHẨM</div>
-          <div style="font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">${item.productName}</div>
+          <div style="font-size: 8px; font-weight: 900; color: #ea580c; text-transform: uppercase; letter-spacing: 0.5px;">AP SPORTS • TEM NHÃN HỘP SẢN PHẨM / DỤNG CỤ</div>
+          <div style="font-size: 12px; font-weight: 800; color: #0f172a;">${item.productName}</div>
         </div>
-        <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; color: #0f172a; shrink: 0;">
-          ${item.variantSize || 'F'} / ${item.variantColor || 'STD'}
+        <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 800; color: #0f172a; white-space: nowrap;">
+          Size: ${item.variantSize || 'F'} • Màu: ${item.variantColor || 'STD'}
         </div>
       </div>
       
-      <div style="display: flex; justify-content: center; align-items: center; margin: 4px 0;">
-        ${generateBarcodeSvg(item.variantSku, { height: 38, barWidth: 1.3, showText: true, fontSize: 10 })}
+      <div style="display: flex; justify-content: center; align-items: center; padding: 4px 0; background: #ffffff; overflow: hidden;">
+        ${generateBarcodeSvg(item.variantSku, { height: 40, showText: true })}
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 4px; font-size: 9px; color: #64748b;">
-        <span>Số lượng: <strong style="color: #0f172a;">${Math.abs(item.quantity)} cái</strong></span>
-        <span style="font-style: italic;">Dán hộp kiểm kê WMS #${idx + 1}</span>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 4px; font-size: 10px; color: #64748b;">
+        <span>Số lượng đóng gói: <strong style="color: #0f172a;">${Math.abs(item.quantity)} cái</strong></span>
+        <span style="font-style: italic;">Dán lên hộp dụng cụ để quét kiểm kê WMS • Tem #{idx + 1}</span>
       </div>
     </div>
   `
@@ -275,9 +279,8 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
         <thead>
           <tr>
             <th style="width: 36px; text-align: center;">STT</th>
-            <th style="width: 140px;">Mã Barcode / SKU</th>
             <th>Tên Sản Phẩm & Biến Thể</th>
-            <th style="width: 60px; text-align: center;">Số Lượng</th>
+            <th style="width: 70px; text-align: center;">Số Lượng</th>
             <th style="width: 110px; text-align: right;">Đơn Giá Vốn</th>
             <th style="width: 120px; text-align: right;">Thành Tiền</th>
           </tr>
@@ -297,7 +300,7 @@ export function printStockTicketDocument(transaction: InventoryTransaction): voi
           <span>📦 TEM MÃ VẠCH DÁN HỘP DỤNG CỤ / SẢN PHẨM (BOX BARCODE STICKERS)</span>
           <span style="font-size: 9px; color: #64748b; font-weight: normal; font-style: italic;">Cắt dán lên hộp để quét kiểm đếm đóng gói & kiểm kê WMS</span>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
           ${boxLabelsHtml}
         </div>
       </div>
