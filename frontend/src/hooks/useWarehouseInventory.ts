@@ -129,6 +129,43 @@ export function useWarehouseInventory() {
     refreshAll();
   }, [refreshAll]);
 
+  // Tự động đồng bộ và làm mới Nhật ký giao dịch kho tức thì khi có sự kiện xuất/nhập kho (không cần F5)
+  useEffect(() => {
+    const handleSync = () => {
+      refreshAll();
+    };
+
+    window.addEventListener('inventory_updated', handleSync);
+
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('apsports_inventory');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'INVENTORY_UPDATED') {
+          refreshAll();
+        }
+      };
+    } catch {
+      // Ignore if BroadcastChannel not supported
+    }
+
+    // Tự động làm mới khi người dùng quay lại tab quản lý kho
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAll();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('inventory_updated', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (bc) {
+        bc.close();
+      }
+    };
+  }, [refreshAll]);
+
   // Ticket Print & Details Modal States
 
   const [ticketToViewDetails, setTicketToViewDetails] =

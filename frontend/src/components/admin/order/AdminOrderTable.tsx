@@ -231,6 +231,14 @@ export function AdminOrderTable({
                       <div className="text-[11px] text-slate-400 mt-0.5">
                         {formatDate(order.createdAt)}
                       </div>
+                      {order.packVerified && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
+                            <PackageCheck className="w-3 h-3 text-indigo-600" />
+                            <span>Đã đóng gói</span>
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Khách Hàng */}

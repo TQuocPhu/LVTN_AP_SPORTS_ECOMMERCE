@@ -187,7 +187,10 @@ export function InventoryPageContentUI() {
           loading={packingHook.loading}
           selectedOrder={packingHook.selectedOrder}
           onSelectOrder={packingHook.setSelectedOrder}
-          onOrderPacked={packingHook.handleOrderPacked}
+          onOrderPacked={(updated) => {
+            packingHook.handleOrderPacked(updated);
+            inventoryHook.refreshAll();
+          }}
         />
       )}
 

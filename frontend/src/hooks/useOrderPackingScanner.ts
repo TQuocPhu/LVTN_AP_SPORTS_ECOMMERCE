@@ -230,6 +230,19 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
       if (res && res.status === 200 && res.data) {
         toast.success(res.message || 'Kiểm đếm và đóng gói đơn hàng thành công!');
         closeModal();
+
+        // Đồng bộ toàn cục cho Quản lý kho & Nhật ký giao dịch kho tự động refetch
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('inventory_updated'));
+          try {
+            const bc = new BroadcastChannel('apsports_inventory');
+            bc.postMessage({ type: 'INVENTORY_UPDATED' });
+            bc.close();
+          } catch {
+            // Ignore if BroadcastChannel not supported
+          }
+        }
+
         if (onSuccess) {
           onSuccess(res.data);
         }

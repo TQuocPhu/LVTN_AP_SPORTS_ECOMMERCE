@@ -146,6 +146,9 @@ export const AdminOrdersContentUI: React.FC = () => {
         order={selectedOrder}
         loading={loadingDetail}
         onClose={handleCloseDetailModal}
+        onStatusUpdated={async () => {
+          await Promise.all([refetchOrders(), refetchSummary()]);
+        }}
       />
 
       {/* 5. Modal Xác Nhận Hủy Đơn */}
