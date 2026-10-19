@@ -15,6 +15,7 @@ import { OrderStatus } from '@/types/order';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { useOrderPackingScanner } from '@/hooks/useOrderPackingScanner';
 import { OrderPackingScannerModal } from './OrderPackingScannerModal';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LogisticsControlPanelProps {
   currentStatus: string;
@@ -24,6 +25,7 @@ interface LogisticsControlPanelProps {
   onOrderRefresh?: (updatedOrder: AdminOrderDetail) => void;
   onProgressChange?: (progress: number) => void;
   updating?: boolean;
+  onScannerOpenChange?: (isOpen: boolean) => void;
 }
 
 export function LogisticsControlPanel({
@@ -33,7 +35,12 @@ export function LogisticsControlPanel({
   onUpdateStatus,
   onOrderRefresh,
   updating = false,
+  onScannerOpenChange,
 }: LogisticsControlPanelProps) {
+  const { user } = useAuth();
+  const isStaff = user?.roleName === 'STAFF';
+  const canPackOrVerify = !isStaff;
+
   const status = currentStatus?.toLowerCase() || '';
 
   const isPending = status === 'pending';
@@ -49,6 +56,7 @@ export function LogisticsControlPanel({
         onOrderRefresh(updated);
       }
     },
+    onOpenChange: onScannerOpenChange,
   });
 
   return (
@@ -93,8 +101,8 @@ export function LogisticsControlPanel({
             </button>
           )}
 
-          {/* Action 2: Quét Barcode Đóng Gói (Chỉ khi đã Confirmed hoặc Processing) */}
-          {(isConfirmed || isProcessing) && (
+          {/* Action 2: Quét Barcode Đóng Gói (Chỉ hiển thị cho Quản lý kho/Admin, ẩn 100% đối với STAFF) */}
+          {canPackOrVerify && (isConfirmed || isProcessing) && (
             <button
               type="button"
               onClick={scanner.openModal}

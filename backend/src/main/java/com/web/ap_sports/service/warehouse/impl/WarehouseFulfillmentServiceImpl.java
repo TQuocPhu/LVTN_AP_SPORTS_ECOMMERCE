@@ -44,6 +44,11 @@ public class WarehouseFulfillmentServiceImpl implements WarehouseFulfillmentServ
         User staff = userRepository.findByEmail(staffEmail)
                 .orElseThrow(() -> new AppException("Nhân viên/Thủ kho không tồn tại", HttpStatus.NOT_FOUND));
 
+        String staffRole = staff.getRole() != null ? staff.getRole().getName() : "";
+        if ("STAFF".equals(staffRole)) {
+            throw new AppException("Nhân viên bán hàng (STAFF) không có quyền thực hiện kiểm đếm và đóng gói xuất kho. Nghiệp vụ này chỉ dành cho Thủ kho và Quản trị viên!", HttpStatus.FORBIDDEN);
+        }
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng ID #" + orderId, HttpStatus.NOT_FOUND));
 

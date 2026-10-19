@@ -53,6 +53,8 @@ export function AdminOrderDetailModal({
     updatingStatus,
     simProgress,
     setSimProgress,
+    isScannerActive,
+    setIsScannerActive,
     handleSendEinvoice,
     handleUpdateStatus,
     formatCurrency,
@@ -89,7 +91,11 @@ export function AdminOrderDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto transition-opacity duration-200 ${
+        isScannerActive ? 'invisible pointer-events-none opacity-0' : 'opacity-100'
+      }`}
+    >
       <div className="bg-white w-full max-w-5xl rounded-2xl border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col my-auto transition-all">
         {/* Toast Alert */}
         {toastMessage && (
@@ -178,6 +184,7 @@ export function AdminOrderDetailModal({
                 }}
                 onProgressChange={(val) => setSimProgress(val)}
                 updating={updatingStatus}
+                onScannerOpenChange={setIsScannerActive}
               />
 
               {/* Warehouse Origin vs Recipient Destination Highlight Cards */}

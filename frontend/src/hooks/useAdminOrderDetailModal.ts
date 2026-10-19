@@ -20,6 +20,7 @@ export function useAdminOrderDetailModal({
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
   const [localOrder, setLocalOrder] = useState<AdminOrderDetail | null>(order);
   const [simProgress, setSimProgress] = useState<number>(0);
+  const [isScannerActive, setIsScannerActive] = useState<boolean>(false);
 
   // Synchronize localOrder when prop order changes
   useEffect(() => {
@@ -140,6 +141,8 @@ export function useAdminOrderDetailModal({
     updatingStatus,
     simProgress,
     setSimProgress,
+    isScannerActive,
+    setIsScannerActive,
     handleSendEinvoice,
     handleUpdateStatus,
     formatCurrency,

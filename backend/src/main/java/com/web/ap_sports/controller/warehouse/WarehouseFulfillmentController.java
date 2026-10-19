@@ -19,7 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/warehouse/fulfillment")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('MANAGE_INVENTORY') or hasRole('ADMIN') or hasRole('WAREHOUSE_MANAGER') or hasRole('STAFF')")
+@PreAuthorize("hasAuthority('MANAGE_INVENTORY') or hasRole('ADMIN') or hasRole('WAREHOUSE_MANAGER')")
 public class WarehouseFulfillmentController {
 
     private final WarehouseFulfillmentService fulfillmentService;

@@ -10,6 +10,7 @@ import { removeVietnameseAccents } from '@/utils/barcodeGenerator';
 interface UseOrderPackingScannerParams {
   order: AdminOrderDetail | null;
   onSuccess?: (updatedOrder: AdminOrderDetail) => void;
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
 /**
@@ -46,7 +47,7 @@ function playBeep(type: 'success' | 'error' = 'success') {
   }
 }
 
-export function useOrderPackingScanner({ order, onSuccess }: UseOrderPackingScannerParams) {
+export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOrderPackingScannerParams) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [scannedMap, setScannedMap] = useState<Record<number, number>>({});
   const [manualCode, setManualCode] = useState<string>('');
@@ -100,11 +101,13 @@ export function useOrderPackingScanner({ order, onSuccess }: UseOrderPackingScan
     setManualCode('');
     setIsCameraActive(false);
     setIsOpen(true);
-  }, []);
+    onOpenChange?.(true);
+  }, [onOpenChange]);
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
-  }, []);
+    onOpenChange?.(false);
+  }, [onOpenChange]);
 
   // Xử lý quét hoặc gõ mã barcode/sku
   const handleScanCode = useCallback(
