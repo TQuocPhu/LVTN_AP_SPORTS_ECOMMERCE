@@ -1014,6 +1014,60 @@ Hệ thống tư vấn trực tuyến 1-1 kết nối trực tiếp Khách hàng
 
 ---
 
+## 18. PHÂN HỆ ỨNG DỤNG DI ĐỘNG KHÁCH HÀNG (AP SPORTS MOBILE CLIENT - REACT NATIVE & EXPO)
+
+### 18.1. Mục Tiêu & Kiến Trúc Phân Tầng Độc Lập (Layered Clean Architecture)
+Để hoàn thiện hệ sinh thái thương mại điện tử đa kênh Omnichannel phục vụ báo cáo Khóa luận Tốt nghiệp, phân hệ Mobile App được phát triển dưới dạng một ứng dụng độc lập (`mobile-app`) kết nối qua RESTful API Gateway đến Backend Spring Boot:
+- **Ngăn xếp Công nghệ**:
+  - `React Native 0.86.3` + `React 19.2.3` + `Expo 57.0.30` (TypeScript 6.0).
+  - Quản lý điều hướng: `@react-navigation/native 7.5.1` kết hợp `@react-navigation/bottom-tabs` và `@react-navigation/native-stack`.
+  - Bộ lưu trữ bảo mật phần cứng: `expo-secure-store ~57.0.4` (Lưu Access/Refresh Token trong Keystore/Keychain, tuyệt đối không dùng `localStorage`).
+  - Phản hồi xúc giác & Icons: `expo-haptics ~57.0.3`, `@expo/vector-icons 15.0.2` (Ionicons).
+- **Mô hình Phân tầng (Layered Architecture)**:
+  1. **Screens (`src/screens/`)**: Chịu trách nhiệm hiển thị trang hoàn chỉnh (`HomeScreen`, `CatalogScreen`, `ProductDetailScreen`, `CartScreen`, `CheckoutScreen`, `OrderListScreen`, `OrderDetailScreen`, `LoginScreen`, `RegisterScreen`, `ProfileScreen`, `SupportChatScreen`).
+  2. **Components (`src/components/`)**: Các khối giao diện tái sử dụng cao, không chứa state phức tạp.
+  3. **Custom Hooks (`src/hooks/`)**: Tách biệt 100% logic nghiệp vụ, gọi controller và quản lý vòng đời dữ liệu.
+  4. **Controllers (`src/controllers/`)**: Đóng gói quy trình gọi API, chuẩn hóa tham số đầu vào và kiểu dữ liệu trả về.
+  5. **Services (`src/services/`)**: Các hàm gọi HTTP trực tiếp thông qua `apiClient`.
+  6. **API Client (`src/services/apiClient.ts`)**: Cấu hình Axios trung tâm, tự động đính kèm `Bearer Token` qua Request Interceptor và tự động xử lý Silent Token Refresh qua Response Interceptor.
+
+### 18.2. Hạ Tầng Mạng, Cổng Dev & Vượt Rào Cản Localtunnel
+- **Cổng phát triển**: Khởi chạy trên cổng cố định `8018` (`expo start --port 8018 --tunnel`) tránh xung đột cổng `8081` của Windows.
+- **Localtunnel Gateway**:
+  - Tên miền cố định: `https://apsports-api-dev.loca.lt/api/v1`.
+  - Cấu hình header bắt buộc: `'Bypass-Tunnel-Reminder': 'true'` và `'X-Client-Type': 'mobile'`. Header này giúp ứng dụng vượt qua trang cảnh báo bảo mật trung gian của Localtunnel để giao tiếp JSON mượt mà với Spring Boot.
+
+### 18.3. Hệ Thống Cử Chỉ Điều Hướng Đa Tầng (Multi-Layer Swipeable Tabs)
+- **Vấn đề thực tế**: Trên hệ điều hành Android, các view cuộn con (`FlatList`, `ScrollView`) khi bắt đầu nhận cử chỉ cuộn dọc sẽ lập tức gửi lệnh `requestDisallowInterceptTouchEvent(true)`, vô hiệu hóa hoàn toàn `PanResponder` ở view cha khiến cử chỉ vuốt ngang chuyển tab bị trơ.
+- **Giải pháp xử lý triệt để 2 tầng (`SwipeableTabScreen.tsx`)**:
+  - **Tầng 1 - Cảm biến mép màn hình (Edge Gestures Sensor)**: Đặt 2 dải cảm ứng vô hình rộng 28dp ở mép trái và mép phải màn hình với thuộc tính `zIndex: 999` trên cùng. Khi người dùng vuốt từ mép trái sang phải sẽ lùi về tab trước, vuốt từ mép phải sang trái sẽ tiến đến tab sau mà không bao giờ bị `ScrollView` con cản trở.
+  - **Tầng 2 - Raw Touch Event Tracking**: Sử dụng trực tiếp `onTouchStart`, `onTouchEnd` ở tầng bao bọc để tính toán khoảng cách $\Delta X > 40\text{px}$ và tỷ lệ $\Delta X > 1.2 \times \Delta Y$ với thời gian vuốt $< 600\text{ms}$ để kích hoạt chuyển tab kèm rung phản hồi vật lý `Haptics`.
+
+### 18.4. Lọc Dữ Liệu Rich HTML Mô Tả Sản Phẩm Sang Cấu Trúc Khối Trực Quan
+- **Xử lý mã nguồn HTML**: Database lưu trường `description` chứa các thẻ Rich HTML (`<div>`, `<h3>`, `<p>`, `style="..."`).
+- **Bộ chuyển đổi thông minh (`formatHtml.ts` & `ProductDescriptionSection.tsx`)**:
+  - Gỡ bỏ toàn bộ mã style/script độc hại, giải mã các thực thể HTML entities (`&quot;`, `&nbsp;`, `&amp;`, `&lt;`, `&gt;`, `&bull;`).
+  - Tách nội dung thành các đoạn văn độc lập có `lineHeight: 22` thoáng đãng.
+  - Tự động nhận diện các dòng gạch đầu dòng (`• `, `-`) để hiển thị thành các bullet point chuyên nghiệp kèm icon khiên cam bảo chứng thể thao.
+  - Tích hợp nút xem thêm / thu gọn đối với văn bản dài.
+
+### 18.5. Đồng Bộ 100% Hệ Thống Design Tokens Dark / Light Theme
+Đồng bộ chuẩn xác theo CSS Variables của Web Client (`globals.css`):
+- **Chế độ Sáng (Light Mode)**: Nền trang `#f1f5f9` (Slate 100), Thẻ nội dung `#ffffff`, Viền `#e2e8f0` (Slate 200), Chữ chính `#0f172a` (Slate 900), Chữ phụ `#64748b` (Slate 500), Màu cam thương hiệu `#ea580c`.
+- **Chế độ Tối (Dark Mode)**: Nền trang `#090d16` (Deep Dark Navy), Thẻ nội dung `#0f172a` (Slate 900), Viền `#1e293b` (Slate 800), Chữ chính `#f8fafc` (Slate 50), Chữ phụ `#94a3b8` (Slate 400), Màu cam thương hiệu `#f97316`.
+- **Lưu trữ trạng thái**: Tự động lưu cấu hình giao diện vào `AsyncStorage` (`@apsports_theme_mode`) để duy trì giao diện người dùng lựa chọn qua các phiên mở app.
+
+### 18.6. Bảo Vệ Trạng Thái Xác Thực Khách Vãng Lai & Màn Hình Đăng Ký Mới
+- **Bảo vệ khách vãng lai (Guest Guard)**:
+  - Khi chưa đăng nhập, `useCustomerOrders.ts` chủ động không gửi request lấy đơn hàng để triệt tiêu lỗi `401 Unauthorized`.
+  - `apiClient.ts` khi không tìm thấy Refresh Token trong máy sẽ từ chối êm dịu (`Promise.reject(error)`), không ném exception làm đỏ terminal.
+  - Hiển thị component `RequireLoginView.tsx` lịch sự, trang bị 2 nút hành động: *[Đăng Nhập Ngay]* và *[Tạo Tài Khoản Mới]*.
+- **Màn hình Đăng ký mới (`RegisterScreen.tsx`)**:
+  - Tiếp nhận đầy đủ 4 trường thông tin chuẩn như Frontend: Họ và tên (`name`), Địa chỉ Email (`email`), Mật khẩu (`password`), Xác nhận mật khẩu (`confirmPassword`).
+  - Kiểm tra tính hợp lệ nghiêm ngặt: Email đúng định dạng regex, mật khẩu tối thiểu 6 ký tự, 2 trường mật khẩu bắt buộc phải trùng khớp 100%.
+
+---
+
 *Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc và chỉ mở rộng các phân hệ mới cho hệ thống AP Sports Enterprise Production.*
 
 
