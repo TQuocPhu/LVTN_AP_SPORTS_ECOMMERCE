@@ -16,6 +16,8 @@ public class CookieUtils {
 
     public static final String ACCESS_TOKEN_COOKIE_NAME = "accessToken";
     public static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
+    public static final String DEVICE_ID_COOKIE_NAME = "apsports_device_id";
+    public static final int DEVICE_ID_MAX_AGE = 315360000; // 10 năm (tính bằng giây)
 
     private CookieUtils() {
         // Private constructor to prevent instantiation

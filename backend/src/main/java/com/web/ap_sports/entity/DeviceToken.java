@@ -29,6 +29,12 @@ public class DeviceToken {
     @Column(name = "os_type")
     private String osType; // e.g. ANDROID, IOS, WEB
 
+    @Column(name = "device_name")
+    private String deviceName; // e.g. Chrome Windows, Samsung Galaxy S24
+
+    @Column(name = "last_ip")
+    private String lastIp;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

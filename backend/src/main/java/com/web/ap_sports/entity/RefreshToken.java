@@ -26,6 +26,10 @@ public class RefreshToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "device_token_id", nullable = true)
+    private DeviceToken deviceToken;
+
     /**
      * Chuỗi Hash HMAC-SHA256 của Refresh Token (Unique).
      */
