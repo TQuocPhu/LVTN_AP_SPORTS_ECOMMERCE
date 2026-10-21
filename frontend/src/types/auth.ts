@@ -51,3 +51,15 @@ export interface ApiResponse<T = void> {
   data: T;
   timestamp: string;
 }
+
+export interface UserSessionResponse {
+  id: number;
+  deviceToken: string;
+  deviceName?: string;
+  osType?: string;
+  lastIp?: string;
+  createdAt?: string;
+  lastActiveAt?: string;
+  currentDevice?: boolean;
+}
+

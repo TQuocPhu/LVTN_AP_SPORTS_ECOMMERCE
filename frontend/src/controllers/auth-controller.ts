@@ -1,5 +1,5 @@
 import { apiClient } from '@/services/api-client';
-import { ApiResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UserResponse } from '@/types/auth';
+import { ApiResponse, ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest, UserResponse, UserSessionResponse } from '@/types/auth';
 
 /**
  * Frontend Controller xử lý các lệnh gọi API Đăng ký, Kích hoạt, Đăng nhập, Đăng xuất, Quên & Đặt lại mật khẩu.
@@ -32,6 +32,20 @@ export const authController = {
    */
   async logout(): Promise<ApiResponse<void>> {
     return apiClient.post<ApiResponse<void>>('/customer/auth/logout', {});
+  },
+
+  /**
+   * Lấy danh sách các thiết bị/phiên đang hoạt động của khách hàng.
+   */
+  async getActiveSessions(): Promise<ApiResponse<UserSessionResponse[]>> {
+    return apiClient.get<ApiResponse<UserSessionResponse[]>>('/customer/auth/sessions');
+  },
+
+  /**
+   * Đăng xuất khỏi một thiết bị cụ thể từ xa.
+   */
+  async revokeSession(deviceToken: string): Promise<ApiResponse<void>> {
+    return apiClient.delete<ApiResponse<void>>(`/customer/auth/sessions/${encodeURIComponent(deviceToken)}`);
   },
 
   /**
