@@ -6,6 +6,11 @@
   "scripts": {
     "backend": "cd backend && gradlew.bat bootRun",
     "frontend": "cd frontend && npm run dev",
+    "mobile": "cd mobile-app && npx expo start --tunnel --port 8018",
+    "mobile:tunnel": "cd mobile-app && npx expo start --tunnel --port 8018",
+    "mobile:lan": "cd mobile-app && npx expo start --lan --port 8018",
+    "mobile:android": "cd mobile-app && npx expo start --android --port 8018",
+    "mobile:ios": "cd mobile-app && npx expo start --ios --port 8018",
     "build:backend": "cd backend && gradlew.bat build",
     "build:frontend": "cd frontend && npm run build"
   }
