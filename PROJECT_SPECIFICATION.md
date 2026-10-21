@@ -1057,14 +1057,131 @@ Hệ thống tư vấn trực tuyến 1-1 kết nối trực tiếp Khách hàng
 - **Chế độ Tối (Dark Mode)**: Nền trang `#090d16` (Deep Dark Navy), Thẻ nội dung `#0f172a` (Slate 900), Viền `#1e293b` (Slate 800), Chữ chính `#f8fafc` (Slate 50), Chữ phụ `#94a3b8` (Slate 400), Màu cam thương hiệu `#f97316`.
 - **Lưu trữ trạng thái**: Tự động lưu cấu hình giao diện vào `AsyncStorage` (`@apsports_theme_mode`) để duy trì giao diện người dùng lựa chọn qua các phiên mở app.
 
-### 18.6. Bảo Vệ Trạng Thái Xác Thực Khách Vãng Lai & Màn Hình Đăng Ký Mới
-- **Bảo vệ khách vãng lai (Guest Guard)**:
-  - Khi chưa đăng nhập, `useCustomerOrders.ts` chủ động không gửi request lấy đơn hàng để triệt tiêu lỗi `401 Unauthorized`.
-  - `apiClient.ts` khi không tìm thấy Refresh Token trong máy sẽ từ chối êm dịu (`Promise.reject(error)`), không ném exception làm đỏ terminal.
-  - Hiển thị component `RequireLoginView.tsx` lịch sự, trang bị 2 nút hành động: *[Đăng Nhập Ngay]* và *[Tạo Tài Khoản Mới]*.
-- **Màn hình Đăng ký mới (`RegisterScreen.tsx`)**:
-  - Tiếp nhận đầy đủ 4 trường thông tin chuẩn như Frontend: Họ và tên (`name`), Địa chỉ Email (`email`), Mật khẩu (`password`), Xác nhận mật khẩu (`confirmPassword`).
-  - Kiểm tra tính hợp lệ nghiêm ngặt: Email đúng định dạng regex, mật khẩu tối thiểu 6 ký tự, 2 trường mật khẩu bắt buộc phải trùng khớp 100%.
+### 18.7. Tích Hợp Định Danh Thiết Bị (Device Identifier) & Bảo Mật Phần Cứng SecureStore
+- **Cơ chế sinh UUID thiết bị**: Khi ứng dụng khởi chạy lần đầu, `apiClient.ts` tự động sinh một chuỗi định danh ngẫu nhiên chuẩn UUID v4 (`Crypto.randomUUID()` hoặc RFC 4122) và lưu trữ vĩnh viễn trong **`expo-secure-store`** (Key: `DEVICE_UNIQUE_ID`).
+- **Tự động đính kèm Metadata**: Mọi HTTP Request và luồng Silent Refresh tự động mang theo các Request Headers:
+  - `X-Device-Id`: Chuỗi UUID duy nhất của thiết bị di động.
+  - `X-Device-OS`: `ANDROID` hoặc `IOS` (lấy từ `Platform.OS`).
+  - `X-Device-Name`: Nhãn thiết bị nhận diện thân thiện.
+- **Tuân thủ bảo mật tuyệt đối**: 100% token và device identifier được bảo vệ bởi phần cứng bảo mật hệ điều hành (**Android Keystore / EncryptedSharedPreferences** và **iOS Keychain**), hoàn toàn không phụ thuộc vào `localStorage`.
+
+---
+
+## 19. KIẾN TRÚC XÁC THỰC ĐA THIẾT BỊ ĐỒNG THỜI (MULTI-DEVICE CONCURRENT SESSIONS) & KIỂM TRA CHÉO THIẾT BỊ (DEVICE BINDING)
+
+### 19.1. Bối Cảnh Nghiệp Vụ & Nguyên Tắc An Ninh Doanh Nghiệp
+- **Hành vi người dùng Omnichannel**: Khách hàng thường xuyên mua sắm song song: tra cứu thông số kỹ thuật và giỏ hàng trên Web máy tính (Desktop/Laptop), đồng thời theo dõi đơn hàng và chat hỗ trợ trên Mobile App điện thoại.
+- **Quy tắc an ninh bắt buộc**:
+  - **Phía Web Client (Next.js)**: **100% sử dụng HttpOnly, Secure, SameSite=Lax Cookie**. Định danh thiết bị trên Web lưu trong Cookie `apsports_device_id` (Max-Age: 10 năm). **TUYỆT ĐỐI CẤM SỬ DỤNG `localStorage`** để triệt tiêu hoàn toàn rủi ro bị tấn công XSS đánh cắp thông tin phiên.
+  - **Phía Mobile Client (Expo React Native)**: Lưu trữ Access/Refresh Token và `deviceId` trong **`expo-secure-store`**.
+  - **Phân tách phiên đặc thù**:
+    - **Khách hàng (`ROLE_CUSTOMER`)**: Hỗ trợ đăng nhập đa thiết bị đồng thời (tối đa 3 máy).
+    - **Quản trị viên (`ROLE_ADMIN`, `ROLE_STAFF`, `ROLE_WAREHOUSE_MANAGER`)**: Duy trì cơ chế **Đơn phiên (Single Active Session)**. Khi admin đăng nhập máy mới, máy cũ lập tức bị đăng xuất để ngăn chặn triệt để nguy cơ chiếm đoạt tài khoản quản trị hệ thống.
+
+### 19.2. Cấu Trúc Cơ Sở Dữ Liệu & Khóa Ngoại Nullable Tương Thích Ngược
+- **Bảng `device_tokens`**:
+  - `id`: Khóa chính định danh bản ghi (`BIGINT PK AUTO_INCREMENT`).
+  - `user_id`: Khóa ngoại liên kết `users.id` (`NOT NULL`).
+  - `device_token`: Chuỗi UUID định danh thiết bị (`VARCHAR(255) NOT NULL UNIQUE`).
+  - `os_type`: Hệ điều hành (`VARCHAR(50)`, e.g., `ANDROID`, `IOS`, `WEB`).
+  - `device_name`: Tên thiết bị hiển thị thân thiện (`VARCHAR(150)`, e.g., `Samsung Galaxy S24`, `Google Chrome (Windows)`).
+  - `last_ip`: Địa chỉ IP truy cập gần nhất (`VARCHAR(50)`).
+  - `created_at`: Thời điểm thiết bị đăng nhập lần đầu.
+  - `updated_at`: Thời điểm thiết bị hoạt động trực tuyến gần nhất (`last_active_at`).
+- **Liên kết với Bảng `refresh_tokens`**:
+  - `device_token_id`: Khóa ngoại liên kết sang `device_tokens.id`.
+  - **CỰC KỲ QUAN TRỌNG (`nullable = true`)**: Bắt buộc cho phép `NULL` nhằm bảo đảm tính tương thích ngược 100% với dữ liệu cũ, không làm gián đoạn CSDL đang chạy, đồng thời cho phép các phiên Admin hoặc các cổng dịch vụ khác đăng nhập an toàn mà không cần thiết bị.
+
+### 19.3. Vòng Đời 4 Thời Điểm Quản Lý Phiên & Sơ Đồ Luồng Toàn Diện
+1. **Thời điểm 1: Đăng nhập (LOGIN - Khởi tạo phiên)**:
+   - Client gửi thông tin đăng nhập kèm định danh thiết bị.
+   - Backend xác thực BCrypt $\rightarrow$ Tìm/Tạo bản ghi trong `device_tokens`.
+   - Nếu số thiết bị vượt quá 3: Tự động kích hoạt cơ chế thu hồi phiên cũ nhất (**LRU Eviction**).
+   - Chỉ thu hồi token cũ của **riêng thiết bị này** (`revokeByUserAndDevice`), giữ nguyên phiên của các thiết bị khác.
+   - Lưu `RefreshToken` mới gắn `device_token_id`.
+2. **Thời điểm 2: Làm mới Token (REFRESH - Xoay vòng & Device Binding)**:
+   - Client gửi Refresh Token và `deviceId`.
+   - Backend băm HMAC-SHA256, kiểm tra thời hạn và **Kiểm tra chéo thiết bị (Device Binding)**.
+   - Cập nhật `device_tokens.updated_at = now()` ghi nhận thời gian online thực tế.
+3. **Thời điểm 3: Đăng xuất chủ động (LOGOUT)**:
+   - Thu hồi Refresh Token của riêng thiết bị hiện tại, các thiết bị khác không bị ảnh hưởng.
+4. **Thời điểm 4: Thu hồi từ xa / Ép đẩy khi quá tải (REMOTE REVOKE / LRU EVICTION)**:
+   - Khách hàng bấm "Đăng xuất khỏi thiết bị này" trên giao diện cá nhân hoặc đăng nhập máy thứ 4 làm rơi máy cũ nhất.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Khách hàng
+    participant Client as Mobile App / Web
+    participant Auth as CustomerAuthService
+    participant DevDB as Bảng device_tokens
+    participant TokenDB as Bảng refresh_tokens
+
+    Note over User,Client: 1. ĐĂNG NHẬP & TÁCH BIỆT THIẾT BỊ
+    User->>Client: Bấm Đăng nhập
+    Client->>Auth: POST /customer/auth/login (email, pass, deviceId, os, name)
+    Auth->>DevDB: Kiểm tra device_token của User
+    alt Thiết bị mới & Tổng số máy >= 3
+        Auth->>TokenDB: Thu hồi phiên của thiết bị lâu nhất (LRU Eviction)
+        Auth->>DevDB: Thêm mới DeviceToken
+    else Thiết bị đã tồn tại
+        Auth->>DevDB: Cập nhật updated_at = now()
+    end
+    Auth->>TokenDB: Thu hồi phiên cũ của RIÊNG thiết bị này (revokeByUserAndDevice)
+    Auth->>TokenDB: Lưu RefreshToken mới kèm device_token_id
+    Auth-->>Client: Trả về Phiên đăng nhập thành công (Cookie/SecureStore)
+
+    Note over User,Client: 2. XOAY VÒNG TOKEN CÓ KIỂM TRA CHÉO (DEVICE BINDING)
+    Client->>Auth: POST /customer/auth/refresh (refreshToken, requestDeviceId)
+    Auth->>TokenDB: Tìm RefreshToken theo HMAC-SHA256 băm
+    alt Có liên kết DeviceToken
+        alt requestDeviceId != deviceToken.deviceToken (Phát hiện Token Hijacking!)
+            Auth->>TokenDB: Đặt revoked = true lập tức
+            Auth-->>Client: Ném lỗi 403 SecurityException
+        else requestDeviceId == deviceToken.deviceToken (Hợp lệ)
+            Auth->>DevDB: Cập nhật device.updatedAt = now()
+            Auth->>TokenDB: Xoay vòng Token mới (HMAC-SHA256 Rotation)
+            Auth-->>Client: Trả về cặp Token mới
+        end
+    else deviceToken == null (Admin / Phiên cũ)
+        Auth->>TokenDB: Xoay vòng bình thường (Tương thích ngược)
+        Auth-->>Client: Trả về Token mới
+    end
+```
+
+### 19.4. Cơ Chế Kiểm Tra Chéo (Device Binding) & Chống Đánh Cắp Token (Token Hijacking Protection)
+- **Kịch bản tấn công**: Kẻ gian bằng mã độc hoặc sniffing đánh cắp được chuỗi `refresh_token` từ điện thoại khách hàng (Máy A), sau đó dùng máy tính của hắn (Máy B) để gọi API `/refresh` nhằm chiếm quyền truy cập.
+- **Cơ chế phòng thủ Backend**:
+  ```java
+  if (refreshTokenEntity.getDeviceToken() != null && request != null) {
+      String requestDeviceId = isMobile 
+              ? request.getHeader("X-Device-Id") 
+              : CookieUtils.extractCookieValue(request, CookieUtils.DEVICE_ID_COOKIE_NAME);
+
+      String registeredDeviceId = refreshTokenEntity.getDeviceToken().getDeviceToken();
+
+      if (StringUtils.hasText(requestDeviceId) && !requestDeviceId.equals(registeredDeviceId)) {
+          log.error("🚨 [SECURITY BREACH] Phát hiện Token Hijacking! User ID: {}, Device gốc: {}, Device gửi request: {}",
+                  user.getId(), registeredDeviceId, requestDeviceId);
+          refreshTokenEntity.setRevoked(true);
+          refreshTokenRepository.save(refreshTokenEntity);
+          throw new SecurityException("Cảnh báo an ninh: Phiên đăng nhập không hợp lệ trên thiết bị này.");
+      }
+      // Cập nhật last active khi hợp lệ
+      DeviceToken device = refreshTokenEntity.getDeviceToken();
+      device.setUpdatedAt(LocalDateTime.now());
+      deviceTokenRepository.save(device);
+  }
+  ```
+- **Hệ quả bảo vệ**: Ngăn chặn 100% việc tái sử dụng token bất hợp pháp xuyên thiết bị.
+
+### 19.5. Danh Mục REST API Quản Lý Phiên Thiết Bị
+Tất cả các endpoint dưới đây được cấu hình bảo vệ trong `SecurityConfig.java` với yêu cầu quyền **`ROLE_CUSTOMER`**:
+
+| Method | Endpoint URL | Mục đích nghiệp vụ | Headers / Cookies yêu cầu |
+| :---: | :--- | :--- | :--- |
+| **GET** | `/api/v1/customer/auth/sessions` | Lấy danh sách các thiết bị/phiên đang hoạt động của khách hàng (kèm cờ `currentDevice`). | `Authorization: Bearer <token>` (Mobile) hoặc HttpOnly Cookie (Web). |
+| **DELETE** | `/api/v1/customer/auth/sessions/{deviceToken}` | Đăng xuất từ xa khỏi một thiết bị cụ thể. Hệ thống kiểm tra quyền sở hữu thiết bị trước khi thu hồi. | `Authorization: Bearer <token>` (Mobile) hoặc HttpOnly Cookie (Web). |
 
 ---
 
