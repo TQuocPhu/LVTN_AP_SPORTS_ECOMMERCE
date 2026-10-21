@@ -101,7 +101,7 @@ public class SecurityConfig {
                 ).permitAll()
 
                 // 2. Protected Routes theo Role (Đồng bộ 100% với UserRole enum & DB roles)
-                .requestMatchers("/api/v1/customer/auth/me").hasRole("CUSTOMER")
+                .requestMatchers("/api/v1/customer/auth/me", "/api/v1/customer/auth/sessions", "/api/v1/customer/auth/sessions/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/customer/profile/**", "/api/v1/customer/addresses/**", "/api/v1/customer/cart/**", "/api/v1/customer/orders/**", "/api/v1/customer/reviews/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/admin/auth/me", "/api/v1/admin/auth/logout").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
                 .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")

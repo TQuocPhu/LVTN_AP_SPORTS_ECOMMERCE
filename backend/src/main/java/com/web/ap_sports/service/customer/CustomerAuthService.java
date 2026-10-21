@@ -10,6 +10,9 @@ import com.web.ap_sports.dto.response.customer.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import com.web.ap_sports.dto.response.customer.UserSessionResponse;
+import java.util.List;
+
 /**
  * Interface cho dịch vụ Xác thực Khách hàng Storefront (Customer Auth Service).
  * Hỗ trợ đa nền tảng Web (Next.js - Cookies) & Mobile (React Native - Bearer Header).
@@ -32,7 +35,22 @@ public interface CustomerAuthService {
     CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletResponse response);
 
     /**
-     * Xử lý Đăng xuất Khách hàng -> Thu hồi Token & Xóa Cookies.
+     * Xử lý Đăng nhập Khách hàng có thông tin thiết bị (Multi-device concurrent sessions).
+     */
+    CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletRequest httpRequest, HttpServletResponse response);
+
+    /**
+     * Lấy danh sách các phiên thiết bị đang hoạt động của khách hàng.
+     */
+    List<UserSessionResponse> getActiveSessions(HttpServletRequest request);
+
+    /**
+     * Thu hồi phiên làm việc của một thiết bị cụ thể (Đăng xuất từ xa).
+     */
+    void revokeSession(String deviceToken, HttpServletRequest request);
+
+    /**
+     * Xử lý Đăng xuất Khách hàng -> Thu hồi Token của thiết bị hiện tại & Xóa Cookies.
      */
     void logout(HttpServletRequest request, HttpServletResponse response);
 

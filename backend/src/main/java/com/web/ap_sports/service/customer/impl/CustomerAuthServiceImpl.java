@@ -8,11 +8,14 @@ import com.web.ap_sports.dto.request.customer.ResetPasswordRequest;
 import com.web.ap_sports.dto.response.customer.CustomerLoginResponse;
 import com.web.ap_sports.dto.response.customer.TokenResponse;
 import com.web.ap_sports.dto.response.customer.UserResponse;
+import com.web.ap_sports.dto.response.customer.UserSessionResponse;
+import com.web.ap_sports.entity.DeviceToken;
 import com.web.ap_sports.entity.PasswordResetToken;
 import com.web.ap_sports.entity.RefreshToken;
 import com.web.ap_sports.entity.Role;
 import com.web.ap_sports.entity.User;
 import com.web.ap_sports.enums.UserStatus;
+import com.web.ap_sports.repository.DeviceTokenRepository;
 import com.web.ap_sports.repository.PasswordResetTokenRepository;
 import com.web.ap_sports.repository.RefreshTokenRepository;
 import com.web.ap_sports.repository.RoleRepository;
@@ -33,7 +36,9 @@ import org.springframework.util.StringUtils;
 import com.web.ap_sports.util.CookieUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Lớp triển khai (Implementation) của CustomerAuthService.
@@ -48,6 +53,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
@@ -112,6 +118,12 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     @Override
     @Transactional
     public CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletResponse response) {
+        return login(request, clientType, null, response);
+    }
+
+    @Override
+    @Transactional
+    public CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletRequest httpRequest, HttpServletResponse response) {
         // 1. Tìm User theo email
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -136,16 +148,26 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(),
                 user.getRole().getName());
 
-        // 6. Sinh RefreshToken gốc & băm HASH HMAC-SHA256 lưu CSDL
+        // 6. Định danh thiết bị (Device Token resolution & LRU Eviction check)
+        DeviceToken deviceToken = resolveOrCreateDeviceToken(user, clientType, httpRequest, response);
+
+        // 7. Thu hồi phiên cũ:
+        // Nếu có thiết bị cụ thể -> Chỉ thu hồi phiên cũ của RIÊNG thiết bị này (duy trì các thiết bị khác)
+        // Nếu không có thiết bị (fallback cũ) -> Thu hồi toàn bộ để an toàn
+        if (deviceToken != null) {
+            refreshTokenRepository.revokeByUserAndDevice(user, deviceToken);
+        } else {
+            refreshTokenRepository.revokeAllUserTokens(user);
+        }
+
+        // 8. Sinh RefreshToken gốc & băm HASH HMAC-SHA256 lưu CSDL
         String rawRefreshToken = jwtTokenProvider.generateRawRefreshToken();
         String hashedRefreshToken = jwtTokenProvider.hashRefreshToken(rawRefreshToken);
 
-        // Thu hồi toàn bộ refresh tokens cũ của user này
-        refreshTokenRepository.revokeAllUserTokens(user);
-
-        // Lưu RefreshToken băm mới vào DB
+        // Lưu RefreshToken băm mới vào DB kèm khóa ngoại deviceToken (nullable)
         RefreshToken refreshTokenEntity = RefreshToken.builder()
                 .user(user)
+                .deviceToken(deviceToken)
                 .token(hashedRefreshToken)
                 .expiresAt(LocalDateTime.now().plusWeeks(1))
                 .revoked(false)
@@ -155,8 +177,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         boolean isMobile = "mobile".equalsIgnoreCase(clientType);
 
         if (isMobile) {
-            // Đối với Mobile App: Trả về tokens trực tiếp trong JSON Payload (Không set
-            // Cookie)
+            // Đối với Mobile App: Trả về tokens trực tiếp trong JSON Payload (Không set Cookie)
             TokenResponse tokenResponse = TokenResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(rawRefreshToken)
@@ -169,8 +190,7 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
                     .build();
         }
 
-        // Đối với Web App: CHỈ thiết lập HttpOnly Cookies, JSON Payload không chứa
-        // tokens
+        // Đối với Web App: CHỈ thiết lập HttpOnly Cookies, JSON Payload không chứa tokens
         CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, accessToken,
                 CookieUtils.ACCESS_TOKEN_MAX_AGE);
         CookieUtils.addTokenCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, rawRefreshToken,
@@ -184,6 +204,9 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
     @Override
     @Transactional
     public void logout(HttpServletRequest request, HttpServletResponse response) {
+        String clientType = request.getHeader("X-Client-Type");
+        boolean isMobile = "mobile".equalsIgnoreCase(clientType);
+
         // 1. Đọc RefreshToken gốc từ Cookies nếu có để thu hồi trong DB
         String rawToken = CookieUtils.extractCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
         if (rawToken != null) {
@@ -194,9 +217,189 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
             });
         }
 
-        // 2. Thu hồi Cookies trên Client
+        // 2. Nếu từ Mobile có header X-Device-Id -> Thu hồi theo deviceToken
+        if (isMobile) {
+            String deviceId = request.getHeader("X-Device-Id");
+            if (StringUtils.hasText(deviceId)) {
+                deviceTokenRepository.findByDeviceToken(deviceId).ifPresent(device -> {
+                    refreshTokenRepository.revokeByDeviceToken(device);
+                });
+            }
+        }
+
+        // 3. Thu hồi Cookies trên Client
         CookieUtils.deleteCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME);
         CookieUtils.deleteCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+    }
+
+    @Override
+    public List<UserSessionResponse> getActiveSessions(HttpServletRequest request) {
+        UserResponse currentUser = getCurrentUser(request);
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại."));
+
+        String currentDeviceId = request.getHeader("X-Device-Id");
+        if (!StringUtils.hasText(currentDeviceId)) {
+            currentDeviceId = CookieUtils.extractCookieValue(request, CookieUtils.DEVICE_ID_COOKIE_NAME);
+        }
+
+        final String activeCurrentDeviceId = currentDeviceId;
+        List<RefreshToken> activeSessions = refreshTokenRepository.findActiveSessionsByUser(user);
+
+        return activeSessions.stream()
+                .filter(s -> s.getDeviceToken() != null)
+                .map(s -> {
+                    DeviceToken d = s.getDeviceToken();
+                    boolean isCurrent = activeCurrentDeviceId != null && activeCurrentDeviceId.equals(d.getDeviceToken());
+                    return UserSessionResponse.builder()
+                            .id(d.getId())
+                            .deviceToken(d.getDeviceToken())
+                            .deviceName(d.getDeviceName())
+                            .osType(d.getOsType())
+                            .lastIp(d.getLastIp())
+                            .createdAt(d.getCreatedAt())
+                            .lastActiveAt(d.getUpdatedAt())
+                            .currentDevice(isCurrent)
+                            .build();
+                })
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(UserSessionResponse::getDeviceToken, r -> r, (existing, replacement) -> existing),
+                        m -> m.values().stream().sorted((a, b) -> {
+                            if (a.getLastActiveAt() == null) return 1;
+                            if (b.getLastActiveAt() == null) return -1;
+                            return b.getLastActiveAt().compareTo(a.getLastActiveAt());
+                        }).collect(Collectors.toList())
+                ));
+    }
+
+    @Override
+    @Transactional
+    public void revokeSession(String deviceToken, HttpServletRequest request) {
+        UserResponse currentUser = getCurrentUser(request);
+        User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Người dùng không tồn tại."));
+
+        DeviceToken device = deviceTokenRepository.findByDeviceTokenAndUser(deviceToken, user)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thiết bị hoặc bạn không có quyền thu hồi phiên này."));
+
+        refreshTokenRepository.revokeByUserAndDevice(user, device);
+        log.info("Khách hàng ID: {} đã thu hồi phiên từ xa thiết bị: {}", user.getId(), device.getDeviceName());
+    }
+
+    private DeviceToken resolveOrCreateDeviceToken(User user, String clientType, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        if (httpRequest == null) {
+            return null;
+        }
+
+        boolean isMobile = "mobile".equalsIgnoreCase(clientType);
+        String deviceId = null;
+        String osType = null;
+        String deviceName = null;
+
+        if (isMobile) {
+            deviceId = httpRequest.getHeader("X-Device-Id");
+            osType = httpRequest.getHeader("X-Device-OS");
+            deviceName = httpRequest.getHeader("X-Device-Name");
+            if (!StringUtils.hasText(osType)) {
+                osType = "MOBILE";
+            }
+        } else {
+            // Web Client: Lấy deviceId từ HttpOnly Cookie apsports_device_id
+            deviceId = CookieUtils.extractCookieValue(httpRequest, CookieUtils.DEVICE_ID_COOKIE_NAME);
+            if (!StringUtils.hasText(deviceId)) {
+                deviceId = UUID.randomUUID().toString();
+                if (httpResponse != null) {
+                    CookieUtils.addTokenCookie(httpResponse, CookieUtils.DEVICE_ID_COOKIE_NAME, deviceId, CookieUtils.DEVICE_ID_MAX_AGE);
+                }
+            }
+            osType = "WEB";
+            String userAgent = httpRequest.getHeader("User-Agent");
+            deviceName = parseDeviceNameFromUserAgent(userAgent);
+        }
+
+        if (!StringUtils.hasText(deviceId)) {
+            return null;
+        }
+
+        String clientIp = httpRequest.getHeader("X-Forwarded-For");
+        if (!StringUtils.hasText(clientIp)) {
+            clientIp = httpRequest.getRemoteAddr();
+        } else if (clientIp.contains(",")) {
+            clientIp = clientIp.split(",")[0].trim();
+        }
+
+        // Tìm thiết bị đã đăng ký trước đó
+        DeviceToken deviceToken = deviceTokenRepository.findByDeviceToken(deviceId).orElse(null);
+        if (deviceToken == null) {
+            // Kiểm tra giới hạn số lượng thiết bị tối đa (MAX = 3)
+            enforceMaxDevicesLimit(user, 3);
+
+            deviceToken = DeviceToken.builder()
+                    .user(user)
+                    .deviceToken(deviceId)
+                    .osType(osType)
+                    .deviceName(StringUtils.hasText(deviceName) ? deviceName : (isMobile ? "Mobile Device" : "Web Browser"))
+                    .lastIp(clientIp)
+                    .build();
+        } else {
+            // Thiết bị đã có -> Cập nhật thông tin mới nhất và gắn với user hiện tại
+            deviceToken.setUser(user);
+            if (StringUtils.hasText(deviceName)) {
+                deviceToken.setDeviceName(deviceName);
+            }
+            if (StringUtils.hasText(osType)) {
+                deviceToken.setOsType(osType);
+            }
+            deviceToken.setLastIp(clientIp);
+            deviceToken.setUpdatedAt(LocalDateTime.now());
+        }
+
+        return deviceTokenRepository.save(deviceToken);
+    }
+
+    private void enforceMaxDevicesLimit(User user, int maxDevices) {
+        List<RefreshToken> activeSessions = refreshTokenRepository.findActiveSessionsByUser(user);
+        if (activeSessions != null && activeSessions.size() >= maxDevices) {
+            // Phần tử cuối cùng là phiên có updatedAt cũ nhất (LRU Eviction)
+            RefreshToken oldestSession = activeSessions.get(activeSessions.size() - 1);
+            oldestSession.setRevoked(true);
+            refreshTokenRepository.save(oldestSession);
+            log.info("Thu hồi phiên thiết bị cũ nhất (LRU Eviction) user ID: {}, device ID: {}",
+                    user.getId(), oldestSession.getDeviceToken() != null ? oldestSession.getDeviceToken().getId() : "null");
+        }
+    }
+
+    private String parseDeviceNameFromUserAgent(String userAgent) {
+        if (!StringUtils.hasText(userAgent)) {
+            return "Trình duyệt Web";
+        }
+        String browser = "Trình duyệt";
+        if (userAgent.contains("Edg/")) {
+            browser = "Microsoft Edge";
+        } else if (userAgent.contains("Chrome/")) {
+            browser = "Google Chrome";
+        } else if (userAgent.contains("Firefox/")) {
+            browser = "Mozilla Firefox";
+        } else if (userAgent.contains("Safari/")) {
+            browser = "Apple Safari";
+        }
+
+        String os = "Hệ điều hành";
+        if (userAgent.contains("Windows")) {
+            os = "Windows";
+        } else if (userAgent.contains("Macintosh") || userAgent.contains("Mac OS")) {
+            os = "macOS";
+        } else if (userAgent.contains("iPhone")) {
+            os = "iPhone";
+        } else if (userAgent.contains("iPad")) {
+            os = "iPad";
+        } else if (userAgent.contains("Android")) {
+            os = "Android";
+        } else if (userAgent.contains("Linux")) {
+            os = "Linux";
+        }
+
+        return browser + " (" + os + ")";
     }
 
     @Override
@@ -294,6 +497,28 @@ public class CustomerAuthServiceImpl implements CustomerAuthService {
         User user = refreshTokenEntity.getUser();
         if (user.getStatus() != UserStatus.active) {
             throw new SecurityException("Tài khoản người dùng không hoạt động.");
+        }
+
+        // 2.1. Kiểm tra chéo thiết bị (Device Binding & Token Hijacking Protection)
+        if (refreshTokenEntity.getDeviceToken() != null && request != null) {
+            String requestDeviceId = isMobile
+                    ? request.getHeader("X-Device-Id")
+                    : CookieUtils.extractCookieValue(request, CookieUtils.DEVICE_ID_COOKIE_NAME);
+
+            String registeredDeviceId = refreshTokenEntity.getDeviceToken().getDeviceToken();
+
+            if (StringUtils.hasText(requestDeviceId) && !requestDeviceId.equals(registeredDeviceId)) {
+                log.error("🚨 [SECURITY BREACH] Phát hiện Token Hijacking! User ID: {}, Device gốc: {}, Device gửi request: {}",
+                        user.getId(), registeredDeviceId, requestDeviceId);
+                refreshTokenEntity.setRevoked(true);
+                refreshTokenRepository.save(refreshTokenEntity);
+                throw new SecurityException("Cảnh báo an ninh: Phiên đăng nhập không hợp lệ trên thiết bị này.");
+            }
+
+            // Cập nhật thời điểm hoạt động gần nhất của thiết bị
+            DeviceToken device = refreshTokenEntity.getDeviceToken();
+            device.setUpdatedAt(LocalDateTime.now());
+            deviceTokenRepository.save(device);
         }
 
         // 3. Sinh AccessToken mới

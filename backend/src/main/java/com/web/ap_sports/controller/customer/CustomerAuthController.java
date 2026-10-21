@@ -55,19 +55,40 @@ public class CustomerAuthController {
     public ResponseEntity<ApiResponse<com.web.ap_sports.dto.response.customer.CustomerLoginResponse>> login(
             @Valid @RequestBody LoginCustomerRequest request,
             @RequestHeader(value = "X-Client-Type", required = false) String clientType,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
-        com.web.ap_sports.dto.response.customer.CustomerLoginResponse loginResponse = customerAuthService.login(request, clientType, response);
+        com.web.ap_sports.dto.response.customer.CustomerLoginResponse loginResponse = customerAuthService.login(request, clientType, httpRequest, response);
         return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công!", loginResponse));
     }
 
     /**
-     * API Đăng xuất Khách hàng -> Xóa Cookies.
+     * API Đăng xuất Khách hàng -> Xóa Cookies và phiên của thiết bị hiện tại.
      * POST /api/v1/customer/auth/logout
      */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
         customerAuthService.logout(request, response);
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất thành công!"));
+    }
+
+    /**
+     * API Lấy danh sách các thiết bị/phiên đang đăng nhập của khách hàng.
+     * GET /api/v1/customer/auth/sessions
+     */
+    @GetMapping("/sessions")
+    public ResponseEntity<ApiResponse<java.util.List<com.web.ap_sports.dto.response.customer.UserSessionResponse>>> getActiveSessions(HttpServletRequest request) {
+        java.util.List<com.web.ap_sports.dto.response.customer.UserSessionResponse> sessions = customerAuthService.getActiveSessions(request);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách phiên thiết bị thành công.", sessions));
+    }
+
+    /**
+     * API Đăng xuất từ xa / Thu hồi phiên làm việc của một thiết bị.
+     * DELETE /api/v1/customer/auth/sessions/{deviceToken}
+     */
+    @DeleteMapping("/sessions/{deviceToken}")
+    public ResponseEntity<ApiResponse<Void>> revokeSession(@PathVariable("deviceToken") String deviceToken, HttpServletRequest request) {
+        customerAuthService.revokeSession(deviceToken, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã đăng xuất khỏi thiết bị thành công."));
     }
 
     /**
