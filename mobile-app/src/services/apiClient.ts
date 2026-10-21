@@ -1,7 +1,33 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { API_CONFIG } from '../config/api.config';
 import { TokenResponse } from '../types';
+
+const generateUUID = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
+let cachedDeviceId: string | null = null;
+
+export const getOrCreateDeviceId = async (): Promise<string> => {
+  if (cachedDeviceId) return cachedDeviceId;
+  try {
+    let deviceId = await SecureStore.getItemAsync('DEVICE_UNIQUE_ID');
+    if (!deviceId) {
+      deviceId = generateUUID();
+      await SecureStore.setItemAsync('DEVICE_UNIQUE_ID', deviceId);
+    }
+    cachedDeviceId = deviceId;
+    return deviceId;
+  } catch {
+    return 'mobile-client-default';
+  }
+};
 
 export const apiClient = axios.create({
   baseURL: API_CONFIG.BASE_URL,
@@ -30,7 +56,7 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-// 1. Request Interceptor: Tự động đính kèm Bearer Token từ SecureStore
+// 1. Request Interceptor: Tự động đính kèm Bearer Token & Device Identifier từ SecureStore
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
@@ -39,6 +65,13 @@ apiClient.interceptors.request.use(
       );
       if (accessToken && config.headers) {
         config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      const deviceId = await getOrCreateDeviceId();
+      if (config.headers) {
+        config.headers['X-Device-Id'] = deviceId;
+        config.headers['X-Device-OS'] = Platform.OS.toUpperCase();
+        config.headers['X-Device-Name'] = `Mobile App (${Platform.OS === 'ios' ? 'iOS' : 'Android'})`;
       }
     } catch {
       // Bỏ qua lỗi đọc SecureStore nếu môi trường chưa sẵn sàng
@@ -83,6 +116,7 @@ apiClient.interceptors.response.use(
           return Promise.reject(error);
         }
 
+        const deviceId = await getOrCreateDeviceId();
         // Gọi API refresh token riêng biệt không qua interceptor
         const res = await axios.post<{ data: TokenResponse }>(
           `${API_CONFIG.BASE_URL}/customer/auth/refresh`,
@@ -91,6 +125,9 @@ apiClient.interceptors.response.use(
             headers: {
               'Content-Type': 'application/json',
               'X-Client-Type': API_CONFIG.CLIENT_TYPE,
+              'X-Device-Id': deviceId,
+              'X-Device-OS': Platform.OS.toUpperCase(),
+              'Bypass-Tunnel-Reminder': 'true',
             },
           }
         );

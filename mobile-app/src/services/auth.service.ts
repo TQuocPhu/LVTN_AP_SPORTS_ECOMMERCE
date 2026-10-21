@@ -38,6 +38,26 @@ export const authService = {
   },
 
   /**
+   * Lấy danh sách các thiết bị/phiên đang đăng nhập của tài khoản
+   */
+  async getActiveSessions(): Promise<import('../types').UserSession[]> {
+    const res = await apiClient.get<ApiResponse<import('../types').UserSession[]>>(
+      '/customer/auth/sessions'
+    );
+    return res.data.data || [];
+  },
+
+  /**
+   * Đăng xuất khỏi một thiết bị cụ thể từ xa
+   */
+  async revokeSession(deviceToken: string): Promise<string> {
+    const res = await apiClient.delete<ApiResponse<void>>(
+      `/customer/auth/sessions/${deviceToken}`
+    );
+    return res.data.message;
+  },
+
+  /**
    * Đăng xuất
    */
   async logout(): Promise<void> {

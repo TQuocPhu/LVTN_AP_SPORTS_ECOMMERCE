@@ -160,3 +160,15 @@ export interface ShippingAddress {
   isDefault: boolean;
 }
 
+export interface UserSession {
+  id: number;
+  deviceToken: string;
+  deviceName?: string;
+  osType?: string;
+  lastIp?: string;
+  createdAt?: string;
+  lastActiveAt?: string;
+  currentDevice?: boolean;
+}
+
+
