@@ -2,14 +2,15 @@ import { Platform } from 'react-native';
 
 /**
  * Cấu hình kết nối API Server Backend AP Sports (Spring Boot).
- * - Kết nối trực tiếp qua IP LAN: Ổn định 100%, không bao giờ bị lỗi 503 hết hạn tunnel.
- * - Khi cần test qua 4G ngoài đường: Chạy `npx localtunnel --port 8080 --subdomain apsports-api-dev` và bật lại TUNNEL_URL.
+ * - Nạp tự động từ file .env qua biến EXPO_PUBLIC_LOCAL_IP, EXPO_PUBLIC_TUNNEL_URL
+ * - Khi đổi mạng Wi-Fi: Bạn chỉ cần sửa IP trong mobile-app/.env cực kỳ tiện lợi.
  */
-const TUNNEL_URL = ''; // Để trống để dùng trực tiếp IP máy tính
-const LOCAL_IP = '10.10.13.107';
+const TUNNEL_URL = process.env.EXPO_PUBLIC_TUNNEL_URL || '';
+const LOCAL_IP = process.env.EXPO_PUBLIC_LOCAL_IP || '10.127.179.146';
+const BACKEND_PORT = process.env.EXPO_PUBLIC_BACKEND_PORT || '8080';
 
 export const API_CONFIG = {
-  BASE_URL: TUNNEL_URL || `http://${LOCAL_IP}:8080/api/v1`,
+  BASE_URL: process.env.EXPO_PUBLIC_API_URL || TUNNEL_URL || `http://${LOCAL_IP}:${BACKEND_PORT}/api/v1`,
   TIMEOUT: 15000,
   CLIENT_TYPE: 'mobile',
   STORAGE_KEYS: {
