@@ -68,5 +68,15 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
         @org.springframework.data.repository.query.Param("keyword") String keyword,
         org.springframework.data.domain.Pageable pageable
     );
+
+    /**
+     * Tìm Top sản phẩm đang kinh doanh theo từ khóa tên phục vụ Pre-filtering context cho AI
+     */
+    List<Product> findTop6ByStatusAndNameContainingIgnoreCaseOrderByIdDesc(String status, String name);
+
+    /**
+     * Lấy Top sản phẩm mới nhất đang kinh doanh khi người dùng hỏi chung chung
+     */
+    List<Product> findTop6ByStatusOrderByIdDesc(String status);
 }
 
