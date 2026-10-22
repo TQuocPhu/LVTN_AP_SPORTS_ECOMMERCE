@@ -2,10 +2,10 @@ import { Platform } from 'react-native';
 
 /**
  * Cấu hình kết nối API Server Backend AP Sports (Spring Boot).
- * Sử dụng HTTPS Tunnel URL để điện thoại truy cập mượt mà từ bất kỳ mạng nào
- * (WiFi quán Cafe/trường học có AP Isolation, 4G/5G).
+ * - Kết nối trực tiếp qua IP LAN: Ổn định 100%, không bao giờ bị lỗi 503 hết hạn tunnel.
+ * - Khi cần test qua 4G ngoài đường: Chạy `npx localtunnel --port 8080 --subdomain apsports-api-dev` và bật lại TUNNEL_URL.
  */
-const TUNNEL_URL = 'https://apsports-api-dev.loca.lt/api/v1';
+const TUNNEL_URL = ''; // Để trống để dùng trực tiếp IP máy tính
 const LOCAL_IP = '10.10.13.107';
 
 export const API_CONFIG = {
