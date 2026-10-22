@@ -34,6 +34,11 @@ export function useSportsAdvisor(activeProductSlug?: string) {
   const [guestToken, setGuestToken] = useState<string>('');
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedHistoryRef = useRef(false);
+
+  useEffect(() => {
+    hasLoadedHistoryRef.current = false;
+  }, [guestToken]);
 
   // Khởi tạo guestToken nếu chưa đăng nhập và tải lịch sử tin nhắn
   useEffect(() => {
@@ -50,30 +55,34 @@ export function useSportsAdvisor(activeProductSlug?: string) {
 
   // Tải lịch sử chat khi mở widget
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !guestToken || hasLoadedHistoryRef.current) return;
 
     let isMounted = true;
     async function loadHistory() {
       try {
         const res = await customerAiController.getChatHistory(guestToken);
-        if (res?.data && res.data.length > 0 && isMounted) {
-          const mapped: ChatMessageItem[] = res.data.map((m) => ({
-            id: String(m.id),
-            sender: m.sender === 'user' ? 'user' : 'bot',
-            text: m.message,
-            timestamp: m.createdAt,
-          }));
-          setMessages(mapped);
-        } else if (isMounted && messages.length === 0) {
-          // Lời chào mặc định đầu tiên
-          setMessages([
-            {
-              id: 'welcome',
-              sender: 'bot',
-              text: 'Dạ AP Sports xin chào anh/chị! Em là Trợ lý Chuyên gia Thể thao AI. Em có thể hỗ trợ anh/chị chọn size chuẩn xác (theo chiều cao, cân nặng, form chân) hoặc tư vấn trang bị thể thao phù hợp nhất hôm nay ạ!',
-              timestamp: new Date().toISOString(),
-            },
-          ]);
+        if (isMounted) {
+          hasLoadedHistoryRef.current = true;
+          if (res?.data && res.data.length > 0) {
+            const mapped: ChatMessageItem[] = res.data.map((m) => ({
+              id: String(m.id),
+              sender: m.sender === 'user' ? 'user' : 'bot',
+              text: m.message,
+              timestamp: m.createdAt,
+              suggestedProducts: m.suggestedProducts || [],
+            }));
+            setMessages(mapped);
+          } else if (messages.length === 0) {
+            // Lời chào mặc định đầu tiên
+            setMessages([
+              {
+                id: 'welcome',
+                sender: 'bot',
+                text: 'Dạ AP Sports xin chào anh/chị! Em là Trợ lý Chuyên gia Thể thao AI. Em có thể hỗ trợ anh/chị chọn size chuẩn xác (theo chiều cao, cân nặng, form chân) hoặc tư vấn trang bị thể thao phù hợp nhất hôm nay ạ!',
+                timestamp: new Date().toISOString(),
+              },
+            ]);
+          }
         }
       } catch (err) {
         // Fallback lời chào

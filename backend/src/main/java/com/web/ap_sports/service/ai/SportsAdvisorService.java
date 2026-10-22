@@ -2,7 +2,7 @@ package com.web.ap_sports.service.ai;
 
 import com.web.ap_sports.dto.request.ai.AiSportsAdvisorRequest;
 import com.web.ap_sports.dto.response.ai.AiSportsAdvisorResponse;
-import com.web.ap_sports.entity.ChatMessage;
+import com.web.ap_sports.dto.response.ai.ChatMessageResponse;
 import com.web.ap_sports.entity.User;
 
 import java.util.List;
@@ -18,7 +18,7 @@ public interface SportsAdvisorService {
     AiSportsAdvisorResponse advise(AiSportsAdvisorRequest request, User currentUser);
 
     /**
-     * Lấy toàn bộ lịch sử tư vấn của khách hàng hiện tại
+     * Lấy toàn bộ lịch sử tư vấn của khách hàng hiện tại kèm sản phẩm gợi ý
      */
-    List<ChatMessage> getChatHistory(User currentUser, String guestToken);
+    List<ChatMessageResponse> getChatHistory(User currentUser, String guestToken);
 }

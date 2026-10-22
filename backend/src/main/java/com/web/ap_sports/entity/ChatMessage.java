@@ -39,6 +39,9 @@ public class ChatMessage {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String message;
 
+    @Column(name = "suggested_products_json", columnDefinition = "TEXT")
+    private String suggestedProductsJson;
+
     @Column(name = "is_read", nullable = false)
     private boolean isRead;
 

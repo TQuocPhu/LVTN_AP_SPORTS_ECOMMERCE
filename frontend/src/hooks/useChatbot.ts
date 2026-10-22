@@ -52,6 +52,7 @@ export function useChatbot() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [guestToken, setGuestToken] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const hasLoadedHistoryRef = useRef(false);
 
   // Tạo và lưu guestToken cho khách vãng lai
   useEffect(() => {
@@ -86,22 +87,31 @@ export function useChatbot() {
     };
   }, []);
 
-  // Tải lịch sử hội thoại từ CSDL khi mở widget
+  // Reset cờ khi guestToken thay đổi
   useEffect(() => {
-    if (!isOpen || !guestToken) return;
+    hasLoadedHistoryRef.current = false;
+  }, [guestToken]);
+
+  // Tải lịch sử hội thoại từ CSDL khi mở widget lần đầu
+  useEffect(() => {
+    if (!isOpen || !guestToken || hasLoadedHistoryRef.current) return;
 
     let isMounted = true;
     customerAiController
       .getChatHistory(guestToken)
       .then((res) => {
-        if (isMounted && res?.data && res.data.length > 0) {
-          const loaded: ChatMessage[] = res.data.map((m) => ({
-            id: `msg-${m.id}`,
-            sender: m.sender === 'user' ? 'user' : 'bot',
-            text: m.message,
-            timestamp: 'Gần đây',
-          }));
-          setMessages(loaded);
+        if (isMounted) {
+          hasLoadedHistoryRef.current = true;
+          if (res?.data && res.data.length > 0) {
+            const loaded: ChatMessage[] = res.data.map((m) => ({
+              id: `msg-${m.id}`,
+              sender: m.sender === 'user' ? 'user' : 'bot',
+              text: m.message,
+              timestamp: 'Gần đây',
+              suggestedProducts: m.suggestedProducts || [],
+            }));
+            setMessages(loaded);
+          }
         }
       })
       .catch(() => {});

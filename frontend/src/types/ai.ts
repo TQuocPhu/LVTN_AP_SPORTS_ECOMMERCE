@@ -27,6 +27,7 @@ export interface ChatMessageDto {
   sender: 'user' | 'bot' | 'staff';
   message: string;
   createdAt: string;
+  suggestedProducts?: SuggestedProduct[];
 }
 
 // 2. Types cho Agent 2: AI Product Content Creator

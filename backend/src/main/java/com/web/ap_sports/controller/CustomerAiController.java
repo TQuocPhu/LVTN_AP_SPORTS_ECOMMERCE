@@ -3,6 +3,7 @@ package com.web.ap_sports.controller;
 import com.web.ap_sports.dto.request.ai.AiSportsAdvisorRequest;
 import com.web.ap_sports.dto.response.ai.AiReviewSummaryResponse;
 import com.web.ap_sports.dto.response.ai.AiSportsAdvisorResponse;
+import com.web.ap_sports.dto.response.ai.ChatMessageResponse;
 import com.web.ap_sports.dto.response.ApiResponse;
 import com.web.ap_sports.entity.ChatMessage;
 import com.web.ap_sports.entity.User;
@@ -44,15 +45,15 @@ public class CustomerAiController {
     }
 
     /**
-     * Lấy toàn bộ lịch sử hội thoại tư vấn
+     * Lấy toàn bộ lịch sử hội thoại tư vấn kèm danh sách sản phẩm gợi ý
      */
     @GetMapping("/advisor/history")
-    public ResponseEntity<ApiResponse<List<ChatMessage>>> getChatHistory(
+    public ResponseEntity<ApiResponse<List<ChatMessageResponse>>> getChatHistory(
             @RequestParam(required = false) String guestToken,
             Authentication authentication
     ) {
         User currentUser = resolveUser(authentication);
-        List<ChatMessage> history = sportsAdvisorService.getChatHistory(currentUser, guestToken);
+        List<ChatMessageResponse> history = sportsAdvisorService.getChatHistory(currentUser, guestToken);
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử hội thoại thành công", history));
     }
 

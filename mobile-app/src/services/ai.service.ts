@@ -18,6 +18,7 @@ export interface ChatMessageMobile {
   sender: 'user' | 'bot';
   text: string;
   timestamp: string;
+  suggestedProducts?: SuggestedProductMobile[];
 }
 
 /**
@@ -56,6 +57,7 @@ export const aiService = {
       sender: item.sender === 'user' ? 'user' : 'bot',
       text: item.message,
       timestamp: item.createdAt,
+      suggestedProducts: item.suggestedProducts || [],
     }));
   },
 };

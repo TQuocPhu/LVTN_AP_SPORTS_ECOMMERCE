@@ -3,6 +3,7 @@ package com.web.ap_sports.service.ai.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.web.ap_sports.dto.request.ai.AiSportsAdvisorRequest;
 import com.web.ap_sports.dto.response.ai.AiSportsAdvisorResponse;
+import com.web.ap_sports.dto.response.ai.ChatMessageResponse;
 import com.web.ap_sports.entity.ChatMessage;
 import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductVariant;
@@ -95,12 +96,12 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
         cleanReply = cleanReply.replaceAll("\\[([^\\]]+)\\]\\([^\\)]+\\)", "$1");
         cleanReply = cleanReply.replace("**", "").trim();
 
-        // 6. Lưu tin nhắn sạch vào cơ sở dữ liệu chat_messages
-        saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken());
-        saveChatMessage(cleanReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken());
-
-        // 7. Tạo danh sách SuggestedProduct để Client render thẻ sản phẩm trực quan bên dưới
+        // 6. Tạo danh sách SuggestedProduct để Client render thẻ sản phẩm trực quan bên dưới
         List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts = extractSuggestedProducts(relevantProducts, allInStockProducts, cleanReply, cleanQuestion);
+
+        // 7. Lưu tin nhắn sạch vào cơ sở dữ liệu chat_messages kèm sản phẩm gợi ý của bot
+        saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null);
+        saveChatMessage(cleanReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(), suggestedProducts);
 
         return AiSportsAdvisorResponse.builder()
                 .reply(cleanReply)
@@ -110,14 +111,39 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ChatMessage> getChatHistory(User currentUser, String guestToken) {
+    public List<ChatMessageResponse> getChatHistory(User currentUser, String guestToken) {
+        List<ChatMessage> entities;
         if (currentUser != null) {
-            return chatMessageRepository.findByUserIdOrderByCreatedAtAsc(currentUser.getId());
+            entities = chatMessageRepository.findByUserIdOrderByCreatedAtAsc(currentUser.getId());
+        } else if (guestToken != null && !guestToken.isBlank()) {
+            entities = chatMessageRepository.findByGuestTokenOrderByCreatedAtAsc(guestToken.trim());
+        } else {
+            return Collections.emptyList();
         }
-        if (guestToken != null && !guestToken.isBlank()) {
-            return chatMessageRepository.findByGuestTokenOrderByCreatedAtAsc(guestToken.trim());
+
+        return entities.stream().map(this::toChatMessageResponse).toList();
+    }
+
+    private ChatMessageResponse toChatMessageResponse(ChatMessage entity) {
+        List<AiSportsAdvisorResponse.SuggestedProduct> products = null;
+        if (entity.getSuggestedProductsJson() != null && !entity.getSuggestedProductsJson().isBlank()) {
+            try {
+                products = objectMapper.readValue(
+                        entity.getSuggestedProductsJson(),
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, AiSportsAdvisorResponse.SuggestedProduct.class)
+                );
+            } catch (Exception e) {
+                log.warn("Không thể parse suggestedProductsJson cho message id {}: {}", entity.getId(), e.getMessage());
+            }
         }
-        return Collections.emptyList();
+        return ChatMessageResponse.builder()
+                .id(entity.getId())
+                .sender(entity.getSender() != null ? entity.getSender().name() : "bot")
+                .message(entity.getMessage())
+                .isRead(entity.isRead())
+                .createdAt(entity.getCreatedAt())
+                .suggestedProducts(products)
+                .build();
     }
 
     /**
@@ -278,14 +304,19 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                 """.formatted(productContextJson);
     }
 
-    private void saveChatMessage(String message, ChatMessage.ChatSender sender, User user, String guestToken) {
+    private void saveChatMessage(String message, ChatMessage.ChatSender sender, User user, String guestToken, List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts) {
         if (message == null || message.isBlank()) return;
         try {
+            String json = null;
+            if (suggestedProducts != null && !suggestedProducts.isEmpty()) {
+                json = objectMapper.writeValueAsString(suggestedProducts);
+            }
             ChatMessage chatMessage = ChatMessage.builder()
                     .user(user)
                     .guestToken(user == null ? guestToken : null)
                     .sender(sender)
                     .message(message)
+                    .suggestedProductsJson(json)
                     .isRead(false)
                     .build();
             chatMessageRepository.save(chatMessage);
