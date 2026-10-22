@@ -96,6 +96,7 @@ public class SecurityConfig {
                         "/api/v1/reviews/product/**",
                         "/api/v1/reviews/summary/**",
                         "/api/v1/demo/logistics/auth/login",
+                        "/api/v1/demo/logistics/auth/refresh",
                         "/api/v1/customer/ai/**",
                         "/ws/**",
                         "/h2-console/**"

@@ -67,6 +67,9 @@ export function useChatbot() {
 
   // Kiểm tra tài khoản Quản trị viên (ADMIN) - Nếu là Admin thì ẩn hoàn toàn Chatbot
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
+      return;
+    }
     let isMounted = true;
     adminAuthController
       .getCurrentAdmin()

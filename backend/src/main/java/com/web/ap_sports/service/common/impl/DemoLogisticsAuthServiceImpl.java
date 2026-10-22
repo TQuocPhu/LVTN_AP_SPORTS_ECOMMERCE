@@ -113,6 +113,55 @@ public class DemoLogisticsAuthServiceImpl implements DemoLogisticsAuthService {
         log.info("GHN Logistics đăng xuất thành công.");
     }
 
+    @Override
+    @Transactional
+    public void refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        String rawToken = CookieUtils.extractCookieValue(request, CookieUtils.REFRESH_TOKEN_COOKIE_NAME);
+        if (rawToken == null || rawToken.isBlank()) {
+            throw new SecurityException("Refresh Token không tồn tại trong Cookie.");
+        }
+
+        String hashedToken = jwtTokenProvider.hashRefreshToken(rawToken);
+        RefreshToken refreshTokenEntity = refreshTokenRepository.findByToken(hashedToken)
+                .orElseThrow(() -> new SecurityException("Refresh Token không hợp lệ hoặc đã bị thu hồi."));
+
+        if (refreshTokenEntity.isRevoked() || refreshTokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new SecurityException("Refresh Token đã hết hạn hoặc bị thu hồi.");
+        }
+
+        User user = refreshTokenEntity.getUser();
+        if (user.getStatus() != UserStatus.active) {
+            throw new SecurityException("Tài khoản nhân sự GHN không hoạt động.");
+        }
+
+        String role = user.getRole().getName();
+        if (!"GHN_STATION".equalsIgnoreCase(role) && !"GHN_SHIPPER".equalsIgnoreCase(role)) {
+            throw new SecurityException("Bạn không có quyền truy cập vào cổng Logistics!");
+        }
+
+        // 1. Thu hồi token cũ (Refresh Token Rotation)
+        refreshTokenEntity.setRevoked(true);
+        refreshTokenRepository.save(refreshTokenEntity);
+
+        // 2. Sinh cặp token mới
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), role);
+        String newRawRefreshToken = jwtTokenProvider.generateRawRefreshToken();
+        String newHashedRefreshToken = jwtTokenProvider.hashRefreshToken(newRawRefreshToken);
+
+        RefreshToken newEntity = RefreshToken.builder()
+                .user(user)
+                .token(newHashedRefreshToken)
+                .expiresAt(LocalDateTime.now().plusWeeks(1))
+                .revoked(false)
+                .build();
+        refreshTokenRepository.save(newEntity);
+
+        // 3. Cập nhật HttpOnly cookies
+        CookieUtils.addTokenCookie(response, CookieUtils.ACCESS_TOKEN_COOKIE_NAME, newAccessToken, CookieUtils.ACCESS_TOKEN_MAX_AGE);
+        CookieUtils.addTokenCookie(response, CookieUtils.REFRESH_TOKEN_COOKIE_NAME, newRawRefreshToken, CookieUtils.REFRESH_TOKEN_MAX_AGE);
+        log.info("Xoay vòng Refresh Token (Rotation) thành công cho nhân sự GHN: {}", user.getEmail());
+    }
+
     private UserResponse mapToUserResponse(User user) {
         List<String> permissions = rolePermissionRepository.findByRole(user.getRole())
                 .stream()

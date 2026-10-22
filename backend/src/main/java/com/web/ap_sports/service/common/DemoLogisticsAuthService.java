@@ -9,4 +9,5 @@ public interface DemoLogisticsAuthService {
     UserResponse login(AdminLoginRequest request, HttpServletResponse response);
     UserResponse getCurrentUser(HttpServletRequest request);
     void logout(HttpServletRequest request, HttpServletResponse response);
+    void refreshToken(HttpServletRequest request, HttpServletResponse response);
 }

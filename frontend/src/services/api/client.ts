@@ -79,7 +79,13 @@ export async function apiClient<T>(
     if (!getIsRefreshing()) {
       setIsRefreshing(true);
       try {
-        const refreshRes = await fetch(`${BASE_URL}/customer/auth/refresh`, {
+        const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+        const isDemoRoute = currentPath.startsWith("/demo");
+        const refreshEndpoint = isDemoRoute
+          ? `${BASE_URL}/demo/logistics/auth/refresh`
+          : `${BASE_URL}/customer/auth/refresh`;
+
+        const refreshRes = await fetch(refreshEndpoint, {
           method: "POST",
           credentials: "include",
           headers: { "X-Client-Type": "web" },
@@ -96,8 +102,9 @@ export async function apiClient<T>(
           eraseCookie("accessToken");
           eraseCookie("refreshToken");
           if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
-            const currentPath = window.location.pathname;
-            if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
+            if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
+              window.location.href = `/demo/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+            } else if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
               window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
             } else {
               const isProtectedRoute = [
@@ -119,7 +126,9 @@ export async function apiClient<T>(
         eraseCookie("refreshToken");
         if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
           const currentPath = window.location.pathname;
-          if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
+          if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
+            window.location.href = `/demo/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+          } else if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
             window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
           } else {
             const isProtectedRoute = [

@@ -77,6 +77,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Lấy user hiện tại từ Cookie – chạy 1 lần khi app khởi động
   const fetchCurrentUser = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);

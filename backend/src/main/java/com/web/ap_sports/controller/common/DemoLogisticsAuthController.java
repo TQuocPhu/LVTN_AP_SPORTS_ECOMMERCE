@@ -34,6 +34,12 @@ public class DemoLogisticsAuthController {
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin Logistics thành công.", userResponse));
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<Void>> refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        authService.refreshToken(request, response);
+        return ResponseEntity.ok(ApiResponse.success("Làm mới phiên làm việc Logistics thành công!", null));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request, HttpServletResponse response) {
         authService.logout(request, response);

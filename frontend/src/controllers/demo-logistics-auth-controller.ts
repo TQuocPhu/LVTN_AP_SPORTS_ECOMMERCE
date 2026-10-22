@@ -10,6 +10,10 @@ export const demoLogisticsAuthController = {
     return apiClient.get<ApiResponse<UserResponse>>('/demo/logistics/auth/me', { suppressErrorToast: true, timeoutMs: 4000 });
   },
 
+  async refreshToken(): Promise<ApiResponse<void>> {
+    return apiClient.post<ApiResponse<void>>('/demo/logistics/auth/refresh', {});
+  },
+
   async logout(): Promise<ApiResponse<void>> {
     return apiClient.post<ApiResponse<void>>('/demo/logistics/auth/logout', {});
   },
