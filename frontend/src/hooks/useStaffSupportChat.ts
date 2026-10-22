@@ -11,6 +11,8 @@ import {
   CreateSupportReportRequest,
 } from '@/types/support-chat';
 
+import { adminAiController } from '@/controllers/admin-ai-controller';
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 const BASE_WS_URL = BASE_URL.replace('/api/v1', '/ws');
 
@@ -29,6 +31,10 @@ export function useStaffSupportChat() {
   // Input & Modal Zoom ảnh chat
   const [chatInputText, setChatInputText] = useState('');
   const [previewImageModalUrl, setPreviewImageModalUrl] = useState<string | null>(null);
+
+  // AI Smart Reply states (Agent 5)
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
 
   // Loading & Error states
   const [isLoadingQueue, setIsLoadingQueue] = useState(false);
@@ -433,6 +439,37 @@ export function useStaffSupportChat() {
     }
   };
 
+  /**
+   * Gọi AI sinh gợi ý 3 câu trả lời nhanh theo ngữ cảnh tin nhắn gần nhất
+   */
+  const handleFetchAiSuggestions = useCallback(async () => {
+    if (!messages || messages.length === 0) return;
+    setIsLoadingAiSuggestions(true);
+    try {
+      const recentTextMessages = messages
+        .filter((m) => m.content && m.content.trim().length > 0)
+        .slice(-5)
+        .map((m) => `${m.senderRole === 'CUSTOMER' ? 'Khách' : 'Nhân viên'}: ${m.content}`);
+
+      const res = await adminAiController.suggestChatReplies({
+        recentMessages: recentTextMessages,
+        customerName: activeConversation?.customerName,
+      });
+
+      if (res?.data?.suggestions) {
+        setAiSuggestions(res.data.suggestions);
+      }
+    } catch (err: any) {
+      console.warn('Lỗi tải gợi ý câu trả lời AI:', err?.message);
+    } finally {
+      setIsLoadingAiSuggestions(false);
+    }
+  }, [messages, activeConversation]);
+
+  const handleApplyAiSuggestion = useCallback((suggestion: string) => {
+    setChatInputText(suggestion);
+  }, []);
+
   return {
     user,
     // Hàng đợi & ca
@@ -455,6 +492,11 @@ export function useStaffSupportChat() {
     resolveConversation,
     refreshQueue: loadConversations,
     loadHistoryConversations,
+    // AI Smart Reply (Agent 5)
+    aiSuggestions,
+    isLoadingAiSuggestions,
+    handleFetchAiSuggestions,
+    handleApplyAiSuggestion,
     // Chat input & image upload
     chatInputText,
     setChatInputText,

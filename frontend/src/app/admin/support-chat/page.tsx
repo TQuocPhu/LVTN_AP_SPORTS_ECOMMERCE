@@ -57,6 +57,11 @@ export default function AdminSupportChatPage() {
     isResolveModalOpen,
     openResolveModal,
     closeResolveModal,
+    // AI Smart Reply (Agent 5)
+    aiSuggestions,
+    isLoadingAiSuggestions,
+    handleFetchAiSuggestions,
+    handleApplyAiSuggestion,
   } = useStaffSupportChat();
 
   // Kiểm tra quyền SUPPORT_LIVE_CHAT hoặc ADMIN
@@ -114,6 +119,10 @@ export default function AdminSupportChatPage() {
         isResolving={isResolving}
         selectedImagePreview={selectedImagePreview}
         messagesEndRef={messagesEndRef}
+        aiSuggestions={aiSuggestions}
+        isLoadingAiSuggestions={isLoadingAiSuggestions}
+        onFetchAiSuggestions={handleFetchAiSuggestions}
+        onApplyAiSuggestion={handleApplyAiSuggestion}
         onInputChange={(e) => setChatInputText(e.target.value)}
         onOpenPreviewModal={(url) => setPreviewImageModalUrl(url)}
         onClosePreviewModal={() => setPreviewImageModalUrl(null)}

@@ -10,6 +10,9 @@ import {
   Loader2,
   Maximize2,
   MessageSquareOff,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { SupportConversation, SupportMessage } from '@/types/support-chat';
 
@@ -24,6 +27,11 @@ interface Props {
   isResolving: boolean;
   selectedImagePreview: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  // AI Smart Reply props (Agent 5)
+  aiSuggestions?: string[];
+  isLoadingAiSuggestions?: boolean;
+  onFetchAiSuggestions?: () => void;
+  onApplyAiSuggestion?: (suggestion: string) => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onOpenPreviewModal: (url: string | null) => void;
   onClosePreviewModal: () => void;
@@ -45,6 +53,10 @@ export default function SupportChatRoomUI({
   isResolving,
   selectedImagePreview,
   messagesEndRef,
+  aiSuggestions,
+  isLoadingAiSuggestions,
+  onFetchAiSuggestions,
+  onApplyAiSuggestion,
   onInputChange,
   onOpenPreviewModal,
   onClosePreviewModal,
@@ -54,6 +66,14 @@ export default function SupportChatRoomUI({
   onOpenResolveModal,
   onOpenReportModal,
 }: Props) {
+  const [isAiSuggestionsOpen, setIsAiSuggestionsOpen] = React.useState(true);
+
+  React.useEffect(() => {
+    if (aiSuggestions && aiSuggestions.length > 0) {
+      setIsAiSuggestionsOpen(true);
+    }
+  }, [aiSuggestions]);
+
   if (!conversation) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 text-slate-500">
@@ -69,7 +89,7 @@ export default function SupportChatRoomUI({
   const isClosed = conversation.status === 'RESOLVED' || conversation.status === 'CLOSED';
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 relative">
+    <div className="flex-1 min-w-0 flex flex-col h-full bg-slate-50 relative overflow-hidden">
       {/* Room Header */}
       <header className="p-3.5 px-4 bg-white border-b border-slate-200 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-3">
@@ -283,6 +303,72 @@ export default function SupportChatRoomUI({
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+      )}
+
+      {/* Thanh gợi ý câu trả lời thông minh của AI (Agent 5) - Tách từng dòng, wrap tự nhiên, không tràn layout */}
+      {!isClosed && (
+        <div className="px-3.5 py-2.5 bg-gradient-to-b from-indigo-50/70 to-slate-50 border-t border-indigo-100/80 w-full min-w-0 transition-all">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={onFetchAiSuggestions}
+                disabled={isLoadingAiSuggestions}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-2xs disabled:opacity-50 cursor-pointer shrink-0"
+                title="Bấm để AI đọc ngữ cảnh cuộc trò chuyện và tạo 3 phương án trả lời"
+              >
+                <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isLoadingAiSuggestions ? 'animate-spin' : ''}`} />
+                <span>{isLoadingAiSuggestions ? 'Đang tạo câu trả lời...' : '✨ AI Gợi Ý'}</span>
+              </button>
+              <span className="text-[11px] text-slate-500 font-medium truncate">
+                {aiSuggestions && aiSuggestions.length > 0
+                  ? 'Gợi ý phản hồi nhanh (nhấp để chọn):'
+                  : 'Bấm nút để AI phân tích tin nhắn và gợi ý 3 phương án trả lời'}
+              </span>
+            </div>
+
+            {aiSuggestions && aiSuggestions.length > 0 && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                  {aiSuggestions.length} phương án
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsAiSuggestionsOpen(!isAiSuggestionsOpen)}
+                  className="p-1 rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title={isAiSuggestionsOpen ? 'Thu gọn' : 'Mở rộng'}
+                >
+                  {isAiSuggestionsOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Danh sách 3 câu trả lời tách thành từng dòng riêng biệt, tự wrap không vỡ giao diện */}
+          {aiSuggestions && aiSuggestions.length > 0 && isAiSuggestionsOpen && (
+            <div className="flex flex-col gap-1.5 mt-2.5 w-full min-w-0 max-h-48 overflow-y-auto pr-1">
+              {aiSuggestions.map((sug, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onApplyAiSuggestion && onApplyAiSuggestion(sug)}
+                  className="w-full text-left p-2.5 rounded-lg bg-white border border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50/70 text-slate-700 hover:text-indigo-950 transition-all shadow-2xs flex items-start gap-2.5 group cursor-pointer min-w-0"
+                  title="Nhấp để áp dụng câu trả lời vào ô soạn thảo"
+                >
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0 mt-0.5">
+                    Gợi ý {idx + 1}
+                  </span>
+                  <span className="text-xs leading-relaxed whitespace-normal break-words flex-1 min-w-0 font-normal text-slate-700 group-hover:text-slate-900">
+                    {sug}
+                  </span>
+                  <span className="text-[10px] font-semibold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+                    Chọn ↵
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
