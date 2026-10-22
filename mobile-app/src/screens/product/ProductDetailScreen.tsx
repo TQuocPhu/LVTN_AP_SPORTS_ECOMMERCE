@@ -23,6 +23,7 @@ import { SizeGuideModal } from '../../components/product/SizeGuideModal';
 import { RestockModal } from '../../components/product/RestockModal';
 import { ProductDescriptionSection } from '../../components/product/ProductDescriptionSection';
 import { ProductReviewsSection } from '../../components/product/ProductReviewsSection';
+import { AiSportsAdvisorModal } from '../../components/product/AiSportsAdvisorModal';
 
 export const ProductDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -60,6 +61,8 @@ export const ProductDetailScreen: React.FC = () => {
     handleAddToCart,
     handleSubscribeRestock,
   } = useProductDetail(slug, initialProduct);
+
+  const [isAiAdvisorVisible, setIsAiAdvisorVisible] = React.useState(false);
 
   if (loading) {
     return (
@@ -158,6 +161,21 @@ export const ProductDetailScreen: React.FC = () => {
             onOpenSizeGuide={() => setIsSizeGuideVisible(true)}
           />
 
+          {/* Nút Tư Vấn Chọn Size Cùng AI Sports Advisor */}
+          <TouchableOpacity
+            style={styles.aiAdvisorBtn}
+            activeOpacity={0.85}
+            onPress={() => setIsAiAdvisorVisible(true)}
+          >
+            <View style={styles.aiAdvisorBtnLeft}>
+              <View style={styles.aiAdvisorIconBox}>
+                <Ionicons name="sparkles" size={14} color="#fff" />
+              </View>
+              <Text style={styles.aiAdvisorBtnText}>Tư vấn chọn size cùng AI Advisor</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
+          </TouchableOpacity>
+
           <View style={styles.divider} />
 
           {/* Product Description (Tự động lọc mã HTML sang text định dạng sạch) */}
@@ -226,6 +244,14 @@ export const ProductDetailScreen: React.FC = () => {
         onSubmit={handleSubscribeRestock}
         onClose={() => setIsRestockModalVisible(false)}
       />
+
+      {/* AI Sports Advisor Modal */}
+      <AiSportsAdvisorModal
+        visible={isAiAdvisorVisible}
+        onClose={() => setIsAiAdvisorVisible(false)}
+        productSlug={product.slug}
+        productName={product.name}
+      />
     </View>
   );
 };
@@ -234,6 +260,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  aiAdvisorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eef2ff',
+    borderWidth: 1,
+    borderColor: '#c7d2fe',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  aiAdvisorBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  aiAdvisorIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#4f46e5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiAdvisorBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3730a3',
   },
   centerBox: {
     alignItems: 'center',
