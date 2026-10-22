@@ -79,6 +79,7 @@ public class SecurityConfig {
                         "/api/v1/customer/vouchers/**",
                         "/api/v1/customer/orders/vnpay-return",
                         "/api/v1/admin/auth/login",
+                        "/api/v1/admin/auth/refresh",
                         "/api/v1/customer/auth/register",
                         "/api/v1/customer/auth/activate",
                         "/api/v1/customer/auth/login",

@@ -24,4 +24,9 @@ public interface AdminAuthService {
      * Xử lý đăng xuất khỏi Admin Portal.
      */
     void logout(HttpServletRequest request, HttpServletResponse response);
+
+    /**
+     * Xử lý xoay vòng Refresh Token (Rotation) dành riêng cho Quản trị viên (Admin/Staff).
+     */
+    void refreshToken(HttpServletRequest request, HttpServletResponse response);
 }

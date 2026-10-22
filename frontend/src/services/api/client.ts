@@ -81,8 +81,11 @@ export async function apiClient<T>(
       try {
         const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
         const isDemoRoute = currentPath.startsWith("/demo");
+        const isAdminRoute = currentPath.startsWith("/admin");
         const refreshEndpoint = isDemoRoute
           ? `${BASE_URL}/demo/logistics/auth/refresh`
+          : isAdminRoute
+          ? `${BASE_URL}/admin/auth/refresh`
           : `${BASE_URL}/customer/auth/refresh`;
 
         const refreshRes = await fetch(refreshEndpoint, {

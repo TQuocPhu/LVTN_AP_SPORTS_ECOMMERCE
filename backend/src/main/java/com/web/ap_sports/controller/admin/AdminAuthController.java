@@ -55,4 +55,14 @@ public class AdminAuthController {
         adminAuthService.logout(request, response);
         return ResponseEntity.ok(ApiResponse.success("Đăng xuất Admin thành công!"));
     }
+
+    /**
+     * API Làm mới phiên đăng nhập (Refresh Token Rotation) dành riêng cho Quản trị viên (Admin/Staff).
+     * POST /api/v1/admin/auth/refresh
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<Void>> refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        adminAuthService.refreshToken(request, response);
+        return ResponseEntity.ok(ApiResponse.success("Làm mới phiên làm việc Admin thành công!", null));
+    }
 }
