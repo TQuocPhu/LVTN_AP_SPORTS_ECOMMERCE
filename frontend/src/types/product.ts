@@ -1,4 +1,5 @@
 import { CategoryResponse } from './category';
+import { InventoryTransaction } from './inventory';
 
 export interface ProductVariant {
   id?: number;
@@ -42,6 +43,8 @@ export interface ProductDetail extends Product {
   specifications: Record<string, string>;
   variants: ProductVariant[];
   allImages: string[];
+  initialImportTicketCode?: string;
+  initialImportTransaction?: InventoryTransaction;
 }
 
 export interface CreateProductFormRequest {
@@ -56,6 +59,8 @@ export interface CreateProductFormRequest {
   mainImage?: string;
   specifications: Record<string, string>;
   variants: ProductVariant[];
+  supplierId?: number;
+  importNote?: string;
 }
 
 export interface UpdateProductFormRequest {

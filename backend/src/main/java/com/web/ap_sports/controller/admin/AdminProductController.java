@@ -12,12 +12,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/admin/products")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAuthority('MANAGE_PRODUCTS') or hasAnyRole('ADMIN', 'STAFF', 'WAREHOUSE_MANAGER')")
 public class AdminProductController {
 
     private final AdminProductService adminProductService;
@@ -37,8 +38,10 @@ public class AdminProductController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(
+            Authentication authentication,
             @Valid @RequestBody CreateProductRequest request) {
-        ProductDetailResponse created = adminProductService.createProduct(request);
+        String currentUserEmail = (authentication != null) ? authentication.getName() : null;
+        ProductDetailResponse created = adminProductService.createProduct(request, currentUserEmail);
         return ResponseEntity.ok(ApiResponse.success("Thêm sản phẩm thành công.", created));
     }
 

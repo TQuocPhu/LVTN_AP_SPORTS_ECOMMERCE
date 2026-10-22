@@ -11,17 +11,25 @@ import com.web.ap_sports.dto.response.common.CategoryResponse;
 import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
 import com.web.ap_sports.dto.response.common.VariantResponse;
+import com.web.ap_sports.dto.response.warehouse.InventoryTransactionResponse;
 import com.web.ap_sports.entity.Category;
+import com.web.ap_sports.entity.InventoryTransaction;
 import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductImage;
 import com.web.ap_sports.entity.ProductVariant;
+import com.web.ap_sports.entity.Supplier;
+import com.web.ap_sports.entity.User;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.CategoryRepository;
+import com.web.ap_sports.repository.InventoryTransactionRepository;
 import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ProductRepository;
 import com.web.ap_sports.repository.ProductVariantRepository;
+import com.web.ap_sports.repository.SupplierRepository;
+import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.admin.AdminProductService;
 import com.web.ap_sports.service.common.CloudinaryService;
+import com.web.ap_sports.service.warehouse.WarehouseInventoryService;
 import com.web.ap_sports.specification.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -48,6 +57,10 @@ public class AdminProductServiceImpl implements AdminProductService {
     private final ProductVariantRepository variantRepository;
     private final ProductImageRepository imageRepository;
     private final CategoryRepository categoryRepository;
+    private final UserRepository userRepository;
+    private final SupplierRepository supplierRepository;
+    private final InventoryTransactionRepository transactionRepository;
+    private final WarehouseInventoryService warehouseInventoryService;
     private final ObjectMapper objectMapper;
     private final CloudinaryService cloudinaryService;
 
@@ -85,7 +98,41 @@ public class AdminProductServiceImpl implements AdminProductService {
 
     @Override
     @Transactional
-    public ProductDetailResponse createProduct(CreateProductRequest request) {
+    public ProductDetailResponse createProduct(CreateProductRequest request, String currentUserEmail) {
+        // 1. Xác thực người dùng hiện tại & kiểm tra phân quyền bảo mật chặt chẽ
+        User currentUser = null;
+        if (StringUtils.hasText(currentUserEmail)) {
+            currentUser = userRepository.findByEmail(currentUserEmail).orElse(null);
+        }
+
+        boolean isStaff = currentUser != null && "STAFF".equalsIgnoreCase(currentUser.getRole().getName());
+        boolean hasInitialStock = request.getVariants() != null && request.getVariants().stream()
+                .anyMatch(v -> v.getStockQuantity() != null && v.getStockQuantity() > 0);
+
+        // BE VALIDATION: Chặn tuyệt đối quyền STAFF cố tình gửi số lượng kho hoặc supplierId
+        if (isStaff && (request.getSupplierId() != null || hasInitialStock)) {
+            throw new AppException("Tài khoản Nhân viên (Staff) không có quyền tự lập phiếu nhập kho ban đầu!", HttpStatus.FORBIDDEN);
+        }
+
+        // Nếu là Staff, cưỡng chế đặt toàn bộ tồn kho = 0 và supplierId = null
+        if (isStaff) {
+            if (request.getVariants() != null) {
+                request.getVariants().forEach(v -> v.setStockQuantity(0));
+            }
+            request.setSupplierId(null);
+            hasInitialStock = false;
+        }
+
+        // BE VALIDATION: Đối với Admin/Warehouse, nếu có nhập số lượng tồn kho > 0 thì BẮT BUỘC phải chọn Supplier
+        Supplier supplier = null;
+        if (!isStaff && hasInitialStock) {
+            if (request.getSupplierId() == null) {
+                throw new AppException("Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho cho sản phẩm mới!", HttpStatus.BAD_REQUEST);
+            }
+            supplier = supplierRepository.findById(request.getSupplierId())
+                    .orElseThrow(() -> new AppException("Nhà cung cấp đã chọn không tồn tại trên hệ thống!", HttpStatus.BAD_REQUEST));
+        }
+
         // Pre-upload all product images to Cloudinary IN PARALLEL before DB transaction logic
         uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
             if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
@@ -167,9 +214,49 @@ public class AdminProductServiceImpl implements AdminProductService {
         }
 
         // Save Variants and Variant Images
-        saveVariantsAndImages(savedProduct, request.getVariants(), true);
+        List<ProductVariant> savedVariants = saveVariantsAndImages(savedProduct, request.getVariants(), true);
 
-        return getProductById(savedProduct.getId());
+        // LẬP PHIẾU NHẬP KHO CHÍNH QUY (IMPORT INVENTORY TRANSACTION) NẾU CÓ KHỞI TẠO TỒN KHO
+        String ticketCode = null;
+        InventoryTransactionResponse initialImportTicket = null;
+        if (supplier != null && hasInitialStock && currentUser != null) {
+            ticketCode = generateTicketCode(InventoryTransaction.TransactionType.IMPORT);
+            List<InventoryTransaction> savedTxList = new ArrayList<>();
+            Map<String, ProductVariant> variantSkuMap = savedVariants.stream()
+                    .collect(Collectors.toMap(ProductVariant::getSku, v -> v));
+
+            for (VariantRequest vr : request.getVariants()) {
+                if (vr.getStockQuantity() != null && vr.getStockQuantity() > 0) {
+                    ProductVariant v = variantSkuMap.get(vr.getSku().trim());
+                    if (v != null) {
+                        InventoryTransaction tx = InventoryTransaction.builder()
+                                .code(ticketCode)
+                                .variant(v)
+                                .supplier(supplier)
+                                .type(InventoryTransaction.TransactionType.IMPORT)
+                                .quantity(vr.getStockQuantity())
+                                .unitCost(vr.getCostPrice() != null ? vr.getCostPrice() : BigDecimal.ZERO)
+                                .note(StringUtils.hasText(request.getImportNote())
+                                        ? request.getImportNote().trim()
+                                        : "Nhập kho ban đầu khi tạo sản phẩm: " + savedProduct.getName())
+                                .createdBy(currentUser)
+                                .build();
+                        savedTxList.add(transactionRepository.save(tx));
+                    }
+                }
+            }
+
+            if (!savedTxList.isEmpty()) {
+                initialImportTicket = warehouseInventoryService.getTransactionById(savedTxList.get(0).getId());
+                log.info("Đã tự động tạo phiếu nhập kho ban đầu [{}] cho sản phẩm ID={} gồm {} biến thể bởi {}",
+                        ticketCode, savedProduct.getId(), savedTxList.size(), currentUser.getEmail());
+            }
+        }
+
+        ProductDetailResponse detailResponse = getProductById(savedProduct.getId());
+        detailResponse.setInitialImportTicketCode(ticketCode);
+        detailResponse.setInitialImportTransaction(initialImportTicket);
+        return detailResponse;
     }
 
     @Override
@@ -357,7 +444,8 @@ public class AdminProductServiceImpl implements AdminProductService {
         productRepository.delete(product);
     }
 
-    private void saveVariantsAndImages(Product product, List<VariantRequest> variantRequests, boolean isCreate) {
+    private List<ProductVariant> saveVariantsAndImages(Product product, List<VariantRequest> variantRequests, boolean isCreate) {
+        List<ProductVariant> savedList = new ArrayList<>();
         for (VariantRequest vr : variantRequests) {
             String colorVal = StringUtils.hasText(vr.getColor()) ? vr.getColor().trim() : null;
             String sizeVal = StringUtils.hasText(vr.getSize()) ? vr.getSize().trim() : null;
@@ -375,6 +463,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                     .build();
 
             ProductVariant savedVariant = variantRepository.save(variant);
+            savedList.add(savedVariant);
 
             if (vr.getImages() != null) {
                 for (String imgPath : vr.getImages()) {
@@ -391,6 +480,14 @@ public class AdminProductServiceImpl implements AdminProductService {
                 }
             }
         }
+        return savedList;
+    }
+
+    private String generateTicketCode(InventoryTransaction.TransactionType type) {
+        String prefix = type == InventoryTransaction.TransactionType.IMPORT ? "PNK" : "PXK";
+        String timestamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        int randomSeq = (int) (Math.random() * 900) + 100;
+        return String.format("%s-%s-%d", prefix, timestamp, randomSeq);
     }
 
     private ProductResponse mapToProductResponse(Product product) {

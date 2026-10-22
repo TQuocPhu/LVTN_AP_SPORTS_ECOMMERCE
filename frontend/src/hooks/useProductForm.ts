@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminProductController } from '@/controllers/admin-product-controller';
 import { ProductVariant, CreateProductFormRequest, UpdateProductFormRequest } from '@/types/product';
+import { Supplier } from '@/types/inventory';
+import { supplierController } from '@/controllers/supplier-controller';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { isApiError } from '@/services/api-client';
 import { toast } from 'sonner';
 
@@ -19,6 +22,9 @@ export interface VariantAttributeGroup {
 
 export function useProductForm(productId?: number) {
   const isEdit = !!productId;
+  const { user } = useAdminAuth();
+  const canCreateImport = user?.roleName === 'ADMIN' || user?.roleName === 'WAREHOUSE_MANAGER';
+
   const [activeStep, setActiveStep] = useState<number>(0);
 
   // Form Fields
@@ -37,6 +43,13 @@ export function useProductForm(productId?: number) {
     { key: 'Xuất xứ', value: '' },
     { key: 'Thương hiệu', value: '' },
   ]);
+
+  // Initial Stock & Inbound Receipt State (Only available for ADMIN and WAREHOUSE_MANAGER)
+  const [hasInitialStock, setHasInitialStock] = useState<boolean>(canCreateImport);
+  const [supplierId, setSupplierId] = useState<number | undefined>(undefined);
+  const [importNote, setImportNote] = useState<string>('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loadingSuppliers, setLoadingSuppliers] = useState<boolean>(false);
 
   // Dynamic Variant Attribute Groups (Color, Size, Weight, Tension, etc.)
   const [attributeGroups, setAttributeGroups] = useState<VariantAttributeGroup[]>([
@@ -126,6 +139,26 @@ export function useProductForm(productId?: number) {
   useEffect(() => {
     fetchProductDetail();
   }, [fetchProductDetail]);
+
+  useEffect(() => {
+    if (!isEdit && canCreateImport) {
+      setLoadingSuppliers(true);
+      supplierController
+        .getSuppliersList()
+        .then((res: { data?: Supplier[] }) => {
+          if (res?.data && res.data.length > 0) {
+            setSuppliers(res.data);
+            setSupplierId((prev) => prev || res.data![0].id);
+          }
+        })
+        .catch((err: unknown) => {
+          console.error('Lỗi nạp danh sách nhà cung cấp:', err);
+        })
+        .finally(() => {
+          setLoadingSuppliers(false);
+        });
+    }
+  }, [isEdit, canCreateImport]);
 
   // Attribute Group Handlers
   const addAttributeGroup = (groupName: string) => {
@@ -304,6 +337,14 @@ export function useProductForm(productId?: number) {
         if (v.price < 0) errs[`variant_price_${idx}`] = 'Giá bán phải >= 0';
         if (v.costPrice < 0) errs[`variant_cost_${idx}`] = 'Giá nhập phải >= 0';
       });
+
+      // Validation chọn Nhà cung cấp khi Admin/Warehouse bật nhập kho và có số lượng > 0
+      if (!isEdit && canCreateImport && hasInitialStock) {
+        const hasPositiveStock = variants.some((v) => Number(v.stockQuantity) > 0);
+        if (hasPositiveStock && !supplierId) {
+          errs.supplierId = 'Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho ban đầu';
+        }
+      }
     }
 
     setErrors(errs);
@@ -357,6 +398,19 @@ export function useProductForm(productId?: number) {
         const res = await adminProductController.updateProduct(productId, updateData);
         return res;
       } else {
+        // Xử lý bảo mật & toàn vẹn tồn kho theo quyền Staff vs Admin/Warehouse
+        let finalVariants = variants;
+        let finalSupplierId: number | undefined = undefined;
+        let finalImportNote: string | undefined = undefined;
+
+        if (!canCreateImport || !hasInitialStock) {
+          // Với Staff hoặc khi tắt lập phiếu nhập kho: cưỡng chế số lượng = 0
+          finalVariants = variants.map((v) => ({ ...v, stockQuantity: 0 }));
+        } else {
+          finalSupplierId = supplierId;
+          finalImportNote = importNote.trim() || undefined;
+        }
+
         const createData: CreateProductFormRequest = {
           name: name.trim(),
           slug: slug.trim() || undefined,
@@ -368,7 +422,9 @@ export function useProductForm(productId?: number) {
           weight: typeof weight === 'number' ? weight : 500,
           mainImage,
           specifications: specsMap,
-          variants,
+          variants: finalVariants,
+          supplierId: finalSupplierId,
+          importNote: finalImportNote,
         };
         const res = await adminProductController.createProduct(createData);
         return res;
@@ -389,6 +445,17 @@ export function useProductForm(productId?: number) {
     setActiveStep,
     nextStep,
     prevStep,
+
+    // Permissions & Inbound Stock Management
+    canCreateImport,
+    hasInitialStock,
+    setHasInitialStock,
+    supplierId,
+    setSupplierId,
+    importNote,
+    setImportNote,
+    suppliers,
+    loadingSuppliers,
 
     // Form fields
     name,

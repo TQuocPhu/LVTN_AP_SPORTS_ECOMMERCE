@@ -49,4 +49,9 @@ public class CreateProductRequest {
     @Valid
     @Builder.Default
     private List<VariantRequest> variants = new ArrayList<>();
+
+    // Tùy chọn Lập phiếu nhập kho ban đầu (chỉ dành cho ADMIN và WAREHOUSE_MANAGER)
+    private Long supplierId;
+
+    private String importNote;
 }

@@ -11,7 +11,7 @@ import { ProductFormDescriptionStep } from '@/components/admin/product/ProductFo
 import { ProductFormVariantStep } from '@/components/admin/product/ProductFormVariantStep';
 import { ProductFormReviewStep } from '@/components/admin/product/ProductFormReviewStep';
 import { ProductFormFooterNav } from '@/components/admin/product/ProductFormFooterNav';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, AlertTriangle, Warehouse } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -40,6 +40,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  const isOutOfStock =
+    form.status === 'out_of_stock' ||
+    (form.variants?.length > 0 && form.variants.every((v) => Number(v.stockQuantity) <= 0));
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
       {/* Top Page Header */}
@@ -60,6 +64,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           <ArrowLeft className="w-4 h-4" /> Trở về danh sách
         </Link>
       </div>
+
+      {/* Out of Stock Warning Banner with Quick Stock Inbound Link */}
+      {isOutOfStock && (
+        <div className="p-4 bg-rose-50/90 border border-rose-200 rounded-2xl flex items-center justify-between flex-wrap gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-rose-900">
+                Sản phẩm này hiện đang hết hàng trên hệ thống (Tồn kho = 0)
+              </h4>
+              <p className="text-xs text-rose-700 mt-0.5">
+                Số lượng tồn kho được khóa tại trang chỉnh sửa để bảo vệ dữ liệu. Bạn hãy lập phiếu nhập kho để bổ sung hàng mới.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/admin/inventory?keyword=${encodeURIComponent(form.name)}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+          >
+            <Warehouse className="w-4 h-4" /> Lập phiếu nhập kho bổ sung
+          </Link>
+        </div>
+      )}
 
       {/* Step Progress Wizard Header */}
       <ProductFormStepHeader

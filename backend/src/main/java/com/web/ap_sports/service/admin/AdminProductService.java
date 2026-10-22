@@ -13,7 +13,7 @@ public interface AdminProductService {
 
     ProductDetailResponse getProductById(Long id);
 
-    ProductDetailResponse createProduct(CreateProductRequest request);
+    ProductDetailResponse createProduct(CreateProductRequest request, String currentUserEmail);
 
     ProductDetailResponse updateProduct(Long id, UpdateProductRequest request);
 

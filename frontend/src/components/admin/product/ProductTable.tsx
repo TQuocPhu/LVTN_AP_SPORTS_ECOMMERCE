@@ -13,6 +13,7 @@ import {
   Edit,
   Trash2,
   RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ProductTableProps {
@@ -125,17 +126,31 @@ export function ProductTable({
 
                     {/* Total Stock */}
                     <td className="py-4 px-6 whitespace-nowrap">
-                      <span
-                        className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                          product.totalStock > 10
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                            : product.totalStock > 0
-                            ? 'bg-amber-50 text-amber-700 border-amber-200/80'
-                            : 'bg-rose-50 text-rose-700 border-rose-200/80'
-                        }`}
-                      >
-                        {product.totalStock} {product.unit}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span
+                          className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                            product.totalStock > 10
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                              : product.totalStock > 0
+                              ? 'bg-amber-50 text-amber-700 border-amber-200/80'
+                              : 'bg-rose-50 text-rose-700 border-rose-200/80'
+                          }`}
+                        >
+                          {product.totalStock > 0
+                            ? `${product.totalStock} ${product.unit}`
+                            : `Hết hàng (0 ${product.unit})`}
+                        </span>
+
+                        {product.totalStock <= 0 && (
+                          <Link
+                            href={`/admin/inventory?keyword=${encodeURIComponent(product.name)}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline transition-colors mt-0.5"
+                            title="Lập phiếu nhập kho bổ sung hàng mới"
+                          >
+                            <AlertTriangle className="w-3 h-3 text-rose-500" /> Nhập kho ngay
+                          </Link>
+                        )}
+                      </div>
                     </td>
 
                     {/* Description Button */}

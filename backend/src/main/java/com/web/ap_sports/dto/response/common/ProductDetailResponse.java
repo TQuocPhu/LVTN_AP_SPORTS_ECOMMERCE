@@ -38,6 +38,10 @@ public class ProductDetailResponse {
     @Builder.Default
     private List<String> allImages = new ArrayList<>();
 
+    // Thông tin Phiếu nhập kho khởi tạo (nếu có lập phiếu lúc tạo sản phẩm)
+    private String initialImportTicketCode;
+    private com.web.ap_sports.dto.response.warehouse.InventoryTransactionResponse initialImportTransaction;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

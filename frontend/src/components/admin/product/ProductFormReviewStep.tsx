@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check, Image as ImageIcon } from 'lucide-react';
+import { Check, Image as ImageIcon, Building2, FileText, AlertCircle } from 'lucide-react';
 import { ProductVariant } from '@/types/product';
 
 interface ProductFormReviewStepProps {
@@ -13,6 +13,9 @@ interface ProductFormReviewStepProps {
   mainImage: string;
   categoryIds: number[];
   variants: ProductVariant[];
+  hasInitialStock?: boolean;
+  supplierName?: string;
+  importNote?: string;
 }
 
 export function ProductFormReviewStep({
@@ -24,6 +27,9 @@ export function ProductFormReviewStep({
   mainImage,
   categoryIds,
   variants,
+  hasInitialStock = false,
+  supplierName,
+  importNote,
 }: ProductFormReviewStepProps) {
   const totalCalculatedStock = variants.reduce(
     (sum, v) => sum + (Number(v.stockQuantity) || 0),
@@ -73,12 +79,48 @@ export function ProductFormReviewStep({
             </p>
           </div>
           <div>
-            <span className="text-slate-500">Tổng tồn kho sản phẩm:</span>
+            <span className="text-slate-500">Tổng tồn kho dự kiến:</span>
             <p className="font-bold text-emerald-600 text-base mt-0.5">
-              {totalCalculatedStock} sản phẩm (Tự động cộng dồn từ các biến thể)
+              {hasInitialStock ? totalCalculatedStock : (isEdit ? totalCalculatedStock : 0)} {unit}
             </p>
           </div>
         </div>
+
+        {/* Inbound Ticket Preview Card */}
+        {!isEdit && (
+          <div className="pt-4 border-t border-slate-100">
+            {hasInitialStock && supplierName ? (
+              <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                  <Building2 className="w-4 h-4 text-emerald-600" />
+                  Chứng từ nhập kho khởi tạo (Sẽ tự động lập khi bấm Lưu)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700 pt-1">
+                  <div>
+                    <span className="text-slate-500">Nhà cung cấp:</span>{' '}
+                    <strong className="text-slate-900">{supplierName}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Tổng số lượng nhập:</span>{' '}
+                    <strong className="text-emerald-700">{totalCalculatedStock} {unit}</strong>
+                  </div>
+                  {importNote && (
+                    <div className="sm:col-span-2">
+                      <span className="text-slate-500">Ghi chú phiếu:</span> {importNote}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2.5 text-xs text-slate-600">
+                <AlertCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span>
+                  Sản phẩm sẽ được tạo với tồn kho <strong>0</strong> (Hết hàng). Bạn có thể lập phiếu nhập kho sau tại menu Quản lý kho.
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
