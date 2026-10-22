@@ -170,7 +170,36 @@ export default function ChatbotWidgetUI() {
                         : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-bl-none'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed">
+                      {msg.text}
+                      {msg.isStreaming && (
+                        <span className="inline-block w-1.5 h-3.5 bg-orange-500 animate-pulse ml-0.5 align-middle rounded-xs" />
+                      )}
+                    </p>
+
+                    {/* Thẻ gợi ý sản phẩm từ AI */}
+                    {!isUser && msg.suggestedProducts && msg.suggestedProducts.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700 space-y-1.5">
+                        <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          Sản phẩm phù hợp gợi ý cho bạn:
+                        </p>
+                        {msg.suggestedProducts.map((p, idx) => (
+                          <a
+                            key={idx}
+                            href={p.link}
+                            className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-700/50 hover:bg-orange-50 dark:hover:bg-orange-950/30 border border-slate-200/60 dark:border-slate-600 transition-colors group"
+                          >
+                            <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-orange-600 dark:group-hover:text-orange-400">
+                              {p.name}
+                            </span>
+                            <span className="text-[11px] font-bold text-red-500 shrink-0 ml-2">
+                              {p.price}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
                     <span
                       className={`block text-[9px] mt-1 text-right ${
                         isUser ? 'text-orange-100' : 'text-slate-400'

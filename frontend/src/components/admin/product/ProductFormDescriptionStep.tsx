@@ -1,11 +1,13 @@
 'use client';
 
 import React from 'react';
-import { FileText, Plus, Trash2 } from 'lucide-react';
+import { FileText, Plus, Trash2, Sparkles } from 'lucide-react';
 import { RichTextEditor } from '@/components/admin/product/RichTextEditor';
 import { SpecPair } from '@/hooks/useProductForm';
+import { useProductAiContent } from '@/hooks/useProductAiContent';
 
 interface ProductFormDescriptionStepProps {
+  productName?: string;
   description: string;
   specifications: SpecPair[];
   onDescriptionChange: (val: string) => void;
@@ -15,6 +17,7 @@ interface ProductFormDescriptionStepProps {
 }
 
 export function ProductFormDescriptionStep({
+  productName,
   description,
   specifications,
   onDescriptionChange,
@@ -22,6 +25,28 @@ export function ProductFormDescriptionStep({
   onRemoveSpecRow,
   onSpecChange,
 }: ProductFormDescriptionStepProps) {
+  const { isGenerating, handleGenerateAiDescription } = useProductAiContent();
+
+  const handleTriggerAi = () => {
+    // Chuyển danh sách thông số kỹ thuật thành attributes gửi cho AI
+    const attributesMap: Record<string, string> = {};
+    specifications.forEach((spec) => {
+      if (spec.key.trim() && spec.value.trim()) {
+        attributesMap[spec.key.trim()] = spec.value.trim();
+      }
+    });
+
+    handleGenerateAiDescription(
+      {
+        productName: productName || '',
+        attributes: Object.keys(attributesMap).length > 0 ? attributesMap : undefined,
+      },
+      (html) => {
+        onDescriptionChange(html);
+      }
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <h2 className="text-lg font-bold text-slate-900 border-b border-slate-200 pb-3 flex items-center gap-2">
@@ -30,9 +55,21 @@ export function ProductFormDescriptionStep({
 
       {/* Rich Text Editor */}
       <div>
-        <label className="block text-sm font-bold text-slate-800 uppercase tracking-wider mb-2">
-          Mô tả chi tiết sản phẩm (Định dạng HTML Rich Text)
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-bold text-slate-800 uppercase tracking-wider">
+            Mô tả chi tiết sản phẩm (Định dạng HTML Rich Text)
+          </label>
+          <button
+            type="button"
+            disabled={isGenerating}
+            onClick={handleTriggerAi}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-lg shadow-sm hover:shadow transition-all disabled:opacity-50"
+            title="Sử dụng Gemini Flash AI để tự động viết mô tả sản phẩm chuẩn SEO"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+            {isGenerating ? 'AI đang viết bài...' : '✨ AI Sinh Mô Tả Chuẩn SEO'}
+          </button>
+        </div>
         <RichTextEditor value={description} onChange={onDescriptionChange} />
       </div>
 

@@ -91,6 +91,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
         {form.activeStep === 1 && (
           <ProductFormDescriptionStep
+            productName={form.name}
             description={form.description}
             specifications={form.specifications}
             onDescriptionChange={form.setDescription}

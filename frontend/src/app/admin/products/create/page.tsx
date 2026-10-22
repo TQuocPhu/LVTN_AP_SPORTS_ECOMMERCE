@@ -79,6 +79,7 @@ export default function CreateProductPage() {
 
         {form.activeStep === 1 && (
           <ProductFormDescriptionStep
+            productName={form.name}
             description={form.description}
             specifications={form.specifications}
             onDescriptionChange={form.setDescription}

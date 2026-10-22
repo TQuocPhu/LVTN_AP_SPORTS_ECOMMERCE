@@ -210,6 +210,7 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
         {/* ========================================================================= */}
         <section id="product-reviews-section">
           <ProductReviewSectionUI
+            productId={product.id}
             reviews={reviewsData.reviews}
             summary={reviewsData.summary}
             selectedRating={reviewsData.selectedRating}

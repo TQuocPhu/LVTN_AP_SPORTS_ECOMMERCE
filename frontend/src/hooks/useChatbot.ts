@@ -2,28 +2,44 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { adminAuthController } from '@/controllers/admin-auth-controller';
+import { customerAiController } from '@/controllers/customer-ai-controller';
+import { SuggestedProduct } from '@/types/ai';
 
 export interface ChatMessage {
   id: string;
   sender: 'bot' | 'user';
   text: string;
   timestamp: string;
+  suggestedProducts?: SuggestedProduct[];
+  isStreaming?: boolean;
+}
+
+/**
+ * Loại bỏ toàn bộ ký tự ** (in đậm markdown) và chuyển đổi [Tên](/link) thành Tên thuần
+ * để câu trả lời mộc mạc, tự nhiên, không rối mắt.
+ */
+function cleanAiText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\*\*/g, '')
+    .trim();
 }
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'msg-welcome-1',
     sender: 'bot',
-    text: 'Xin chào bạn! 👋 Tôi là Trợ Lý Thể Thao AP Sports. Tôi có thể hỗ trợ bạn tư vấn chọn giày bóng đá, vợt cầu lông, võ phục hoặc chính sách bảo hành.',
+    text: 'Xin chào bạn! 👋 Tôi là Trợ Lý Thể Thao AP Sports (Hỗ trợ bởi Google Gemini Flash). Tôi có thể hỗ trợ bạn tư vấn size chuẩn xác, chọn giày bóng đá, vợt cầu lông hoặc trang bị thể thao phù hợp.',
     timestamp: 'Vừa xong',
   },
 ];
 
 export const QUICK_PROMPTS = [
-  '⚽ Tư vấn giày đá bóng sân cỏ nhân tạo',
+  '⚽ Tư vấn giày đá bóng sân cỏ nhân tạo mưa ướt',
   '🏸 Cách chọn vợt cầu lông cho người mới',
-  '🥋 Bảng size võ phục Karate chuẩn',
-  '📦 Chính sách đổi size miễn phí 30 ngày',
+  '👕 Mình cao 1m75 nặng 70kg mặc size nào?',
+  '🔥 Sản phẩm nào đang được ưa chuộng nhất?',
 ];
 
 export function useChatbot() {
@@ -34,7 +50,20 @@ export function useChatbot() {
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [isTyping, setIsTyping] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [guestToken, setGuestToken] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Tạo và lưu guestToken cho khách vãng lai
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let token = localStorage.getItem('apsports_guest_ai_token');
+      if (!token) {
+        token = 'guest_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+        localStorage.setItem('apsports_guest_ai_token', token);
+      }
+      setGuestToken(token);
+    }
+  }, []);
 
   // Kiểm tra tài khoản Quản trị viên (ADMIN) - Nếu là Admin thì ẩn hoàn toàn Chatbot
   useEffect(() => {
@@ -53,6 +82,31 @@ export function useChatbot() {
       isMounted = false;
     };
   }, []);
+
+  // Tải lịch sử hội thoại từ CSDL khi mở widget
+  useEffect(() => {
+    if (!isOpen || !guestToken) return;
+
+    let isMounted = true;
+    customerAiController
+      .getChatHistory(guestToken)
+      .then((res) => {
+        if (isMounted && res?.data && res.data.length > 0) {
+          const loaded: ChatMessage[] = res.data.map((m) => ({
+            id: `msg-${m.id}`,
+            sender: m.sender === 'user' ? 'user' : 'bot',
+            text: m.message,
+            timestamp: 'Gần đây',
+          }));
+          setMessages(loaded);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, guestToken]);
 
   // Theo dõi vị trí cuộn trang để điều khiển trạng thái hiển thị nút Back To Top
   useEffect(() => {
@@ -78,14 +132,13 @@ export function useChatbot() {
 
   /**
    * Hiệu ứng trượt lướt mượt mà lên đầu trang (Custom Ease-In-Out Smooth Scroll)
-   * Sử dụng thuật toán Cubic Easing qua requestAnimationFrame
    */
   const smoothScrollToTop = useCallback(() => {
     const startPosition = window.scrollY || document.documentElement.scrollTop;
     if (startPosition === 0) return;
 
     const startTime = performance.now();
-    const duration = 700; // 700ms lướt êm ái
+    const duration = 700;
 
     const easeInOutCubic = (t: number) => {
       return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -118,33 +171,99 @@ export function useChatbot() {
     setIsOpen(true);
   }, []);
 
-  const sendMessage = useCallback((textToSend?: string) => {
-    const text = (textToSend || inputText).trim();
-    if (!text) return;
+  const sendMessage = useCallback(
+    async (textToSend?: string) => {
+      const text = (textToSend || inputText).trim();
+      if (!text || isTyping) return;
 
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text,
-      timestamp: 'Vừa xong',
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
-    setIsTyping(true);
-
-    // Giả lập bot phản hồi sẵn sàng cho việc tích hợp API sau này
-    setTimeout(() => {
-      const botReply: ChatMessage = {
-        id: `bot-${Date.now()}`,
-        sender: 'bot',
-        text: 'Cảm ơn câu hỏi của bạn! Tính năng Chatbot AI đang được kết nối với hệ sinh thái AP Sports. Nếu bạn cần hỗ trợ gấp, vui lòng bấm gọi Hotline 0913.193.009 hoặc gửi biểu mẫu tại trang Liên Hệ nhé! 🚀',
+      const userMsg: ChatMessage = {
+        id: `user-${Date.now()}`,
+        sender: 'user',
+        text,
         timestamp: 'Vừa xong',
       };
-      setMessages((prev) => [...prev, botReply]);
-      setIsTyping(false);
-    }, 700);
-  }, [inputText]);
+
+      setMessages((prev) => [...prev, userMsg]);
+      setInputText('');
+      setIsTyping(true);
+
+      try {
+        // Gọi thật tới Backend qua customerAiController kết nối Gemini Flash
+        const res = await customerAiController.askAdvisor({
+          question: text,
+          guestToken,
+        });
+
+        const rawReply =
+          res?.data?.reply ||
+          'Dạ em đã ghi nhận thông tin. Anh/chị có thể xem các sản phẩm được gợi ý bên dưới hoặc tiếp tục trò chuyện nhé!';
+
+        // Làm sạch toàn bộ dấu ** và link markdown thô
+        const finalReply = cleanAiText(rawReply);
+        const suggested = res?.data?.suggestedProducts || [];
+
+        const botId = `bot-${Date.now()}`;
+
+        // Tắt typing indicator (3 dấu chấm) và tạo tin nhắn bot với trạng thái isStreaming = true
+        setIsTyping(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: botId,
+            sender: 'bot',
+            text: '',
+            timestamp: 'Vừa xong',
+            isStreaming: true,
+            suggestedProducts: [],
+          },
+        ]);
+
+        // Cơ chế chữ chạy Typewriter Effect theo từng từ (word-by-word) nhịp nhàng như ChatGPT
+        const words = finalReply.split(/(\s+)/);
+        let currentIndex = 0;
+        let accumulated = '';
+
+        const timer = setInterval(() => {
+          if (currentIndex < words.length) {
+            accumulated += words[currentIndex];
+            currentIndex++;
+            const textToUpdate = accumulated;
+
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === botId ? { ...msg, text: textToUpdate } : msg
+              )
+            );
+          } else {
+            clearInterval(timer);
+            // Kết thúc chạy chữ: tắt streaming và hiển thị thẻ sản phẩm gợi ý
+            setMessages((prev) =>
+              prev.map((msg) =>
+                msg.id === botId
+                  ? {
+                      ...msg,
+                      text: finalReply,
+                      isStreaming: false,
+                      suggestedProducts: suggested,
+                    }
+                  : msg
+              )
+            );
+          }
+        }, 22);
+      } catch (err: any) {
+        setIsTyping(false);
+        const errorReply: ChatMessage = {
+          id: `bot-err-${Date.now()}`,
+          sender: 'bot',
+          text: 'Xin lỗi anh/chị, hệ thống AI đang tạm thời gián đoạn kết nối. Anh/chị vui lòng thử gửi lại câu hỏi hoặc chuyển sang tab Tư Vấn Trực Tiếp để chat cùng nhân viên nhé!',
+          timestamp: 'Vừa xong',
+        };
+        setMessages((prev) => [...prev, errorReply]);
+      }
+    },
+    [inputText, isTyping, guestToken]
+  );
 
   const selectQuickPrompt = useCallback((prompt: string) => {
     sendMessage(prompt);

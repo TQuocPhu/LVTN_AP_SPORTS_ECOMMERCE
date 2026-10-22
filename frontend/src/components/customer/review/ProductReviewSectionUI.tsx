@@ -7,8 +7,10 @@ import { ProductReviewSummaryCard } from './ProductReviewSummaryCard';
 import { ProductReviewFilterBar } from './ProductReviewFilterBar';
 import { ProductReviewCard } from './ProductReviewCard';
 import { ProductReviewZoomModal } from './ProductReviewZoomModal';
+import { ReviewAiSummaryCard } from './ReviewAiSummaryCard';
 
 interface ProductReviewSectionUIProps {
+  productId?: number;
   reviews: Review[];
   summary: ProductReviewSummary | null;
   selectedRating?: number;
@@ -23,6 +25,7 @@ interface ProductReviewSectionUIProps {
 }
 
 export const ProductReviewSectionUI: React.FC<ProductReviewSectionUIProps> = ({
+  productId,
   reviews,
   summary,
   selectedRating,
@@ -52,6 +55,11 @@ export const ProductReviewSectionUI: React.FC<ProductReviewSectionUIProps> = ({
             Đánh giá thực tế từ người mua hàng đã xác minh tại AP Sports
           </p>
         </div>
+      </div>
+
+      {/* 0. AI Review Summary Card (Agent 4) */}
+      <div className="pt-6">
+        <ReviewAiSummaryCard productId={productId} />
       </div>
 
       {/* 1. Summary Score Card */}
