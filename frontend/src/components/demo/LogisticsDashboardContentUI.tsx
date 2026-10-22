@@ -25,13 +25,17 @@ export function LogisticsDashboardContentUI() {
         {/* Header */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-orange-100">
-              <Image
-                src={user.avatar || '/images/default-avatar.png'}
-                alt="Avatar"
-                fill
-                className="object-cover"
-              />
+            <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-orange-200 bg-orange-100 flex items-center justify-center text-orange-700 font-black text-xl shadow-xs">
+              {user.avatar ? (
+                <Image
+                  src={user.avatar}
+                  alt="Avatar"
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <span>{user.name ? user.name.charAt(0).toUpperCase() : 'G'}</span>
+              )}
             </div>
             <div>
               <h2 className="text-xl font-black text-gray-900">{user.name}</h2>

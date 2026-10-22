@@ -6,9 +6,11 @@ export function useDemoLogistics(targetStatus: string) {
   const [orders, setOrders] = useState<AdminOrderDetail[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await demoLogisticsController.getDemoOrders(targetStatus);
       if (res && res.data) {
@@ -16,8 +18,10 @@ export function useDemoLogistics(targetStatus: string) {
       } else {
         setOrders([]);
       }
-    } catch {
+    } catch (err: any) {
       setOrders([]);
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể tải danh sách đơn hàng.';
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -67,6 +71,7 @@ export function useDemoLogistics(targetStatus: string) {
     orders,
     loading,
     updatingId,
+    error,
     refetch: fetchOrders,
     handleUpdateStatus,
     formatCurrency,

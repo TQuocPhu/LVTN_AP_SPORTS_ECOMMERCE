@@ -96,6 +96,7 @@ public class SecurityConfig {
                         "/api/v1/reviews/product/**",
                         "/api/v1/reviews/summary/**",
                         "/api/v1/demo/logistics/auth/login",
+                        "/api/v1/customer/ai/**",
                         "/ws/**",
                         "/h2-console/**"
                 ).permitAll()
@@ -107,6 +108,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
                 .requestMatchers("/api/v1/warehouse/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                 .requestMatchers("/api/v1/staff/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers("/api/v1/demo/logistics/**").hasAnyRole("GHN_STATION", "GHN_SHIPPER")
 
                 // 3. Mặc định tất cả các request khác phải được xác thực
                 .anyRequest().authenticated()
@@ -152,7 +154,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-Client-Type", "Accept"));
+        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-Client-Type", "Accept", "X-Demo-Key", "x-demo-key"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

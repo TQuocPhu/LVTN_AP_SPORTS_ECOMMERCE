@@ -64,10 +64,12 @@ public class DemoLogisticsController {
             throw new AppException("Portal mô phỏng chỉ được xem đơn ở trạng thái: " + VIEWABLE_STATUSES, HttpStatus.BAD_REQUEST);
         }
 
-        // Kiểm tra quyền nghiêm ngặt khi lấy danh sách
+        // Kiểm tra quyền nghiêm ngặt: Tuyệt đối cô lập giữa Admin shop và Bưu cục vận chuyển
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        boolean isStation = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GHN_STATION"));
-        boolean isShipper = authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_GHN_SHIPPER"));
+        boolean isStation = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_GHN_STATION"));
+        boolean isShipper = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_GHN_SHIPPER"));
 
         if (("processing".equals(normalizedStatus) || "shipped".equals(normalizedStatus)) && !isStation) {
             throw new AppException("Chỉ quản lý bưu cục (GHN_STATION) mới được xem danh sách đơn hàng ở trạng thái " + normalizedStatus, HttpStatus.FORBIDDEN);
@@ -76,7 +78,7 @@ public class DemoLogisticsController {
             throw new AppException("Chỉ tài xế giao hàng (GHN_SHIPPER) mới được xem danh sách đơn hàng đang đi giao (shipping)", HttpStatus.FORBIDDEN);
         }
 
-        log.info("Demo Logistics REST request truy vấn đơn hàng với status: {}", normalizedStatus);
+        log.info("Demo Logistics REST request truy vấn đơn hàng với status: {} (bởi role: {})", normalizedStatus, authentication.getAuthorities());
         AdminOrderFilterRequest filterRequest = new AdminOrderFilterRequest();
         filterRequest.setStatus(normalizedStatus);
         filterRequest.setPage(Math.max(0, page));
@@ -101,7 +103,7 @@ public class DemoLogisticsController {
         String targetStatus = request.getStatus() == null ? "" : request.getStatus().trim().toLowerCase();
         String actorEmail = authentication.getName();
         
-        // Kiểm tra quyền theo từng hành động
+        // Kiểm tra quyền theo từng hành động: Chỉ đúng vai trò bưu cục / shipper được phép chuyển trạng thái
         if ("shipped".equals(targetStatus) || "shipping".equals(targetStatus)) {
             if (authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ROLE_GHN_STATION"))) {
                 throw new AppException("Chỉ quản lý bưu cục (GHN_STATION) mới được chuyển trạng thái thành " + targetStatus, HttpStatus.FORBIDDEN);

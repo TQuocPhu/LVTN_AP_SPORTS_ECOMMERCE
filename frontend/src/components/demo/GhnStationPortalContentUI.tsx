@@ -21,6 +21,7 @@ export function GhnStationPortalContentUI() {
     orders,
     loading,
     updatingId,
+    error,
     refetch,
     handleUpdateStatus,
     formatCurrency,
@@ -95,6 +96,26 @@ export function GhnStationPortalContentUI() {
             <p className="font-bold text-slate-500 text-xs">
               Đang nạp danh sách đơn hàng chờ tiếp nhận bưu cục GHN...
             </p>
+          </div>
+        ) : error ? (
+          <div className="py-12 text-center space-y-4 bg-white rounded-2xl border border-amber-200 p-8 shadow-xs">
+            <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto font-black text-xl">
+              !
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-black text-slate-900 text-sm">Chưa Có Phiên Làm Việc Quản Lý Bưu Cục</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Hệ thống yêu cầu tài khoản có quyền <strong>Quản lý Bưu Cục (GHN_STATION)</strong> hoặc <strong>Quản trị viên (ADMIN)</strong> để truy xuất đơn hàng.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/demo/login"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-sm transition-all"
+              >
+                Đăng Nhập Quản Lý Bưu Cục (station1@ghn.vn)
+              </Link>
+            </div>
           </div>
         ) : orders.length === 0 ? (
           <div className="py-16 text-center space-y-3 bg-white rounded-2xl border border-slate-200 p-8 text-slate-400">

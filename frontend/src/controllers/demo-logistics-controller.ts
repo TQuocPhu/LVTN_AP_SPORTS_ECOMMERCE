@@ -16,7 +16,7 @@ export const demoLogisticsController = {
   async getDemoOrders(status: string, page = 0, size = 10): Promise<ApiResponse<PageResponse<AdminOrderDetail>>> {
     return apiClient.get<ApiResponse<PageResponse<AdminOrderDetail>>>(
       `/demo/logistics/orders?status=${status}&page=${page}&size=${size}`,
-      { suppressErrorToast: true, headers: DEMO_HEADERS }
+      { suppressErrorToast: true }
     );
   },
 
@@ -26,7 +26,6 @@ export const demoLogisticsController = {
   async updateOrderStatus(id: number, payload: UpdateOrderStatusPayload): Promise<ApiResponse<AdminOrderDetail>> {
     return apiClient.put<ApiResponse<AdminOrderDetail>>(`/demo/logistics/orders/${id}/status`, payload, {
       showSuccessToast: true,
-      headers: DEMO_HEADERS,
     });
   },
 };
