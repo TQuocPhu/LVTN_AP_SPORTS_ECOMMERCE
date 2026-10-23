@@ -1,5 +1,6 @@
 package com.web.ap_sports.controller;
 
+import com.web.ap_sports.config.annotation.RateLimit;
 import com.web.ap_sports.dto.request.ai.AiSportsAdvisorRequest;
 import com.web.ap_sports.dto.response.ai.AiReviewSummaryResponse;
 import com.web.ap_sports.dto.response.ai.AiSportsAdvisorResponse;
@@ -35,6 +36,7 @@ public class CustomerAiController {
      * Tư vấn thể thao và kích thước trang bị theo thông số khách hàng
      */
     @PostMapping("/advisor")
+    @RateLimit(key = "ai_advisor", maxRequests = 10, windowSeconds = 60)
     public ResponseEntity<ApiResponse<AiSportsAdvisorResponse>> askAdvisor(
             @Valid @RequestBody AiSportsAdvisorRequest request,
             Authentication authentication

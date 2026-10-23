@@ -88,7 +88,7 @@ export function DashboardHeader({
               title="Mở báo cáo cố vấn chiến lược BI từ Google Gemini Flash"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-              <span>✨ AI Cố Vấn Chiến Lược</span>
+              <span>AI Cố Vấn Chiến Lược</span>
             </button>
           )}
 

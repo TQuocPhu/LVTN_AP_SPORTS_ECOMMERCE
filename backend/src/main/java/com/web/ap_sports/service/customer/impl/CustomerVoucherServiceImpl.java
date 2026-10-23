@@ -182,8 +182,8 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
             discount = discount.min(shippingFee); // Giảm tối đa bằng phí ship thực tế
         }
 
-        // 8. Tính số tiền thanh toán cuối cùng
-        BigDecimal finalAmount = orderAmount.subtract(discount);
+        // 8. Tính số tiền thanh toán cuối cùng (Tổng tiền hàng + Phí ship - Giảm giá)
+        BigDecimal finalAmount = orderAmount.add(shippingFee).subtract(discount);
         if (finalAmount.compareTo(BigDecimal.ZERO) < 0) {
             finalAmount = BigDecimal.ZERO;
         }
@@ -204,14 +204,20 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
     }
 
     /**
-     * Helper tạo response khi mã giảm giá không hợp lệ.
+     * Helper tạo response khi mã giảm giá không hợp lệ (hỗ trợ cả phí ship).
      */
     private VoucherApplyResponse buildInvalidResponse(String message, BigDecimal orderAmount) {
+        return buildInvalidResponse(message, orderAmount, BigDecimal.ZERO);
+    }
+
+    private VoucherApplyResponse buildInvalidResponse(String message, BigDecimal orderAmount, BigDecimal shippingFee) {
+        BigDecimal base = (orderAmount != null ? orderAmount : BigDecimal.ZERO)
+                .add(shippingFee != null ? shippingFee : BigDecimal.ZERO);
         return VoucherApplyResponse.builder()
                 .valid(false)
                 .message(message)
                 .discountAmount(BigDecimal.ZERO)
-                .finalAmount(orderAmount != null ? orderAmount : BigDecimal.ZERO)
+                .finalAmount(base)
                 .build();
     }
 }

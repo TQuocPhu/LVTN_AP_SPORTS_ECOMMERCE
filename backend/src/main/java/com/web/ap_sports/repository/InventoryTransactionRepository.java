@@ -58,4 +58,8 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
 
     @Query("SELECT SUM(v.stockQuantity * COALESCE(v.costPrice, v.price)) FROM ProductVariant v WHERE v.stockQuantity > 0")
     BigDecimal sumTotalInventoryValue();
+
+    boolean existsByVariantId(Long variantId);
+
+    boolean existsByVariant_ProductId(Long productId);
 }

@@ -27,9 +27,11 @@ public class CustomerAuthController {
 
     /**
      * API Đăng ký tài khoản Khách hàng mới.
+     * Rate limit: Tối đa 5 lần / 5 phút per IP (chống spam tạo tài khoản ảo).
      * POST /api/v1/customer/auth/register
      */
     @PostMapping("/register")
+    @RateLimit(key = "register", maxRequests = 5, windowSeconds = 300)
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterCustomerRequest request) {
         customerAuthService.register(request);
         return ResponseEntity.ok(ApiResponse.success("Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản."));

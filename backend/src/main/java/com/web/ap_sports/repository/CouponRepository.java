@@ -38,6 +38,15 @@ public interface CouponRepository extends JpaRepository<Coupon, Long>, JpaSpecif
     Optional<Coupon> findByCodeIgnoreCase(String code);
 
     /**
+     * Khóa bi quan (Pessimistic Lock) khi đọc Voucher trong transaction checkout để ngăn chặn Race Condition
+     * @param code Mã giảm giá
+     * @return Optional chứa Coupon được khóa độc quyền
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM Coupon c WHERE LOWER(c.code) = LOWER(:code)")
+    Optional<Coupon> findByCodeIgnoreCaseForUpdate(@org.springframework.data.repository.query.Param("code") String code);
+
+    /**
      * Lấy danh sách tất cả các voucher đang ở trạng thái kích hoạt (isActive = true)
      * @return Danh sách Coupon đang hoạt động
      */

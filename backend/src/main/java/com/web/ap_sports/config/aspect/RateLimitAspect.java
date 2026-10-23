@@ -95,6 +95,10 @@ public class RateLimitAspect {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes != null) {
             HttpServletRequest request = attributes.getRequest();
+            String xRealIp = request.getHeader("X-Real-IP");
+            if (xRealIp != null && !xRealIp.isBlank()) {
+                return "ip:" + xRealIp.trim();
+            }
             String xForwardedFor = request.getHeader("X-Forwarded-For");
             if (xForwardedFor != null && !xForwardedFor.isBlank()) {
                 return "ip:" + xForwardedFor.split(",")[0].trim();

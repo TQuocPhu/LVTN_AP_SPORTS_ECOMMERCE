@@ -150,8 +150,14 @@ export function useAdminCategories() {
       setDeletingCategory(null);
       fetchCategories();
       fetchRootCategories();
+      toast.success('Xóa danh mục thành công!');
     } catch (err: any) {
       console.error('Lỗi khi xóa danh mục:', err);
+      const errorMsg =
+        err?.message ||
+        err?.response?.data?.message ||
+        'Không thể xóa danh mục này do có ràng buộc dữ liệu.';
+      toast.error(errorMsg);
     } finally {
       setActionLoading(false);
     }

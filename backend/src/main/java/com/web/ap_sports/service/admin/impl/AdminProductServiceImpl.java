@@ -22,6 +22,7 @@ import com.web.ap_sports.entity.User;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.CategoryRepository;
 import com.web.ap_sports.repository.InventoryTransactionRepository;
+import com.web.ap_sports.repository.OrderItemRepository;
 import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ProductRepository;
 import com.web.ap_sports.repository.ProductVariantRepository;
@@ -60,6 +61,7 @@ public class AdminProductServiceImpl implements AdminProductService {
     private final UserRepository userRepository;
     private final SupplierRepository supplierRepository;
     private final InventoryTransactionRepository transactionRepository;
+    private final OrderItemRepository orderItemRepository;
     private final WarehouseInventoryService warehouseInventoryService;
     private final ObjectMapper objectMapper;
     private final CloudinaryService cloudinaryService;
@@ -353,6 +355,12 @@ public class AdminProductServiceImpl implements AdminProductService {
 
         for (ProductVariant oldVar : existingVariants) {
             if (!requestVariantIds.contains(oldVar.getId())) {
+                if (orderItemRepository.existsByVariantId(oldVar.getId())) {
+                    throw new AppException("Phân loại hàng [SKU: " + oldVar.getSku() + "] đã phát sinh trong đơn hàng của khách, không thể xóa bỏ. Vui lòng giữ lại phân loại này.", HttpStatus.BAD_REQUEST);
+                }
+                if (transactionRepository.existsByVariantId(oldVar.getId())) {
+                    throw new AppException("Phân loại hàng [SKU: " + oldVar.getSku() + "] đã phát sinh phiếu nhập/xuất kho, không thể xóa bỏ. Vui lòng giữ lại phân loại này.", HttpStatus.BAD_REQUEST);
+                }
                 variantRepository.delete(oldVar);
             }
         }
@@ -438,6 +446,14 @@ public class AdminProductServiceImpl implements AdminProductService {
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy sản phẩm với ID: " + id, HttpStatus.NOT_FOUND));
+
+        if (orderItemRepository.existsByProductId(id)) {
+            throw new AppException("Sản phẩm '" + product.getName() + "' đã có lịch sử đơn hàng, không thể xóa khỏi hệ thống. Vui lòng chuyển trạng thái sang 'Ngừng kinh doanh' (discontinued).", HttpStatus.BAD_REQUEST);
+        }
+
+        if (transactionRepository.existsByVariant_ProductId(id)) {
+            throw new AppException("Sản phẩm '" + product.getName() + "' đã phát sinh giao dịch kho, không thể xóa khỏi hệ thống. Vui lòng chuyển trạng thái sang 'Ngừng kinh doanh' (discontinued).", HttpStatus.BAD_REQUEST);
+        }
 
         imageRepository.deleteByProductId(id);
         variantRepository.deleteByProductId(id);

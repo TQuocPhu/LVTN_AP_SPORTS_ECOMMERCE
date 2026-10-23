@@ -182,6 +182,10 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void sendToUser(Long targetUserId, Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
+        if (senderId != null && senderId.equals(targetUserId)) {
+            log.debug("Bỏ qua gửi thông báo cho chính người thực hiện (senderId = targetUserId = {})", senderId);
+            return;
+        }
         User targetUser = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người nhận"));
 
@@ -196,6 +200,9 @@ public class NotificationServiceImpl implements NotificationService {
         List<User> internalUsers = userRepository.findActiveUsersByRoles(roles);
 
         for (User targetUser : internalUsers) {
+            if (senderId != null && targetUser.getId().equals(senderId)) {
+                continue;
+            }
             Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
             notification = notificationRepository.save(notification);
             sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
@@ -210,6 +217,9 @@ public class NotificationServiceImpl implements NotificationService {
                 actionType, permissionName, eligibleUsers.size());
 
         for (User targetUser : eligibleUsers) {
+            if (senderId != null && targetUser.getId().equals(senderId)) {
+                continue;
+            }
             Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
             notification = notificationRepository.save(notification);
             sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
@@ -224,6 +234,9 @@ public class NotificationServiceImpl implements NotificationService {
                 actionType, permissionNames, eligibleUsers.size());
 
         for (User targetUser : eligibleUsers) {
+            if (senderId != null && targetUser.getId().equals(senderId)) {
+                continue;
+            }
             Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
             notification = notificationRepository.save(notification);
             sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));

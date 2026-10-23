@@ -84,10 +84,11 @@ export function useSportsAdvisorMobile(activeProductSlug?: string) {
         };
         setMessages((prev) => [...prev, botMsg]);
       } catch (err: any) {
+        const serverMsg = err?.response?.data?.message || err?.message;
         const errMsg: ChatMessageMobile = {
           id: 'err_' + Date.now(),
           sender: 'bot',
-          text: 'Xin lỗi anh/chị, kết nối AI đang tạm thời gián đoạn. Anh/chị vui lòng thử gửi lại nhé!',
+          text: serverMsg || 'Xin lỗi anh/chị, kết nối AI đang tạm thời gián đoạn. Anh/chị vui lòng thử gửi lại nhé!',
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errMsg]);

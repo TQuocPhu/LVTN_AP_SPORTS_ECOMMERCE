@@ -15,6 +15,10 @@ import java.util.List;
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     List<OrderItem> findByOrderId(Long orderId);
 
+    boolean existsByProductId(Long productId);
+
+    boolean existsByVariantId(Long variantId);
+
     @Query("SELECT oi.product.id, oi.product.name, oi.product.slug, SUM(oi.quantity), SUM(oi.price * oi.quantity) " +
            "FROM OrderItem oi " +
            "WHERE (oi.order.status = com.web.ap_sports.enums.OrderStatus.delivered OR oi.order.status = com.web.ap_sports.enums.OrderStatus.completed) " +

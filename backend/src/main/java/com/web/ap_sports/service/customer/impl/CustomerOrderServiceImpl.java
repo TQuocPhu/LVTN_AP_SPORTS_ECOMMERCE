@@ -139,7 +139,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         BigDecimal discountAmount = BigDecimal.ZERO;
         if (request.getCouponCode() != null && !request.getCouponCode().isBlank()) {
             String code = request.getCouponCode().trim().toUpperCase();
-            Coupon coupon = couponRepository.findByCodeIgnoreCase(code)
+            Coupon coupon = couponRepository.findByCodeIgnoreCaseForUpdate(code)
                     .orElseThrow(() -> new AppException("Mã giảm giá [" + code + "] không tồn tại trên hệ thống.", HttpStatus.BAD_REQUEST));
 
             LocalDateTime now = LocalDateTime.now();
@@ -154,7 +154,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 throw new AppException("Mã giảm giá [" + code + "] đã hết hạn sử dụng.", HttpStatus.BAD_REQUEST);
             }
             if (coupon.getUsageLimit() != null && coupon.getUsedCount() != null && coupon.getUsedCount() >= coupon.getUsageLimit()) {
-                throw new AppException("Mã giảm giá [" + code + "] đã hết lượt sử dụng.", HttpStatus.BAD_REQUEST);
+                throw new AppException("Rất tiếc, mã giảm giá [" + code + "] vừa hết lượt sử dụng trong tích tắc!", HttpStatus.BAD_REQUEST);
             }
             if (coupon.getUserUsageLimit() != null && coupon.getUserUsageLimit() > 0) {
                 long userUsedCount = orderRepository.countByUserIdAndCouponIdAndStatusNotIn(
@@ -839,118 +839,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
      * Tính phí giao hàng GHN từ Kho AP Sports ĐHCT (Ninh Kiều, Cần Thơ - districtId=1442, wardCode="21211")
      * đến Quận/Huyện và Phường/Xã khách hàng.
      */
-    @SuppressWarnings("rawtypes")
     private BigDecimal calculateGhnShippingFee(Integer toDistrictId, String toWardCode, Integer totalWeight, BigDecimal orderSubtotal) {
-        if (toDistrictId == null || ghnToken == null || ghnToken.isBlank()) {
-            return null;
-        }
-        try {
-            String base = (ghnApiUrl != null && !ghnApiUrl.isBlank()) ? ghnApiUrl.trim() : "https://online-gateway.ghn.vn/shiip/public-api/v2";
-            if (!base.endsWith("/")) base = base + "/";
-            String url = base + "shipping-order/fee";
-
-            org.springframework.http.client.SimpleClientHttpRequestFactory factory =
-                    new org.springframework.http.client.SimpleClientHttpRequestFactory();
-            factory.setConnectTimeout(4000);
-            factory.setReadTimeout(5000);
-            RestTemplate restTemplate = new RestTemplate(factory);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Token", ghnToken);
-            if (ghnShopId != null && !ghnShopId.isBlank()) {
-                headers.set("ShopId", ghnShopId);
-            }
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            int finalWeight = (totalWeight != null && totalWeight > 0) ? totalWeight : 500;
-            int boxLength = finalWeight > 3000 ? 30 : (finalWeight > 1000 ? 20 : 15);
-            int boxWidth = finalWeight > 3000 ? 20 : (finalWeight > 1000 ? 15 : 10);
-            int boxHeight = finalWeight > 3000 ? 15 : 10;
-
-            // 1. Tra cứu Dịch vụ Vận chuyển (available-services) khả dụng cho tuyến đường từ kho tới toDistrictId
-            Integer matchedServiceId = null;
-            Integer matchedServiceTypeId = 2; // Default Chuẩn GHN Express
-            try {
-                String availUrl = base + "shipping-order/available-services";
-                Map<String, Object> availBody = new HashMap<>();
-                if (ghnShopId != null && !ghnShopId.isBlank()) {
-                    try { availBody.put("shop_id", Integer.parseInt(ghnShopId.trim())); } catch (Exception ignored) {}
-                }
-                availBody.put("from_district", StoreLocationConstants.STORE_DISTRICT_ID);
-                availBody.put("to_district", toDistrictId);
-
-                HttpEntity<Map<String, Object>> availEntity = new HttpEntity<>(availBody, headers);
-                ResponseEntity<Map> availResp = restTemplate.exchange(availUrl, HttpMethod.POST, availEntity, Map.class);
-                if (availResp.getStatusCode().is2xxSuccessful() && availResp.getBody() != null) {
-                    Object availData = availResp.getBody().get("data");
-                    if (availData instanceof List && !((List<?>) availData).isEmpty()) {
-                        for (Object sObj : (List<?>) availData) {
-                            if (sObj instanceof Map) {
-                                Map<?, ?> sMap = (Map<?, ?>) sObj;
-                                Object typeId = sMap.get("service_type_id");
-                                Object servId = sMap.get("service_id");
-                                if (typeId instanceof Number && ((Number) typeId).intValue() == 2 && servId instanceof Number) {
-                                    matchedServiceId = ((Number) servId).intValue();
-                                    matchedServiceTypeId = 2;
-                                    break;
-                                }
-                            }
-                        }
-                        if (matchedServiceId == null) {
-                            Map<?, ?> firstMap = (Map<?, ?>) ((List<?>) availData).get(0);
-                            if (firstMap.get("service_id") instanceof Number) {
-                                matchedServiceId = ((Number) firstMap.get("service_id")).intValue();
-                            }
-                            if (firstMap.get("service_type_id") instanceof Number) {
-                                matchedServiceTypeId = ((Number) firstMap.get("service_type_id")).intValue();
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("[GHN Fee] Không tra cứu được available-services: {}", e.getMessage());
-            }
-
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("from_district_id", StoreLocationConstants.STORE_DISTRICT_ID); // Kho chính AP Sports - ĐHCT, Ninh Kiều, Cần Thơ
-            requestBody.put("from_ward_code", StoreLocationConstants.STORE_WARD_CODE); // Phường Xuân Khánh, Ninh Kiều, Cần Thơ
-            if (matchedServiceId != null) {
-                requestBody.put("service_id", matchedServiceId);
-            }
-            requestBody.put("service_type_id", matchedServiceTypeId);
-            requestBody.put("to_district_id", toDistrictId);
-            if (toWardCode != null && !toWardCode.isBlank()) {
-                requestBody.put("to_ward_code", toWardCode.trim());
-            }
-            requestBody.put("height", boxHeight);
-            requestBody.put("length", boxLength);
-            requestBody.put("weight", finalWeight);
-            requestBody.put("width", boxWidth);
-
-            if (orderSubtotal != null && orderSubtotal.compareTo(BigDecimal.ZERO) > 0) {
-                int insuranceVal = Math.min(orderSubtotal.intValue(), 5000000);
-                requestBody.put("insurance_value", insuranceVal);
-            }
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
-
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                Object data = response.getBody().get("data");
-                if (data instanceof Map) {
-                    Object totalObj = ((Map) data).get("total");
-                    if (totalObj instanceof Number) {
-                        BigDecimal fee = BigDecimal.valueOf(((Number) totalObj).longValue());
-                        log.info("[GHN Fee] ✅ GHN trả về phí giao hàng thành công: {} VNĐ (tới districtId={}, weight={}g)", fee, toDistrictId, finalWeight);
-                        return fee;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[GHN Fee] Không tính được phí giao hàng động từ GHN (districtId={}): {}", toDistrictId, e.getMessage());
-        }
-        return null;
+        return ghnService.calculateShippingFee(toDistrictId, toWardCode, totalWeight, orderSubtotal);
     }
+
 
 
 

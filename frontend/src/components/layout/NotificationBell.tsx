@@ -82,7 +82,22 @@ export default function NotificationBell({ noBorder = false }: NotificationBellP
 
                       const isRead = notif.isRead ?? (notif as any).read ?? false;
                       const getTitle = () => {
+                        // 1. Ưu tiên tiêu đề do Server trả về
+                        if (notif.title && notif.title.trim()) {
+                          return notif.title;
+                        }
+                        if (payloadObj.title && typeof payloadObj.title === 'string' && payloadObj.title.trim()) {
+                          return payloadObj.title;
+                        }
+
+                        // 2. Fallback dựa theo actionType
                         switch (notif.actionType) {
+                          case "ORDER_PACKED":
+                            return `Đơn hàng #${payloadObj.orderCode || 'N/A'} đã được đóng gói`;
+                          case "GHN_ORDER_UPDATE":
+                            return `Cập nhật vận chuyển GHN #${payloadObj.orderCode || 'N/A'}`;
+                          case "PRODUCT_RESTOCKED":
+                            return `Sản phẩm yêu thích đã có hàng!`;
                           case "ORDER_PLACED":
                             return `Đơn hàng mới #${payloadObj.orderCode || 'N/A'}`;
                           case "ORDER_PLACED_CUSTOMER":
@@ -113,7 +128,25 @@ export default function NotificationBell({ noBorder = false }: NotificationBellP
                       };
 
                       const getDesc = () => {
+                        // 1. Ưu tiên nội dung do Server trả về
+                        if (notif.message && notif.message.trim() && !notif.message.startsWith('{')) {
+                          return notif.message;
+                        }
+                        if (payloadObj.content && typeof payloadObj.content === 'string' && payloadObj.content.trim()) {
+                          return payloadObj.content;
+                        }
+                        if (payloadObj.message && typeof payloadObj.message === 'string' && payloadObj.message.trim()) {
+                          return payloadObj.message;
+                        }
+
+                        // 2. Fallback dựa theo actionType
                         switch (notif.actionType) {
+                          case "ORDER_PACKED":
+                            return `Đơn hàng #${payloadObj.orderCode || ''} đã được bộ phận kho kiểm đếm barcode 100% và đóng gói thành công.`;
+                          case "GHN_ORDER_UPDATE":
+                            return `Đơn vị vận chuyển GHN đã cập nhật trạng thái đơn hàng #${payloadObj.orderCode || ''}: [${payloadObj.newStatus || ''}].`;
+                          case "PRODUCT_RESTOCKED":
+                            return `Biến thể của sản phẩm "${payloadObj.productName || ''}" bạn theo dõi đã có hàng trở lại!`;
                           case "ORDER_PLACED":
                             return `Khách hàng vừa đặt đơn hàng trị giá ${payloadObj.totalAmount ? Number(payloadObj.totalAmount).toLocaleString('vi-VN') : 0} VNĐ`;
                           case "ORDER_PLACED_CUSTOMER":

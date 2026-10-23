@@ -12,6 +12,7 @@ import com.web.ap_sports.service.common.geocoding.GeocodingCascadeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -157,7 +158,7 @@ public class ShippingAddressServiceImpl implements ShippingAddressService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void ensureGeocodedIfMissing(ShippingAddress address) {
         boolean hasValidCoords = address.getLatitude() != null && address.getLatitude() != 0.0
                 && address.getLongitude() != null && address.getLongitude() != 0.0;

@@ -118,6 +118,7 @@ export function useAdminNotifications() {
           'ORDER_CANCELLED_BY_ADMIN',
           'ORDER_DELIVERED',
           'PAYMENT_SUCCESS',
+          'ORDER_PACKED',
         ].includes(n.actionType)
       ).length,
       SHIPPING: notifications.filter((n) => n.actionType === 'GHN_ORDER_UPDATE').length,
@@ -166,6 +167,7 @@ export function useAdminNotifications() {
       case 'ORDER_CANCELLED_BY_ADMIN':
       case 'ORDER_DELIVERED':
       case 'PAYMENT_SUCCESS':
+      case 'ORDER_PACKED':
         return {
           icon: ShoppingBag,
           colorClass: 'text-blue-600 bg-blue-50 border-blue-200',
