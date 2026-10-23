@@ -103,6 +103,7 @@ public class NotificationServiceImpl implements NotificationService {
             case WELCOME -> "Chào mừng bạn đến với AP Sports!";
             case PRODUCT_RESTOCKED -> "Sản phẩm yêu thích đã có hàng!";
             case ORDER_PACKED -> "Đơn hàng đã được kiểm đếm đóng gói";
+            case SYSTEM_ALERT -> "Cảnh báo vi phạm & sự cố";
             default -> "Thông báo mới từ hệ thống";
         };
     }
@@ -157,6 +158,7 @@ public class NotificationServiceImpl implements NotificationService {
                 case PRODUCT_RESTOCKED -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Biến thể của sản phẩm \"" + productName + "\" bạn đăng ký theo dõi đã có hàng trở lại!");
                 case ORDER_PACKED -> "Đơn hàng #" + orderCode + " đã được bộ phận kho kiểm đếm barcode 100% và đóng gói thành công.";
                 case WELCOME -> map.get("content") != null ? String.valueOf(map.get("content")) : "Hệ thống thông báo thời gian thực đã sẵn sàng phục vụ bạn.";
+                case SYSTEM_ALERT -> map.get("content") != null ? String.valueOf(map.get("content")) : defaultTitle;
                 default -> defaultTitle;
             };
         } catch (Exception e) {
@@ -165,8 +167,23 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private Notification buildNotification(User targetUser, Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
-        String title = resolveTitle(actionType);
-        String msg = resolveMessage(actionType, payload, title);
+        String customTitle = null;
+        String customContent = null;
+        if (payload != null && payload.startsWith("{")) {
+            try {
+                Map<String, Object> map = objectMapper.readValue(payload, new TypeReference<Map<String, Object>>() {});
+                if (map.get("title") != null && !String.valueOf(map.get("title")).isBlank()) {
+                    customTitle = String.valueOf(map.get("title")).trim();
+                }
+                if (map.get("content") != null && !String.valueOf(map.get("content")).isBlank()) {
+                    customContent = String.valueOf(map.get("content")).trim();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        String title = customTitle != null ? customTitle : resolveTitle(actionType);
+        String msg = customContent != null ? customContent : resolveMessage(actionType, payload, title);
+
         return Notification.builder()
                 .user(targetUser)
                 .senderId(senderId)

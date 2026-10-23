@@ -44,6 +44,7 @@ public class StaffSupportChatServiceImpl implements StaffSupportChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final com.web.ap_sports.service.ai.ContentModerationAiService contentModerationAiService;
 
     @Override
     @Transactional(readOnly = true)
@@ -133,6 +134,14 @@ public class StaffSupportChatServiceImpl implements StaffSupportChatService {
 
         if ((content == null || content.isEmpty()) && (attachmentUrl == null || attachmentUrl.isEmpty())) {
             throw new IllegalArgumentException("Nội dung tin nhắn hoặc ảnh đính kèm không được để trống.");
+        }
+
+        if (content != null && !content.isEmpty()) {
+            com.web.ap_sports.service.ai.ContentModerationAiService.ModerationResult moderation =
+                    contentModerationAiService.moderate(content);
+            if (moderation.isViolation()) {
+                throw new IllegalArgumentException("Nội dung tin nhắn phản hồi vi phạm chuẩn mực: " + moderation.reason());
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -353,10 +362,14 @@ public class StaffSupportChatServiceImpl implements StaffSupportChatService {
                 .senderId(m.getSender() != null ? m.getSender().getId() : null)
                 .senderName(m.getSender() != null ? m.getSender().getName() : "Hệ thống AP Sports")
                 .senderRole(m.getSenderRole())
-                .content(m.getContent())
+                .content(m.isViolation() ? m.getMaskedContent() : m.getContent())
                 .attachmentUrl(m.getAttachmentUrl())
                 .senderAvatar(m.getSender() != null ? m.getSender().getAvatar() : null)
                 .conversationStatus(m.getConversation() != null ? m.getConversation().getStatus() : null)
+                .isViolation(m.isViolation())
+                .violationReason(m.getViolationReason())
+                .maskedContent(m.getMaskedContent())
+                .originalContent(m.getContent())
                 .createdAt(m.getCreatedAt())
                 .build();
     }

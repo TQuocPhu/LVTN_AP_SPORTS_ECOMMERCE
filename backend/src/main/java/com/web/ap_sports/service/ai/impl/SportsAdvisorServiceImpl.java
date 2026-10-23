@@ -12,6 +12,7 @@ import com.web.ap_sports.repository.ChatMessageRepository;
 import com.web.ap_sports.repository.ProductRepository;
 import com.web.ap_sports.repository.ProductVariantRepository;
 import com.web.ap_sports.service.ai.AiPromptSanitizer;
+import com.web.ap_sports.service.ai.ContentModerationAiService;
 import com.web.ap_sports.service.ai.GeminiRestClient;
 import com.web.ap_sports.service.ai.SportsAdvisorService;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
     private final ProductVariantRepository productVariantRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ObjectMapper objectMapper;
+    private final ContentModerationAiService contentModerationAiService;
 
     private static final Locale VI_LOCALE = new Locale("vi", "VN");
 
@@ -53,6 +55,19 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
         if (cleanQuestion.isBlank()) {
             return AiSportsAdvisorResponse.builder()
                     .reply("Dạ em chào anh/chị! Em có thể hỗ trợ anh/chị tư vấn chọn size giày, quần áo thể thao hay dụng cụ tập luyện nào hôm nay ạ?")
+                    .suggestedProducts(Collections.emptyList())
+                    .build();
+        }
+
+        // 1.1 Kiểm duyệt nội dung bằng AI Guardrails L1 + L2
+        ContentModerationAiService.ModerationResult modResult = contentModerationAiService.moderate(cleanQuestion);
+        if (modResult.isViolation()) {
+            String warningReply = "Dạ AP Sports xin phép từ chối phản hồi do câu hỏi có chứa nội dung vi phạm tiêu chuẩn cộng đồng (" 
+                    + modResult.reason() + "). Vui lòng sử dụng ngôn từ lịch sự để được trợ lý hỗ trợ tốt nhất ạ!";
+            saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null, true, modResult.reason(), modResult.maskedContent());
+            saveChatMessage(warningReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(), Collections.emptyList(), false, null, null);
+            return AiSportsAdvisorResponse.builder()
+                    .reply(warningReply)
                     .suggestedProducts(Collections.emptyList())
                     .build();
         }
@@ -100,8 +115,8 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
         List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts = extractSuggestedProducts(relevantProducts, allInStockProducts, cleanReply, cleanQuestion);
 
         // 7. Lưu tin nhắn sạch vào cơ sở dữ liệu chat_messages kèm sản phẩm gợi ý của bot
-        saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null);
-        saveChatMessage(cleanReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(), suggestedProducts);
+        saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null, false, null, null);
+        saveChatMessage(cleanReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(), suggestedProducts, false, null, null);
 
         return AiSportsAdvisorResponse.builder()
                 .reply(cleanReply)
@@ -136,11 +151,17 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                 log.warn("Không thể parse suggestedProductsJson cho message id {}: {}", entity.getId(), e.getMessage());
             }
         }
+        String displayMessage = entity.isViolation() && entity.getMaskedContent() != null
+                ? entity.getMaskedContent()
+                : entity.getMessage();
+
         return ChatMessageResponse.builder()
                 .id(entity.getId())
                 .sender(entity.getSender() != null ? entity.getSender().name() : "bot")
-                .message(entity.getMessage())
+                .message(displayMessage)
                 .isRead(entity.isRead())
+                .isViolation(entity.isViolation())
+                .violationReason(entity.getViolationReason())
                 .createdAt(entity.getCreatedAt())
                 .suggestedProducts(products)
                 .build();
@@ -304,7 +325,15 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                 """.formatted(productContextJson);
     }
 
-    private void saveChatMessage(String message, ChatMessage.ChatSender sender, User user, String guestToken, List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts) {
+    private void saveChatMessage(
+            String message,
+            ChatMessage.ChatSender sender,
+            User user,
+            String guestToken,
+            List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts,
+            boolean isViolation,
+            String violationReason,
+            String maskedContent) {
         if (message == null || message.isBlank()) return;
         try {
             String json = null;
@@ -318,6 +347,9 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                     .message(message)
                     .suggestedProductsJson(json)
                     .isRead(false)
+                    .isViolation(isViolation)
+                    .violationReason(violationReason)
+                    .maskedContent(maskedContent)
                     .build();
             chatMessageRepository.save(chatMessage);
         } catch (Exception e) {

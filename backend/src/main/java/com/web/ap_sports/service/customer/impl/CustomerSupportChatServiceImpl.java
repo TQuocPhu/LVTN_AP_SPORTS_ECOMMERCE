@@ -40,6 +40,7 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.web.ap_sports.service.ai.ContentModerationAiService contentModerationAiService;
 
     @Override
     @Transactional(readOnly = true)
@@ -155,12 +156,18 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
         }
 
         LocalDateTime now = LocalDateTime.now();
+        com.web.ap_sports.service.ai.ContentModerationAiService.ModerationResult moderation =
+                contentModerationAiService.moderate(content);
+
         SupportMessage message = SupportMessage.builder()
                 .conversation(conversation)
                 .sender(customer)
                 .senderRole("CUSTOMER")
                 .content(content)
                 .attachmentUrl(attachmentUrl)
+                .isViolation(moderation.isViolation())
+                .violationReason(moderation.reason())
+                .maskedContent(moderation.maskedContent())
                 .createdAt(now)
                 .build();
 
@@ -171,12 +178,13 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
         conversation.setCustomerLastReadAt(now);
         conversationRepository.save(conversation);
 
-        SupportMessageResponse response = mapToMessageResponse(saved);
+        SupportMessageResponse customerResponse = mapToMessageResponse(saved);
+        SupportMessageResponse staffResponse = mapToStaffMessageResponse(saved);
 
         // Đẩy tin nhắn realtime qua WebSocket cho cả nhân viên và khách hàng
-        pushRealtimeMessage(conversation, response);
+        pushRealtimeMessage(conversation, customerResponse, staffResponse);
 
-        return response;
+        return customerResponse;
     }
 
     @Override
@@ -230,19 +238,23 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     }
 
     private void pushRealtimeMessage(SupportConversation conversation, SupportMessageResponse msg) {
+        pushRealtimeMessage(conversation, msg, msg);
+    }
+
+    private void pushRealtimeMessage(SupportConversation conversation, SupportMessageResponse customerMsg, SupportMessageResponse staffMsg) {
         try {
             // 1. Gửi cho khách hàng
             messagingTemplate.convertAndSendToUser(
                     String.valueOf(conversation.getCustomer().getId()),
                     "/queue/support-chat",
-                    msg);
+                    customerMsg);
 
             // 2. Gửi cho nhân viên phụ trách nếu có
             if (conversation.getStaff() != null) {
                 messagingTemplate.convertAndSendToUser(
                         String.valueOf(conversation.getStaff().getId()),
                         "/queue/support-chat",
-                        msg);
+                        staffMsg);
             } else {
                 // Nếu ca WAITING, thông báo cho hàng đợi nhân viên
                 notifyStaffQueueUpdated();
@@ -316,16 +328,40 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     }
 
     private SupportMessageResponse mapToMessageResponse(SupportMessage m) {
+        String displayContent = m.isViolation() ? m.getMaskedContent() : m.getContent();
         return SupportMessageResponse.builder()
                 .id(m.getId())
                 .conversationId(m.getConversation().getId())
                 .senderId(m.getSender() != null ? m.getSender().getId() : null)
                 .senderName(m.getSender() != null ? m.getSender().getName() : "Hệ thống AP Sports")
                 .senderRole(m.getSenderRole())
-                .content(m.getContent())
+                .content(displayContent)
                 .attachmentUrl(m.getAttachmentUrl())
                 .senderAvatar(m.getSender() != null ? m.getSender().getAvatar() : null)
                 .conversationStatus(m.getConversation() != null ? m.getConversation().getStatus() : null)
+                .isViolation(m.isViolation())
+                .violationReason(m.getViolationReason())
+                .maskedContent(m.getMaskedContent())
+                .originalContent(null) // Khách hàng không bao giờ được xem raw content khi vi phạm
+                .createdAt(m.getCreatedAt())
+                .build();
+    }
+
+    private SupportMessageResponse mapToStaffMessageResponse(SupportMessage m) {
+        return SupportMessageResponse.builder()
+                .id(m.getId())
+                .conversationId(m.getConversation().getId())
+                .senderId(m.getSender() != null ? m.getSender().getId() : null)
+                .senderName(m.getSender() != null ? m.getSender().getName() : "Hệ thống AP Sports")
+                .senderRole(m.getSenderRole())
+                .content(m.isViolation() ? m.getMaskedContent() : m.getContent())
+                .attachmentUrl(m.getAttachmentUrl())
+                .senderAvatar(m.getSender() != null ? m.getSender().getAvatar() : null)
+                .conversationStatus(m.getConversation() != null ? m.getConversation().getStatus() : null)
+                .isViolation(m.isViolation())
+                .violationReason(m.getViolationReason())
+                .maskedContent(m.getMaskedContent())
+                .originalContent(m.getContent()) // Cho phép nhân viên xem nội dung gốc
                 .createdAt(m.getCreatedAt())
                 .build();
     }
