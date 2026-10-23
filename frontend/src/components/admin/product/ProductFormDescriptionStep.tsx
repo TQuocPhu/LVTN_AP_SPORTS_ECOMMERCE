@@ -67,7 +67,7 @@ export function ProductFormDescriptionStep({
             title="Sử dụng Gemini Flash AI để tự động viết mô tả sản phẩm chuẩn SEO"
           >
             <Sparkles className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating ? 'AI đang viết bài...' : '✨ AI Sinh Mô Tả Chuẩn SEO'}
+            {isGenerating ? 'AI đang viết bài...' : 'AI Sinh Mô Tả Chuẩn SEO'}
           </button>
         </div>
         <RichTextEditor value={description} onChange={onDescriptionChange} />

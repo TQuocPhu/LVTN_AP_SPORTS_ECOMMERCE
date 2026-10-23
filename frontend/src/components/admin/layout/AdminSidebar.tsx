@@ -40,9 +40,9 @@ export default function AdminSidebar() {
       {/* Sidebar Header */}
       <div className="px-4 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 flex items-center justify-between">
         <span>Menu Quản Trị</span>
-        <span className="text-[10px] font-semibold text-orange-400 bg-orange-950/50 px-2 py-0.5 rounded-full border border-orange-500/30">
+        {/* <span className="text-[10px] font-semibold text-orange-400 bg-orange-950/50 px-2 py-0.5 rounded-full border border-orange-500/30">
           Enterprise
-        </span>
+        </span> */}
       </div>
 
       {/* Main Navigation - Hidden Scrollbar / Fixed Height */}

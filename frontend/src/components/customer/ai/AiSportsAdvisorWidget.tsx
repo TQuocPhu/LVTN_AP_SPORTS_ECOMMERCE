@@ -171,7 +171,7 @@ export const AiSportsAdvisorWidget: React.FC<AiSportsAdvisorWidgetProps> = ({ ac
           <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
         </span>
         <Sparkles className="w-5 h-5 text-yellow-300 animate-pulse" />
-        <span className="font-semibold text-sm tracking-wide">✨ AI Tư Vấn Thể Thao</span>
+        <span className="font-semibold text-sm tracking-wide">AI Tư Vấn Thể Thao</span>
       </button>
     </div>
   );
