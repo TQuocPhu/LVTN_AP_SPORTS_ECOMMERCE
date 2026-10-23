@@ -16,8 +16,9 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
-
+import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
@@ -80,9 +81,11 @@ public class CustomerOrderController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
             @RequestParam(required = false, defaultValue = "DESC") String sortDir,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(size = 10) Pageable pageable) {
         User user = getAuthenticatedUser(authentication);
-        Page<OrderResponse> orders = orderService.getMyOrders(user.getEmail(), status, keyword, sortBy, sortDir, pageable);
+        Page<OrderResponse> orders = orderService.getMyOrders(user.getEmail(), status, keyword, sortBy, sortDir, startDate, endDate, pageable);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng thành công", orders));
     }
 

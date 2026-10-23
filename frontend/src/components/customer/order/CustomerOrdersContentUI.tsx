@@ -25,6 +25,7 @@ import {
   Warehouse,
   Star,
   Check,
+  Calendar,
 } from "lucide-react";
 import {
   useCustomerOrders,
@@ -34,6 +35,7 @@ import { useCustomerOrderReviewModal } from "@/hooks/useCustomerOrderReviewModal
 import { OrderItem } from "@/types/order";
 import { CustomerOrderDetailModalUI } from "./CustomerOrderDetailModalUI";
 import { CustomerOrderReviewModalUI } from "./CustomerOrderReviewModalUI";
+import PageHeaderBanner from "@/components/ui/PageHeaderBanner";
 
 export function CustomerOrdersContentUI() {
   const {
@@ -64,6 +66,11 @@ export function CustomerOrdersContentUI() {
     refetch,
     formatCurrency,
     formatDate,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    handleResetDates,
   } = useCustomerOrders();
 
   const {
@@ -178,37 +185,30 @@ export function CustomerOrdersContentUI() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 flex flex-col pb-16">
+      {/* ── Page Header Banner chuẩn layout chung storefront ── */}
+      <PageHeaderBanner
+        title="ĐƠN HÀNG CỦA BẠN"
+        subtitle="Theo dõi tiến độ giao hàng real-time, tra cứu lộ trình vận chuyển GHN và quản lý lịch sử đơn mua"
+        breadcrumbs={[
+          { label: "Tài khoản", href: "/profile" },
+          { label: "Đơn hàng của tôi" },
+        ]}
+      />
+
+      {/* ── Container Nội Dung Vừa Vặn Đồng Bộ Với Header Banner ── */}
+      <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-6 flex-1">
         {/* Toast Notification Popup */}
         {toastMessage && (
-          <div className="fixed top-20 right-5 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-xs animate-bounce">
+          <div className="fixed top-24 right-5 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-xs animate-bounce">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             <span>{toastMessage}</span>
           </div>
         )}
 
-        {/* Header Title */}
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 flex items-center justify-center font-black">
-              <ShoppingBag className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-black uppercase tracking-tight">
-                Quản Lý Đơn Hàng Cá Nhân
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Theo dõi trạng thái đơn hàng, vị trí bản đồ vận chuyển real-time
-                và yêu cầu trả hàng
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Filter Tabs */}
+        {/* Status Filter Tabs - Dàn đều space-between ra giữa */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-2 shadow-sm overflow-x-auto no-scrollbar transition-colors">
-          <div className="flex items-center gap-1.5 min-w-max">
+          <div className="flex items-center justify-between gap-1.5 w-full min-w-max">
             {statusTabs.map((tab) => {
               const isActive = activeTab === tab.key;
               const TabIcon = tab.icon;
@@ -217,7 +217,7 @@ export function CustomerOrdersContentUI() {
                   key={tab.key}
                   type="button"
                   onClick={() => handleTabChange(tab.key)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
                     isActive
                       ? "bg-orange-600 text-white shadow-md"
                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -231,40 +231,92 @@ export function CustomerOrdersContentUI() {
           </div>
         </div>
 
-        {/* Search & Sort Filter Bar */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors">
-          {/* Keyword Search */}
-          <div className="relative w-full sm:w-80">
+        {/* Search, Date Filter & Sort Bar */}
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 transition-colors">
+          {/* Keyword Search - Kéo dài rộng ra */}
+          <div className="relative flex-1 min-w-[260px] max-w-xl">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Tìm theo mã đơn hàng hoặc vận đơn..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+              onChange={(e) => {
+                setKeyword(e.target.value);
+                setPage(0);
+              }}
+              placeholder="Tìm theo mã đơn hàng hoặc mã vận đơn GHN..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
             />
           </div>
 
-          {/* Sort Selection Dropdown */}
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-            <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0" />
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
-              Sắp xếp:
-            </span>
-            <select
-              value={`${sortBy}-${sortDir}`}
-              onChange={(e) => {
-                const [sb, sd] = e.target.value.split("-");
-                setSortBy(sb);
-                setSortDir(sd);
-              }}
-              className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
-            >
-              <option value="createdAt-DESC">Mới nhất (Mặc định)</option>
-              <option value="createdAt-ASC">Cũ nhất</option>
-              <option value="finalAmount-DESC">Giá trị đơn: Cao nhất</option>
-              <option value="finalAmount-ASC">Giá trị đơn: Thấp nhất</option>
-            </select>
+          {/* Controls: Date Range Filter & Sort Dropdown */}
+          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 shrink-0">
+            {/* Bộ lọc đơn hàng theo thời gian cụ thể */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Từ:</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setPage(0);
+                  }}
+                  className="bg-transparent text-xs text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer"
+                  title="Lọc đơn hàng từ ngày"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Đến:</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setPage(0);
+                  }}
+                  className="bg-transparent text-xs text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer"
+                  title="Lọc đơn hàng đến ngày"
+                />
+              </div>
+
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={handleResetDates}
+                  className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                  title="Xóa bộ lọc ngày"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Sort Selection Dropdown */}
+            <div className="flex items-center gap-2 shrink-0">
+              <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                Sắp xếp:
+              </span>
+              <select
+                value={`${sortBy}-${sortDir}`}
+                onChange={(e) => {
+                  const [sb, sd] = e.target.value.split("-");
+                  setSortBy(sb);
+                  setSortDir(sd);
+                  setPage(0);
+                }}
+                className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
+              >
+                <option value="createdAt-DESC">Mới nhất (Mặc định)</option>
+                <option value="createdAt-ASC">Cũ nhất</option>
+                <option value="finalAmount-DESC">Giá trị đơn: Cao nhất</option>
+                <option value="finalAmount-ASC">Giá trị đơn: Thấp nhất</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -612,7 +664,7 @@ export function CustomerOrdersContentUI() {
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

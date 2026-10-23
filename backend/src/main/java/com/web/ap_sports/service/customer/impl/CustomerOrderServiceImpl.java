@@ -41,7 +41,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -647,7 +649,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, Pageable pageable) {
+    public Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         User user = getUserByEmail(email);
 
         Specification<Order> spec = (root, query, cb) -> {
@@ -666,6 +668,14 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 Predicate pCode = cb.like(cb.lower(root.get("orderCode")), kw);
                 Predicate pTrack = cb.like(cb.lower(root.get("trackingCode")), kw);
                 predicates.add(cb.or(pCode, pTrack));
+            }
+
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), startDate.atStartOfDay()));
+            }
+
+            if (endDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDate.atTime(LocalTime.MAX)));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

@@ -48,12 +48,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     );
   }
 
+  const isSupportChat = pathname === '/admin/support-chat';
+
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col font-sans text-slate-900 bg-slate-50">
       <AdminHeader />
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar />
-        <main className="flex-1 bg-slate-50 p-6 overflow-y-auto">
+        <main
+          className={`flex-1 bg-slate-50 ${
+            isSupportChat ? 'p-0 overflow-hidden flex flex-col' : 'p-6 overflow-y-auto'
+          }`}
+        >
           {children}
         </main>
       </div>

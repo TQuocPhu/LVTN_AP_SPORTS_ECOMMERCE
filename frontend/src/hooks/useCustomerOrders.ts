@@ -21,6 +21,8 @@ export function useCustomerOrders() {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<CustomerOrderStatusTab>('ALL');
   const [keyword, setKeyword] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortDir, setSortDir] = useState<string>('DESC');
   const [page, setPage] = useState<number>(0);
@@ -46,7 +48,9 @@ export function useCustomerOrders() {
         sortBy,
         sortDir,
         page,
-        10
+        10,
+        startDate,
+        endDate
       );
       if (res && res.data) {
         setOrders(res.data.content || []);
@@ -57,7 +61,7 @@ export function useCustomerOrders() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, keyword, sortBy, sortDir, page]);
+  }, [activeTab, keyword, sortBy, sortDir, page, startDate, endDate]);
 
   useEffect(() => {
     fetchOrders();
@@ -171,6 +175,15 @@ export function useCustomerOrders() {
     handleOpenActionModal,
     handleCloseActionModal,
     handleConfirmAction,
+    startDate,
+    setStartDate,
+    endDate,
+    setEndDate,
+    handleResetDates: () => {
+      setStartDate('');
+      setEndDate('');
+      setPage(0);
+    },
     refetch: fetchOrders,
     formatCurrency,
     formatDate,

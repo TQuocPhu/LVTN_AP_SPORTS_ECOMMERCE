@@ -94,7 +94,7 @@ export default function AdminSupportChatPage() {
   }
 
   return (
-    <div className="flex-1 flex h-[calc(100vh-4rem)] overflow-hidden bg-slate-50 text-slate-800">
+    <div className="flex-1 flex h-full overflow-hidden bg-slate-50 text-slate-800">
       {/* CỘT 1: HÀNG ĐỢI & CA ĐANG PHỤ TRÁCH (Pure Presentation) */}
       <SupportQueueListUI
         tab={queueTab}

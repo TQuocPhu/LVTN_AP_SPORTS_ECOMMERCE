@@ -22,7 +22,9 @@ export const customerOrderController = {
     sortBy: string = 'createdAt',
     sortDir: string = 'DESC',
     page: number = 0,
-    size: number = 10
+    size: number = 10,
+    startDate?: string,
+    endDate?: string
   ): Promise<ApiResponse<PaginatedOrdersResponse>> {
     let url = `/customer/orders/my-orders?status=${encodeURIComponent(
       status
@@ -35,6 +37,12 @@ export const customerOrderController = {
     }
     if (sortDir) {
       url += `&sortDir=${encodeURIComponent(sortDir)}`;
+    }
+    if (startDate && startDate.trim()) {
+      url += `&startDate=${encodeURIComponent(startDate.trim())}`;
+    }
+    if (endDate && endDate.trim()) {
+      url += `&endDate=${encodeURIComponent(endDate.trim())}`;
     }
     return apiClient.get<ApiResponse<PaginatedOrdersResponse>>(url);
   },

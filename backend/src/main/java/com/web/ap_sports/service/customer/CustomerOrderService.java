@@ -5,6 +5,7 @@ import com.web.ap_sports.dto.response.customer.OrderResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDate;
 import java.util.Map;
 
 public interface CustomerOrderService {
@@ -12,7 +13,7 @@ public interface CustomerOrderService {
     OrderResponse processVNPayReturn(Map<String, String> queryParams);
     OrderResponse retryVNPayPayment(String email, String orderCode, String clientIp);
     OrderResponse getOrderByCode(String email, String orderCode);
-    Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, Pageable pageable);
+    Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, LocalDate startDate, LocalDate endDate, Pageable pageable);
     OrderResponse cancelMyOrder(String email, String orderCode, String reason);
     OrderResponse returnMyOrder(String email, String orderCode, String reason);
     OrderResponse completeMyOrder(String email, String orderCode);
