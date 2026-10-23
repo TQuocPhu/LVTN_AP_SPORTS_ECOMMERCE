@@ -60,6 +60,9 @@ export function useStaffSupportChat() {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
 
+  // Trạng thái xem nội dung gốc của tin nhắn vi phạm
+  const [revealedMessageIds, setRevealedMessageIds] = useState<Record<number, boolean>>({});
+
   const clientRef = useRef<Client | null>(null);
   const activeConversationRef = useRef<SupportConversation | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -374,6 +377,29 @@ export function useStaffSupportChat() {
     setIsReportModalOpen(true);
   };
 
+  const handleQuickReport = useCallback((msg: SupportMessage) => {
+    const reasonText = msg.isViolation
+      ? (msg.violationReason || 'Ngôn từ vi phạm chuẩn mực cộng đồng')
+      : 'Khách hàng có hành vi không chuẩn mực trong cuộc trò chuyện';
+    const quote = msg.originalContent || msg.content || '';
+    setReportReason(
+      msg.isViolation
+        ? `[Báo Cáo Nhanh - AI Cảnh Báo]: ${reasonText}. Nội dung vi phạm: "${quote}"`
+        : `[Báo Cáo Nhanh]: ${reasonText}. Trích dẫn tin nhắn: "${quote}"`
+    );
+    setReportFiles([]);
+    setReportPreviews([]);
+    setErrorMessage(null);
+    setIsReportModalOpen(true);
+  }, []);
+
+  const toggleRevealOriginalContent = useCallback((msgId: number) => {
+    setRevealedMessageIds((prev) => ({
+      ...prev,
+      [msgId]: !prev[msgId],
+    }));
+  }, []);
+
   const closeReportModal = () => {
     if (isReporting) return;
     setIsReportModalOpen(false);
@@ -509,7 +535,7 @@ export function useStaffSupportChat() {
     handleSelectImage,
     clearSelectedImage,
     handleSendChatMessage,
-    // Modal Báo cáo vi phạm
+    // Modal Báo cáo vi phạm & Content Moderation
     isReportModalOpen,
     isReporting,
     reportReason,
@@ -521,6 +547,9 @@ export function useStaffSupportChat() {
     handleReportFileChange,
     removeReportFile,
     handleReportSubmit,
+    handleQuickReport,
+    revealedMessageIds,
+    toggleRevealOriginalContent,
     // Modal Hoàn tất ca (Không dùng window.confirm)
     isResolveModalOpen,
     openResolveModal,

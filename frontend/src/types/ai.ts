@@ -26,6 +26,8 @@ export interface ChatMessageDto {
   id: number;
   sender: 'user' | 'bot' | 'staff';
   message: string;
+  isViolation?: boolean;
+  violationReason?: string;
   createdAt: string;
   suggestedProducts?: SuggestedProduct[];
 }

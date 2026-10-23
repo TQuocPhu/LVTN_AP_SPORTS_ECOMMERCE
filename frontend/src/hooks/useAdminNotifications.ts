@@ -190,6 +190,13 @@ export function useAdminNotifications() {
           badgeText: 'Kho Hàng',
           badgeClass: 'bg-rose-100 text-rose-700',
         };
+      case 'SYSTEM_ALERT':
+        return {
+          icon: AlertTriangle,
+          colorClass: 'text-red-600 bg-red-50 border-red-200',
+          badgeText: 'Cảnh Báo Vi Phạm',
+          badgeClass: 'bg-red-100 text-red-700',
+        };
       default:
         return {
           icon: Info,

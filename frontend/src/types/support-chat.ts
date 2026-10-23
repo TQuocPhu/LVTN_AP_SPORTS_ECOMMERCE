@@ -43,6 +43,10 @@ export interface SupportMessage {
   senderAvatar?: string;
   content?: string;
   attachmentUrl?: string;
+  isViolation?: boolean;
+  violationReason?: string;
+  maskedContent?: string;
+  originalContent?: string;
   conversationStatus?: SupportConversationStatus;
   createdAt: string;
 }
