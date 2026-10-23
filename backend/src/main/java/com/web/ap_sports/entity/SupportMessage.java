@@ -36,6 +36,16 @@ public class SupportMessage {
     @Column(name = "attachment_url", length = 500)
     private String attachmentUrl; // Link anh Cloudinary
 
+    @Column(name = "is_violation", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean isViolation = false;
+
+    @Column(name = "violation_reason", length = 255)
+    private String violationReason;
+
+    @Column(name = "masked_content", columnDefinition = "TEXT")
+    private String maskedContent;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

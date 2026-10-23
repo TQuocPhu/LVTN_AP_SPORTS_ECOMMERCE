@@ -19,5 +19,12 @@ public class SupportMessageResponse {
     private String attachmentUrl;
     private String senderAvatar;
     private String conversationStatus; // WAITING, IN_PROGRESS, RESOLVED, CLOSED
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isViolation")
+    private boolean isViolation;
+
+    private String violationReason;
+    private String maskedContent;
+    private String originalContent;
     private LocalDateTime createdAt;
 }

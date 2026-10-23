@@ -19,6 +19,11 @@ public class ChatMessageResponse {
     private String sender;
     private String message;
     private boolean isRead;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isViolation")
+    private boolean isViolation;
+
+    private String violationReason;
     private LocalDateTime createdAt;
     private List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts;
 }

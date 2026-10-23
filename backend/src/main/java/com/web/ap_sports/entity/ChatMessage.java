@@ -45,6 +45,16 @@ public class ChatMessage {
     @Column(name = "is_read", nullable = false)
     private boolean isRead;
 
+    @Column(name = "is_violation", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean isViolation = false;
+
+    @Column(name = "violation_reason", length = 255)
+    private String violationReason;
+
+    @Column(name = "masked_content", columnDefinition = "TEXT")
+    private String maskedContent;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
