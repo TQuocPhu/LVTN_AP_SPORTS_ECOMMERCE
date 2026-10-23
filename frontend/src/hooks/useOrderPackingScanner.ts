@@ -177,6 +177,12 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
         return;
       }
 
+      if (order.packVerified) {
+        playBeep('error');
+        toast.warning('Đơn hàng đã được kiểm đếm và đóng gói niêm phong, không thể quét thêm!');
+        return;
+      }
+
       const vId = matchedItem.variantId || matchedItem.productId;
       const current = scannedMap[vId] || 0;
 
@@ -202,13 +208,21 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
   );
 
   const handleReset = useCallback(() => {
+    if (order?.packVerified) {
+      toast.warning('Đơn hàng đã hoàn tất đóng gói niêm phong, không thể làm mới dữ liệu.');
+      return;
+    }
     setScannedMap({});
     toast.info('Đã xóa dữ liệu kiểm đếm, bạn có thể quét lại từ đầu.');
-  }, []);
+  }, [order?.packVerified]);
 
   // Gửi xác nhận kiểm đếm đủ 100%
   const handleSubmit = useCallback(async () => {
     if (!order) return;
+    if (order.packVerified) {
+      toast.error('Đơn hàng này đã được kiểm đếm và đóng gói niêm phong trước đó. Không thể thao tác lại!');
+      return;
+    }
     if (!isAllScanned) {
       toast.error('Vui lòng quét đủ 100% số lượng các mặt hàng trước khi xác nhận đóng gói!');
       return;
@@ -273,6 +287,7 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
     isAllScanned,
     progressPercentage,
     inputRef,
+    isAlreadyVerified: Boolean(order?.packVerified),
     handleScanCode,
     handleReset,
     handleSubmit,

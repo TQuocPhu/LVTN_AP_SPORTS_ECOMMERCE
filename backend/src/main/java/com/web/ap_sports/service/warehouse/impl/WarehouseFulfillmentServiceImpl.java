@@ -56,8 +56,12 @@ public class WarehouseFulfillmentServiceImpl implements WarehouseFulfillmentServ
             throw new AppException("Đơn hàng đã bị hủy, không thể đóng gói xuất kho", HttpStatus.BAD_REQUEST);
         }
 
-        if (order.getStatus() != OrderStatus.confirmed && order.getStatus() != OrderStatus.processing) {
-            throw new AppException("Chỉ có thể kiểm đếm đóng gói cho đơn hàng ở trạng thái Đã Duyệt (confirmed) hoặc Đang Đóng Gói (processing)", HttpStatus.BAD_REQUEST);
+        if (Boolean.TRUE.equals(order.getPackVerified())) {
+            throw new AppException("Đơn hàng #" + order.getOrderCode() + " đã được kiểm đếm barcode và xuất kho niêm phong trước đó. Nghiệp vụ đóng gói đã hoàn tất, không được phép thao tác lại!", HttpStatus.BAD_REQUEST);
+        }
+
+        if (order.getStatus() != OrderStatus.confirmed) {
+            throw new AppException("Chỉ có thể kiểm đếm đóng gói cho đơn hàng ở trạng thái Đã Duyệt (confirmed)", HttpStatus.BAD_REQUEST);
         }
 
         List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);

@@ -101,19 +101,26 @@ export function LogisticsControlPanel({
             </button>
           )}
 
-          {/* Action 2: Quét Barcode Đóng Gói (Chỉ hiển thị cho Quản lý kho/Admin, ẩn 100% đối với STAFF) */}
-          {canPackOrVerify && (isConfirmed || isProcessing) && (
+          {/* Trạng thái đã đóng gói niêm phong */}
+          {isPackVerified && (
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                Đã Đóng Gói Niêm Phong
+                {order?.packedByName ? ` (${order.packedByName})` : ''}
+              </span>
+            </div>
+          )}
+
+          {/* Action 2: Quét Barcode Đóng Gói (Chỉ hiển thị khi đơn đã duyệt VÀ CHƯA ĐÓNG GÓI, ẩn 100% đối với STAFF và khi đã đóng gói) */}
+          {canPackOrVerify && isConfirmed && !isPackVerified && (
             <button
               type="button"
               onClick={scanner.openModal}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-extrabold text-xs shadow-md transition-all cursor-pointer ${
-                isPackVerified
-                  ? 'bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white animate-pulse'
-              }`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer animate-pulse"
             >
               <Scan className="w-4 h-4" />
-              <span>{isPackVerified ? 'Xem Lại Kiểm Đếm Barcode' : '📦 Quét Barcode Đóng Gói'}</span>
+              <span>📦 Quét Barcode Đóng Gói</span>
             </button>
           )}
 

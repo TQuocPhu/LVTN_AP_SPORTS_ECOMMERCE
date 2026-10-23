@@ -144,14 +144,21 @@ export function PendingPackingOrdersTable({
                     </div>
                   </td>
                   <td className="p-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenScanner(order)}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-md shadow-indigo-600/20 transition-all inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Scan className="w-4 h-4" />
-                      <span>Quét Barcode Đóng Gói</span>
-                    </button>
+                    {order.packVerified ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-extrabold text-xs border border-emerald-200">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Đã Niêm Phong</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenScanner(order)}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider shadow-md shadow-indigo-600/20 transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Scan className="w-4 h-4" />
+                        <span>Quét Barcode Đóng Gói</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               );

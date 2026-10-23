@@ -57,10 +57,14 @@ export function OrderPackingScannerModal({
 }: OrderPackingScannerModalProps) {
   if (!isOpen || !order || typeof window === 'undefined') return null;
 
+  const isPackVerified = Boolean(order.packVerified);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      onScanCode(manualCode);
+      if (!isPackVerified) {
+        onScanCode(manualCode);
+      }
     }
   };
 
@@ -103,10 +107,14 @@ export function OrderPackingScannerModal({
               </span>
               <span
                 className={`px-2.5 py-0.5 rounded-full text-[11px] uppercase tracking-wider ${
-                  isAllScanned ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+                  isPackVerified
+                    ? 'bg-emerald-500 text-white font-black'
+                    : isAllScanned
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-amber-500 text-white'
                 }`}
               >
-                {isAllScanned ? '100% Đã Khớp Hoàn Hảo' : 'Đang Kiểm Đếm'}
+                {isPackVerified ? 'Đã Niêm Phong Kho' : isAllScanned ? '100% Đã Khớp Hoàn Hảo' : 'Đang Kiểm Đếm'}
               </span>
             </div>
             <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
@@ -124,6 +132,25 @@ export function OrderPackingScannerModal({
 
         {/* Scrollable Content Body */}
         <div className="p-6 space-y-6 overflow-y-auto">
+          {/* Cảnh báo nếu đơn hàng đã được niêm phong trước đó */}
+          {isPackVerified && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="text-xs">
+                <h4 className="font-black text-emerald-900 uppercase">
+                  Đơn Hàng Đã Được Kiểm Đếm & Niêm Phong Thành Công
+                </h4>
+                <p className="text-emerald-700 mt-1 leading-relaxed">
+                  Thủ kho thực hiện: <strong>{order.packedByName || 'Thủ kho phụ trách'}</strong>
+                  {order.packedAt ? ` • Thời gian: ${new Date(order.packedAt).toLocaleString('vi-VN')}` : ''}.
+                  Hệ thống đã tự động khóa niêm phong, không thể quét thêm hoặc xuất kho lần nữa.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Ô Quét Barcode & Nhập SKU mô phỏng */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
             <div className="flex items-center justify-between">
@@ -131,14 +158,16 @@ export function OrderPackingScannerModal({
                 <Keyboard className="w-4 h-4 text-indigo-600" />
                 <span>Quét máy đọc mã vạch hoặc nhập Barcode / SKU + Nhấn Enter:</span>
               </label>
-              <button
-                type="button"
-                onClick={onReset}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Quét lại từ đầu</span>
-              </button>
+              {!isPackVerified && (
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="text-xs font-bold text-slate-500 hover:text-rose-600 flex items-center gap-1 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Quét lại từ đầu</span>
+                </button>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -148,17 +177,22 @@ export function OrderPackingScannerModal({
                   ref={inputRef}
                   type="text"
                   value={manualCode}
+                  disabled={isPackVerified}
                   onChange={(e) => onManualCodeChange(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Đặt con trỏ tại đây để quét mã vạch (hoặc gõ SKU)..."
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                  placeholder={
+                    isPackVerified
+                      ? 'Đơn hàng đã niêm phong kho - đã khóa ô quét mã'
+                      : 'Đặt con trỏ tại đây để quét mã vạch (hoặc gõ SKU)...'
+                  }
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </div>
               <button
                 type="button"
                 onClick={() => onScanCode(manualCode)}
-                disabled={!manualCode.trim()}
-                className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md"
+                disabled={isPackVerified || !manualCode.trim()}
+                className="px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition-all shadow-md disabled:cursor-not-allowed"
               >
                 Quét Mã
               </button>
@@ -246,9 +280,14 @@ export function OrderPackingScannerModal({
             <input
               type="text"
               value={note}
+              disabled={isPackVerified}
               onChange={(e) => onNoteChange(e.target.value)}
-              placeholder="Ví dụ: Đã niêm phong thùng carton bằng băng dính AP Sports..."
-              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500"
+              placeholder={
+                isPackVerified
+                  ? 'Đơn hàng đã niêm phong - không chỉnh sửa ghi chú'
+                  : 'Ví dụ: Đã niêm phong thùng carton bằng băng dính AP Sports...'
+              }
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -256,7 +295,12 @@ export function OrderPackingScannerModal({
         {/* Footer Actions */}
         <div className="p-4 px-6 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-500">
-            {isAllScanned ? (
+            {isPackVerified ? (
+              <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Đơn hàng đã kiểm đếm và đóng gói niêm phong. Không thể thao tác lại.</span>
+              </span>
+            ) : isAllScanned ? (
               <span className="text-emerald-600 font-bold flex items-center gap-1">
                 <Sparkles className="w-4 h-4" /> Sẵn sàng hoàn tất kiểm đếm và niêm phong đơn hàng!
               </span>
@@ -271,22 +315,22 @@ export function OrderPackingScannerModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs uppercase tracking-wider hover:bg-slate-100 transition-all"
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs uppercase tracking-wider hover:bg-slate-100 transition-all cursor-pointer"
             >
-              Hủy
+              {isPackVerified ? 'Đóng' : 'Hủy'}
             </button>
             <button
               type="button"
               onClick={onSubmit}
-              disabled={loading || !isAllScanned}
-              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
+              disabled={loading || !isAllScanned || isPackVerified}
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <PackageCheck className="w-4 h-4" />
               )}
-              <span>Xác Nhận Đóng Gói Niêm Phong</span>
+              <span>{isPackVerified ? 'Đã Niêm Phong Hoàn Tất' : 'Xác Nhận Đóng Gói Niêm Phong'}</span>
             </button>
           </div>
         </div>
