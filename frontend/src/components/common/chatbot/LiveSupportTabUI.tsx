@@ -14,6 +14,7 @@ import {
   Lock,
   User,
   ShieldCheck,
+  ShieldAlert,
   Maximize2,
   History,
   ArrowLeft,
@@ -387,7 +388,16 @@ export default function LiveSupportTabUI() {
                   </p>
                 )}
 
-                {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                {msg.isViolation ? (
+                  <div className={`p-2 rounded-xl text-xs italic flex items-center gap-1.5 ${
+                    isUser ? 'bg-orange-600/60 text-white/90' : 'bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-300" />
+                    <span>{msg.content || msg.maskedContent || '[Tin nhắn đã bị ẩn do vi phạm chuẩn mực ngôn từ]'}</span>
+                  </div>
+                ) : (
+                  msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>
+                )}
 
                 {msg.attachmentUrl && (
                   <div className="mt-1.5 rounded-xl overflow-hidden border border-black/10 dark:border-white/10 relative group">

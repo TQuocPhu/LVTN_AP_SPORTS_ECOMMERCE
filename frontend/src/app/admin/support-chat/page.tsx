@@ -53,6 +53,9 @@ export default function AdminSupportChatPage() {
     handleReportFileChange,
     removeReportFile,
     handleReportSubmit,
+    handleQuickReport,
+    revealedMessageIds,
+    toggleRevealOriginalContent,
     // Modal Hoàn tất ca (Thay cho window.confirm)
     isResolveModalOpen,
     openResolveModal,
@@ -131,6 +134,9 @@ export default function AdminSupportChatPage() {
         onSubmit={handleSendChatMessage}
         onOpenResolveModal={openResolveModal}
         onOpenReportModal={openReportModal}
+        revealedMessageIds={revealedMessageIds}
+        onToggleRevealOriginalContent={toggleRevealOriginalContent}
+        onQuickReport={handleQuickReport}
       />
 
       {/* CỘT 3: THÔNG TIN KHÁCH HÀNG & ĐƠN HÀNG (Pure Presentation) */}
@@ -146,6 +152,7 @@ export default function AdminSupportChatPage() {
         previews={reportPreviews}
         errorMessage={errorMessage}
         onReasonChange={(e) => setReportReason(e.target.value)}
+        onQuickReasonSelect={(preset) => setReportReason(preset)}
         onFileChange={handleReportFileChange}
         onRemoveFile={removeReportFile}
         onClose={closeReportModal}

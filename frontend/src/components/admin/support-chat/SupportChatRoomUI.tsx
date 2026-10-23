@@ -13,6 +13,10 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Eye,
+  EyeOff,
+  Zap,
+  ShieldAlert,
 } from 'lucide-react';
 import { SupportConversation, SupportMessage } from '@/types/support-chat';
 
@@ -32,6 +36,10 @@ interface Props {
   isLoadingAiSuggestions?: boolean;
   onFetchAiSuggestions?: () => void;
   onApplyAiSuggestion?: (suggestion: string) => void;
+  // Content Moderation & Báo Cáo Nhanh
+  revealedMessageIds?: Record<number, boolean>;
+  onToggleRevealOriginalContent?: (msgId: number) => void;
+  onQuickReport?: (msg: SupportMessage) => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onOpenPreviewModal: (url: string | null) => void;
   onClosePreviewModal: () => void;
@@ -57,6 +65,9 @@ export default function SupportChatRoomUI({
   isLoadingAiSuggestions,
   onFetchAiSuggestions,
   onApplyAiSuggestion,
+  revealedMessageIds = {},
+  onToggleRevealOriginalContent,
+  onQuickReport,
   onInputChange,
   onOpenPreviewModal,
   onClosePreviewModal,
@@ -178,6 +189,11 @@ export default function SupportChatRoomUI({
         {messages.map((msg) => {
           const isStaff = msg.senderRole === 'STAFF';
           const isSystem = msg.senderRole === 'SYSTEM';
+          const isMsgViolation = Boolean(
+            msg.isViolation ||
+            (msg as any).violation ||
+            (msg.content && msg.content.includes('[Tin nhắn đã bị ẩn do vi phạm chuẩn mực ngôn từ]'))
+          );
 
           if (isSystem) {
             return (
@@ -217,21 +233,103 @@ export default function SupportChatRoomUI({
                 }`}
               >
                 {!isStaff && (
-                  <p className="text-[10px] font-semibold text-slate-500 mb-0.5 flex items-center gap-1">
+                  <div className="text-[10px] font-semibold text-slate-500 mb-1 flex items-center gap-1">
                     <span className="font-bold text-slate-800">{conversation.customerName}</span>
                     <span className="text-slate-400 font-normal">({conversation.customerEmail})</span>
-                  </p>
+                  </div>
                 )}
 
                 {isStaff && (
-                  <p className="text-[10px] font-semibold text-orange-200 mb-0.5 text-right">
+                  <div className="text-[10px] font-semibold text-orange-200 mb-1 text-right">
                     {msg.senderName || 'Bạn (Nhân viên tư vấn)'}
-                  </p>
+                  </div>
                 )}
 
-                {msg.content && <p className="whitespace-pre-wrap">{msg.content}</p>}
+                {/* Banner cảnh báo nếu tin nhắn vi phạm chuẩn mực ngôn từ */}
+                {isMsgViolation && (
+                  <div className="mb-2 p-2 rounded-xl bg-gradient-to-r from-amber-50 to-rose-50 border border-rose-200 text-rose-900 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-rose-700">
+                        <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>Vi phạm: {msg.violationReason || 'Chuẩn mực ngôn từ'}</span>
+                      </div>
 
-                {/* Ảnh đính kèm (Lưu trữ Cloudinary) */}
+                      {/* 2 NÚT HÀNH ĐỘNG DÀNH CHO NHÂN VIÊN: XEM CHI TIẾT & BÁO CÁO NHANH */}
+                      {!isStaff && (
+                        <div className="flex items-center gap-1.5">
+                          {/* NÚT 1: CON MẮT XEM CHI TIẾT VI PHẠM (CHỈ HIỂN THỊ KHI VI PHẠM) */}
+                          <button
+                            type="button"
+                            onClick={() => onToggleRevealOriginalContent?.(msg.id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer shadow-2xs ${
+                              revealedMessageIds[msg.id]
+                                ? 'bg-slate-200 text-slate-800 hover:bg-slate-300'
+                                : 'bg-white text-rose-700 hover:bg-rose-100 border border-rose-300'
+                            }`}
+                            title="Bấm để xem trích xuất từ ngữ vi phạm bị chặn"
+                          >
+                            {revealedMessageIds[msg.id] ? (
+                              <>
+                                <EyeOff className="w-3.5 h-3.5 text-slate-600" />
+                                <span>Ẩn chi tiết</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Xem chi tiết vi phạm</span>
+                              </>
+                            )}
+                          </button>
+
+                          {/* NÚT 2: BÁO CÁO NHANH LÊN ADMIN */}
+                          {onQuickReport && (
+                            <button
+                              type="button"
+                              onClick={() => onQuickReport(msg)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                              title="Báo cáo nhanh tin nhắn vi phạm này tới Ban Quản Trị"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 text-white" />
+                              <span>Báo cáo nhanh</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* KHUNG TRÍCH XUẤT NỘI DUNG GỐC CHỨA TỪ NGỮ BỊ BAN KHI BẤM CON MẮT */}
+                    {revealedMessageIds[msg.id] && (
+                      <div className="mt-2 pt-2 border-t border-rose-200 text-xs animate-in fade-in zoom-in-95 duration-150">
+                        <div className="p-2.5 rounded-lg bg-white border border-rose-300 text-rose-950 space-y-1 shadow-2xs">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-rose-600 uppercase tracking-wider">
+                            <span className="flex items-center gap-1">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-600" /> Trích xuất từ ngữ bị cấm (Nội dung gốc):
+                            </span>
+                          </div>
+                          <div className="p-2 rounded-md bg-rose-50 border border-rose-200 font-mono text-[13px] text-rose-950 font-semibold select-text">
+                            {msg.originalContent || msg.content || '(Không có nội dung)'}
+                          </div>
+                          {msg.violationReason && (
+                            <p className="text-[11px] text-slate-600 pt-0.5">
+                              <span className="font-semibold text-rose-800">Lý do AI gắn cờ:</span> {msg.violationReason}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hiển thị nội dung tin nhắn: không bị xuống dòng thừa */}
+                {isMsgViolation ? (
+                  <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-xs italic flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{msg.maskedContent || '[Tin nhắn đã bị ẩn do vi phạm chuẩn mực ngôn từ]'}</span>
+                  </div>
+                ) : (
+                  msg.content && <p className="whitespace-pre-wrap text-slate-800 break-words leading-relaxed">{msg.content.trim()}</p>
+                )}
+
                 {msg.attachmentUrl && (
                   <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 relative group">
                     <img
@@ -250,6 +348,7 @@ export default function SupportChatRoomUI({
                   </div>
                 )}
 
+                {/* Giờ gửi tin nhắn */}
                 <span
                   className={`block text-[9px] mt-1 text-right ${
                     isStaff ? 'text-orange-200' : 'text-slate-400'
@@ -319,7 +418,7 @@ export default function SupportChatRoomUI({
                 title="Bấm để AI đọc ngữ cảnh cuộc trò chuyện và tạo 3 phương án trả lời"
               >
                 <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isLoadingAiSuggestions ? 'animate-spin' : ''}`} />
-                <span>{isLoadingAiSuggestions ? 'Đang tạo câu trả lời...' : '✨ AI Gợi Ý'}</span>
+                <span>{isLoadingAiSuggestions ? 'Đang tạo câu trả lời...' : 'AI Gợi Ý'}</span>
               </button>
               <span className="text-[11px] text-slate-500 font-medium truncate">
                 {aiSuggestions && aiSuggestions.length > 0

@@ -7,6 +7,7 @@ import {
   Upload,
   Loader2,
   ShieldAlert,
+  Zap,
 } from 'lucide-react';
 
 interface Props {
@@ -18,11 +19,19 @@ interface Props {
   previews: string[];
   errorMessage?: string | null;
   onReasonChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onQuickReasonSelect?: (reason: string) => void;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveFile: (index: number) => void;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
+
+const QUICK_VIOLATION_REASONS = [
+  'Xúc phạm, lăng mạ nhân viên tư vấn',
+  'Quấy rối, đe dọa nhân phẩm',
+  'Spam tin nhắn rác liên tục',
+  'Lừa đảo, gạ giao dịch chuyển khoản ngoài shop',
+];
 
 export default function ReportCustomerModalUI({
   isOpen,
@@ -33,6 +42,7 @@ export default function ReportCustomerModalUI({
   previews,
   errorMessage,
   onReasonChange,
+  onQuickReasonSelect,
   onFileChange,
   onRemoveFile,
   onClose,
@@ -82,9 +92,32 @@ export default function ReportCustomerModalUI({
 
           {/* Lý do */}
           <div className="space-y-1.5">
-            <label htmlFor="report-reason" className="block text-xs font-semibold text-slate-700">
-              Lý do vi phạm <span className="text-red-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="report-reason" className="block text-xs font-semibold text-slate-700">
+                Lý do vi phạm <span className="text-red-500">*</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                <AlertTriangle className="w-3 h-3 text-red-500" /> Chọn nhanh lý do
+              </span>
+            </div>
+
+            {/* Quick Reason Chips */}
+            <div className="flex flex-wrap gap-1.5 mb-1.5">
+              {QUICK_VIOLATION_REASONS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onQuickReasonSelect?.(preset)}
+                  disabled={isReporting}
+                  className="px-2.5 py-1 text-[11px] font-medium bg-red-50 hover:bg-red-100 text-red-700 rounded-lg border border-red-200/80 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  title="Bấm để tự động điền lý do này"
+                >
+                  <AlertTriangle className="w-2.5 h-2.5 text-red-500" />
+                  {preset}
+                </button>
+              ))}
+            </div>
+
             <textarea
               id="report-reason"
               rows={3}
