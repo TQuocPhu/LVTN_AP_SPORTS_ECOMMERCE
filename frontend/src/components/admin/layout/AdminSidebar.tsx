@@ -16,6 +16,7 @@ export default function AdminSidebar() {
     isGroupActive,
     isItemActive,
     lowStockCount,
+    waitingSupportCount,
   } = useAdminSidebar();
 
   const isProfileActive = pathname === '/admin/profile';
@@ -74,6 +75,9 @@ export default function AdminSidebar() {
           const hasLowStockInGroup = group.items.some(
             (i) => i.badge === 'lowStock' && lowStockCount > 0
           );
+          const hasWaitingSupportInGroup = group.items.some(
+            (i) => i.badge === 'supportQueue' && waitingSupportCount > 0
+          );
 
           return (
             <div key={group.id} className="pt-1">
@@ -81,7 +85,7 @@ export default function AdminSidebar() {
               <button
                 type="button"
                 onClick={() => toggleGroup(group.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13.5px] font-medium transition-all duration-150 group ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13.5px] font-medium transition-all duration-150 group cursor-pointer ${
                   groupActive
                     ? 'text-white bg-slate-800/70 font-semibold'
                     : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
@@ -103,6 +107,14 @@ export default function AdminSidebar() {
                       title={`Cảnh báo kho: Có ${lowStockCount} sản phẩm cần nhập hàng`}
                     >
                       {lowStockCount}
+                    </span>
+                  )}
+                  {hasWaitingSupportInGroup && (
+                    <span
+                      className="inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] font-bold text-white bg-indigo-600 border border-indigo-400 rounded-full animate-pulse shadow-sm"
+                      title={`Hàng đợi tư vấn: Có ${waitingSupportCount} khách hàng đang chờ`}
+                    >
+                      {waitingSupportCount}
                     </span>
                   )}
                   <ChevronDown
@@ -145,6 +157,14 @@ export default function AdminSidebar() {
                             title={`Cảnh báo kho: Có ${lowStockCount} sản phẩm cần nhập hàng`}
                           >
                             {lowStockCount}
+                          </span>
+                        )}
+                        {item.badge === 'supportQueue' && waitingSupportCount > 0 && (
+                          <span
+                            className="ml-2 inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] font-bold text-white bg-indigo-600 border border-indigo-400 rounded-full shadow-sm animate-pulse"
+                            title={`Hỗ trợ trực tuyến: Có ${waitingSupportCount} khách hàng đang chờ`}
+                          >
+                            {waitingSupportCount}
                           </span>
                         )}
                       </Link>

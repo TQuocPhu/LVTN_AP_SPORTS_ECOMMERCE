@@ -103,6 +103,7 @@ public class NotificationServiceImpl implements NotificationService {
             case WELCOME -> "Chào mừng bạn đến với AP Sports!";
             case PRODUCT_RESTOCKED -> "Sản phẩm yêu thích đã có hàng!";
             case ORDER_PACKED -> "Đơn hàng đã được kiểm đếm đóng gói";
+            case NEW_SUPPORT_REQUEST -> "Yêu cầu tư vấn trực tuyến mới";
             case SYSTEM_ALERT -> "Cảnh báo vi phạm & sự cố";
             default -> "Thông báo mới từ hệ thống";
         };
@@ -157,6 +158,7 @@ public class NotificationServiceImpl implements NotificationService {
                 case OUT_OF_STOCK -> "Sản phẩm \"" + productName + "\" đã hết hàng trong kho. Vui lòng nhập thêm hàng.";
                 case PRODUCT_RESTOCKED -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Biến thể của sản phẩm \"" + productName + "\" bạn đăng ký theo dõi đã có hàng trở lại!");
                 case ORDER_PACKED -> "Đơn hàng #" + orderCode + " đã được bộ phận kho kiểm đếm barcode 100% và đóng gói thành công.";
+                case NEW_SUPPORT_REQUEST -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Khách hàng " + (customerName.isBlank() ? "vừa" : customerName) + " đang chờ tư vấn hỗ trợ trực tuyến" + (map.get("subject") != null ? ": " + map.get("subject") : "."));
                 case WELCOME -> map.get("content") != null ? String.valueOf(map.get("content")) : "Hệ thống thông báo thời gian thực đã sẵn sàng phục vụ bạn.";
                 case SYSTEM_ALERT -> map.get("content") != null ? String.valueOf(map.get("content")) : defaultTitle;
                 default -> defaultTitle;
@@ -249,6 +251,23 @@ public class NotificationServiceImpl implements NotificationService {
         List<User> eligibleUsers = userRepository.findActiveUsersByPermissions(permissionNames);
         log.info("Gửi thông báo action: {} theo danh sách quyền {}, tìm thấy {} người nhận hợp lệ",
                 actionType, permissionNames, eligibleUsers.size());
+
+        for (User targetUser : eligibleUsers) {
+            if (senderId != null && targetUser.getId().equals(senderId)) {
+                continue;
+            }
+            Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
+            notification = notificationRepository.save(notification);
+            sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+        }
+    }
+
+    @Override
+    @Transactional
+    public void sendToSupportLiveChatUsers(Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
+        List<User> eligibleUsers = userRepository.findActiveSupportLiveChatUsers();
+        log.info("Gửi thông báo live chat action: {}, tìm thấy {} người nhận hợp lệ (SUPPORT_LIVE_CHAT hoặc ADMIN)",
+                actionType, eligibleUsers.size());
 
         for (User targetUser : eligibleUsers) {
             if (senderId != null && targetUser.getId().equals(senderId)) {

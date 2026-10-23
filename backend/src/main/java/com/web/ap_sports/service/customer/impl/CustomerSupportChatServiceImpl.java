@@ -41,6 +41,11 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     private final OrderRepository orderRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final com.web.ap_sports.service.ai.ContentModerationAiService contentModerationAiService;
+    private final com.web.ap_sports.service.common.NotificationService notificationService;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    private final java.util.concurrent.ConcurrentHashMap<Long, java.time.Instant> lastSupportNotificationTimeMap = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long SUPPORT_NOTIFICATION_THROTTLE_SECONDS = 60;
 
     @Override
     @Transactional(readOnly = true)
@@ -106,8 +111,8 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
                 .build();
         messageRepository.save(welcomeMsg);
 
-        // Broadcast hàng đợi cho các nhân viên trực ca
-        notifyStaffQueueUpdated();
+        // Broadcast hàng đợi cho các nhân viên trực ca và gửi thông báo nếu chưa nhận
+        triggerStaffSupportNotification(saved, customer, "Khách hàng yêu cầu mở phiên tư vấn mới.");
 
         return mapToConversationResponse(saved, customer.getId());
     }
@@ -256,11 +261,56 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
                         "/queue/support-chat",
                         staffMsg);
             } else {
-                // Nếu ca WAITING, thông báo cho hàng đợi nhân viên
-                notifyStaffQueueUpdated();
+                // Nếu ca WAITING, thông báo cho hàng đợi nhân viên có kiểm soát throttle anti-spam
+                triggerStaffSupportNotification(conversation, conversation.getCustomer(), staffMsg.getContent());
             }
         } catch (Exception e) {
             log.error("Lỗi đẩy WebSocket tin nhắn support", e);
+        }
+    }
+
+    private void triggerStaffSupportNotification(SupportConversation conversation, User customer, String snippet) {
+        try {
+            Long convId = conversation.getId();
+            java.time.Instant now = java.time.Instant.now();
+            java.time.Instant lastSent = lastSupportNotificationTimeMap.get(convId);
+
+            boolean isThrottled = (lastSent != null && java.time.Duration.between(lastSent, now).getSeconds() < SUPPORT_NOTIFICATION_THROTTLE_SECONDS);
+
+            // 1. Chỉ tạo thông báo nếu hết thời gian throttle 60s
+            if (!isThrottled) {
+                lastSupportNotificationTimeMap.put(convId, now);
+
+                java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+                payloadMap.put("conversationId", convId);
+                payloadMap.put("customerId", customer.getId());
+                payloadMap.put("customerName", customer.getName());
+                payloadMap.put("subject", conversation.getSubject());
+                payloadMap.put("snippet", (snippet != null && snippet.length() > 80) ? snippet.substring(0, 80) + "..." : snippet);
+                payloadMap.put("content", "Khách hàng " + customer.getName() + " đang chờ tư vấn: " + conversation.getSubject());
+
+                String payloadJson = objectMapper.writeValueAsString(payloadMap);
+                notificationService.sendToSupportLiveChatUsers(
+                        customer.getId(),
+                        com.web.ap_sports.enums.NotificationActionType.NEW_SUPPORT_REQUEST,
+                        "/admin/support-chat",
+                        payloadJson
+                );
+            }
+
+            // 2. Broadcast qua kênh chung /topic/support-queue để toàn bộ nhân viên cập nhật hàng đợi
+            java.util.Map<String, Object> queuePayload = new java.util.HashMap<>();
+            queuePayload.put("action", "QUEUE_UPDATED");
+            queuePayload.put("conversationId", convId);
+            queuePayload.put("customerName", customer.getName());
+            queuePayload.put("subject", conversation.getSubject());
+            queuePayload.put("snippet", snippet);
+            queuePayload.put("shouldAlert", !isThrottled);
+            queuePayload.put("timestamp", java.time.LocalDateTime.now().toString());
+
+            messagingTemplate.convertAndSend("/topic/support-queue", objectMapper.writeValueAsString(queuePayload));
+        } catch (Exception ex) {
+            log.error("Lỗi khi phát thông báo ca hỗ trợ trực tuyến: {}", ex.getMessage());
         }
     }
 

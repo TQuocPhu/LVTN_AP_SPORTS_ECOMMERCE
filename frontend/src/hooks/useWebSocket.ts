@@ -3,6 +3,7 @@ import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { apiClient } from '@/services/api/client';
 import { ApiResponse } from '@/types/auth';
+import { toast } from 'sonner';
 
 export interface NotificationPayload {
   id: number;
@@ -24,6 +25,42 @@ export interface NotificationPayload {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 const BASE_WS_URL = BASE_URL.replace('/api/v1', '/ws');
 
+/**
+ * Phát âm thanh thông báo nhẹ nhàng qua Web Audio API không phụ thuộc file mp3 ngoài
+ */
+function playNotificationSound(type: 'support' | 'warning' = 'support') {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'support') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // Nốt D5
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.09); // Nốt A5
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.25);
+    } else {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, ctx.currentTime); // Nốt A4
+      osc.frequency.setValueAtTime(349.23, ctx.currentTime + 0.12); // Nốt F4
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch {
+    // Bỏ qua nếu trình duyệt chặn audio
+  }
+}
+
 export function useWebSocket() {
   const [client, setClient] = useState<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -32,6 +69,20 @@ export function useWebSocket() {
 
   const clientRef = useRef<Client | null>(null);
   const isConnectingRef = useRef(false);
+
+  // Bộ chống spam (Throttling) và chống lặp ID (Deduplication)
+  const seenNotificationIdsRef = useRef<Set<number>>(new Set());
+  const lastPopupTimeRef = useRef<Record<string, number>>({});
+
+  const shouldThrottlePopup = useCallback((key: string, cooldownMs = 30000): boolean => {
+    const now = Date.now();
+    const lastTime = lastPopupTimeRef.current[key] || 0;
+    if (now - lastTime < cooldownMs) {
+      return true; // Đang trong thời gian throttle -> bỏ qua popup
+    }
+    lastPopupTimeRef.current[key] = now;
+    return false;
+  }, []);
 
   /** Tải dữ liệu ban đầu qua apiClient (tự động Silent Refresh nếu accessToken hết hạn) */
   const fetchInitialData = useCallback(async (): Promise<boolean> => {
@@ -91,6 +142,7 @@ export function useWebSocket() {
         setIsConnected(true);
         fetchInitialData(); // Resync dữ liệu thông báo sau khi (re)connect
 
+        // 1. Kênh thông báo cá nhân hóa của người dùng
         stompClient.subscribe('/user/queue/notifications', (message: IMessage) => {
           if (!message.body) return;
           try {
@@ -99,13 +151,94 @@ export function useWebSocket() {
               ...raw,
               isRead: raw.isRead === true || raw.read === true,
             };
+
+            // Chống trùng lặp theo ID thông báo
+            if (seenNotificationIdsRef.current.has(newNotification.id)) return;
+            seenNotificationIdsRef.current.add(newNotification.id);
+
             setNotifications((prev) => {
               if (prev.some((n) => n.id === newNotification.id)) return prev;
               return [newNotification, ...prev].slice(0, 50);
             });
             setUnreadCount((prev) => prev + 1);
+
+            // Bắn popup thông báo thời gian thực cho Ca tư vấn trực tuyến (Support Chat)
+            if (newNotification.actionType === 'NEW_SUPPORT_REQUEST') {
+              let convId = 'general';
+              let customerName = 'Khách hàng';
+              try {
+                if (newNotification.payload) {
+                  const p = JSON.parse(newNotification.payload);
+                  if (p.conversationId) convId = String(p.conversationId);
+                  if (p.customerName) customerName = p.customerName;
+                }
+              } catch {}
+
+              // Kích hoạt sự kiện toàn cục để Sidebar và danh sách ca chat tự refetch
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('support_queue_updated'));
+              }
+
+              // Throttle 30s chống spam nhiều popup cho cùng 1 ca
+              if (!shouldThrottlePopup(`support_${convId}`, 30000)) {
+                playNotificationSound('support');
+                toast.info(`🎧 Yêu Cầu Tư Vấn: ${customerName}`, {
+                  description: newNotification.message || 'Khách hàng đang chờ chuyên viên kết nối tư vấn trực tiếp.',
+                  duration: 8000,
+                  action: {
+                    label: 'Vào Chat',
+                    onClick: () => {
+                      if (typeof window !== 'undefined') {
+                        window.location.href = newNotification.targetUrl || '/admin/support-chat';
+                      }
+                    },
+                  },
+                });
+              }
+            }
+
+            // Bắn popup thông báo thời gian thực cho Cảnh báo kho (Low inventory / Out of stock)
+            if (newNotification.actionType === 'LOW_INVENTORY' || newNotification.actionType === 'OUT_OF_STOCK') {
+              let variantKey = 'stock_alert';
+              try {
+                if (newNotification.payload) {
+                  const p = JSON.parse(newNotification.payload);
+                  if (p.variantId) variantKey = `variant_${p.variantId}`;
+                }
+              } catch {}
+
+              // Kích hoạt sự kiện toàn cục để Sidebar kho tự refetch
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('inventory_updated'));
+              }
+
+              // Throttle 30s chống spam nhiều popup
+              if (!shouldThrottlePopup(variantKey, 30000)) {
+                playNotificationSound('warning');
+                const isOutOfStock = newNotification.actionType === 'OUT_OF_STOCK';
+                toast.warning(isOutOfStock ? '🚨 Hết Hàng Trong Kho!' : '📦 Cảnh Báo Tồn Kho Thấp!', {
+                  description: newNotification.message || 'Sản phẩm trong kho đã chạm ngưỡng cảnh báo, cần nhập thêm hàng.',
+                  duration: 8000,
+                  action: {
+                    label: 'Kiểm Tra Kho',
+                    onClick: () => {
+                      if (typeof window !== 'undefined') {
+                        window.location.href = '/admin/inventory';
+                      }
+                    },
+                  },
+                });
+              }
+            }
           } catch (e) {
             console.error('Lỗi parse JSON thông báo:', e);
+          }
+        });
+
+        // 2. Kênh phát sóng hàng đợi hỗ trợ chung cho Quản trị viên & Nhân viên trực ca
+        stompClient.subscribe('/topic/support-queue', (frame: IMessage) => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('support_queue_updated'));
           }
         });
       },

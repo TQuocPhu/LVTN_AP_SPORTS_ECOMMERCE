@@ -36,4 +36,9 @@ public interface NotificationService {
      * Send notification to internal users who hold any of the specified permissions (checked via role_permissions table).
      */
     void sendToUsersWithAnyPermission(List<String> permissionNames, Long senderId, NotificationActionType actionType, String targetUrl, String payload);
+
+    /**
+     * Send notification to users who have permission SUPPORT_LIVE_CHAT or role ADMIN.
+     */
+    void sendToSupportLiveChatUsers(Long senderId, NotificationActionType actionType, String targetUrl, String payload);
 }

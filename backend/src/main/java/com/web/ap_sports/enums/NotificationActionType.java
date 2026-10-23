@@ -16,5 +16,6 @@ public enum NotificationActionType {
     WELCOME,
     SYSTEM_ALERT,
     PRODUCT_RESTOCKED,
-    ORDER_PACKED
+    ORDER_PACKED,
+    NEW_SUPPORT_REQUEST
 }

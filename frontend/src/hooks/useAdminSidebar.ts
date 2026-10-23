@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useNotificationContext } from '@/context/NotificationContext';
 import { warehouseInventoryController } from '@/controllers/warehouse-inventory-controller';
+import { supportChatController } from '@/controllers/support-chat-controller';
 import {
   LayoutDashboard,
   Package,
@@ -28,7 +29,7 @@ export interface MenuItem {
   icon: React.ElementType;
   permission?: string;
   allowedRoles?: string[];
-  badge?: 'lowStock';
+  badge?: 'lowStock' | 'supportQueue';
 }
 
 export interface MenuGroup {
@@ -42,9 +43,15 @@ export function useAdminSidebar() {
   const pathname = usePathname();
   const { user } = useAdminAuth();
   const [lowStockCount, setLowStockCount] = useState<number>(0);
+  const [waitingSupportCount, setWaitingSupportCount] = useState<number>(0);
   const [openGroupIds, setOpenGroupIds] = useState<string[]>([]);
 
   const { notifications } = useNotificationContext();
+
+  const canAccessSupport = Boolean(
+    user?.roleName === 'ADMIN' ||
+    user?.permissions?.includes('SUPPORT_LIVE_CHAT')
+  );
 
   const loadLowStockAlerts = async (isMounted = true) => {
     try {
@@ -57,27 +64,60 @@ export function useAdminSidebar() {
     }
   };
 
+  const loadWaitingSupportCount = useCallback(async (isMounted = true) => {
+    if (!canAccessSupport) return;
+    try {
+      const res = await supportChatController.getWaitingQueue();
+      if (isMounted && res.data) {
+        setWaitingSupportCount(res.data.length);
+      }
+    } catch {
+      // Silent catch
+    }
+  }, [canAccessSupport]);
+
   useEffect(() => {
     let isMounted = true;
     loadLowStockAlerts(isMounted);
+    loadWaitingSupportCount(isMounted);
+
+    // Lắng nghe các sự kiện cập nhật realtime từ WebSocket
+    const handleSupportUpdated = () => {
+      loadWaitingSupportCount(true);
+    };
+
+    const handleInventoryUpdated = () => {
+      loadLowStockAlerts(true);
+    };
+
+    window.addEventListener('support_queue_updated', handleSupportUpdated);
+    window.addEventListener('inventory_updated', handleInventoryUpdated);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('support_queue_updated', handleSupportUpdated);
+      window.removeEventListener('inventory_updated', handleInventoryUpdated);
     };
-  }, []);
+  }, [loadWaitingSupportCount]);
 
   useEffect(() => {
     if (notifications && notifications.length > 0) {
       const latest = notifications[0];
       if (
         latest.actionType === 'LOW_INVENTORY' ||
+        latest.actionType === 'OUT_OF_STOCK' ||
         latest.actionType === 'ORDER_PLACED' ||
         latest.actionType === 'ORDER_CANCELLED_BY_CUSTOMER' ||
         latest.actionType === 'ORDER_STATUS_CHANGED'
       ) {
         loadLowStockAlerts();
       }
+
+      if (latest.actionType === 'NEW_SUPPORT_REQUEST') {
+        loadWaitingSupportCount();
+      }
     }
-  }, [notifications]);
+  }, [notifications, loadWaitingSupportCount]);
 
   // Mục đơn lập (Standalone)
   const dashboardItem: MenuItem = useMemo(
@@ -160,6 +200,7 @@ export function useAdminSidebar() {
             icon: Headphones,
             permission: 'SUPPORT_LIVE_CHAT',
             allowedRoles: ['ADMIN', 'STAFF'],
+            badge: 'supportQueue',
           },
           {
             title: 'Quản Lý Đánh Giá',
@@ -290,5 +331,6 @@ export function useAdminSidebar() {
     isItemActive,
     visibleMenuItems,
     lowStockCount,
+    waitingSupportCount,
   };
 }
