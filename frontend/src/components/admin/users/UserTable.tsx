@@ -35,6 +35,7 @@ export const UserTable: React.FC<UserTableProps> = ({
           src={user.avatar}
           alt={user.name}
           className="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-sm shrink-0"
+          referrerPolicy="no-referrer"
         />
       );
     }

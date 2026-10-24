@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile, ProfileActiveTab } from '@/hooks/useProfile';
 import { useAddresses } from '@/hooks/useAddresses';
 
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
@@ -23,16 +21,24 @@ import {
 
 import ConfirmLogoutModal from '@/components/ui/ConfirmLogoutModal';
 
-type ActiveTab = 'overview' | 'info' | 'password' | 'addresses';
-
+/**
+ * Component Khung giao diện quản lý Tài khoản cá nhân của khách hàng.
+ * Tuân thủ nghiêm ngặt kiến trúc Layer Architecture:
+ * - Pure UI Component: Không sử dụng useState / useEffect trong Component.
+ * - Toàn bộ trạng thái (activeTab, isLogoutModalOpen, profile...) được quản lý bởi `useProfile()`.
+ */
 export default function AccountPageShell() {
-  const router = useRouter();
-  const { user, logout, loading: authLoading } = useAuth();
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const { user, loading: authLoading } = useAuth();
   const {
     profile,
     loading: profileLoading,
     avatarPreview,
+    activeTab,
+    setActiveTab,
+    isLogoutModalOpen,
+    openLogoutModal,
+    closeLogoutModal,
+    handleLogout,
     updateProfile,
     uploadAvatar,
     changePassword,
@@ -47,44 +53,39 @@ export default function AccountPageShell() {
     setDefaultAddress,
   } = useAddresses();
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
-
-  /**
-   * Đăng xuất: gọi API logout → hard redirect về trang chủ ngay lập tức.
-   * Dùng window.location.href thay vì router.push để ép browser gửi request
-   * HTTP mới, đảm bảo middleware Edge nhận diện cookie đã bị xóa ngay.
-   */
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = '/';
-  };
-
-  const navItems = [
+  const navItems: {
+    id: string;
+    key: ProfileActiveTab;
+    label: string;
+    icon: typeof User;
+  }[] = [
     {
       id: 'tab-nav-overview',
-      key: 'overview' as ActiveTab,
+      key: 'overview',
       label: 'Tài khoản',
       icon: User,
     },
     {
       id: 'tab-nav-info',
-      key: 'info' as ActiveTab,
+      key: 'info',
       label: 'Thông tin tài khoản',
       icon: UserCheck,
     },
     {
       id: 'tab-nav-password',
-      key: 'password' as ActiveTab,
+      key: 'password',
       label: 'Thay đổi mật khẩu',
       icon: Lock,
     },
     {
       id: 'tab-nav-addresses',
-      key: 'addresses' as ActiveTab,
+      key: 'addresses',
       label: 'Địa chỉ giao hàng',
       icon: MapPin,
     },
   ];
+
+  const currentProfile = profile || (user as never);
 
   return (
     <div className="flex-1 flex flex-col">
@@ -132,7 +133,7 @@ export default function AccountPageShell() {
                   <div className="border-t border-slate-200 dark:border-slate-800 mt-2 pt-2">
                     <button
                       id="tab-nav-logout"
-                      onClick={() => setIsLogoutModalOpen(true)}
+                      onClick={openLogoutModal}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-all text-left"
                     >
                       <LogOut className="w-4 h-4 text-red-500 flex-shrink-0" />
@@ -145,12 +146,12 @@ export default function AccountPageShell() {
               {/* ── Nội dung Tab động ── */}
               <div className="lg:col-span-3">
                 {activeTab === 'overview' && (
-                  <AccountOverviewTab profile={profile || (user as never)} />
+                  <AccountOverviewTab profile={currentProfile} />
                 )}
 
                 {activeTab === 'info' && (
                   <AccountInfoTab
-                    profile={profile || (user as never)}
+                    profile={currentProfile}
                     avatarPreview={avatarPreview}
                     onUpdateProfile={updateProfile}
                     onUploadAvatar={uploadAvatar}
@@ -158,7 +159,10 @@ export default function AccountPageShell() {
                 )}
 
                 {activeTab === 'password' && (
-                  <ChangePasswordTab onChangePassword={changePassword} />
+                  <ChangePasswordTab
+                    profile={currentProfile}
+                    onChangePassword={changePassword}
+                  />
                 )}
 
                 {activeTab === 'addresses' && (
@@ -180,7 +184,7 @@ export default function AccountPageShell() {
       {/* Modern Glassmorphic Logout Confirmation Modal */}
       <ConfirmLogoutModal
         isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
+        onClose={closeLogoutModal}
         onConfirm={handleLogout}
       />
     </div>

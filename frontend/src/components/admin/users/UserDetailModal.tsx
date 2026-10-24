@@ -110,6 +110,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
                     src={user.avatar}
                     alt={user.name}
                     className="w-20 h-20 rounded-full object-cover border-2 border-amber-500 shadow-md shrink-0"
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
                   <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 font-bold text-2xl flex items-center justify-center text-white shadow-md border border-amber-200 shrink-0">
