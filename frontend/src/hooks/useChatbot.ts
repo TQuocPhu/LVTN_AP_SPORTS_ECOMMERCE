@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { adminAuthController } from '@/controllers/admin-auth-controller';
+import { useAuth } from '@/hooks/useAuth';
 import { customerAiController } from '@/controllers/customer-ai-controller';
 import { SuggestedProduct } from '@/types/ai';
 
@@ -43,7 +43,9 @@ export const QUICK_PROMPTS = [
 ];
 
 export function useChatbot() {
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = Boolean(user && user.roleName && user.roleName !== 'CUSTOMER');
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'ai' | 'live'>('ai');
   const [inputText, setInputText] = useState('');
@@ -53,6 +55,10 @@ export function useChatbot() {
   const [guestToken, setGuestToken] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const hasLoadedHistoryRef = useRef(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Tạo và lưu guestToken cho khách vãng lai
   useEffect(() => {
@@ -67,27 +73,6 @@ export function useChatbot() {
       }
       setGuestToken(token);
     }
-  }, []);
-
-  // Kiểm tra tài khoản Quản trị viên (ADMIN) - Nếu là Admin thì ẩn hoàn toàn Chatbot
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
-      return;
-    }
-    let isMounted = true;
-    adminAuthController
-      .getCurrentAdmin()
-      .then((res) => {
-        if (isMounted && res?.data && res.data.roleName !== 'CUSTOMER') {
-          setIsAdmin(true);
-        }
-      })
-      .catch(() => {
-        // Không phải admin hoặc chưa đăng nhập
-      });
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   // Reset cờ khi guestToken thay đổi
@@ -291,6 +276,7 @@ export function useChatbot() {
   }, [sendMessage]);
 
   return {
+    mounted,
     isAdmin,
     isOpen,
     activeTab,

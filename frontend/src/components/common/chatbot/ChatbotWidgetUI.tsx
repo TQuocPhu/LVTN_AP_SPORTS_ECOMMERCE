@@ -21,6 +21,7 @@ export default function ChatbotWidgetUI() {
   const pathname = usePathname();
 
   const {
+    mounted,
     isAdmin,
     isOpen,
     activeTab,
@@ -38,7 +39,7 @@ export default function ChatbotWidgetUI() {
     handleSubmit,
   } = useChatbot();
 
-  if (isAdmin || pathname?.startsWith('/admin') || pathname?.startsWith('/demo')) {
+  if (!mounted || isAdmin || pathname?.startsWith('/admin') || pathname?.startsWith('/demo')) {
     return null;
   }
 

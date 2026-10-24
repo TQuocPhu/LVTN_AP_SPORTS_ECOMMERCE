@@ -32,7 +32,7 @@ export default function HeroBannerSlider() {
   };
 
   return (
-    <section id="hero-banner-slider" className="hero-banner-slider-container relative w-full h-[320px] sm:h-[440px] md:h-[540px] lg:h-[600px] flex items-center justify-center overflow-hidden bg-slate-950 border-b border-slate-800">
+    <section id="hero-banner-slider" className="hero-banner-slider-container relative w-full h-[340px] sm:h-[460px] md:h-[560px] lg:h-[620px] flex items-center justify-center overflow-hidden bg-slate-950 border-b border-slate-800">
       {/* Background Slides - Full Edge-to-Edge Coverage */}
       {SLIDE_IMAGES.map((imgSrc, idx) => (
         <div
