@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import { CustomerVouchersContentUI } from '@/components/customer/voucher/CustomerVouchersContentUI';
 
 /**
@@ -9,5 +10,11 @@ import { CustomerVouchersContentUI } from '@/components/customer/voucher/Custome
  * Tuân thủ quy chuẩn Clean Page Router, chuyển toàn bộ giao diện cho CustomerVouchersContentUI.
  */
 export default function CustomerVouchersPage() {
-  return <CustomerVouchersContentUI />;
+  return (
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <CustomerVouchersContentUI />
+    </>
+  );
 }

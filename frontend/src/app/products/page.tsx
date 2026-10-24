@@ -8,6 +8,7 @@ import { ProductGridToolbar } from '@/components/customer/product/ProductGridToo
 import { CustomerProductCard } from '@/components/customer/product/CustomerProductCard';
 import { CustomerPagination } from '@/components/customer/product/CustomerPagination';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import { ShoppingBag, RefreshCw, X } from 'lucide-react';
 
 export default function ProductsPage() {
@@ -17,6 +18,9 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
       {/* ── Header Banner chuẩn – dùng chung component PageHeaderBanner với trang Profile ── */}
       <PageHeaderBanner
         title="SẢN PHẨM"

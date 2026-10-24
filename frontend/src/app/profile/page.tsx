@@ -1,3 +1,4 @@
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import AccountPageShell from '@/components/customer/profile/AccountPageShell';
 import type { Metadata } from 'next';
 
@@ -7,5 +8,11 @@ export const metadata: Metadata = {
 };
 
 export default function ProfilePage() {
-  return <AccountPageShell />;
+  return (
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <AccountPageShell />
+    </>
+  );
 }

@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
 import { CustomerNotificationsPageShell } from '@/components/customer/notification/CustomerNotificationsPageShell';
 
@@ -11,6 +12,9 @@ export const metadata: Metadata = {
 export default function NotificationsPage() {
   return (
     <div className="flex-1 flex flex-col">
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
       {/* ── Header Banner chuẩn đồng bộ với layout chung ── */}
       <PageHeaderBanner
         title="THÔNG BÁO CỦA BẠN"

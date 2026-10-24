@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
 import LoginForm from '@/components/features/auth/LoginForm';
 import AuthLayoutWrapper from '@/components/features/auth/AuthLayoutWrapper';
@@ -15,6 +16,9 @@ export const metadata: Metadata = {
 export default function LoginPage() {
   return (
     <main className="min-h-screen bg-slate-950 flex flex-col">
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
       {/* Header Banner Trang Phụ với Dynamic Breadcrumb */}
       <PageHeaderBanner
         title="ĐĂNG NHẬP HỆ THỐNG"

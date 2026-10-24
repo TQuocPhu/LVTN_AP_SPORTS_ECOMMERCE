@@ -4,6 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import {
   ShieldCheck,
   Award,
@@ -23,6 +24,9 @@ import {
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
       {/* 1. Page Header Banner chuẩn – Đồng bộ 100% layout với các trang khác */}
       <PageHeaderBanner
         title="GIỚI THIỆU AP SPORTS"

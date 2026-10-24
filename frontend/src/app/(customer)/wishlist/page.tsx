@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import WishlistPageContentUI from '@/components/customer/wishlist/WishlistPageContentUI';
 
 export const metadata: Metadata = {
@@ -7,5 +8,11 @@ export const metadata: Metadata = {
 };
 
 export default function WishlistPage() {
-  return <WishlistPageContentUI />;
+  return (
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <WishlistPageContentUI />
+    </>
+  );
 }

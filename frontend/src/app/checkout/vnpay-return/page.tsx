@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import VNPayReturnContentUI from '@/components/customer/checkout/VNPayReturnContentUI';
 
 export const metadata: Metadata = {
@@ -9,14 +10,18 @@ export const metadata: Metadata = {
 
 export default function VNPayReturnPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-[70vh] flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      }
-    >
-      <VNPayReturnContentUI />
-    </Suspense>
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <Suspense
+        fallback={
+          <div className="min-h-[70vh] flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        }
+      >
+        <VNPayReturnContentUI />
+      </Suspense>
+    </>
   );
 }

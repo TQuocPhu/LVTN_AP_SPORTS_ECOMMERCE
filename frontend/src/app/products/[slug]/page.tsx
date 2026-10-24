@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import ProductDetailContentUI from '@/components/customer/product-detail/ProductDetailContentUI';
 
 interface PageProps {
@@ -20,14 +21,19 @@ export default async function ProductDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-12 text-slate-500 font-bold text-sm">
-          Đang nạp thông tin chi tiết sản phẩm...
-        </div>
-      }
-    >
-      <ProductDetailContentUI slug={slug} />
-    </Suspense>
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-12 text-slate-500 font-bold text-sm">
+            Đang nạp thông tin chi tiết sản phẩm...
+          </div>
+        }
+      >
+        <ProductDetailContentUI slug={slug} />
+      </Suspense>
+    </>
   );
 }

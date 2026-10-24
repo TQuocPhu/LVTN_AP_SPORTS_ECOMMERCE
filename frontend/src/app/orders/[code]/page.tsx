@@ -1,5 +1,6 @@
 import React from 'react';
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import { CustomerOrderTrackingContentUI } from '@/components/customer/order/CustomerOrderTrackingContentUI';
 
 interface PageProps {
@@ -18,5 +19,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function OrderTrackingPage({ params }: PageProps) {
   const resolvedParams = await params;
-  return <CustomerOrderTrackingContentUI orderCode={resolvedParams.code} />;
+  return (
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <CustomerOrderTrackingContentUI orderCode={resolvedParams.code} />
+    </>
+  );
 }

@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import ProductSearchContentUI from '@/components/customer/search/ProductSearchContentUI';
 
 export const metadata: Metadata = {
@@ -16,15 +17,20 @@ export const metadata: Metadata = {
  */
 export default function SearchPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          <span className="font-bold text-sm">Đang tải trang tìm kiếm...</span>
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
+      <Suspense fallback={
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <span className="font-bold text-sm">Đang tải trang tìm kiếm...</span>
+          </div>
         </div>
-      </div>
-    }>
-      <ProductSearchContentUI />
-    </Suspense>
+      }>
+        <ProductSearchContentUI />
+      </Suspense>
+    </>
   );
 }

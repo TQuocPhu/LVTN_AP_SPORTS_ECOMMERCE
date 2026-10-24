@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import CheckoutContentUI from '@/components/customer/checkout/CheckoutContentUI';
 
 export const metadata: Metadata = {
@@ -8,5 +9,11 @@ export const metadata: Metadata = {
 };
 
 export default function CheckoutPage() {
-  return <CheckoutContentUI />;
+  return (
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <CheckoutContentUI />
+    </>
+  );
 }

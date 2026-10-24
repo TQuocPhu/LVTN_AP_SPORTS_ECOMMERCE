@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import CustomerCartContentUI from '@/components/customer/cart/CustomerCartContentUI';
 
 export const metadata: Metadata = {
@@ -11,5 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default function CartPage() {
-  return <CustomerCartContentUI />;
+  return (
+    <>
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+      <CustomerCartContentUI />
+    </>
+  );
 }

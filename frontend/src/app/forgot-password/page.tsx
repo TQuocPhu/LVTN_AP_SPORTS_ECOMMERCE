@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import ForgotPasswordForm from '@/components/features/auth/ForgotPasswordForm';
 
 export const metadata: Metadata = {
@@ -8,13 +9,18 @@ export const metadata: Metadata = {
 
 export default function ForgotPasswordPage() {
   return (
-    <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-slate-950 relative overflow-hidden">
+    <div className="flex-1 flex flex-col">
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-slate-950 relative overflow-hidden">
       {/* Background Decorative Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full relative z-10 py-10">
         <ForgotPasswordForm />
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

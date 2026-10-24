@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
+import ClientTopBar from '@/components/layout/ClientTopBar';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
 import ActivateAccount from '@/components/features/auth/ActivateAccount';
 import { Loader2 } from 'lucide-react';
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
 export default function ActivatePage() {
   return (
     <main className="min-h-screen bg-slate-950 flex flex-col">
+      {/* Thanh thông tin định vị, email & mạng xã hội đầu trang (Desktop Client) */}
+      <ClientTopBar />
+
       {/* Header Banner Trang Phụ với Dynamic Breadcrumb */}
       <PageHeaderBanner
         title="KÍCH HOẠT TÀI KHOẢN"
