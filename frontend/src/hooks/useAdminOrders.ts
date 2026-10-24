@@ -154,7 +154,10 @@ export function useAdminOrders(): UseAdminOrdersReturn {
         setTotalPages(0);
       }
     } catch (err: unknown) {
-      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError'))
+      ) {
         return; // Request bị abort bởi từ khóa mới, bỏ qua
       }
       setOrders([]);

@@ -46,14 +46,34 @@ export async function apiClient<T>(
   };
 
   // 3. Tự động ngắt request (Abort) sau timeout (Mặc định: 30s, hoặc truyền qua options)
+  let isTimeout = false;
   const timeoutMs = options.timeoutMs ?? 30000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    isTimeout = true;
+    timeoutController.abort();
+  }, timeoutMs);
+
+  // Kết hợp signal từ caller (options.signal) và timeoutController
+  let effectiveSignal: AbortSignal;
+  if (options.signal) {
+    if (typeof AbortSignal.any === "function") {
+      effectiveSignal = AbortSignal.any([options.signal, timeoutController.signal]);
+    } else {
+      const merged = new AbortController();
+      const forwardAbort = () => merged.abort();
+      options.signal.addEventListener("abort", forwardAbort);
+      timeoutController.signal.addEventListener("abort", forwardAbort);
+      effectiveSignal = merged.signal;
+    }
+  } else {
+    effectiveSignal = timeoutController.signal;
+  }
 
   const config: RequestInit = {
     credentials: "include",
-    signal: options.signal || controller.signal,
     ...options,
+    signal: effectiveSignal,
     headers,
   };
 
@@ -62,7 +82,12 @@ export async function apiClient<T>(
   try {
     response = await fetch(`${BASE_URL}${endpoint}`, config);
   } catch (err: unknown) {
-    if (err instanceof Error && err.name === "AbortError") {
+    // Nếu request bị hủy bởi caller (do người dùng gõ từ khóa mới, chuyển tab, hoặc unmount)
+    if (options.signal?.aborted) {
+      throw err; // Giữ nguyên AbortError để các Hooks bắt và bỏ qua im lặng!
+    }
+    // Chỉ báo lỗi Timeout nếu thực sự quá thời gian timeout quy định
+    if (isTimeout && err instanceof Error && err.name === "AbortError") {
       throw new Error(
         "Kết nối máy chủ Backend quá thời gian quy định (Timeout).",
       );

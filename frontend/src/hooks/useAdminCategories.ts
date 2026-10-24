@@ -77,7 +77,10 @@ export function useAdminCategories() {
         }
       }
     } catch (err: unknown) {
-      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError'))
+      ) {
         return; // Bỏ qua lỗi hủy request
       }
       console.error('Lỗi khi tải danh sách danh mục:', err);

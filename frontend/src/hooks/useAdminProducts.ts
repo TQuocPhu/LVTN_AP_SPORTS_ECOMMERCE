@@ -68,8 +68,11 @@ export function useAdminProducts(initialParams?: ProductFilterParams) {
         });
       }
     } catch (err: any) {
-      // Bỏ qua lỗi Abort khi người dùng gõ từ khóa mới
-      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+      // Bỏ qua lỗi Abort khi người dùng gõ từ khóa mới hoặc unmount
+      if (
+        controller.signal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError'))
+      ) {
         return;
       }
       if (!(isApiError(err) && err.status === 401)) {

@@ -89,7 +89,10 @@ export function useAdminUsers() {
         });
       }
     } catch (error: any) {
-      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
+      if (
+        controller.signal.aborted ||
+        (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError'))
+      ) {
         return; // Bỏ qua lỗi hủy request
       }
       console.error('Lỗi khi tải danh sách người dùng:', error);

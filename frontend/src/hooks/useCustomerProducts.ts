@@ -59,7 +59,10 @@ export function useCustomerProducts(initialCategoryId?: number) {
         setTotalPages(res.data.totalPages || 0);
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (
+        controller.signal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError'))
+      ) {
         return; // Request cũ đã bị hủy bởi từ khóa mới, không xử lý
       }
       console.error('Lỗi khi tải danh sách sản phẩm cửa hàng:', err);

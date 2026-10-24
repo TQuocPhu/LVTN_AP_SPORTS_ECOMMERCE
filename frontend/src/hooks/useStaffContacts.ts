@@ -60,7 +60,10 @@ export function useStaffContacts() {
         setTotalElements(res.data.totalElements || 0);
       }
     } catch (err: unknown) {
-      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError'))
+      ) {
         return; // Bỏ qua lỗi hủy request
       }
       // Handled via API Client Toast
