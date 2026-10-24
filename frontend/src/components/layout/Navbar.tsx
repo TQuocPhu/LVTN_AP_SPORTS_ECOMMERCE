@@ -109,7 +109,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="ap-navbar sticky top-0 z-40 w-full border-b shadow-xl transition-colors duration-300">
+      <header className="ap-navbar sticky top-0 lg:top-10 z-40 w-full border-b shadow-xl transition-colors duration-300">
         <div className="max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 h-20 flex items-center justify-between">
           {/* 1. Logo Thương Hiệu */}
           <Link href="/" className="flex items-center space-x-2.5 sm:space-x-3 group shrink-0">

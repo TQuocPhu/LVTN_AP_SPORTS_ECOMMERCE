@@ -102,6 +102,9 @@ export default function RootLayout({
                   {/* Top-Right Sonner Toast Notification Container */}
                   <ToastProvider />
 
+                  {/* Slot hiển thị Thanh thông tin đầu trang (ClientTopBar) nằm phía trên Header Logo Navbar, dính sticky cùng Navbar */}
+                  <div id="client-top-bar-slot" className="w-full shrink-0 sticky top-0 z-[45]" />
+
                   {/* Master Shell Navbar Header */}
                   <Navbar />
 
