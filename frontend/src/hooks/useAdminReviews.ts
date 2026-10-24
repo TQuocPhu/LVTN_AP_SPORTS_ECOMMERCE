@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminReviewController } from '@/controllers/admin-review-controller';
 import { AdminReviewDetail, AdminReviewFilterRequest } from '@/types/review';
 
@@ -13,6 +13,19 @@ export function useAdminReviews() {
     size: 10,
     status: 'ALL',
   });
+
+  // Debounce 400ms cho từ khóa tìm kiếm đánh giá
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>(filter.keyword || '');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filter.keyword || '');
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filter.keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / bộ lọc
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalElements, setTotalElements] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -24,23 +37,40 @@ export function useAdminReviews() {
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   const fetchAdminReviews = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsLoading(true);
     try {
-      const res = await adminReviewController.getAdminReviews(filter);
+      const queryParams: AdminReviewFilterRequest = {
+        ...filter,
+        keyword: debouncedKeyword.trim() || undefined,
+      };
+      const res = await adminReviewController.getAdminReviews(queryParams, {
+        signal: controller.signal,
+      });
       if (res && res.data) {
         setReviews(res.data.content || []);
         setTotalPages(res.data.totalPages || 1);
         setTotalElements(res.data.totalElements || 0);
       }
     } catch (err: any) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       console.error('Lỗi khi nạp danh sách đánh giá admin:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [filter]);
+  }, [debouncedKeyword, filter.page, filter.size, filter.status, filter.rating]);
 
   useEffect(() => {
     fetchAdminReviews();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchAdminReviews]);
 
   const setPage = (page: number) => {

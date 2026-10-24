@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { categoryController } from '@/controllers/category-controller';
 import { CategoryResponse, CategoryFilterParams } from '@/types/category';
 import { toast } from 'sonner';
@@ -13,6 +13,18 @@ export function useAdminCategories() {
 
   // Filter & Pagination State
   const [keyword, setKeyword] = useState<string>('');
+  // Debounce 400ms cho từ khóa tìm kiếm danh mục
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(keyword);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / bộ lọc
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const [parentId, setParentId] = useState<number | null>(null);
   const [page, setPage] = useState<number>(0);
   const [size, setSize] = useState<number>(10);
@@ -32,19 +44,26 @@ export function useAdminCategories() {
   // Tree View Expand/Collapse States
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
-  // Fetch paginated categories
+  // Fetch paginated categories có Debounce và AbortSignal
   const fetchCategories = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setLoading(true);
       const params: CategoryFilterParams = {
-        keyword,
+        keyword: debouncedKeyword.trim() || undefined,
         parentId,
         page,
         size,
         sortBy,
         sortDir,
       };
-      const res = await categoryController.getCategoriesAdmin(params);
+      const res = await categoryController.getCategoriesAdmin(params, {
+        signal: controller.signal,
+      });
       if (res && res.data) {
         setCategories(res.data.content || []);
         setTotalPages(res.data.totalPages || 1);
@@ -57,12 +76,15 @@ export function useAdminCategories() {
           setExpandedIds(initialExpanded);
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       console.error('Lỗi khi tải danh sách danh mục:', err);
     } finally {
       setLoading(false);
     }
-  }, [keyword, parentId, page, size, sortBy, sortDir]);
+  }, [debouncedKeyword, parentId, page, size, sortBy, sortDir]);
 
   // Fetch root categories for parent dropdown selector
   const fetchRootCategories = useCallback(async () => {
@@ -78,6 +100,9 @@ export function useAdminCategories() {
 
   useEffect(() => {
     fetchCategories();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchCategories]);
 
   useEffect(() => {

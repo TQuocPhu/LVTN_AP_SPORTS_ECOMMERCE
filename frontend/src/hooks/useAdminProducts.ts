@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminProductController } from '@/controllers/admin-product-controller';
 import { Product, ProductFilterParams, PaginatedResponse } from '@/types/product';
 import { isApiError } from '@/services/api-client';
@@ -26,15 +26,38 @@ export function useAdminProducts(initialParams?: ProductFilterParams) {
     ...initialParams,
   });
 
+  // Debounce 400ms cho từ khóa tìm kiếm để chống spam request
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>(filters.keyword || '');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword || '');
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi người dùng đổi bộ lọc / từ khóa
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       setLoading(true);
       setError(null);
-      const res = await adminProductController.getProducts(filters);
+      const queryParams: ProductFilterParams = {
+        ...filters,
+        keyword: debouncedKeyword.trim() || undefined,
+      };
+      const res = await adminProductController.getProducts(queryParams, {
+        signal: controller.signal,
+      });
       if (res && res.data) {
         setProducts(res.data.content || []);
         setPageInfo({
@@ -45,6 +68,10 @@ export function useAdminProducts(initialParams?: ProductFilterParams) {
         });
       }
     } catch (err: any) {
+      // Bỏ qua lỗi Abort khi người dùng gõ từ khóa mới
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return;
+      }
       if (!(isApiError(err) && err.status === 401)) {
         console.error('Lỗi khi tải danh sách sản phẩm:', err);
         setError(err?.message || 'Không thể tải danh sách sản phẩm');
@@ -52,10 +79,25 @@ export function useAdminProducts(initialParams?: ProductFilterParams) {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [
+    debouncedKeyword,
+    filters.categoryId,
+    filters.status,
+    filters.unit,
+    filters.page,
+    filters.size,
+    filters.sortBy,
+    filters.sortDir,
+    filters.minPrice,
+    filters.maxPrice,
+  ]);
 
   useEffect(() => {
     fetchProducts();
+    // Cleanup hủy request khi component bị unmount
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchProducts]);
 
   const updateFilters = (newFilters: Partial<ProductFilterParams>) => {

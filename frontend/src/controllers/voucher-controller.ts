@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   Voucher,
   VoucherFormData,
@@ -19,12 +19,16 @@ export const voucherController = {
   // ==========================================
 
   /**
-   * Lấy danh sách mã giảm giá phía Admin có phân trang, lọc và sắp xếp đa tiêu chí.
+   * Lấy danh sách mã giảm giá phía Admin có phân trang, lọc và sắp xếp đa tiêu chí (Hỗ trợ AbortSignal).
    *
    * @param params Bộ lọc tham số tìm kiếm (keyword, type, status, categoryScope, sortBy, sortDir, page, size)
+   * @param options Cấu hình API client bao gồm AbortSignal
    * @return Promise chứa ApiResponse của dữ liệu phân trang PageResponse<Voucher>
    */
-  async getAdminVouchers(params: VoucherFilterParams): Promise<ApiResponse<PageResponse<Voucher>>> {
+  async getAdminVouchers(
+    params: VoucherFilterParams,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<PageResponse<Voucher>>> {
     const queryParams = new URLSearchParams();
     if (params.keyword) queryParams.append('keyword', params.keyword);
     if (params.type) queryParams.append('type', params.type);
@@ -37,7 +41,7 @@ export const voucherController = {
 
     return apiClient.get<ApiResponse<PageResponse<Voucher>>>(
       `/admin/vouchers?${queryParams.toString()}`,
-      { suppressErrorToast: true }
+      { suppressErrorToast: true, ...options }
     );
   },
 

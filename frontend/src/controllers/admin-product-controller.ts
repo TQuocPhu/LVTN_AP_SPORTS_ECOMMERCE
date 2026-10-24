@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   Product,
   ProductDetail,
@@ -10,9 +10,12 @@ import {
 
 export const adminProductController = {
   /**
-   * Lấy danh sách sản phẩm phân trang theo bộ lọc.
+   * Lấy danh sách sản phẩm phân trang theo bộ lọc (Hỗ trợ AbortSignal chống Race-Condition).
    */
-  async getProducts(params?: ProductFilterParams): Promise<ApiResponse<PaginatedResponse<Product>>> {
+  async getProducts(
+    params?: ProductFilterParams,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<PaginatedResponse<Product>>> {
     const searchParams = new URLSearchParams();
     if (params?.keyword) searchParams.append('keyword', params.keyword);
     if (params?.categoryId) searchParams.append('categoryId', params.categoryId.toString());
@@ -27,7 +30,10 @@ export const adminProductController = {
 
     const queryString = searchParams.toString();
     const url = `/admin/products${queryString ? `?${queryString}` : ''}`;
-    return apiClient.get<ApiResponse<PaginatedResponse<Product>>>(url, { suppressErrorToast: true });
+    return apiClient.get<ApiResponse<PaginatedResponse<Product>>>(url, {
+      suppressErrorToast: true,
+      ...options,
+    });
   },
 
   /**

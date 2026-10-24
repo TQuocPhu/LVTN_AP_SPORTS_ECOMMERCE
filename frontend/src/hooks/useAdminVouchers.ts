@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { voucherController } from "@/controllers/voucher-controller";
 import {
   Voucher,
@@ -26,6 +26,18 @@ export function useAdminVouchers() {
     size: 10,
   });
 
+  // Debounce 400ms cho từ khóa tìm kiếm mã giảm giá
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>(filters.keyword || "");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword || "");
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / bộ lọc
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Trạng thái dữ liệu phân trang từ API
   const [pageData, setPageData] = useState<PageResponse<Voucher>>({
     content: [],
@@ -47,26 +59,51 @@ export function useAdminVouchers() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   /**
-   * Tải danh sách voucher từ server theo các tham số bộ lọc hiện tại.
+   * Tải danh sách voucher từ server theo các tham số bộ lọc hiện tại (Hỗ trợ Debounce 400ms & AbortSignal).
    */
   const fetchVouchers = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsLoading(true);
     try {
-      const res = await voucherController.getAdminVouchers(filters);
+      const queryParams: VoucherFilterParams = {
+        ...filters,
+        keyword: debouncedKeyword.trim() || undefined,
+      };
+      const res = await voucherController.getAdminVouchers(queryParams, {
+        signal: controller.signal,
+      });
       if (res && res.data) {
         setPageData(res.data);
       }
     } catch (error: any) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       console.error("Lỗi khi tải danh sách voucher:", error);
-      // toast.error(error.message || 'Không thể tải danh sách mã giảm giá!');
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [
+    debouncedKeyword,
+    filters.type,
+    filters.status,
+    filters.categoryScope,
+    filters.sortBy,
+    filters.sortDir,
+    filters.page,
+    filters.size,
+  ]);
 
-  // Tự động tải lại danh sách khi filters thay đổi
+  // Tự động tải lại danh sách khi filters thay đổi (Kèm cleanup hủy request khi unmount)
   useEffect(() => {
     fetchVouchers();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchVouchers]);
 
   /**

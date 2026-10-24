@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Contact, ContactStatus } from "@/types/contact";
 import { contactController } from "@/controllers/contact-controller";
 import { toast } from "sonner";
@@ -12,6 +12,19 @@ export function useStaffContacts() {
   const [pageSize] = useState<number>(10);
   const [totalElements, setTotalElements] = useState<number>(0);
   const [keyword, setKeyword] = useState<string>("");
+
+  // Debounce 400ms cho từ khóa tìm kiếm liên hệ khách hàng
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(keyword);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / bộ lọc
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortDir, setSortDir] = useState<"DESC" | "ASC">("DESC");
 
@@ -23,32 +36,44 @@ export function useStaffContacts() {
   const [replyError, setReplyError] = useState<string>("");
 
   const fetchContacts = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       const statusParam =
         statusFilter === "ALL" ? undefined : (statusFilter as ContactStatus);
       const res = await contactController.getContacts(
-        keyword.trim() || undefined,
+        debouncedKeyword.trim() || undefined,
         statusParam,
         page,
         pageSize,
         "createdAt",
         sortDir,
+        { signal: controller.signal }
       );
 
       if (res.data) {
         setContacts(res.data.content || []);
         setTotalElements(res.data.totalElements || 0);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       // Handled via API Client Toast
     } finally {
       setLoading(false);
     }
-  }, [keyword, statusFilter, page, pageSize, sortDir]);
+  }, [debouncedKeyword, statusFilter, page, pageSize, sortDir]);
 
   useEffect(() => {
     fetchContacts();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchContacts]);
 
   const handleOpenReplyModal = useCallback((contact: Contact) => {

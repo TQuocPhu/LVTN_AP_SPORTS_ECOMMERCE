@@ -1,12 +1,15 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import { AdminReviewDetail, AdminReviewFilterRequest } from '@/types/review';
 import { PaginatedResponse } from '@/types/product';
 
 export const adminReviewController = {
   /**
-   * Lấy danh sách đánh giá phân trang với các bộ lọc dành cho Admin
+   * Lấy danh sách đánh giá phân trang với các bộ lọc dành cho Admin (Hỗ trợ AbortSignal)
    */
-  async getAdminReviews(params?: AdminReviewFilterRequest): Promise<ApiResponse<PaginatedResponse<AdminReviewDetail>>> {
+  async getAdminReviews(
+    params?: AdminReviewFilterRequest,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<PaginatedResponse<AdminReviewDetail>>> {
     const searchParams = new URLSearchParams();
     if (params?.rating) searchParams.append('rating', params.rating.toString());
     if (params?.status) searchParams.append('status', params.status);
@@ -16,7 +19,10 @@ export const adminReviewController = {
 
     const queryString = searchParams.toString();
     const url = `/admin/reviews${queryString ? `?${queryString}` : ''}`;
-    return apiClient.get<ApiResponse<PaginatedResponse<AdminReviewDetail>>>(url);
+    return apiClient.get<ApiResponse<PaginatedResponse<AdminReviewDetail>>>(url, {
+      suppressErrorToast: true,
+      ...options,
+    });
   },
 
   /**

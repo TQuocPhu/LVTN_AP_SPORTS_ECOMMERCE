@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   InventoryTransaction,
   InventoryOverviewStats,
@@ -28,7 +28,8 @@ export const warehouseInventoryController = {
     page = 0,
     size = 10,
     sortBy = 'createdAt',
-    sortDir: 'ASC' | 'DESC' = 'DESC'
+    sortDir: 'ASC' | 'DESC' = 'DESC',
+    options?: ApiClientOptions
   ): Promise<ApiResponse<PaginatedResponse<InventoryTransaction>>> {
     const searchParams = new URLSearchParams();
     if (type) searchParams.append('type', type);
@@ -43,7 +44,7 @@ export const warehouseInventoryController = {
 
     return apiClient.get<ApiResponse<PaginatedResponse<InventoryTransaction>>>(
       `/warehouse/inventory/transactions?${searchParams.toString()}`,
-      { suppressErrorToast: true }
+      { suppressErrorToast: true, ...options }
     );
   },
 

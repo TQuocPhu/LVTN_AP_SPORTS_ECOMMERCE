@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   CategoryResponse,
   CategoryFilterParams,
@@ -30,9 +30,12 @@ export const categoryController = {
   },
 
   /**
-   * [ADMIN] Lấy danh sách danh mục phân trang & lọc
+   * [ADMIN] Lấy danh sách danh mục phân trang & lọc (Hỗ trợ AbortSignal)
    */
-  async getCategoriesAdmin(params: CategoryFilterParams): Promise<ApiResponse<PaginatedCategoriesResponse>> {
+  async getCategoriesAdmin(
+    params: CategoryFilterParams,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<PaginatedCategoriesResponse>> {
     const queryParams = new URLSearchParams();
     if (params.keyword) queryParams.append('keyword', params.keyword);
     if (params.parentId !== undefined && params.parentId !== null) {
@@ -44,7 +47,8 @@ export const categoryController = {
     if (params.sortDir) queryParams.append('sortDir', params.sortDir);
 
     return apiClient.get<ApiResponse<PaginatedCategoriesResponse>>(
-      `/admin/categories?${queryParams.toString()}`
+      `/admin/categories?${queryParams.toString()}`,
+      { suppressErrorToast: true, ...options }
     );
   },
 

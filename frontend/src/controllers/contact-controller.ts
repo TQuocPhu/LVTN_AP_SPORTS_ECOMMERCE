@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import { Contact, CreateContactRequest, ReplyContactRequest, ContactStatus } from '@/types/contact';
 import { PaginatedResponse } from '@/types/product';
 
@@ -12,7 +12,7 @@ export const contactController = {
   },
 
   /**
-   * Admin/Staff lấy danh sách liên hệ khách hàng phân trang & tìm kiếm.
+   * Admin/Staff lấy danh sách liên hệ khách hàng phân trang & tìm kiếm (Hỗ trợ AbortSignal).
    */
   async getContacts(
     keyword?: string,
@@ -20,7 +20,8 @@ export const contactController = {
     page = 0,
     size = 10,
     sortBy = 'createdAt',
-    sortDir: 'ASC' | 'DESC' = 'DESC'
+    sortDir: 'ASC' | 'DESC' = 'DESC',
+    options?: ApiClientOptions
   ): Promise<ApiResponse<PaginatedResponse<Contact>>> {
     const params = new URLSearchParams();
     if (keyword) params.append('keyword', keyword);
@@ -32,7 +33,7 @@ export const contactController = {
 
     return apiClient.get<ApiResponse<PaginatedResponse<Contact>>>(
       `/staff/contacts?${params.toString()}`,
-      { suppressErrorToast: true }
+      { suppressErrorToast: true, ...options }
     );
   },
 

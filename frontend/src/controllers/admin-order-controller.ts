@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   AdminOrderDetail,
   AdminOrderFilterParams,
@@ -10,9 +10,12 @@ import { PageResponse } from '@/types/voucher';
 
 export const adminOrderController = {
   /**
-   * Lấy danh sách đơn hàng cho Admin/Staff có lọc, tìm kiếm và phân trang
+   * Lấy danh sách đơn hàng cho Admin/Staff có lọc, tìm kiếm và phân trang (Hỗ trợ AbortSignal)
    */
-  async getOrders(params: AdminOrderFilterParams): Promise<ApiResponse<PageResponse<AdminOrderDetail>>> {
+  async getOrders(
+    params: AdminOrderFilterParams,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<PageResponse<AdminOrderDetail>>> {
     const queryParams = new URLSearchParams();
     if (params.keyword) queryParams.append('keyword', params.keyword);
     if (params.status && params.status !== 'ALL') queryParams.append('status', params.status);
@@ -28,7 +31,7 @@ export const adminOrderController = {
 
     return apiClient.get<ApiResponse<PageResponse<AdminOrderDetail>>>(
       `/admin/orders?${queryParams.toString()}`,
-      { suppressErrorToast: true }
+      { suppressErrorToast: true, ...options }
     );
   },
 

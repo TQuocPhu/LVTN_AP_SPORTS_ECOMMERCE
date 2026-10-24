@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   UserAccount,
   UserFilterParams,
@@ -13,9 +13,12 @@ import {
  */
 export const userController = {
   /**
-   * Lấy danh sách tài khoản phía Admin có phân trang, tìm kiếm từ khóa và lọc đa tiêu chí.
+   * Lấy danh sách tài khoản phía Admin có phân trang, tìm kiếm từ khóa và lọc đa tiêu chí (Hỗ trợ AbortSignal).
    */
-  async getAdminUsers(params: UserFilterParams): Promise<ApiResponse<UserPageResponse<UserAccount>>> {
+  async getAdminUsers(
+    params: UserFilterParams,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<UserPageResponse<UserAccount>>> {
     const queryParams = new URLSearchParams();
     if (params.keyword) queryParams.append('keyword', params.keyword);
     if (params.role) queryParams.append('role', params.role);
@@ -27,7 +30,7 @@ export const userController = {
 
     return apiClient.get<ApiResponse<UserPageResponse<UserAccount>>>(
       `/admin/users?${queryParams.toString()}`,
-      { suppressErrorToast: true }
+      { suppressErrorToast: true, ...options }
     );
   },
 

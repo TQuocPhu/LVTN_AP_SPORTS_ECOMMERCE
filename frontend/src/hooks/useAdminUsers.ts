@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { userController } from '@/controllers/user-controller';
 import {
   UserAccount,
@@ -24,6 +24,18 @@ export function useAdminUsers() {
     size: 10,
   });
 
+  // Debounce 400ms cho từ khóa tìm kiếm tài khoản
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>(filters.keyword || '');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword || '');
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / bộ lọc
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Trạng thái dữ liệu phân trang từ API
   const [pageData, setPageData] = useState<UserPageResponse<UserAccount>>({
     content: [],
@@ -45,13 +57,24 @@ export function useAdminUsers() {
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
 
   /**
-   * Tải danh sách người dùng từ server theo tham số bộ lọc.
+   * Tải danh sách người dùng từ server theo tham số bộ lọc (Hỗ trợ Debounce 400ms và AbortSignal).
    * QUY TẮC ĐẶC BIỆT: Tài khoản ADMIN luôn đứng ở vị trí đầu tiên (#1) trong danh sách hiển thị.
    */
   const fetchUsers = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsLoading(true);
     try {
-      const res = await userController.getAdminUsers(filters);
+      const queryParams: UserFilterParams = {
+        ...filters,
+        keyword: debouncedKeyword.trim() || undefined,
+      };
+      const res = await userController.getAdminUsers(queryParams, {
+        signal: controller.signal,
+      });
       if (res && res.data) {
         const rawContent = res.data.content || [];
         
@@ -66,14 +89,29 @@ export function useAdminUsers() {
         });
       }
     } catch (error: any) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       console.error('Lỗi khi tải danh sách người dùng:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [
+    debouncedKeyword,
+    filters.role,
+    filters.status,
+    filters.sortBy,
+    filters.sortDir,
+    filters.page,
+    filters.size,
+  ]);
 
   useEffect(() => {
     fetchUsers();
+    // Cleanup hủy request khi component bị unmount
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchUsers]);
 
   // Các hàm thay đổi bộ lọc

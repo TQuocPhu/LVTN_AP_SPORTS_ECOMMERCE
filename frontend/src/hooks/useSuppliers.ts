@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Supplier, SupplierRequest } from '@/types/inventory';
 import { supplierController } from '@/controllers/supplier-controller';
 import { toast } from 'sonner';
@@ -14,20 +14,47 @@ export function useSuppliers() {
   const [totalElements, setTotalElements] = useState<number>(0);
   const [keyword, setKeyword] = useState<string>('');
 
+  // Debounce 400ms cho từ khóa tìm kiếm nhà cung cấp
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(keyword);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / phân trang
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const fetchSuppliers = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
-      const res = await supplierController.getSuppliers(keyword.trim() || undefined, page, pageSize);
+      const res = await supplierController.getSuppliers(
+        debouncedKeyword.trim() || undefined,
+        page,
+        pageSize,
+        'createdAt',
+        'DESC',
+        { signal: controller.signal }
+      );
       if (res.data) {
         setSuppliers(res.data.content || []);
         setTotalElements(res.data.totalElements || 0);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       // Toast error handled
     } finally {
       setLoading(false);
     }
-  }, [keyword, page, pageSize]);
+  }, [debouncedKeyword, page, pageSize]);
 
   const fetchSuppliersList = useCallback(async () => {
     try {
@@ -42,6 +69,9 @@ export function useSuppliers() {
 
   useEffect(() => {
     fetchSuppliers();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchSuppliers]);
 
   const handleCreateSupplier = async (data: SupplierRequest): Promise<boolean> => {

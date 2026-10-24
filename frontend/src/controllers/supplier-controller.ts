@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import { Supplier, SupplierRequest } from '@/types/inventory';
 import { PaginatedResponse } from '@/types/product';
 
@@ -11,7 +11,8 @@ export const supplierController = {
     page = 0,
     size = 10,
     sortBy = 'createdAt',
-    sortDir: 'ASC' | 'DESC' = 'DESC'
+    sortDir: 'ASC' | 'DESC' = 'DESC',
+    options?: ApiClientOptions
   ): Promise<ApiResponse<PaginatedResponse<Supplier>>> {
     const searchParams = new URLSearchParams();
     if (keyword) searchParams.append('keyword', keyword);
@@ -22,7 +23,7 @@ export const supplierController = {
 
     return apiClient.get<ApiResponse<PaginatedResponse<Supplier>>>(
       `/warehouse/suppliers?${searchParams.toString()}`,
-      { suppressErrorToast: true }
+      { suppressErrorToast: true, ...options }
     );
   },
 

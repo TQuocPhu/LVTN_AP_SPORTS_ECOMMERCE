@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   InventoryTransaction,
   InventoryOverviewStats,
@@ -29,6 +29,18 @@ export function useWarehouseInventory() {
     undefined,
   );
   const [keyword, setKeyword] = useState<string>("");
+  // Debounce 400ms cho từ khóa tìm kiếm kho hàng
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(keyword);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi từ khóa / bộ lọc
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
 
@@ -84,27 +96,38 @@ export function useWarehouseInventory() {
   }, []);
 
   const fetchTransactions = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       const res = await warehouseInventoryController.searchTransactions(
         typeFilter,
         supplierFilter,
-        keyword.trim() || undefined,
+        debouncedKeyword.trim() || undefined,
         fromDate || undefined,
         toDate || undefined,
         page,
         pageSize,
+        'createdAt',
+        'DESC',
+        { signal: controller.signal }
       );
       if (res.data) {
         setTransactions(res.data.content || []);
         setTotalElements(res.data.totalElements || 0);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       // Error Toast handled
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, supplierFilter, keyword, fromDate, toDate, page, pageSize]);
+  }, [typeFilter, supplierFilter, debouncedKeyword, fromDate, toDate, page, pageSize]);
 
   const fetchLowStock = useCallback(async () => {
     try {
@@ -127,6 +150,9 @@ export function useWarehouseInventory() {
 
   useEffect(() => {
     refreshAll();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [refreshAll]);
 
   // Tự động đồng bộ và làm mới Nhật ký giao dịch kho tức thì khi có sự kiện xuất/nhập kho (không cần F5)

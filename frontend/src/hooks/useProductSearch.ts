@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { searchProductsByRelevance } from '@/controllers/product-search-controller';
 import { Product } from '@/types/product';
@@ -22,7 +22,7 @@ export interface UseProductSearchReturn {
  * Custom Hook quản lý toàn bộ logic Tìm kiếm Sản phẩm:
  * - Đọc query parameter `keyword` & `page` từ URL (`useSearchParams`)
  * - Kiểm tra Validation dữ liệu từ khóa trước khi gọi API
- * - Quản lý State phân trang & nạp dữ liệu từ FE Controller
+ * - Quản lý State phân trang & nạp dữ liệu từ FE Controller có AbortController
  */
 export function useProductSearch(pageSize: number = 10): UseProductSearchReturn {
   const searchParams = useSearchParams();
@@ -38,6 +38,9 @@ export function useProductSearch(pageSize: number = 10): UseProductSearchReturn 
   const [totalPages, setTotalPages] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Quản lý AbortController để hủy request cũ khi URL query params thay đổi
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Validation hàm kiểm tra độ hợp lệ của từ khóa
   const validateKeyword = (kw: string): string | null => {
@@ -55,6 +58,11 @@ export function useProductSearch(pageSize: number = 10): UseProductSearchReturn 
   };
 
   const fetchSearchResults = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const trimmedKw = rawKeyword.trim();
     setKeyword(trimmedKw);
 
@@ -72,11 +80,14 @@ export function useProductSearch(pageSize: number = 10): UseProductSearchReturn 
     setIsLoading(true);
 
     try {
-      const res = await searchProductsByRelevance({
-        keyword: trimmedKw,
-        page: currentPage,
-        size: pageSize,
-      });
+      const res = await searchProductsByRelevance(
+        {
+          keyword: trimmedKw,
+          page: currentPage,
+          size: pageSize,
+        },
+        { signal: controller.signal }
+      );
 
       if (res.data) {
         setProducts(res.data.content || []);
@@ -87,7 +98,10 @@ export function useProductSearch(pageSize: number = 10): UseProductSearchReturn 
         setTotalElements(0);
         setTotalPages(0);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Bỏ qua lỗi hủy request
+      }
       setProducts([]);
       setTotalElements(0);
       setTotalPages(0);
@@ -98,6 +112,9 @@ export function useProductSearch(pageSize: number = 10): UseProductSearchReturn 
 
   useEffect(() => {
     fetchSearchResults();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchSearchResults]);
 
   const handlePageChange = (newPage: number) => {

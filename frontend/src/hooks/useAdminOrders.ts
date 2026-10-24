@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminOrderController } from '@/controllers/admin-order-controller';
 import {
   AdminOrderDetail,
@@ -75,6 +75,18 @@ export function useAdminOrders(): UseAdminOrdersReturn {
   // 1. Filter state
   const [filters, setFilters] = useState<AdminOrderFilterParams>(DEFAULT_FILTERS);
 
+  // Debounce 400ms cho từ khóa tìm kiếm đơn hàng
+  const [debouncedKeyword, setDebouncedKeyword] = useState<string>(filters.keyword || '');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(filters.keyword || '');
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [filters.keyword]);
+
+  // Quản lý AbortController để hủy request cũ khi thay đổi bộ lọc / từ khóa
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // 2. Data states
   const [orders, setOrders] = useState<AdminOrderDetail[]>([]);
   const [summary, setSummary] = useState<AdminOrderSummary | null>(null);
@@ -116,11 +128,22 @@ export function useAdminOrders(): UseAdminOrdersReturn {
     }
   }, []);
 
-  // Fetch Orders List
+  // Fetch Orders List có Debounce và AbortSignal
   const fetchOrders = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống Race Condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoadingOrders(true);
     try {
-      const res = await adminOrderController.getOrders(filters);
+      const queryParams: AdminOrderFilterParams = {
+        ...filters,
+        keyword: debouncedKeyword.trim() || undefined,
+      };
+      const res = await adminOrderController.getOrders(queryParams, {
+        signal: controller.signal,
+      });
       if (res && res.data) {
         setOrders(res.data.content || []);
         setTotalElements(res.data.totalElements || 0);
@@ -130,12 +153,27 @@ export function useAdminOrders(): UseAdminOrdersReturn {
         setTotalElements(0);
         setTotalPages(0);
       }
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError')) {
+        return; // Request bị abort bởi từ khóa mới, bỏ qua
+      }
       setOrders([]);
     } finally {
       setLoadingOrders(false);
     }
-  }, [filters]);
+  }, [
+    debouncedKeyword,
+    filters.status,
+    filters.paymentMethod,
+    filters.minPrice,
+    filters.maxPrice,
+    filters.startDate,
+    filters.endDate,
+    filters.page,
+    filters.size,
+    filters.sortBy,
+    filters.sortDir,
+  ]);
 
   useEffect(() => {
     fetchSummary();
@@ -143,6 +181,10 @@ export function useAdminOrders(): UseAdminOrdersReturn {
 
   useEffect(() => {
     fetchOrders();
+    // Cleanup hủy request khi component bị unmount
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchOrders]);
 
   // Filter handlers

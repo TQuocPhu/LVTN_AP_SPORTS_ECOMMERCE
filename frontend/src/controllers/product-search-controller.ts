@@ -1,4 +1,4 @@
-import { apiClient, ApiResponse } from '@/services/api-client';
+import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import { Product, PaginatedResponse } from '@/types/product';
 
 export interface ProductSearchQueryParams {
@@ -10,9 +10,11 @@ export interface ProductSearchQueryParams {
 /**
  * Controller gọi REST API Tìm kiếm sản phẩm theo điểm số độ phù hợp (Relevance Scoring)
  * GET /api/v1/products/search?keyword=...&page=...&size=...
+ * Hỗ trợ AbortSignal chống race-condition khi người dùng liên tục đổi keyword.
  */
 export async function searchProductsByRelevance(
-  params: ProductSearchQueryParams
+  params: ProductSearchQueryParams,
+  options?: ApiClientOptions
 ): Promise<ApiResponse<PaginatedResponse<Product>>> {
   const { keyword, page = 0, size = 10 } = params;
   const searchParams = new URLSearchParams();
@@ -22,6 +24,6 @@ export async function searchProductsByRelevance(
 
   return apiClient<PaginatedResponse<Product>>(
     `/products/search?${searchParams.toString()}`,
-    { method: 'GET', suppressErrorToast: true }
+    { method: 'GET', suppressErrorToast: true, ...options }
   );
 }
