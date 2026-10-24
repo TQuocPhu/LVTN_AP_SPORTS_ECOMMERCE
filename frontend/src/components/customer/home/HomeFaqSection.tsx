@@ -65,6 +65,7 @@ export default function HomeFaqSection() {
                 id="home-faq-category-select"
                 value={selectedCategory}
                 onChange={(e) => handleSelectCategory(e.target.value)}
+                suppressHydrationWarning
                 className="w-full pl-10 pr-10 py-2.5 rounded-xl text-xs sm:text-sm font-bold border appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 transition-all duration-200"
                 style={{
                   backgroundColor: 'var(--card-bg)',
@@ -118,6 +119,7 @@ export default function HomeFaqSection() {
                     type="button"
                     onClick={() => handleToggleFaq(faq.id)}
                     aria-expanded={isOpen}
+                    suppressHydrationWarning
                     className="w-full px-4 py-3.5 sm:px-5 sm:py-4 text-left flex items-center justify-between gap-3 cursor-pointer"
                   >
                     <div className="space-y-1 min-w-0">

@@ -1,37 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { LogOut, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { LogOut, X, Loader2 } from 'lucide-react';
 
 interface ConfirmLogoutModalProps {
   isOpen: boolean;
+  loading?: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => Promise<void> | void;
 }
 
 /**
  * Modern Glassmorphic Logout Confirmation Modal Component.
- * Thay thế 100% window.confirm() mặc định bằng Modal hiện đại chuẩn AP Sports.
+ * Tuân thủ nghiêm ngặt kiến trúc Layer Architecture:
+ * - Pure UI Component: Không sử dụng useState hay useEffect trong Component.
+ * - Toàn bộ trạng thái đóng/mở và xử lý đăng xuất được quản lý tại tầng Hook (`useNavbar`, `useProfile`).
  */
 export default function ConfirmLogoutModal({
   isOpen,
+  loading = false,
   onClose,
   onConfirm,
 }: ConfirmLogoutModalProps) {
-  const [loading, setLoading] = useState(false);
-
   if (!isOpen) return null;
-
-  const handleConfirm = async () => {
-    try {
-      setLoading(true);
-      await onConfirm();
-    } catch (err) {
-      console.error('Lỗi khi đăng xuất:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
@@ -42,9 +32,11 @@ export default function ConfirmLogoutModal({
 
         {/* Close Button */}
         <button
+          type="button"
           onClick={onClose}
           disabled={loading}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
+          suppressHydrationWarning
+          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -68,15 +60,17 @@ export default function ConfirmLogoutModal({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="flex-1 py-3 px-5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-sm font-bold transition-all disabled:opacity-50"
+            suppressHydrationWarning
+            className="flex-1 py-3 px-5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-sm font-bold transition-all disabled:opacity-50 cursor-pointer"
           >
             Hủy Bỏ
           </button>
           <button
             type="button"
-            onClick={handleConfirm}
+            onClick={onConfirm}
             disabled={loading}
-            className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white text-sm font-bold shadow-lg shadow-red-600/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+            suppressHydrationWarning
+            className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white text-sm font-bold shadow-lg shadow-red-600/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <>

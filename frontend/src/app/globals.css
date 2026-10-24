@@ -151,6 +151,22 @@ header.ap-navbar .nav-dropdown {
   border-color: var(--nav-border);
 }
 
+/* Item trong Dropdown Navbar: mặc định màu trung tính theo theme, chỉ sáng màu cam khi hover/focus */
+header.ap-navbar .nav-dropdown-item,
+.nav-dropdown-item {
+  color: var(--nav-text);
+  border-color: transparent;
+}
+
+header.ap-navbar .nav-dropdown-item:hover,
+header.ap-navbar .nav-dropdown-item:focus-visible,
+.nav-dropdown-item:hover,
+.nav-dropdown-item:focus-visible {
+  color: var(--nav-text-hover);
+  background-color: rgba(249, 115, 22, 0.1);
+  border-color: rgba(249, 115, 22, 0.3);
+}
+
 header.ap-navbar .nav-icon-btn {
   background-color: var(--bg-surface);
   border-color: var(--bg-border);

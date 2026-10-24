@@ -177,20 +177,18 @@ export default function Navbar() {
                     <Link
                       href="/about"
                       onClick={closeAboutDropdown}
-                      className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
-                      style={{ color: "var(--nav-text)" }}
+                      className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium border border-transparent transition-all group"
                     >
-                      <Info className="w-4 h-4 text-orange-400" />
+                      <Info className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
                       <span>Giới Thiệu AP Sports</span>
                     </Link>
 
                     <Link
                       href="/vouchers"
                       onClick={closeAboutDropdown}
-                      className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
-                      style={{ color: "var(--nav-text)" }}
+                      className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium border border-transparent transition-all group"
                     >
-                      <Gift className="w-4 h-4 text-amber-500" />
+                      <Gift className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
                       <span>Chương Trình Khuyến Mãi</span>
                     </Link>
                   </div>
@@ -280,6 +278,7 @@ export default function Navbar() {
                       <img
                         src={user.avatar}
                         alt={user.name || "Avatar"}
+                        referrerPolicy="no-referrer"
                         className="w-7 h-7 rounded-full object-cover border border-orange-500/40 shadow-sm"
                       />
                     ) : (
@@ -315,24 +314,22 @@ export default function Navbar() {
                         <Link
                           href="/profile"
                           onClick={closeUserDropdown}
-                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
-                          style={{ color: "var(--nav-text)" }}
+                          className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium border border-transparent transition-all group"
                         >
-                          <UserCheck className="w-4 h-4 opacity-60" />
+                          <UserCheck className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
                           <span>Tài khoản cá nhân</span>
                         </Link>
                         <Link
                           href="/profile/orders"
                           onClick={closeUserDropdown}
-                          className="flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-orange-400 transition-colors"
-                          style={{ color: "var(--nav-text)" }}
+                          className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium border border-transparent transition-all group"
                         >
-                          <PackageCheck className="w-4 h-4 opacity-60" />
+                          <PackageCheck className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
                           <span>Đơn hàng của tôi</span>
                         </Link>
                         <button
                           onClick={openLogoutModal}
-                          className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/30 transition-all cursor-pointer"
                         >
                           <LogOut className="w-4 h-4" />
                           <span>Đăng xuất</span>
@@ -343,18 +340,17 @@ export default function Navbar() {
                         <Link
                           href="/login"
                           onClick={closeUserDropdown}
-                          className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-bold hover:text-orange-400 transition-colors"
-                          style={{ color: "var(--nav-text)" }}
+                          className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-bold border border-transparent transition-all group"
                         >
-                          <LogIn className="w-4 h-4 text-orange-400" />
+                          <LogIn className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
                           <span>Đăng Nhập</span>
                         </Link>
                         <Link
                           href="/register"
                           onClick={closeUserDropdown}
-                          className="flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors border border-orange-500/30"
+                          className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-bold border border-transparent transition-all group"
                         >
-                          <UserPlus className="w-4 h-4" />
+                          <UserPlus className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
                           <span>Đăng Ký</span>
                         </Link>
                       </>
@@ -458,6 +454,7 @@ export default function Navbar() {
                     <img
                       src={user.avatar}
                       alt={user.name || "Avatar"}
+                      referrerPolicy="no-referrer"
                       className="w-11 h-11 rounded-full object-cover border-2 border-orange-500/60 shadow"
                     />
                   ) : (

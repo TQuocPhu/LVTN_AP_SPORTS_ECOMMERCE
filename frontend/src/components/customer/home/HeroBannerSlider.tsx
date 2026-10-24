@@ -1,40 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ShieldCheck, Flame, ArrowRight } from 'lucide-react';
+import { useHeroBannerSlider } from '@/hooks/useHeroBannerSlider';
 
-const SLIDE_IMAGES = [
-  '/images/banners/hero_banner_1.png',
-  '/images/banners/hero_banner_2.png',
-  '/images/banners/hero_banner_3.png',
-  '/images/banners/hero_banner_4.png',
-  '/images/banners/hero_banner_6.png',
-];
-
+/**
+ * Component hiển thị Banner Slider chính trên Trang chủ Khách hàng (HeroBannerSlider).
+ * Tuân thủ nghiêm ngặt kiến trúc Layer Architecture:
+ * - Pure UI Component: Không sử dụng useState/useEffect trong Component.
+ * - Toàn bộ trạng thái chuyển slide nằm tại `useHeroBannerSlider`.
+ */
 export default function HeroBannerSlider() {
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % SLIDE_IMAGES.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev === 0 ? SLIDE_IMAGES.length - 1 : prev - 1));
-  };
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % SLIDE_IMAGES.length);
-  };
+  const { slides, currentSlide, prevSlide, nextSlide, goToSlide } = useHeroBannerSlider();
 
   return (
-    <section id="hero-banner-slider" className="hero-banner-slider-container relative w-full h-[340px] sm:h-[460px] md:h-[560px] lg:h-[620px] flex items-center justify-center overflow-hidden bg-slate-950 border-b border-slate-800">
+    <section
+      id="hero-banner-slider"
+      className="hero-banner-slider-container relative w-full h-[340px] sm:h-[460px] md:h-[560px] lg:h-[620px] flex items-center justify-center overflow-hidden bg-slate-950 border-b border-slate-800"
+    >
       {/* Background Slides - Full Edge-to-Edge Coverage */}
-      {SLIDE_IMAGES.map((imgSrc, idx) => (
+      {slides.map((imgSrc, idx) => (
         <div
           key={imgSrc}
           className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
@@ -93,15 +79,19 @@ export default function HeroBannerSlider() {
 
       {/* Carousel Navigation Controls */}
       <button
+        type="button"
         onClick={prevSlide}
         aria-label="Previous Slide"
+        suppressHydrationWarning
         className="absolute left-4 z-30 p-3 rounded-full bg-slate-900/60 text-white hover:bg-orange-500 border border-slate-700 hover:border-orange-500 backdrop-blur-md transition-all duration-200 hidden sm:flex items-center justify-center"
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
       <button
+        type="button"
         onClick={nextSlide}
         aria-label="Next Slide"
+        suppressHydrationWarning
         className="absolute right-4 z-30 p-3 rounded-full bg-slate-900/60 text-white hover:bg-orange-500 border border-slate-700 hover:border-orange-500 backdrop-blur-md transition-all duration-200 hidden sm:flex items-center justify-center"
       >
         <ChevronRight className="w-6 h-6" />
@@ -109,10 +99,12 @@ export default function HeroBannerSlider() {
 
       {/* Slide Dots Indicator */}
       <div className="absolute bottom-6 z-30 flex items-center space-x-2">
-        {SLIDE_IMAGES.map((_, idx) => (
+        {slides.map((_, idx) => (
           <button
             key={idx}
-            onClick={() => setCurrentSlide(idx)}
+            type="button"
+            onClick={() => goToSlide(idx)}
+            suppressHydrationWarning
             className={`h-2.5 rounded-full transition-all duration-300 ${
               idx === currentSlide ? 'w-8 bg-orange-500' : 'w-2.5 bg-slate-600 hover:bg-slate-400'
             }`}

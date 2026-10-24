@@ -34,6 +34,7 @@ export default function NavbarSearchBar({
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="Tìm kiếm dụng cụ, giày đá bóng,..."
+          suppressHydrationWarning
           className="w-full bg-transparent text-xs sm:text-sm font-medium focus:outline-none"
         />
         {keyword && (

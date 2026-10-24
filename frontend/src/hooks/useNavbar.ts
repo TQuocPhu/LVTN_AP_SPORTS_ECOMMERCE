@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/context/ThemeContext';
 import { useWishlist } from '@/hooks/useWishlist';
@@ -14,6 +14,7 @@ import { useNotificationContext } from '@/context/NotificationContext';
  */
 export function useNavbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { wishlistCount } = useWishlist();
@@ -45,21 +46,47 @@ export function useNavbar() {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  // Phím Esc để đóng menu mobile
+  // Phím Esc để đóng menu mobile hoặc modal đăng xuất
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsMobileMenuOpen(false);
+        setIsLogoutModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  /**
+   * Xử lý đăng xuất mượt mà (không gây treo/đơ giao diện):
+   * 1. Đóng ngay Modal xác nhận đăng xuất, Dropdown và Menu di động, giải phóng khóa cuộn body.
+   * 2. Gọi `logout()` để xóa user trong AuthContext, tắt Google GIS auto-select và thu hồi Cookie tại Backend.
+   * 3. Nếu đang đứng ở trang yêu cầu đăng nhập (/profile, /orders, /checkout...) thì chuyển hướng về trang chủ.
+   */
   const handleLogout = useCallback(async () => {
+    setIsLogoutModalOpen(false);
+    setIsUserDropdownOpen(false);
+    setIsMobileMenuOpen(false);
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
+
     await logout();
-    window.location.href = '/';
-  }, [logout]);
+
+    const isProtectedRoute = [
+      '/profile',
+      '/account',
+      '/orders',
+      '/checkout',
+      '/notifications',
+    ].some((path) => pathname?.startsWith(path));
+
+    if (isProtectedRoute) {
+      router.replace('/');
+    }
+    router.refresh();
+  }, [logout, pathname, router]);
 
   const openMobileMenu = useCallback(() => setIsMobileMenuOpen(true), []);
   const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
