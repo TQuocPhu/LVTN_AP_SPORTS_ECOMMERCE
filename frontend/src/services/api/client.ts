@@ -31,12 +31,16 @@ export async function apiClient<T>(
 ): Promise<ApiResponse<T>> {
   // 1. Tự động lấy Access Token từ COOKIE nếu có (ví dụ môi trường không HttpOnly)
   const token = getCookie("accessToken");
+  const xsrfToken = getCookie("XSRF-TOKEN");
+  const method = (options.method || "GET").toUpperCase();
+  const requiresCsrf = ["POST", "PUT", "DELETE", "PATCH"].includes(method);
 
-  // 2. Thiết lập HTTP Headers mặc định (JSON format + Bearer JWT Token từ Cookie + Client Type header)
+  // 2. Thiết lập HTTP Headers mặc định (JSON format + Bearer JWT Token từ Cookie + Client Type header + CSRF Token)
   const isFormData = options.body instanceof FormData;
   const headers: HeadersInit = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(requiresCsrf && xsrfToken ? { "X-XSRF-TOKEN": xsrfToken } : {}),
     "X-Client-Type": "web",
     ...options.headers,
   };
@@ -69,12 +73,22 @@ export async function apiClient<T>(
   }
 
   // 5. Xử lý khi HTTP Status 401 Unauthorized -> Thực hiện Silent Refresh tự động
+  const isGuestAuthMe =
+    endpoint.includes("/auth/me") &&
+    typeof window !== "undefined" &&
+    (
+      (endpoint.includes("/admin/") && !localStorage.getItem("apsports_admin_has_session")) ||
+      (endpoint.includes("/demo/") && !localStorage.getItem("apsports_logistics_has_session")) ||
+      (!endpoint.includes("/admin/") && !endpoint.includes("/demo/") && !localStorage.getItem("apsports_has_session"))
+    );
+
   if (
     response.status === 401 &&
     !isRetry &&
     !endpoint.includes("/auth/login") &&
     !endpoint.includes("/auth/refresh") &&
-    !endpoint.includes("/auth/logout")
+    !endpoint.includes("/auth/logout") &&
+    !isGuestAuthMe
   ) {
     if (!getIsRefreshing()) {
       setIsRefreshing(true);
@@ -88,22 +102,39 @@ export async function apiClient<T>(
           ? `${BASE_URL}/admin/auth/refresh`
           : `${BASE_URL}/customer/auth/refresh`;
 
+        const refreshXsrfToken = getCookie("XSRF-TOKEN");
         const refreshRes = await fetch(refreshEndpoint, {
           method: "POST",
           credentials: "include",
-          headers: { "X-Client-Type": "web" },
+          headers: {
+            "X-Client-Type": "web",
+            ...(refreshXsrfToken ? { "X-XSRF-TOKEN": refreshXsrfToken } : {}),
+          },
         });
         if (refreshRes.ok) {
           onRefreshed(true);
           // Retry request ban đầu với HttpOnly cookie mới tự động đính kèm qua credentials: 'include'
+          const latestXsrf = getCookie("XSRF-TOKEN");
           response = await fetch(`${BASE_URL}${endpoint}`, {
             ...config,
-            headers,
+            headers: {
+              ...headers,
+              ...(requiresCsrf && latestXsrf ? { "X-XSRF-TOKEN": latestXsrf } : {}),
+            },
           });
         } else {
           onRefreshed(false);
           eraseCookie("accessToken");
           eraseCookie("refreshToken");
+          if (typeof window !== "undefined") {
+            if (currentPath.startsWith("/demo")) {
+              localStorage.removeItem("apsports_logistics_has_session");
+            } else if (currentPath.startsWith("/admin")) {
+              localStorage.removeItem("apsports_admin_has_session");
+            } else {
+              localStorage.removeItem("apsports_has_session");
+            }
+          }
           if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
             if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
               window.location.href = `/demo/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
@@ -127,6 +158,16 @@ export async function apiClient<T>(
         onRefreshed(false);
         eraseCookie("accessToken");
         eraseCookie("refreshToken");
+        if (typeof window !== "undefined") {
+          const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+          if (currentPath.startsWith("/demo")) {
+            localStorage.removeItem("apsports_logistics_has_session");
+          } else if (currentPath.startsWith("/admin")) {
+            localStorage.removeItem("apsports_admin_has_session");
+          } else {
+            localStorage.removeItem("apsports_has_session");
+          }
+        }
         if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
           const currentPath = window.location.pathname;
           if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
@@ -153,9 +194,13 @@ export async function apiClient<T>(
       // Đợi request refresh token đang diễn ra hoàn thành
       const succeeded = await subscribeTokenRefresh();
       if (succeeded) {
+        const latestXsrf = getCookie("XSRF-TOKEN");
         response = await fetch(`${BASE_URL}${endpoint}`, {
           ...config,
-          headers,
+          headers: {
+            ...headers,
+            ...(requiresCsrf && latestXsrf ? { "X-XSRF-TOKEN": latestXsrf } : {}),
+          },
         });
       }
     }
@@ -197,7 +242,6 @@ export async function apiClient<T>(
   const data: ApiResponse<T> = await response.json();
 
   // 8. Tự động hiển thị Toast thành công ở góc trên bên phải cho các phương thức POST, PUT, DELETE, PATCH hoặc khi được yêu cầu
-  const method = (options.method || "GET").toUpperCase();
   const shouldShowSuccess =
     (options as ApiClientOptions).showSuccessToast ?? method !== "GET";
 

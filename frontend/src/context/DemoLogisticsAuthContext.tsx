@@ -39,31 +39,75 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const userRef = useRef<UserResponse | null>(null);
+  const lastRefreshAtRef = useRef<number>(0);
 
   useEffect(() => {
     userRef.current = user;
   }, [user]);
 
-  const fetchCurrentUser = useCallback(async () => {
+  const fetchCurrentUser = useCallback(async (isInitial = false) => {
+    // Nếu chưa từng đăng nhập logistics trên trình duyệt này, bỏ qua để tránh gọi /demo/logistics/auth/me trả về 401 thừa
+    if (typeof window !== 'undefined' && !localStorage.getItem("apsports_logistics_has_session")) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       setError(null);
       const res = await demoLogisticsAuthController.getCurrentUser();
       if (res?.data && (res.data.roleName === 'GHN_STATION' || res.data.roleName === 'GHN_SHIPPER')) {
         setUser(res.data);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("apsports_logistics_has_session", "true");
+        }
       } else {
         setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem("apsports_logistics_has_session");
+        }
       }
     } catch {
       setUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem("apsports_logistics_has_session");
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchCurrentUser();
+  /**
+   * Làm mới phiên Logistics ngầm định kỳ mỗi 20 phút trước khi token 30 phút hết hạn.
+   * Sử dụng demoLogisticsAuthController.refreshToken() đã tích hợp sẵn apiClient.
+   */
+  const proactiveRefresh = useCallback(async () => {
+    if (!userRef.current) return;
+
+    const now = Date.now();
+    if (now - lastRefreshAtRef.current < 60_000) return;
+    lastRefreshAtRef.current = now;
+
+    try {
+      await demoLogisticsAuthController.refreshToken();
+      await fetchCurrentUser(false);
+    } catch {
+      // Giữ nguyên phiên nếu có lỗi mạng tạm thời
+    }
   }, [fetchCurrentUser]);
+
+  useEffect(() => {
+    fetchCurrentUser(true);
+
+    const intervalId = setInterval(() => {
+      if (userRef.current) {
+        proactiveRefresh();
+      }
+    }, 20 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchCurrentUser, proactiveRefresh]);
 
   const login = async (data: AdminLoginRequest) => {
     try {
@@ -72,6 +116,9 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
       const res = await demoLogisticsAuthController.login(data);
       if (res?.data) {
         setUser(res.data);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("apsports_logistics_has_session", "true");
+        }
       }
       return res;
     } catch (err: unknown) {
@@ -90,6 +137,9 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
       console.error("Lỗi đăng xuất logistics:", err);
     } finally {
       setUser(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("apsports_logistics_has_session");
+      }
     }
   };
 

@@ -61,13 +61,15 @@ const AuthContext = createContext<AuthContextType>({
  * Mọi component (Navbar, Profile, v.v.) dùng useAuth() sẽ đọc từ
  * cùng một state – tự động cập nhật ngay khi đăng nhập / đăng xuất.
  */
+import { getCookie } from "@/services/api/cookies";
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   // Theo dõi thời điểm cuối cùng gọi refresh để tránh gọi trùng lặp
   const lastRefreshAtRef = useRef<number>(0);
-  // Ref lưu trạng thái user để dùng an toàn trong event listener mà không gây re-render loop
+  // Ref lưu trạng thái user để dùng an toàn trong interval mà không gây re-render loop
   const userRef = useRef<UserResponse | null>(null);
 
   // Đồng bộ user state vào userRef
@@ -75,32 +77,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userRef.current = user;
   }, [user]);
 
-  // Lấy user hiện tại từ Cookie – chạy 1 lần khi app khởi động
-  const fetchCurrentUser = useCallback(async () => {
+  // Lấy user hiện tại từ Cookie – chạy 1 lần khi app khởi động hoặc khi chủ động refetch
+  const fetchCurrentUser = useCallback(async (isInitial = false) => {
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
       setLoading(false);
       return;
     }
+
+    // Nếu trình duyệt chưa từng đăng nhập (khách vãng lai), không gọi /auth/me để tránh request 401 thừa
+    if (typeof window !== 'undefined' && !localStorage.getItem("apsports_has_session")) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       setError(null);
       const res = await authController.getCurrentUser();
       if (res?.data && res.data.roleName === 'CUSTOMER') {
         setUser(res.data);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("apsports_has_session", "true");
+        }
       } else {
         setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem("apsports_has_session");
+        }
       }
     } catch {
       setUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem("apsports_has_session");
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }, []);
 
   /**
-   * Chủ động làm mới phiên bằng cách gọi /auth/refresh trước khi Access Token hết hạn.
-   * CHỈ thực hiện khi người dùng ĐÃ ĐĂNG NHẬP (userRef.current !== null).
-   * Debounce 60s để tránh gọi trùng lặp khi chuyển tab liên tục.
+   * Chủ động làm mới phiên ngầm định kỳ mỗi 20 phút trước khi Access Token 30 phút hết hạn.
+   * CHỈ thực hiện khi người dùng ĐÃ ĐĂNG NHẬP.
+   * TUYỆT ĐỐI không gọi khi chuyển tab (visibilitychange) để tránh gây gián đoạn phiên hoặc đăng xuất nhầm.
    */
   const proactiveRefresh = useCallback(async () => {
     // Không refresh nếu chưa đăng nhập (khách)
@@ -113,38 +132,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const xsrfToken = getCookie("XSRF-TOKEN");
       const refreshRes = await fetch(`${BASE_URL}/customer/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'X-Client-Type': 'web',
+          ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
+        },
       });
+
       if (refreshRes.ok) {
-        // Refresh thành công → refetch thông tin user để đồng bộ state
-        await fetchCurrentUser();
-      } else {
-        // Refresh thất bại (token đã hết hạn hoặc bị thu hồi) → đăng xuất ngầm
+        // Refresh thành công → cập nhật nhẹ nhàng không làm giật UI
+        await fetchCurrentUser(false);
+      } else if (refreshRes.status === 401) {
+        // CHỈ đăng xuất khi Server trả về 401 xác nhận Refresh Token đã hết hạn / bị thu hồi
         setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem("apsports_has_session");
+        }
       }
     } catch {
-      // Network error khi refresh → không thay đổi trạng thái đăng nhập
+      // Network error hoặc sự cố mạng tạm thời → GIỮ NGUYÊN trạng thái đăng nhập, không tự ý đăng xuất
     }
   }, [fetchCurrentUser]);
 
   useEffect(() => {
     // Khởi động: Chỉ fetch user 1 lần duy nhất qua /auth/me khi App Mount.
-    // Nếu accessToken hết hạn, apiClient sẽ tự động 401-silent-refresh an toàn.
-    // Nếu là khách (Incognito / chưa đăng nhập), /auth/me trả 401 và dừng ngay, không gây treo web.
-    fetchCurrentUser();
+    fetchCurrentUser(true);
 
-    // Lớp 1: Khi người dùng quay lại tab → chủ động refresh token ngầm (chỉ cho user đã đăng nhập)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && userRef.current) {
-        proactiveRefresh();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Lớp 2: Chủ động refresh định kỳ mỗi 20 phút (trước khi Access Token 30 phút hết hạn)
+    // Chủ động refresh định kỳ mỗi 20 phút (trước khi Access Token 30 phút hết hạn)
     const intervalId = setInterval(() => {
       if (userRef.current) {
         proactiveRefresh();
@@ -152,7 +169,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 20 * 60 * 1000);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(intervalId);
     };
   }, [fetchCurrentUser, proactiveRefresh]);
@@ -198,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res?.data) {
         setUser(res.data);
         if (typeof window !== "undefined") {
+          localStorage.setItem("apsports_has_session", "true");
           window.dispatchEvent(new CustomEvent("auth:login"));
         }
       }
@@ -220,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setUser(null);
       if (typeof window !== "undefined") {
+        localStorage.removeItem("apsports_has_session");
         window.dispatchEvent(new CustomEvent("auth:logout"));
       }
     }

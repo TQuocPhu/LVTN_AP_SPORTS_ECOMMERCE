@@ -3,6 +3,7 @@ import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { apiClient } from '@/services/api/client';
 import { ApiResponse } from '@/types/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 export interface NotificationPayload {
@@ -62,6 +63,7 @@ function playNotificationSound(type: 'support' | 'warning' = 'support') {
 }
 
 export function useWebSocket() {
+  const { user } = useAuth();
   const [client, setClient] = useState<Client | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState<NotificationPayload[]>([]);
@@ -269,6 +271,14 @@ export function useWebSocket() {
   useEffect(() => {
     let cancelled = false;
 
+    // Không gọi API thông báo và không kết nối WebSocket nếu chưa đăng nhập
+    if (!user) {
+      disconnect();
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
     const checkAndConnect = async () => {
       if (clientRef.current?.active) return;
       const hasSession = await fetchInitialData();
@@ -282,7 +292,7 @@ export function useWebSocket() {
       }
     };
 
-    // Kiểm tra ban đầu khi mount
+    // Kiểm tra ban đầu khi mount hoặc khi user đăng nhập
     checkAndConnect();
 
     // Tự động kết nối ngay khi người dùng đăng nhập thành công
@@ -315,7 +325,7 @@ export function useWebSocket() {
       document.removeEventListener('visibilitychange', handleVisibility);
       disconnect();
     };
-  }, [fetchInitialData, connect, disconnect]);
+  }, [user, fetchInitialData, connect, disconnect]);
 
   const markAsRead = async (id: number) => {
     try {

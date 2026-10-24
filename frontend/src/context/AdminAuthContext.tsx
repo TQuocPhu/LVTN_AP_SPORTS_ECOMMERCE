@@ -39,31 +39,75 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const userRef = useRef<UserResponse | null>(null);
+  const lastRefreshAtRef = useRef<number>(0);
 
   useEffect(() => {
     userRef.current = user;
   }, [user]);
 
-  const fetchCurrentAdmin = useCallback(async () => {
+  const fetchCurrentAdmin = useCallback(async (isInitial = false) => {
+    // Nếu chưa từng đăng nhập admin trên trình duyệt này, bỏ qua để tránh gọi /admin/auth/me trả về 401 thừa
+    if (typeof window !== 'undefined' && !localStorage.getItem("apsports_admin_has_session")) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       setError(null);
       const res = await adminAuthController.getCurrentAdmin();
       if (res?.data && res.data.roleName !== 'CUSTOMER') {
         setUser(res.data);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("apsports_admin_has_session", "true");
+        }
       } else {
         setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem("apsports_admin_has_session");
+        }
       }
     } catch {
       setUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem("apsports_admin_has_session");
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchCurrentAdmin();
+  /**
+   * Làm mới phiên Admin ngầm định kỳ mỗi 20 phút trước khi token 30 phút hết hạn.
+   * Sử dụng adminAuthController.refreshToken() đã tích hợp sẵn apiClient (tự động đính kèm CSRF và HttpOnly cookies).
+   */
+  const proactiveRefresh = useCallback(async () => {
+    if (!userRef.current) return;
+
+    const now = Date.now();
+    if (now - lastRefreshAtRef.current < 60_000) return;
+    lastRefreshAtRef.current = now;
+
+    try {
+      await adminAuthController.refreshToken();
+      await fetchCurrentAdmin(false);
+    } catch {
+      // Giữ nguyên phiên làm việc nếu gặp lỗi mạng tạm thời
+    }
   }, [fetchCurrentAdmin]);
+
+  useEffect(() => {
+    fetchCurrentAdmin(true);
+
+    const intervalId = setInterval(() => {
+      if (userRef.current) {
+        proactiveRefresh();
+      }
+    }, 20 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchCurrentAdmin, proactiveRefresh]);
 
   const login = async (data: AdminLoginRequest) => {
     try {
@@ -73,6 +117,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       if (res?.data) {
         setUser(res.data);
         if (typeof window !== "undefined") {
+          localStorage.setItem("apsports_admin_has_session", "true");
           window.dispatchEvent(new CustomEvent("auth:login"));
         }
       }
@@ -94,6 +139,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setUser(null);
       if (typeof window !== "undefined") {
+        localStorage.removeItem("apsports_admin_has_session");
         window.dispatchEvent(new CustomEvent("auth:logout"));
       }
     }
