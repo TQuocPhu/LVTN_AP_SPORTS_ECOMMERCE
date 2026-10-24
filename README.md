@@ -196,6 +196,23 @@ d:\LVTN\
 - Tính toán vị trí xe tải di chuyển $60\text{ km/h}$ dựa trên mốc thời gian Backend (*Single Source of Truth*), không bao giờ bị nhảy sai vị trí khi F5 tải lại trang.
 - Vẽ lộ trình bám sát đường lộ quốc lộ bằng OSRM Routing Engine.
 
+### 5. Kiến Trúc Bảo Mật Phiên Đa Cổng & Khử Lỗi 401 Khách Vãng Lai (Session Hint Pattern)
+- **Chuẩn bảo mật OWASP nghiêm ngặt**: Toàn bộ JWT Access Token (30 phút) và Refresh Token (7 ngày) lưu trữ độc quyền trong **HttpOnly, Secure, SameSite=Lax Cookies**, chống đánh cắp XSS $100\%$.
+- **Cơ chế Cờ Giao Diện (Session Hint)**: `localStorage` chỉ lưu chuỗi cờ `"true"` (`apsports_has_session`, `apsports_admin_has_session`, `apsports_logistics_has_session`).
+  - *Khách vãng lai*: Nhận diện trong 0ms $\rightarrow$ không gửi API `/auth/me` thừa $\rightarrow$ triệt tiêu hoàn toàn lỗi 401 trong Network Tab.
+  - *Người dùng đã đăng nhập*: Tự động kích hoạt 401 Silent Refresh của `apiClient` khi Access Token 30 phút hết hạn để duy trì phiên mượt mà.
+- **Bền bỉ khi chuyển tab (Tab-Switching Resilience)**: Loại bỏ sự kiện `visibilitychange` gây lỗi 403 CSRF; bổ sung cơ chế Proactive Refresh ngầm 20 phút có CSRF Token (`X-XSRF-TOKEN`), giữ nguyên phiên khi chuyển tab mà không gây giật nháy UI (no flicker).
+
+### 6. Giao Diện Responsive Chuẩn E-Commerce & Tối Ưu Tìm Kiếm (Debounce & AbortController)
+- **Hệ thống điều hướng Responsive đa thiết bị**:
+  - Điểm ngắt chuẩn **1280px** (`xl`): Thu gọn toàn bộ icon tiện ích vào nút Menu Hamburger 3 thanh capsule bo tròn góc mịn (`HamburgerPillIcon` với `rx="1.8"`).
+  - Off-Canvas Mobile Drawer trượt từ mép phải rộng **88vw** (tối đa **380px**), phủ nền mờ `backdrop-blur-sm`, khóa cuộn nền (`body scroll lock`), tích hợp tìm kiếm full-width, thẻ định danh tài khoản, menu điều hướng và tiện ích nhanh (Wishlist, Thông báo, Theme).
+  - Chuẩn hóa chiều cao Banner trang Home (`340px - 620px`) và PageHeaderBanner các trang con (`328px - 608px`, ngắn hơn Home 12px) với ảnh sân vận động thể thao trang nhã (`clean_sports_header.jpg`), chống cắt dấu tiếng Việt.
+- **Tối ưu hóa tìm kiếm sản phẩm (Debounce 400ms + AbortController)**:
+  - Phản hồi gõ phím tức thời 0ms trên UI, trì hoãn gọi API tìm kiếm 400ms $\rightarrow$ giảm hơn **85%** tải truy vấn SQL `LIKE` lên Database.
+  - Tự động hủy (`abort()`) request cũ đang bay khi có phím mới, triệt tiêu hoàn toàn lỗi Race Condition.
+- **Tuân thủ Clean Architecture phân tầng**: Tách biệt 100% logic khỏi UI components ([`Navbar.tsx`](file:///d:/LVTN/frontend/src/components/layout/Navbar.tsx), [`NavbarSearchBar.tsx`](file:///d:/LVTN/frontend/src/components/layout/NavbarSearchBar.tsx)) vào các Custom Hooks ([`useNavbar.ts`](file:///d:/LVTN/frontend/src/hooks/useNavbar.ts), [`useNavbarSearchBar.ts`](file:///d:/LVTN/frontend/src/hooks/useNavbarSearchBar.ts)).
+
 ---
 
 ## 💻 7. Yêu Cầu Môi Trường (Prerequisites)

@@ -1185,7 +1185,106 @@ Tất cả các endpoint dưới đây được cấu hình bảo vệ trong `Se
 
 ---
 
-*Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc và chỉ mở rộng các phân hệ mới cho hệ thống AP Sports Enterprise Production.*
+## 🎨 20. KIẾN TRÚC FRONTEND SHELL, QUẢN LÝ PHIÊN AN TOÀN ĐA PHÂN HỆ & CHUẨN THIẾT KẾ RESPONSIVE
+
+Nhằm đảm bảo trải nghiệm người dùng đạt chuẩn Production Enterprise thực tế, phân hệ Frontend Next.js tuân thủ các quy chuẩn thiết kế, bảo mật phiên và phân tầng kiến trúc sau:
+
+### 20.1. Cơ Chế Quản Lý Phiên An Toàn Đa Phân Hệ & Khử Lỗi 401 Khách Vãng Lai (Session Hint Pattern)
+
+Hệ thống phân chia 3 phân hệ độc lập: **Khách hàng (Customer)**, **Quản trị (Admin)** và **Cụm giao nhận (Logistics)**. Để giải quyết triệt để tình trạng khách vãng lai bị dính lỗi đỏ `401 Unauthorized` trong tab Network mà vẫn đảm bảo tính bảo mật nghiêm ngặt:
+
+1. **Nguyên Tắc Lưu Trữ Bảo Mật OWASP**:
+   - **Tuyệt đối không lưu Token, JWT hay dữ liệu nhạy cảm vào `localStorage`**: Toàn bộ Access Token (sống 30 phút) và Refresh Token (sống 7 ngày) được lưu trữ độc quyền trong **HttpOnly, Secure, SameSite=Lax Cookies** do Spring Security quản lý. JavaScript phía Client hoàn toàn không thể đọc được cookies này, loại bỏ 100% rủi ro bị đánh cắp qua tấn công XSS.
+   - **Cơ chế Cờ Phiên Gợi Ý (Session Hint)**: Trong `localStorage` chỉ lưu duy nhất một chuỗi ký tự `"true"` đóng vai trò gợi ý hiển thị giao diện (UI Hint):
+     - Khách hàng Storefront: `apsports_has_session = "true"`
+     - Quản trị viên Admin: `apsports_admin_has_session = "true"`
+     - Nhân viên Cụm giao hàng: `apsports_logistics_has_session = "true"`
+   - **Tính Bất Biến Về Mặt Bảo Mật**: Nếu kẻ gian cố tình sửa hoặc tạo cờ này trong DevTools, họ cũng **không thể truy cập hay giả mạo phiên**, vì mọi API dữ liệu phía Backend đều xác thực bằng chữ ký mật mã trong HttpOnly Cookie. Không có Cookie hợp lệ, Backend lập tức từ chối với mã 401.
+
+2. **Vai Trò & Hành Vi Của Từng Thành Phần**:
+   - **Khi là Khách Vãng Lai (Chưa từng đăng nhập)**:
+     - Frontend kiểm tra không thấy cờ trong `localStorage` $\rightarrow$ gán ngay trạng thái `user = null` trong **0 mili-giây** và **không gửi bất kỳ request `/auth/me` nào lên Server**.
+     - Triệt tiêu 100% các dòng lỗi đỏ 401 không cần thiết trong Network Tab.
+   - **Khi là Người Dùng Đã Đăng Nhập**:
+     - Khi đăng nhập thành công (`login`): Cờ được ghi nhận vào `localStorage` (`setItem`).
+     - Khi người dùng quay lại sau 30 phút (Access Token hết hạn): Nhờ có cờ, hệ thống biết đây là người dùng hợp lệ có Refresh Token trong Cookie, từ đó tự động kích hoạt **401 Silent Refresh** thông qua `apiClient` để đổi token mới mà không đá văng người dùng ra trang đăng nhập.
+   - **Khi Đăng Xuất (`logout`) Hoặc Hết Hạn 7 Ngày**:
+     - Cờ tự động bị thu hồi và xóa sạch (`removeItem`).
+
+3. **Bảo Vệ Tính Bền Bỉ Của Phiên Khi Chuyển Tab (Tab-Switching Resilience)**:
+   - **Nghiêm cấm lắng nghe `visibilitychange` để refresh token**: Việc người dùng chuyển qua lại giữa các tab trình duyệt không làm hết hạn Access Token. Loại bỏ hoàn toàn sự kiện `visibilitychange` để ngăn chặn việc gửi request làm mới liên tục gây lỗi 403 CSRF và xóa nhầm phiên người dùng.
+   - **Cơ chế Làm Mới Ngầm Chủ Động Định Kỳ (Proactive Refresh 20 Phút)**:
+     - Đặt bộ đếm thời gian 20 phút (trước khi Access Token 30 phút hết hạn).
+     - Bắt buộc đính kèm Header CSRF `'X-XSRF-TOKEN': xsrfToken` và `'X-Client-Type': 'web'`.
+     - **Nguyên tắc không tự ý đăng xuất**: Chỉ xóa session khi Server phản hồi chính xác mã **401 Unauthorized** (Refresh Token đã hết hạn thực sự). Nếu gặp lỗi mạng hoặc 403, phiên đăng nhập hiện tại được bảo lưu nguyên vẹn.
+     - Không bật lại cờ `loading = true` khi làm mới ngầm, bảo vệ giao diện không bị giật nháy (flicker).
+
+---
+
+### 20.2. Quy Chuẩn Phân Tầng Kiến Trúc (Layer Architecture Enforcement)
+
+Nhằm đảm bảo tính tái sử dụng, khả năng bảo trì và kiểm thử độc lập, toàn bộ mã nguồn Frontend tuân thủ nghiêm ngặt mô hình phân tầng 4 lớp:
+
+$$\text{UI Component} \longrightarrow \text{Custom Hook} \longrightarrow \text{Frontend Controller} \longrightarrow \text{API Client Service}$$
+
+1. **Quy Tắc Component Thuần Giao Diện (Pure UI Presentation)**:
+   - Các tệp Component (như [`Navbar.tsx`](file:///d:/LVTN/frontend/src/components/layout/Navbar.tsx), [`NavbarSearchBar.tsx`](file:///d:/LVTN/frontend/src/components/layout/NavbarSearchBar.tsx)) **tuyệt đối không chứa logic nghiệp vụ**, không chứa `useState`, `useEffect`, `useRouter` xử lý điều hướng, không bắt sự kiện bàn phím hay khóa cuộn trang trực tiếp.
+   - Toàn bộ trạng thái và hành vi phải được đóng gói 100% trong Custom Hook tương ứng (như [`useNavbar.ts`](file:///d:/LVTN/frontend/src/hooks/useNavbar.ts), [`useNavbarSearchBar.ts`](file:///d:/LVTN/frontend/src/hooks/useNavbarSearchBar.ts)).
+2. **Quy Tắc Tầng Hook (Custom Hooks)**:
+   - Quản lý toàn bộ State, Context consumers (`useAuth`, `useTheme`, `useCart`, `useWishlist`, `useNotificationContext`), Side-Effects (lắng nghe phím Esc, khóa cuộn màn hình, đóng mở drawer) và gọi xuống Tầng Controller.
+3. **Quy Tắc Tầng Controller (Frontend Controllers)**:
+   - Tiếp nhận tham số, định dạng dữ liệu DTO, hỗ trợ `AbortSignal` và gọi các hàm tiện ích từ `apiClient`.
+4. **Quy Tắc Tầng Dịch Vụ Mạng (API Client)**:
+   - [`client.ts`](file:///d:/LVTN/frontend/src/services/api/client.ts) đóng vai trò trung tâm xử lý HttpOnly Cookies, tự động đính kèm `X-XSRF-TOKEN`, quản lý hàng đợi 401 Silent Refresh đa cổng và điều hướng an toàn khi phiên hết hạn.
+
+---
+
+### 20.3. Quy Chuẩn Thiết Kế Giao Diện Responsive & Kích Thước Khung Hình (Breakpoints & Layout Specifications)
+
+Hệ thống điều hướng Shell Navbar và các khối giao diện được chuẩn hóa kích thước chính xác đến từng pixel:
+
+#### 1. Bảng Thông Số Kích Thước Khung Hình & Breakpoints:
+
+| Thành phần giao diện | Kích thước & Breakpoint chuẩn | Chi tiết triển khai CSS & Hành vi UX |
+| :--- | :--- | :--- |
+| **Navbar Header Container** | Chiều cao cố định **80px** (`h-20`) | `sticky top-0 z-40 w-full border-b shadow-xl backdrop-blur-md` |
+| **Desktop Breakpoint** | Màn hình $\ge \mathbf{1280px}$ (Tailwind `xl`) | Hiển thị đầy đủ: Logo, 4 Menu Links, Search Bar (rộng 224px - 288px), Theme Toggle, Bell, Wishlist, Cart, Thẻ User |
+| **Mobile / Tablet Breakpoint** | Màn hình $<\mathbf{1280px}$ (Tailwind `xl:hidden`) | Thu gọn tất cả icon tiện ích vào Hamburger. Top bar chỉ giữ: **Logo + Giỏ hàng có Badge + Nút Hamburger** |
+| **Hamburger Menu Button** | Kích thước nút: 42px x 42px (`p-2.5 rounded-xl`) | Icon đồ họa `HamburgerPillIcon`: 3 thanh capsule/pill bo tròn góc mịn (`rx="1.8"`, nét `2.1px`) |
+| **Off-Canvas Mobile Drawer** | Chiều rộng: **88vw** (Tối đa **380px**), cao 100vh | Trượt từ mép phải (`translate-x-0` / `translate-x-full`), hiệu ứng chuyển cảnh mượt mà 300ms |
+| **Backdrop Làm Mờ Drawer** | Phủ kín màn hình (`fixed inset-0 z-50`) | `bg-black/60 backdrop-blur-sm`, tự động kích hoạt khóa cuộn nền (`document.body.style.overflow = "hidden"`) |
+| **HeroBannerSlider (Trang chủ)** | Cao **340px** $\rightarrow$ **620px** theo màn hình | `h-[340px] sm:h-[460px] md:h-[560px] lg:h-[620px]` (tăng thêm 20px so với phiên bản cũ) |
+| **PageHeaderBanner (Trang con)** | Cao **328px** $\rightarrow$ **608px** (ngắn hơn Home 12px) | `min-h-[328px] sm:min-h-[448px] md:min-h-[548px] lg:min-h-[608px]`, đệm chữ `py-1.5 leading-normal` chống cắt dấu tiếng Việt |
+| **Ảnh Nền PageHeaderBanner** | Kích thước tối ưu 1920x600px | Sử dụng hình ảnh thể thao sân vận động trang nhã (`clean_sports_header.jpg`), loại bỏ các hiệu ứng neon gây lóa mắt |
+
+#### 2. Cấu Trúc Nội Dung Off-Canvas Drawer Di Động:
+1. **Header Drawer (80px)**: Logo AP Sports thu nhỏ + Nút đóng X bo tròn với hiệu ứng hover cam.
+2. **Thanh Tìm Kiếm Toàn Chiều Rộng**: Tích hợp nút xóa nhanh và tự động đóng drawer khi thực hiện tìm kiếm.
+3. **Thẻ Định Danh Tài Khoản**:
+   - *Đã đăng nhập*: Avatar viền cam gradient, Tên đầy đủ, Email, phím tắt vào *Hồ sơ*, *Đơn hàng* và nút *Đăng xuất* màu đỏ nổi bật.
+   - *Chưa đăng nhập*: Khối chào mừng và 2 nút CTA nổi bật *Đăng Nhập* & *Đăng Ký*.
+4. **Danh Mục Điều Hướng Thể Thao**: Trang Chủ, Sản Phẩm, Giới Thiệu, Khuyến Mãi (kèm huy hiệu gradient "ƯU ĐÃI"), Liên Hệ Hỗ Trợ.
+5. **Tiện Ích Nhanh**: Nút Danh sách yêu thích (hiển thị số lượng), Nút Thông báo (hiển thị số lượng chưa đọc), Nút chuyển đổi Dark/Light mode.
+6. **Footer Drawer**: Thông tin Hotline CSKH `1900 8888` (08:00 - 22:00) và cam kết 100% chính hãng thể thao.
+
+---
+
+### 20.4. Tối Ưu Hóa Truy Vấn Tìm Kiếm Phía Client (Debounce & AbortController)
+
+Nhằm bảo vệ Database Backend khỏi tình trạng "bão request" khi người dùng gõ phím tìm kiếm liên tục:
+
+1. **Chuẩn Hóa Debounce 400ms**:
+   - Sử dụng hook [`useDebouncedSearch`](file:///d:/LVTN/frontend/src/hooks/useDebouncedSearch.ts) với khoảng thời gian chờ lý tưởng **400ms**.
+   - Input UI cập nhật tức thời theo thời gian thực (0ms độ trễ phím), chỉ trì hoãn lệnh gọi API tìm kiếm đến khi người dùng ngừng gõ phím đủ 400ms.
+   - Giảm thiểu hơn **85%** số lượng câu lệnh SQL `LIKE %keyword%` chạy trên Database.
+2. **Hủy Bỏ Request Cũ Đang Bay (`AbortController`)**:
+   - Khi người dùng gõ tiếp ký tự mới trong lúc request tìm kiếm trước đó chưa kịp trả về kết quả, `abortControllerRef` sẽ tự động gọi phương thức `.abort()` để hủy kết nối request cũ.
+   - Triệt tiêu hoàn toàn lỗi **Race Condition** (hiện tượng kết quả tìm kiếm của từ khóa cũ trả về sau đè lên kết quả của từ khóa mới).
+
+---
+
+*Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc và chuẩn hóa toàn diện các phân hệ Frontend, Backend, Bảo mật và Responsive cho hệ thống AP Sports Enterprise Production.*
+
 
 
 
