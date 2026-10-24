@@ -1283,7 +1283,114 @@ Nhằm bảo vệ Database Backend khỏi tình trạng "bão request" khi ngư�
 
 ---
 
-*Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc và chuẩn hóa toàn diện các phân hệ Frontend, Backend, Bảo mật và Responsive cho hệ thống AP Sports Enterprise Production.*
+## 🔐 21. KIẾN TRÚC ĐĂNG NHẬP GOOGLE OAUTH2 ĐA NỀN TẢNG, HỢP NHẤT TÀI KHOẢN (OPTION 6A) & GIẢI QUYẾT NGHỊCH LÝ CSRF / HTTPONLY COOKIE KHI ĐĂNG XUẤT
+
+### 21.1. Tích Hợp Google OAuth2 Chuẩn Google Identity Services (GIS) & Mobile Auth Code Flow
+
+Do Google đã chính thức ngưng hỗ trợ thư viện `platform.js` (`gapi.auth2`) cũ, hệ thống AP Sports triển khai kiến trúc xác thực Google OAuth2 thế hệ mới trên cả Web và Mobile, tích hợp liền mạch vào hệ thống **RS256 Access Token (30 phút)** + **HMAC-SHA256 Refresh Token xoay vòng (7 ngày)** và **Multi-Device Concurrent Sessions (Tối đa 3 thiết bị đồng thời)**:
+
+1. **Cấu Hình Google Cloud Console**:
+   - **User Type**: Chọn **External (Bên ngoài)** để hỗ trợ mọi khách hàng sở hữu tài khoản Google cá nhân (`@gmail.com`).
+   - **Biến môi trường**: Quản lý tập trung qua `CUSTOMER_ID` (Google Client ID) và `CUSTOMER_SECRET_CODE` (Google Client Secret).
+   - **Endpoint lấy Client ID động**: `GET /api/v1/customer/auth/google/client-id` cung cấp `clientId` cho cả Web và Mobile.
+2. **Luồng Xác Thực Trên Web (`frontend/`)**:
+   - Tầng Custom Hook ([`useLoginForm.ts`](file:///d:/LVTN/frontend/src/hooks/useLoginForm.ts), [`useRegisterForm.ts`](file:///d:/LVTN/frontend/src/hooks/useRegisterForm.ts)) tự động nạp script `https://accounts.google.com/gsi/client`, khởi tạo `window.google.accounts.id.initialize` và render nút Google chuẩn giao diện của trang.
+   - Khi người dùng chọn tài khoản Google, GIS trả về chuỗi JWT `idToken` (`CredentialResponse.credential`) và gửi xuống `POST /api/v1/customer/auth/google`.
+3. **Luồng Xác Thực Trên Mobile App (`mobile-app/`)**:
+   - Sử dụng [`GoogleOAuthModal.tsx`](file:///d:/LVTN/mobile-app/src/components/auth/GoogleOAuthModal.tsx) thực hiện **OAuth2 Authorization Code Flow** (`response_type=code`, `scope=openid email profile`).
+   - Khi nhận được `code` từ callback URL, ứng dụng di động gửi `{ code, redirectUri }` kèm Header định danh thiết bị (`X-Client-Type: mobile`, `X-Device-Id`, `X-Device-OS`) xuống `POST /api/v1/customer/auth/google`.
+   - Backend sử dụng `GoogleAuthorizationCodeTokenRequest` cùng `CUSTOMER_ID` và `CUSTOMER_SECRET_CODE` để đổi `code` lấy `GoogleIdToken` trực tiếp với máy chủ Google, đảm bảo tuyệt đối không lộ `CUSTOMER_SECRET_CODE` dưới ứng dụng di động.
+
+---
+
+### 21.2. Chính Sách Hợp Nhất Tài Khoản Thông Minh (Option 6A) & Quản Lý Ảnh Đại Diện Google CDN
+
+Khi khách hàng đăng nhập bằng Google (`CustomerAuthServiceImpl.loginWithGoogle`), hệ thống kiểm tra `google_id` (`payload.getSubject()`) và `email` theo quy trình 4 bước:
+
+1. **Cách Ly Phân Quyền Nội Bộ (Role Isolation)**:
+   - Nếu email Google trùng với một tài khoản trong bảng `users` có vai trò khác `CUSTOMER` (`ADMIN`, `STAFF`, `WAREHOUSE_MANAGER`, `GHN_*`), hệ thống lập tức từ chối với `AccessDeniedException` (*"Tài khoản quản trị/nhân viên nội bộ không được phép đăng nhập tại cổng Khách hàng."*).
+   - Nếu tài khoản đang ở trạng thái `"banned"` hoặc `"deleted"`, hệ thống lập tức chặn truy cập.
+2. **Hợp Nhất Tài Khoản `CUSTOMER` Hiện Hữu (Option 6A)**:
+   - Nếu email đã tồn tại trong bảng `users` (khách hàng từng đăng ký bằng Email/Password truyền thống) và `google_id == null`:
+     - Liên kết định danh: `user.setGoogleId(googleId)`.
+     - **Giải phóng bộ nhớ Cloudinary**: Nếu tài khoản trước đó có ảnh đại diện lưu trên Cloudinary (`StringUtils.hasText(user.getAvatarPublicId())`), Backend gọi `cloudinaryService.deleteImage(oldPublicId)` để xóa ảnh cũ và đặt `user.setAvatarPublicId(null)`.
+     - **Vô hiệu hóa mật khẩu cũ**: Ghi đè cột `password` bằng chuỗi ngẫu nhiên 64 ký tự (`UUID + UUID`) băm qua `BCryptPasswordEncoder` (vừa giữ nguyên ràng buộc `NOT NULL` của CSDL, vừa vô hiệu hóa vĩnh viễn mật khẩu cũ).
+     - **Thu hồi toàn bộ phiên cũ**: Gọi `refreshTokenRepository.revokeAllUserTokens(user)` để thu hồi mọi Refresh Token được cấp trước đó bằng mật khẩu.
+3. **Đồng Bộ Dữ Liệu & Tối Ưu Hóa Ảnh Đại Diện**:
+   - Cập nhật `user.setName(googleName)` và lưu trực tiếp đường dẫn ảnh Google (`https://lh3.googleusercontent.com/...`) vào cột `users.avatar` mà **không cần tải lên Cloudinary**.
+   - Trên toàn bộ các thẻ `<img>` hiển thị avatar ở Frontend (`Navbar.tsx`, `AccountPageShell.tsx`), bổ sung thuộc tính `referrerPolicy="no-referrer"` để trình duyệt tải ảnh trực tiếp từ CDN của Google mà không bị chặn `403 Forbidden` bởi chính sách Referer của Google.
+4. **Vá Lỗ Hổng Chuyển Chủ Sở Hữu Thiết Bị (`resolveOrCreateDeviceToken`)**:
+   - Khi nhiều người dùng đăng nhập nối tiếp nhau trên cùng một trình duyệt hoặc điện thoại (dùng chung `apsports_device_id` / `X-Device-Id`), nếu `existingDevice.getUser().getId() != currentUser.getId()`:
+     1. Thu hồi ngay lập tức toàn bộ Refresh Token của người dùng cũ trên thiết bị đó (`refreshTokenRepository.revokeByDeviceToken(existingDevice.getId())`).
+     2. Kiểm tra giới hạn tối đa 3 thiết bị (`enforceMaxDevicesLimit(currentUser)`) cho người dùng mới.
+     3. Chuyển quyền sở hữu bản ghi `DeviceToken` sang người dùng mới.
+
+---
+
+### 21.3. Ma Trận Khóa Bảo Vệ 2 Lớp (Dual-Layer Defense FE + BE) Cho Tài Khoản Google
+
+Để chống lại việc can thiệp qua công cụ bên thứ ba (Postman / cURL / BurpSuite), mọi giới hạn đối với tài khoản Google (`google_id != null`) đều được kiểm tra nghiêm ngặt ở **cả Frontend (Web + Mobile) và Backend Service**:
+
+| Nghiệp vụ | Tầng Giao Diện (Web & Mobile) | Tầng Backend (`CustomerProfileServiceImpl` & `CustomerAuthServiceImpl`) |
+| :--- | :--- | :--- |
+| **Đổi ảnh đại diện (`POST /customer/profile/avatar`)** | Ẩn nút tải ảnh / icon Camera, hiển thị nhãn *"Đồng bộ từ Google"*. | Nếu `StringUtils.hasText(user.getGoogleId())` $\rightarrow$ Ném `IllegalArgumentException` (`400 Bad Request`). |
+| **Cập nhật thông tin cá nhân (`PUT /customer/profile`)** | Khóa ô nhập Họ tên và Email (`disabled`). Chỉ cho sửa Số điện thoại, Giới tính, Ngày sinh. Khi submit vẫn gửi kèm `name` hiện tại của user. | Giữ nguyên `@NotBlank` trên `UpdateProfileRequest.name`. Tại Service, nếu là tài khoản Google mà `request.getName()` khác `user.getName()` hiện tại $\rightarrow$ Ném `IllegalArgumentException("Tài khoản liên kết Google không được phép thay đổi họ và tên.")`. |
+| **Đổi mật khẩu (`POST /customer/profile/change-password`)** | Khóa toàn bộ các ô mật khẩu và nút xác nhận trên tab Đổi mật khẩu. | Nếu `StringUtils.hasText(user.getGoogleId())` $\rightarrow$ Ném `IllegalArgumentException` (`400 Bad Request`). |
+| **Đăng nhập mật khẩu / Quên mật khẩu (`/login`, `/forgot-password`, `/reset-password`)** | Hiển thị thông báo hướng dẫn người dùng chọn *"Đăng nhập bằng Google"*. | Chặn trực tiếp tại `login()`, `forgotPassword()`, `resetPassword()` khi phát hiện `user.getGoogleId() != null`. |
+
+---
+
+### 21.4. Giải Phẫu & Xử Lý Triệt Để Nghịch Lý CSRF + HttpOnly Cookie Khi Đăng Xuất & Lỗi Kẹt Redirect `/login`
+
+Khi hệ thống bật bảo vệ **CSRF (`CookieCsrfTokenRepository`)** kết hợp với **HttpOnly Cookie (`accessToken`, `refreshToken`)** và **Next.js Edge Middleware (`proxy.ts`)**, nếu luồng đăng xuất không được thiết kế đồng bộ sẽ dẫn đến 2 sự cố nghiêm trọng:
+1. **Trang web bị đơ khi bấm Đăng xuất**: Do request `POST /api/v1/customer/auth/logout` bị chặn `403 Forbidden` bởi CSRF khi cookie `XSRF-TOKEN` lệch pha, cộng với việc Modal xác nhận đăng xuất chưa đóng trước khi chuyển trang và Google GIS chưa tắt `disableAutoSelect()`.
+2. **Không thể mở trang `/login` và `/register` sau khi đăng xuất (Deadlock Lệch Pha)**:
+   - Khi `POST /logout` gặp lỗi (ví dụ 403 CSRF hoặc rớt mạng), khối `finally` ở Client xóa `localStorage.removeItem("apsports_has_session")`.
+   - Tuy nhiên, vì cookie `accessToken` là **`HttpOnly`**, lệnh `document.cookie = "accessToken=; Max-Age=0"` trong JavaScript **bị trình duyệt từ chối thực thi**!
+   - Lúc này trình duyệt rơi vào trạng thái **Lệch pha (Split-Brain)**:
+     - **Client React (`AuthContext`)**: Thấy mất `apsports_has_session` $\rightarrow$ Hiển thị giao diện **Chưa đăng nhập** (hiện nút *Đăng Nhập / Đăng Ký*).
+     - **Server Edge Middleware (`proxy.ts`)**: Vẫn đọc thấy `HttpOnly` cookie `accessToken` còn hạn 30 phút $\rightarrow$ Coi như **Đã đăng nhập**!
+   - Khi người dùng bấm vào `/login` hoặc `/register`, `proxy.ts` thấy `isValidCustomerToken == true` nên lập tức bắn **`307 Temporary Redirect` đá người dùng ngược về trang chủ `/`**!
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Khách hàng
+    participant UI as Navbar / Profile Modal
+    participant Auth as AuthContext.tsx
+    participant NextAPI as Next.js Route (/api/auth/clear-cookies)
+    participant BE as Spring Boot (/customer/auth/logout)
+    participant Proxy as Next.js Edge Middleware (proxy.ts)
+
+    User->>UI: Nhấn xác nhận "Đăng xuất"
+    UI->>UI: Đóng Modal ngay lập tức (setIsLogoutModalOpen(false))
+    UI->>Auth: Gọi await logout()
+    Auth->>BE: POST /api/v1/customer/auth/logout (Đã miễn trừ CSRF trong SecurityConfig)
+    BE-->>Auth: 200 OK + Set-Cookie: accessToken=; Max-Age=0; HttpOnly
+    Note over Auth,NextAPI: Khối finally chạy trong MỌI trường hợp (kể cả khi BE lỗi)
+    Auth->>NextAPI: POST /api/auth/clear-cookies
+    NextAPI-->>Auth: Set-Cookie: accessToken=; refreshToken=; apsports_has_session=; Max-Age=0; HttpOnly
+    Auth->>Auth: window.google.accounts.id.disableAutoSelect()
+    Auth->>Auth: Xóa localStorage & cookie apsports_has_session, setUser(null)
+    UI->>Proxy: Điều hướng router.replace("/") + router.refresh()
+    Note over User,Proxy: Khi người dùng vào /login hoặc /register
+    User->>Proxy: GET /login
+    alt Có accessToken mồ côi nhưng KHÔNG có apsports_has_session
+        Proxy->>Proxy: Tự động xóa cookie accessToken & refreshToken mồ côi
+        Proxy-->>User: Render trang /login bình thường (Không bị kẹt 307 Redirect!)
+    else Chưa đăng nhập
+        Proxy-->>User: Render trang /login bình thường
+    end
+```
+
+**Giải pháp Phòng thủ 3 Lớp đã triển khai**:
+1. **Lớp 1 (`SecurityConfig.java`)**: Bổ sung `/api/v1/customer/auth/**` và `/api/v1/admin/auth/**` vào `csrf.ignoringRequestMatchers(...)` để `POST /logout` không bao giờ bị chặn 403 CSRF.
+2. **Lớp 2 (`frontend/src/app/api/auth/clear-cookies/route.ts`)**: Tạo Next.js Server Route Handler phát hành header `Set-Cookie` với `httpOnly: true, maxAge: 0` để xóa tận gốc `accessToken` và `refreshToken` ngay từ tầng Next.js Server bất kể trạng thái của Backend, đồng thời gọi `window.google?.accounts?.id?.disableAutoSelect()`.
+3. **Lớp 3 (`frontend/src/proxy.ts`)**: Đồng bộ cờ `apsports_has_session` vào cookie và kiểm tra tại Edge Middleware khi truy cập `/login`, `/register`. Nếu phát hiện `accessToken` mồ côi (có `accessToken` nhưng không có `apsports_has_session`), `proxy.ts` tự động xóa sạch `accessToken`/`refreshToken` và cho phép render `/login`, `/register` ngay lập tức.
+
+---
+
+*Tài liệu này cam kết bảo tồn 100% các trường CSDL gốc và chuẩn hóa toàn diện các phân hệ Frontend, Backend, Mobile App, Bảo mật OAuth2/CSRF và Responsive cho hệ thống AP Sports Enterprise Production.*
 
 
 
