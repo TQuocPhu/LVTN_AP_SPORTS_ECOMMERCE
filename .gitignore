@@ -35,3 +35,5 @@ mobile-app/.env.local
 # Work Diary (Ignored in Git)
 diary/
 
+# Scratch & Temporary Scripts
+scratch/
