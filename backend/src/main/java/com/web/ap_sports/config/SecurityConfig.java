@@ -19,6 +19,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.access.expression.DefaultWebSecurityExpressionHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -63,8 +66,25 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
+        requestHandler.setCsrfRequestAttributeName("_csrf");
+
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(requestHandler)
+                .ignoringRequestMatchers(
+                    // 1. Miễn trừ Mobile App (X-Client-Type: mobile)
+                    request -> "mobile".equalsIgnoreCase(request.getHeader("X-Client-Type")),
+                    // 2. Miễn trừ VNPay redirect return & Server-to-Server IPN Webhook
+                    request -> request.getRequestURI().contains("/api/v1/customer/orders/vnpay-return")
+                            || request.getRequestURI().contains("/api/v1/customer/orders/vnpay-ipn"),
+                    // 3. Miễn trừ cả 2 loại WebSocket (Pure WS Mobile & SockJS Handshake của Web)
+                    request -> request.getRequestURI().startsWith("/ws"),
+                    // 4. Miễn trừ H2 Console dev
+                    request -> request.getRequestURI().startsWith("/h2-console")
+                )
+            )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exception -> exception
@@ -72,12 +92,13 @@ public class SecurityConfig {
                 .accessDeniedHandler(customAccessDeniedHandler())
             )
             .authorizeHttpRequests(auth -> auth
-                // 1. PermitAll: Auth Endpoints, Public Catalog, Public Vouchers, Handshake WebSocket /ws/**, H2 Console, VNPay Return
+                // 1. PermitAll: Auth Endpoints, Public Catalog, Public Vouchers, Handshake WebSocket /ws/**, H2 Console, VNPay Return & IPN
                 .requestMatchers(
                         "/api/v1/customer/contacts",
                         "/api/v1/customer/vouchers",
                         "/api/v1/customer/vouchers/**",
                         "/api/v1/customer/orders/vnpay-return",
+                        "/api/v1/customer/orders/vnpay-ipn",
                         "/api/v1/admin/auth/login",
                         "/api/v1/admin/auth/refresh",
                         "/api/v1/customer/auth/register",
@@ -115,7 +136,8 @@ public class SecurityConfig {
                 // 3. Mặc định tất cả các request khác phải được xác thực
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
 
         return http.build();
     }
@@ -156,7 +178,10 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "X-Client-Type", "Accept", "X-Demo-Key", "x-demo-key"));
+        config.setAllowedHeaders(List.of(
+                "Authorization", "Cache-Control", "Content-Type", "X-Client-Type",
+                "Accept", "X-Demo-Key", "x-demo-key", "X-XSRF-TOKEN", "x-xsrf-token"
+        ));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

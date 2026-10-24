@@ -3,6 +3,7 @@ package com.web.ap_sports.controller.customer;
 import com.web.ap_sports.dto.request.customer.CreateOrderRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
 import com.web.ap_sports.dto.response.customer.OrderResponse;
+import com.web.ap_sports.dto.response.customer.VNPayIpnResponse;
 import com.web.ap_sports.entity.User;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.UserRepository;
@@ -61,6 +62,13 @@ public class CustomerOrderController {
             @RequestParam Map<String, String> queryParams) {
         OrderResponse response = orderService.processVNPayReturn(queryParams);
         return ResponseEntity.ok(ApiResponse.success("Xử lý kết quả thanh toán VNPay thành công", response));
+    }
+
+    @RequestMapping(value = "/vnpay-ipn", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<VNPayIpnResponse> processVNPayIpn(
+            @RequestParam Map<String, String> queryParams) {
+        VNPayIpnResponse response = orderService.processVNPayIpn(queryParams);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{orderCode}/retry-vnpay")

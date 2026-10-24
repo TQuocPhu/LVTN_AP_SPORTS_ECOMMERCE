@@ -6,6 +6,7 @@ import com.web.ap_sports.dto.request.customer.CreateOrderRequest;
 import com.web.ap_sports.dto.response.customer.OrderItemResponse;
 import com.web.ap_sports.dto.response.customer.OrderResponse;
 import com.web.ap_sports.dto.response.customer.ShippingAddressResponse;
+import com.web.ap_sports.dto.response.customer.VNPayIpnResponse;
 import com.web.ap_sports.entity.*;
 import com.web.ap_sports.enums.OrderStatus;
 import com.web.ap_sports.enums.PaymentStatus;
@@ -588,6 +589,164 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         List<OrderItem> items = orderItemRepository.findByOrderId(lockedOrder.getId());
         return mapToOrderResponse(lockedOrder, items, payment, retryUrl);
+    }
+
+    @Override
+    @Transactional
+    public VNPayIpnResponse processVNPayIpn(Map<String, String> queryParams) {
+        log.info("Bắt đầu xử lý VNPay IPN Webhook callback...");
+        String vnpTxnRef = queryParams.get("vnp_TxnRef");
+
+        // 1. Kiểm tra chữ ký Checksum
+        if (!vnPayService.verifyChecksum(queryParams)) {
+            log.error("VNPay IPN: Chữ ký không hợp lệ! Mã đơn: {}", vnpTxnRef);
+            return VNPayIpnResponse.invalidChecksum();
+        }
+
+        if (vnpTxnRef == null || vnpTxnRef.isBlank()) {
+            log.error("VNPay IPN: Thiếu mã đơn hàng vnp_TxnRef.");
+            return VNPayIpnResponse.orderNotFound();
+        }
+
+        // 2. Tìm đơn hàng có khóa bi quan để chống race condition
+        Optional<Order> orderOpt = orderRepository.findByOrderCodeForUpdate(vnpTxnRef);
+        if (orderOpt.isEmpty()) {
+            log.error("VNPay IPN: Không tìm thấy đơn hàng mã {}", vnpTxnRef);
+            return VNPayIpnResponse.orderNotFound();
+        }
+        Order lockedOrder = orderOpt.get();
+
+        Payment payment = paymentRepository.findByOrderId(lockedOrder.getId())
+                .orElseGet(() -> Payment.builder()
+                        .order(lockedOrder)
+                        .paymentMethod(Payment.PaymentMethod.vnpay)
+                        .vnpTxnRef(vnpTxnRef)
+                        .amount(lockedOrder.getFinalAmount())
+                        .status(Payment.PaymentStatus.pending)
+                        .build());
+
+        // 3. Kiểm tra TmnCode
+        String vnpTmnCode = queryParams.get("vnp_TmnCode");
+        if (vnpTmnCode == null || !vnpTmnCode.equals(vnPayConfig.getVnpTmnCode())) {
+            log.error("VNPay IPN: vnp_TmnCode không khớp! Mong đợi: {}, VNPay gửi: {}", vnPayConfig.getVnpTmnCode(), vnpTmnCode);
+            return VNPayIpnResponse.unknownError("Mã Merchant (vnp_TmnCode) không hợp lệ.");
+        }
+
+        // 4. Đối chiếu số tiền giao dịch
+        String vnpAmountStr = queryParams.get("vnp_Amount");
+        if (vnpAmountStr == null || vnpAmountStr.isBlank()) {
+            return VNPayIpnResponse.invalidAmount();
+        }
+        try {
+            long vnpAmount = Long.parseLong(vnpAmountStr);
+            long expectedAmount = payment.getAmount().setScale(2, java.math.RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).longValue();
+            if (vnpAmount != expectedAmount) {
+                log.error("VNPay IPN: Sai lệch số tiền! Đơn {}. Mong đợi: {}, VNPay gửi: {}", vnpTxnRef, expectedAmount, vnpAmount);
+                return VNPayIpnResponse.invalidAmount();
+            }
+        } catch (NumberFormatException e) {
+            return VNPayIpnResponse.invalidAmount();
+        }
+
+        // 5. Kiểm tra Idempotency (nếu đơn hàng hoặc payment đã hoàn tất/hoàn tiền)
+        if (payment.getStatus() == Payment.PaymentStatus.completed || payment.getStatus() == Payment.PaymentStatus.refunded) {
+            log.info("VNPay IPN: Đơn hàng {} đã được xác nhận trước đó (Idempotent).", vnpTxnRef);
+            return VNPayIpnResponse.alreadyConfirmed();
+        }
+
+        String vnpResponseCode = queryParams.get("vnp_ResponseCode");
+        String vnpTransactionNo = queryParams.get("vnp_TransactionNo");
+        String vnpPayDate = queryParams.get("vnp_PayDate");
+        String vnpTransactionStatus = queryParams.get("vnp_TransactionStatus");
+
+        payment.setVnpResponseCode(vnpResponseCode);
+        if (vnpTransactionNo != null) payment.setTransactionId(vnpTransactionNo);
+        if (vnpPayDate != null && !vnpPayDate.isBlank()) {
+            payment.setVnpPayDate(vnpPayDate);
+        }
+
+        if ("00".equals(vnpResponseCode) && "00".equals(vnpTransactionStatus)) {
+            // Thanh toán THÀNH CÔNG
+            payment.setStatus(Payment.PaymentStatus.completed);
+            payment.setPaidAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            if (lockedOrder.getStatus() == OrderStatus.cancelled || lockedOrder.getStatus() == OrderStatus.returned) {
+                log.warn("VNPay IPN: Đơn hàng {} đã hủy nhưng thanh toán thành công. Tự động hoàn tiền.", lockedOrder.getOrderCode());
+                try {
+                    boolean refundResult = vnPayService.refundPayment(payment, lockedOrder, DEFAULT_CLIENT_IP, "SystemAuto");
+                    if (refundResult) {
+                        payment.setStatus(Payment.PaymentStatus.refunded);
+                        paymentRepository.save(payment);
+
+                        OrderStatusHistory history = OrderStatusHistory.builder()
+                                .order(lockedOrder)
+                                .status(lockedOrder.getStatus().getValue())
+                                .note("Nhận được tiền từ VNPay IPN nhưng đơn hàng đã bị hủy. Hệ thống tự động hoàn tiền thành công.")
+                                .changedBy(lockedOrder.getUser())
+                                .build();
+                        orderStatusHistoryRepository.save(history);
+                    }
+                } catch (Exception e) {
+                    log.error("VNPay IPN: Hoàn tiền tự động thất bại cho đơn hàng {}: {}", lockedOrder.getOrderCode(), e.getMessage());
+                }
+                return VNPayIpnResponse.success();
+            }
+
+            if (lockedOrder.getStatus() != OrderStatus.pending && lockedOrder.getStatus() != OrderStatus.payment_failed) {
+                log.warn("VNPay IPN: Đơn hàng {} đang ở trạng thái {}. Bỏ qua cập nhật.", vnpTxnRef, lockedOrder.getStatus());
+                return VNPayIpnResponse.alreadyConfirmed();
+            }
+
+            if (lockedOrder.getStatus() == OrderStatus.payment_failed) {
+                orderInventoryService.reDeductOrderStock(lockedOrder);
+            }
+            lockedOrder.setStatus(OrderStatus.pending);
+            orderRepository.save(lockedOrder);
+
+            OrderStatusHistory history = OrderStatusHistory.builder()
+                    .order(lockedOrder)
+                    .status(OrderStatus.pending.getValue())
+                    .note("Thanh toán trực tuyến thành công qua cổng VNPay IPN Webhook (Mã giao dịch: " + (vnpTransactionNo != null ? vnpTransactionNo : "") + "). Đơn hàng đang chờ Admin xác nhận.")
+                    .changedBy(lockedOrder.getUser())
+                    .build();
+            orderStatusHistoryRepository.save(history);
+
+            emailService.sendOrderConfirmationEmail(
+                    lockedOrder.getUser().getEmail(),
+                    lockedOrder.getUser().getName() != null ? lockedOrder.getUser().getName() : lockedOrder.getUser().getEmail(),
+                    lockedOrder.getOrderCode(),
+                    lockedOrder.getFinalAmount().toString(),
+                    "Thanh toán trực tuyến qua VNPay"
+            );
+        } else {
+            if (payment.getStatus() == Payment.PaymentStatus.failed) {
+                return VNPayIpnResponse.alreadyConfirmed();
+            }
+
+            if (lockedOrder.getStatus() != OrderStatus.pending && lockedOrder.getStatus() != OrderStatus.payment_failed) {
+                return VNPayIpnResponse.alreadyConfirmed();
+            }
+
+            // Thanh toán THẤT BẠI hoặc HỦY BỎ
+            payment.setStatus(Payment.PaymentStatus.failed);
+            paymentRepository.save(payment);
+
+            lockedOrder.setStatus(OrderStatus.payment_failed);
+            orderRepository.save(lockedOrder);
+
+            orderInventoryService.releaseOrderResources(lockedOrder, true);
+
+            OrderStatusHistory history = OrderStatusHistory.builder()
+                    .order(lockedOrder)
+                    .status(OrderStatus.payment_failed.getValue())
+                    .note("Thanh toán VNPay không thành công hoặc bị hủy bỏ qua IPN (Mã lỗi: " + vnpResponseCode + "). Tồn kho đã được hoàn trả.")
+                    .changedBy(lockedOrder.getUser())
+                    .build();
+            orderStatusHistoryRepository.save(history);
+        }
+
+        return VNPayIpnResponse.success();
     }
 
     @Override
