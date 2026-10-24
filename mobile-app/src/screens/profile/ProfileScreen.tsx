@@ -55,8 +55,22 @@ export const ProfileScreen: React.FC = () => {
               <View style={styles.userInfo}>
                 <Text style={[styles.userName, { color: colors.text }]}>{user.name}</Text>
                 <Text style={[styles.userEmail, { color: colors.textMuted }]}>{user.email}</Text>
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleText}>Thành viên AP Sports</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <View style={styles.roleBadge}>
+                    <Text style={styles.roleText}>Thành viên AP Sports</Text>
+                  </View>
+                  {(user.googleAccount || user.googleId) && (
+                    <View
+                      style={[
+                        styles.roleBadge,
+                        { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
+                      ]}
+                    >
+                      <Text style={[styles.roleText, { color: '#1d4ed8' }]}>
+                        Đã liên kết Google
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             </View>

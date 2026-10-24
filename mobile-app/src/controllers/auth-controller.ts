@@ -1,15 +1,41 @@
 import { apiClient } from '../services/apiClient';
-import { ApiResponse, CustomerLoginResponse, User } from '../types';
+import { ApiResponse, CustomerLoginResponse, GoogleLoginPayload, User } from '../types';
 
+/**
+ * Controller (FE Mobile) điều phối các yêu cầu xác thực khách hàng tới Backend Controller.
+ */
 export const authController = {
   /**
-   * Đăng nhập khách hàng trên mobile
+   * Đăng nhập khách hàng trên mobile bằng Email & Mật khẩu
    */
   async login(email: string, password: string): Promise<ApiResponse<CustomerLoginResponse>> {
     const res = await apiClient.post<ApiResponse<CustomerLoginResponse>>('/customer/auth/login', {
       email,
       password,
     });
+    return res.data;
+  },
+
+  /**
+   * Đăng nhập khách hàng trên mobile bằng Google OAuth2 (Authorization Code hoặc ID Token)
+   */
+  async loginWithGoogle(
+    payload: GoogleLoginPayload
+  ): Promise<ApiResponse<CustomerLoginResponse>> {
+    const res = await apiClient.post<ApiResponse<CustomerLoginResponse>>(
+      '/customer/auth/google',
+      payload
+    );
+    return res.data;
+  },
+
+  /**
+   * Lấy Google Client ID cấu hình từ Backend
+   */
+  async getGoogleClientId(): Promise<ApiResponse<{ clientId: string }>> {
+    const res = await apiClient.get<ApiResponse<{ clientId: string }>>(
+      '/customer/auth/google/client-id'
+    );
     return res.data;
   },
 

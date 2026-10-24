@@ -1,9 +1,9 @@
 import { apiClient } from './apiClient';
-import { ApiResponse, CustomerLoginResponse, User } from '../types';
+import { ApiResponse, CustomerLoginResponse, GoogleLoginPayload, User } from '../types';
 
 export const authService = {
   /**
-   * Đăng nhập khách hàng trên Mobile
+   * Đăng nhập khách hàng trên Mobile bằng Email & Mật khẩu
    */
   async login(email: string, password: string): Promise<CustomerLoginResponse> {
     const res = await apiClient.post<ApiResponse<CustomerLoginResponse>>(
@@ -11,6 +11,27 @@ export const authService = {
       { email, password }
     );
     return res.data.data;
+  },
+
+  /**
+   * Đăng nhập khách hàng trên Mobile bằng Google OAuth2 (ID Token hoặc Authorization Code)
+   */
+  async loginWithGoogle(payload: GoogleLoginPayload): Promise<CustomerLoginResponse> {
+    const res = await apiClient.post<ApiResponse<CustomerLoginResponse>>(
+      '/customer/auth/google',
+      payload
+    );
+    return res.data.data;
+  },
+
+  /**
+   * Lấy Google Client ID công khai từ Backend
+   */
+  async getGoogleClientId(): Promise<string> {
+    const res = await apiClient.get<ApiResponse<{ clientId: string }>>(
+      '/customer/auth/google/client-id'
+    );
+    return res.data?.data?.clientId || '';
   },
 
   /**

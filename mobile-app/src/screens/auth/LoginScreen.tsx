@@ -15,10 +15,17 @@ import { useNavigation } from '@react-navigation/native';
 import { Colors, Spacing, BorderRadius, Typography } from '../../config/theme';
 import { useLoginForm } from '../../hooks/useLoginForm';
 import { LoginFormFields } from '../../components/auth/LoginFormFields';
+import { GoogleOAuthModal } from '../../components/auth/GoogleOAuthModal';
 import { useTheme } from '../../context/ThemeContext';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 
+/**
+ * Màn hình Đăng Nhập Khách Hàng trên Mobile (LoginScreen).
+ * Tuân thủ nghiêm ngặt kiến trúc Layer Architecture:
+ * - Pure UI Screen: Không sử dụng useState hay useEffect trong Component/Screen.
+ * - Toàn bộ trạng thái đăng nhập thường và đăng nhập Google OAuth2 được quản lý bởi `useLoginForm()`.
+ */
 export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -32,8 +39,14 @@ export const LoginScreen: React.FC = () => {
     showPassword,
     toggleShowPassword,
     isSubmitting,
+    isGoogleLoading,
+    isGoogleModalVisible,
+    googleAuthUrl,
     handleQuickLogin,
     handleLogin,
+    handleOpenGoogleLogin,
+    handleCloseGoogleModal,
+    handleInterceptGoogleRedirect,
   } = useLoginForm();
 
   return (
@@ -71,15 +84,49 @@ export const LoginScreen: React.FC = () => {
 
         {/* Submit Button */}
         <TouchableOpacity
-          style={[styles.btnLogin, { backgroundColor: colors.primary }, isSubmitting && styles.btnLoginDisabled]}
+          style={[
+            styles.btnLogin,
+            { backgroundColor: colors.primary },
+            (isSubmitting || isGoogleLoading) && styles.btnLoginDisabled,
+          ]}
           onPress={handleLogin}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isGoogleLoading}
           activeOpacity={0.85}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
             <Text style={styles.btnLoginText}>Đăng Nhập</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Divider: Hoặc đăng nhập với */}
+        <View style={styles.dividerRow}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          <Text style={[styles.dividerText, { color: colors.textMuted }]}>HOẶC ĐĂNG NHẬP VỚI</Text>
+          <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+        </View>
+
+        {/* Google Sign-In Button */}
+        <TouchableOpacity
+          style={[
+            styles.btnGoogle,
+            { backgroundColor: colors.card, borderColor: colors.border },
+            (isSubmitting || isGoogleLoading) && styles.btnLoginDisabled,
+          ]}
+          onPress={handleOpenGoogleLogin}
+          disabled={isSubmitting || isGoogleLoading}
+          activeOpacity={0.85}
+        >
+          {isGoogleLoading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={18} color="#EA4335" />
+              <Text style={[styles.btnGoogleText, { color: colors.text }]}>
+                Đăng nhập bằng Google
+              </Text>
+            </>
           )}
         </TouchableOpacity>
 
@@ -91,6 +138,14 @@ export const LoginScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modal WebView OAuth2 cho Đăng nhập bằng Google */}
+      <GoogleOAuthModal
+        visible={isGoogleModalVisible}
+        authUrl={googleAuthUrl}
+        onClose={handleCloseGoogleModal}
+        onInterceptRedirect={handleInterceptGoogleRedirect}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -164,6 +219,39 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.sizes.sm,
     fontWeight: Typography.weights.bold,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.slate200,
+  },
+  dividerText: {
+    fontSize: 10,
+    fontWeight: Typography.weights.bold,
+    color: Colors.slate400,
+    letterSpacing: 0.5,
+  },
+  btnGoogle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 13,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.slate200,
+    backgroundColor: Colors.white,
+  },
+  btnGoogleText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.bold,
+    color: Colors.slate900,
   },
   footerRow: {
     flexDirection: 'row',

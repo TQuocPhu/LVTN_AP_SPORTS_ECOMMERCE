@@ -14,7 +14,15 @@ export interface User {
   avatar?: string;
   roleName: string;
   status: string;
+  googleId?: string | null;
+  googleAccount?: boolean;
   createdAt?: string;
+}
+
+export interface GoogleLoginPayload {
+  idToken?: string;
+  code?: string;
+  redirectUri?: string;
 }
 
 export interface TokenResponse {
