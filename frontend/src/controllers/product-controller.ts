@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse } from '@/services/api-client';
+import { ApiClientOptions } from '@/services/api/types';
 import {
   Product,
   ProductDetail,
@@ -10,7 +11,7 @@ export const productController = {
   /**
    * Lấy danh sách sản phẩm công khai theo bộ lọc (dành cho người dùng)
    */
-  async getPublicProducts(params?: ProductFilterParams): Promise<ApiResponse<PaginatedResponse<Product>>> {
+  async getPublicProducts(params?: ProductFilterParams, options?: ApiClientOptions): Promise<ApiResponse<PaginatedResponse<Product>>> {
     const searchParams = new URLSearchParams();
     if (params?.keyword) searchParams.append('keyword', params.keyword);
     if (params?.categoryId) searchParams.append('categoryId', params.categoryId.toString());
@@ -26,7 +27,7 @@ export const productController = {
 
     const queryString = searchParams.toString();
     const url = `/products${queryString ? `?${queryString}` : ''}`;
-    return apiClient.get<ApiResponse<PaginatedResponse<Product>>>(url, { suppressErrorToast: true });
+    return apiClient.get<ApiResponse<PaginatedResponse<Product>>>(url, { suppressErrorToast: true, ...options });
   },
 
   /**

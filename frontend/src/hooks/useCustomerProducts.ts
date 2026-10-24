@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Product, ProductFilterParams } from '@/types/product';
 import { productController } from '@/controllers/product-controller';
+import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 
 export function useCustomerProducts(initialCategoryId?: number) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Pagination State
   const [page, setPage] = useState<number>(0);
@@ -14,8 +16,8 @@ export function useCustomerProducts(initialCategoryId?: number) {
   const [totalElements, setTotalElements] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
 
-  // Filter States
-  const [keyword, setKeyword] = useState<string>('');
+  // Filter States with Debounce 400ms
+  const { keyword, debouncedKeyword, setKeyword, clearKeyword } = useDebouncedSearch('', 400);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(initialCategoryId || null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [minPrice, setMinPrice] = useState<number | null>(null);
@@ -28,10 +30,15 @@ export function useCustomerProducts(initialCategoryId?: number) {
   const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('DESC');
 
   const fetchProducts = useCallback(async () => {
+    // 1. Hủy request đang bay trước đó để chống race-condition
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       const filterParams: ProductFilterParams = {
-        keyword: keyword.trim() || undefined,
+        keyword: debouncedKeyword.trim() || undefined,
         categoryId: selectedCategoryId || undefined,
         status: 'in_stock', // Default customer view only shows in_stock items
         variantSize: selectedSizes.length > 0 ? selectedSizes.join(',') : undefined,
@@ -43,22 +50,33 @@ export function useCustomerProducts(initialCategoryId?: number) {
         sortDir,
       };
 
-      const res = await productController.getPublicProducts(filterParams);
+      const res = await productController.getPublicProducts(filterParams, {
+        signal: controller.signal,
+      });
       if (res.data) {
         setProducts(res.data.content || []);
         setTotalElements(res.data.totalElements || 0);
         setTotalPages(res.data.totalPages || 0);
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return; // Request cũ đã bị hủy bởi từ khóa mới, không xử lý
+      }
       console.error('Lỗi khi tải danh sách sản phẩm cửa hàng:', err);
     } finally {
       setLoading(false);
     }
-  }, [keyword, selectedCategoryId, selectedSizes, minPrice, maxPrice, page, pageSize, sortBy, sortDir]);
+  }, [debouncedKeyword, selectedCategoryId, selectedSizes, minPrice, maxPrice, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   const handleSelectCategory = (id: number | null, name: string | null = null) => {
     setSelectedCategoryId(id);

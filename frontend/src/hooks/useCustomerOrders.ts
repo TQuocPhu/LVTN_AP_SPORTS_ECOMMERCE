@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { OrderResponse } from '@/types/order';
 import { customerOrderController } from '@/controllers/customer-order-controller';
 import { useCart } from '@/context/CartContext';
+import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 
 export type CustomerOrderStatusTab =
   | 'ALL'
@@ -20,7 +21,7 @@ export function useCustomerOrders() {
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<CustomerOrderStatusTab>('ALL');
-  const [keyword, setKeyword] = useState<string>('');
+  const { keyword, debouncedKeyword, setKeyword } = useDebouncedSearch('', 400);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('createdAt');
@@ -44,7 +45,7 @@ export function useCustomerOrders() {
       setLoading(true);
       const res = await customerOrderController.getMyOrders(
         activeTab,
-        keyword,
+        debouncedKeyword,
         sortBy,
         sortDir,
         page,
@@ -61,7 +62,7 @@ export function useCustomerOrders() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, keyword, sortBy, sortDir, page, startDate, endDate]);
+  }, [activeTab, debouncedKeyword, sortBy, sortDir, page, startDate, endDate]);
 
   useEffect(() => {
     fetchOrders();
