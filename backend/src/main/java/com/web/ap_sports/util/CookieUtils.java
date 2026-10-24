@@ -3,11 +3,13 @@ package com.web.ap_sports.util;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 
 /**
- * Utility class chuyên trách quản lý HttpOnly Cookies cho toàn bộ hệ thống AP
- * Sports.
- * Đảm bảo đồng bộ 100% thuộc tính cấu hình an toàn (HttpOnly, Path, Max-Age).
+ * Utility class chuyên trách quản lý HttpOnly Cookies cho toàn bộ hệ thống AP Sports.
+ * Sử dụng ResponseCookie chuẩn Spring Framework với SameSite=Lax chống tấn công CSRF.
+ * Đảm bảo đồng bộ 100% thuộc tính cấu hình an toàn (HttpOnly, SameSite, Path, Max-Age).
  */
 public class CookieUtils {
 
@@ -24,33 +26,52 @@ public class CookieUtils {
     }
 
     /**
-     * Thêm HttpOnly Cookie lưu Token an toàn vào Response.
+     * Thêm HttpOnly Cookie lưu Token an toàn vào Response với SameSite=Lax.
      */
     public static void addTokenCookie(HttpServletResponse response, String name, String value, int maxAgeSeconds) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // Đặt true khi môi trường Production sử dụng HTTPS
-        cookie.setPath("/");
-        cookie.setMaxAge(maxAgeSeconds);
-        response.addCookie(cookie);
+        addTokenCookie(response, name, value, maxAgeSeconds, false);
     }
 
     /**
-     * Xóa HttpOnly Cookie bằng cách đặt Max-Age = 0.
+     * Thêm HttpOnly Cookie hỗ trợ chỉ định cờ Secure (true khi HTTPS trên Production).
+     */
+    public static void addTokenCookie(HttpServletResponse response, String name, String value, int maxAgeSeconds, boolean secure) {
+        ResponseCookie cookie = ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(maxAgeSeconds)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    /**
+     * Xóa HttpOnly Cookie bằng cách đặt Max-Age = 0 với SameSite=Lax đồng bộ.
      */
     public static void deleteCookie(HttpServletResponse response, String name) {
-        Cookie cookie = new Cookie(name, null);
-        cookie.setHttpOnly(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        deleteCookie(response, name, false);
+    }
+
+    /**
+     * Xóa HttpOnly Cookie hỗ trợ cờ Secure đồng bộ.
+     */
+    public static void deleteCookie(HttpServletResponse response, String name, boolean secure) {
+        ResponseCookie cookie = ResponseCookie.from(name, "")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     /**
      * Trích xuất giá trị Cookie từ HttpServletRequest theo tên.
      */
     public static String extractCookieValue(HttpServletRequest request, String cookieName) {
-        if (request.getCookies() != null) {
+        if (request != null && request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
                 if (cookieName.equals(cookie.getName())) {
                     return cookie.getValue();

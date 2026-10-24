@@ -79,6 +79,8 @@ spring:
 
 # Custom Application Properties
 app:
+  security:
+    trust-proxy-headers: ${TRUST_PROXY_HEADERS:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   # Mô phỏng Logistics (3 portal GHN Station / Carrier / Shipper App) - không cần đăng nhập nhưng bắt buộc có khóa X-Demo-Key.

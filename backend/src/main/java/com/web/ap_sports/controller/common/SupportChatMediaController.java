@@ -1,5 +1,6 @@
 package com.web.ap_sports.controller.common;
 
+import com.web.ap_sports.config.annotation.RateLimit;
 import com.web.ap_sports.dto.response.ApiResponse;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.service.common.CloudinaryService;
@@ -30,8 +31,10 @@ public class SupportChatMediaController {
     /**
      * Tải ảnh đính kèm vào tin nhắn cuộc trò chuyện trực tiếp (Khách hàng & Nhân viên).
      * Tự động resize max 1280px & nén JPEG 80% trước khi lưu trữ Cloudinary.
+     * Rate limit: Tối đa 10 ảnh / 1 phút per IP (chống spam upload tràn dung lượng Cloudinary).
      */
     @PostMapping("/upload-message-image")
+    @RateLimit(key = "chat_media_upload", maxRequests = 10, windowSeconds = 60)
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadMessageImage(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new AppException("File ảnh đính kèm không được để trống", HttpStatus.BAD_REQUEST);

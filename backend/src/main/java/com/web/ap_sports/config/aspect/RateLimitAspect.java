@@ -31,6 +31,9 @@ public class RateLimitAspect {
 
     private final StringRedisTemplate redisTemplate;
 
+    @org.springframework.beans.factory.annotation.Value("${app.security.trust-proxy-headers:false}")
+    private boolean trustProxyHeaders;
+
     // Bộ nhớ đệm Fallback In-Memory phòng trường hợp Redis không khả dụng
     private final Map<String, InMemoryCounter> fallbackCache = new ConcurrentHashMap<>();
 
@@ -95,13 +98,15 @@ public class RateLimitAspect {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes != null) {
             HttpServletRequest request = attributes.getRequest();
-            String xRealIp = request.getHeader("X-Real-IP");
-            if (xRealIp != null && !xRealIp.isBlank()) {
-                return "ip:" + xRealIp.trim();
-            }
-            String xForwardedFor = request.getHeader("X-Forwarded-For");
-            if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-                return "ip:" + xForwardedFor.split(",")[0].trim();
+            if (trustProxyHeaders) {
+                String xRealIp = request.getHeader("X-Real-IP");
+                if (xRealIp != null && !xRealIp.isBlank()) {
+                    return "ip:" + xRealIp.trim();
+                }
+                String xForwardedFor = request.getHeader("X-Forwarded-For");
+                if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+                    return "ip:" + xForwardedFor.split(",")[0].trim();
+                }
             }
             return "ip:" + request.getRemoteAddr();
         }

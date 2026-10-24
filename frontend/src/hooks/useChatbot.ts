@@ -59,7 +59,10 @@ export function useChatbot() {
     if (typeof window !== 'undefined') {
       let token = localStorage.getItem('apsports_guest_ai_token');
       if (!token) {
-        token = 'guest_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+        const uniqueId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : Math.random().toString(36).substring(2) + Date.now().toString(36);
+        token = `guest_${uniqueId}`;
         localStorage.setItem('apsports_guest_ai_token', token);
       }
       setGuestToken(token);
