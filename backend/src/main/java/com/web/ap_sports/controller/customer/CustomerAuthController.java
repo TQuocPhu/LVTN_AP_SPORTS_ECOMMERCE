@@ -2,10 +2,12 @@ package com.web.ap_sports.controller.customer;
 
 import com.web.ap_sports.config.annotation.RateLimit;
 import com.web.ap_sports.dto.request.customer.ForgotPasswordRequest;
+import com.web.ap_sports.dto.request.customer.GoogleLoginRequest;
 import com.web.ap_sports.dto.request.customer.LoginCustomerRequest;
 import com.web.ap_sports.dto.request.customer.RegisterCustomerRequest;
 import com.web.ap_sports.dto.request.customer.ResetPasswordRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
+import com.web.ap_sports.dto.response.customer.CustomerLoginResponse;
 import com.web.ap_sports.dto.response.customer.UserResponse;
 import com.web.ap_sports.service.customer.CustomerAuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +16,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * Controller xử lý các REST API xác thực dành riêng cho Khách hàng Storefront (/api/v1/customer/auth).
@@ -54,13 +58,42 @@ public class CustomerAuthController {
      */
     @PostMapping("/login")
     @RateLimit(key = "login", maxRequests = 5, windowSeconds = 60)
-    public ResponseEntity<ApiResponse<com.web.ap_sports.dto.response.customer.CustomerLoginResponse>> login(
+    public ResponseEntity<ApiResponse<CustomerLoginResponse>> login(
             @Valid @RequestBody LoginCustomerRequest request,
             @RequestHeader(value = "X-Client-Type", required = false) String clientType,
             HttpServletRequest httpRequest,
             HttpServletResponse response) {
-        com.web.ap_sports.dto.response.customer.CustomerLoginResponse loginResponse = customerAuthService.login(request, clientType, httpRequest, response);
+        CustomerLoginResponse loginResponse = customerAuthService.login(request, clientType, httpRequest, response);
         return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công!", loginResponse));
+    }
+
+    /**
+     * API Đăng nhập Khách hàng bằng Google OAuth2 (Google Identity Services cho Web & Authorization Code cho Mobile).
+     * Xác thực chữ ký idToken với Google, tự động tạo mới hoặc hợp nhất tài khoản (Phương án 6A),
+     * đồng thời cấp phát cặp Access Token (RS256) và Refresh Token (HMAC-SHA256 xoay vòng).
+     * Rate limit: Tối đa 10 lần / 1 phút per IP.
+     * POST /api/v1/customer/auth/google
+     */
+    @PostMapping("/google")
+    @RateLimit(key = "google_login", maxRequests = 10, windowSeconds = 60)
+    public ResponseEntity<ApiResponse<CustomerLoginResponse>> loginWithGoogle(
+            @RequestBody GoogleLoginRequest request,
+            @RequestHeader(value = "X-Client-Type", required = false) String clientType,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response) {
+        CustomerLoginResponse loginResponse = customerAuthService.loginWithGoogle(request, clientType, httpRequest, response);
+        return ResponseEntity.ok(ApiResponse.success("Đăng nhập bằng Google thành công!", loginResponse));
+    }
+
+    /**
+     * API Lấy Google OAuth2 Client ID công khai cho Web & Mobile App khởi tạo phiên OAuth2.
+     * Tuyệt đối chỉ trả về Client ID công khai (CUSTOMER_ID), không bao giờ trả về Secret Code.
+     * GET /api/v1/customer/auth/google/client-id
+     */
+    @GetMapping("/google/client-id")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getGoogleClientId() {
+        String clientId = customerAuthService.getGoogleClientId();
+        return ResponseEntity.ok(ApiResponse.success("Lấy cấu hình Google Client ID thành công.", Map.of("clientId", clientId)));
     }
 
     /**

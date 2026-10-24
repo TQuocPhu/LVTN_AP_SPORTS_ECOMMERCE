@@ -82,7 +82,10 @@ public class SecurityConfig {
                     // 3. Miễn trừ cả 2 loại WebSocket (Pure WS Mobile & SockJS Handshake của Web)
                     request -> request.getRequestURI().startsWith("/ws"),
                     // 4. Miễn trừ H2 Console dev
-                    request -> request.getRequestURI().startsWith("/h2-console")
+                    request -> request.getRequestURI().startsWith("/h2-console"),
+                    // 5. Miễn trừ các endpoint Auth (login, google, logout, refresh) dùng HttpOnly Cookie SameSite=Lax
+                    request -> request.getRequestURI().startsWith("/api/v1/customer/auth/")
+                            || request.getRequestURI().startsWith("/api/v1/admin/auth/")
                 )
             )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -104,6 +107,8 @@ public class SecurityConfig {
                         "/api/v1/customer/auth/register",
                         "/api/v1/customer/auth/activate",
                         "/api/v1/customer/auth/login",
+                        "/api/v1/customer/auth/google",
+                        "/api/v1/customer/auth/google/**",
                         "/api/v1/customer/auth/logout",
                         "/api/v1/customer/auth/refresh",
                         "/api/v1/customer/auth/forgot-password",

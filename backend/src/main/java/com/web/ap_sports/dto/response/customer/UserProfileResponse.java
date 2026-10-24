@@ -7,6 +7,11 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+/**
+ * Response DTO trả về thông tin Hồ sơ cá nhân của Khách hàng.
+ * Bao gồm cờ `googleAccount` và `googleId` để giao diện khóa các trường không được phép sửa
+ * (Ảnh đại diện, Họ tên, Email, Mật khẩu) đối với tài khoản đăng nhập bằng Google.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,5 +26,7 @@ public class UserProfileResponse {
     private String address;
     private String role;
     private String status;
+    private String googleId;
+    private boolean googleAccount;
     private LocalDateTime createdAt;
 }

@@ -1,16 +1,17 @@
 package com.web.ap_sports.service.customer;
 
 import com.web.ap_sports.dto.request.customer.ForgotPasswordRequest;
+import com.web.ap_sports.dto.request.customer.GoogleLoginRequest;
 import com.web.ap_sports.dto.request.customer.LoginCustomerRequest;
 import com.web.ap_sports.dto.request.customer.RegisterCustomerRequest;
 import com.web.ap_sports.dto.request.customer.ResetPasswordRequest;
 import com.web.ap_sports.dto.response.customer.CustomerLoginResponse;
 import com.web.ap_sports.dto.response.customer.TokenResponse;
 import com.web.ap_sports.dto.response.customer.UserResponse;
+import com.web.ap_sports.dto.response.customer.UserSessionResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import com.web.ap_sports.dto.response.customer.UserSessionResponse;
 import java.util.List;
 
 /**
@@ -38,6 +39,17 @@ public interface CustomerAuthService {
      * Xử lý Đăng nhập Khách hàng có thông tin thiết bị (Multi-device concurrent sessions).
      */
     CustomerLoginResponse login(LoginCustomerRequest request, String clientType, HttpServletRequest httpRequest, HttpServletResponse response);
+
+    /**
+     * Xử lý Đăng nhập Khách hàng bằng Google OAuth2 (Hỗ trợ cả Google Identity Services idToken trên Web
+     * và OAuth2 Authorization Code trên Mobile App).
+     */
+    CustomerLoginResponse loginWithGoogle(GoogleLoginRequest request, String clientType, HttpServletRequest httpRequest, HttpServletResponse response);
+
+    /**
+     * Lấy mã Google Client ID công khai từ cấu hình hệ thống.
+     */
+    String getGoogleClientId();
 
     /**
      * Lấy danh sách các phiên thiết bị đang hoạt động của khách hàng.

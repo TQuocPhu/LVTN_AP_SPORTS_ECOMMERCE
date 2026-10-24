@@ -121,3 +121,6 @@ app:
     model: ${GEMINI_MODEL:gemini-3.5-flash}
     fallback-model: ${GEMINI_FALLBACK_MODEL:gemini-3.5-flash-lite}
     timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:30}
+  google:
+    client-id: ${CUSTOMER_ID:}
+    client-secret: ${CUSTOMER_SECRET_CODE:}

@@ -11,6 +11,8 @@ import java.util.List;
 
 /**
  * Response DTO an toàn trả về thông tin Người dùng cho Frontend (TUYỆT ĐỐI KHÔNG CHỨA PASSWORD).
+ * Bổ sung thông tin định danh tài khoản Google (`googleId`, `googleAccount`) để Frontend và Mobile
+ * phân quyền giao diện chỉnh sửa thông tin cá nhân và mật khẩu.
  */
 @Data
 @Builder
@@ -27,6 +29,8 @@ public class UserResponse {
     private String address;
     private String roleName;
     private List<String> permissions;
+    private String googleId;
+    private boolean googleAccount;
     private LocalDateTime emailVerifiedAt;
     private LocalDateTime createdAt;
 }
