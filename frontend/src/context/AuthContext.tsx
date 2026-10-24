@@ -11,10 +11,12 @@ import React, {
 import { authController } from "@/controllers/auth-controller";
 import {
   UserResponse,
+  CustomerLoginResponse,
   RegisterRequest,
   LoginRequest,
   ApiResponse,
 } from "@/types/auth";
+import { getCookie, setCookie, eraseCookie } from "@/services/api/cookies";
 
 /**
  * Shape của Auth Context – chia sẻ toàn app qua Provider
@@ -25,7 +27,8 @@ interface AuthContextType {
   error: string | null;
   register: (data: RegisterRequest) => Promise<ApiResponse<void>>;
   activateAccount: (token: string) => Promise<ApiResponse<void>>;
-  login: (data: LoginRequest) => Promise<ApiResponse<UserResponse>>;
+  login: (data: LoginRequest) => Promise<ApiResponse<CustomerLoginResponse | UserResponse>>;
+  loginWithGoogle: (idToken: string) => Promise<ApiResponse<CustomerLoginResponse | UserResponse>>;
   logout: () => Promise<void>;
   refetchUser: () => Promise<void>;
 }
@@ -52,17 +55,54 @@ const AuthContext = createContext<AuthContextType>({
     data: {} as UserResponse,
     timestamp: "",
   }),
+  loginWithGoogle: async () => ({
+    success: false,
+    message: "",
+    data: {} as UserResponse,
+    timestamp: "",
+  }),
   logout: async () => {},
   refetchUser: async () => {},
 });
+
+/**
+ * Hàm tiện ích bóc tách chuẩn UserResponse từ payload trả về của API `/login` và `/google`
+ * (Vì Backend trả về `CustomerLoginResponse { user: UserResponse }`).
+ */
+function extractUserFromLoginData(
+  data: CustomerLoginResponse | UserResponse | undefined | null
+): UserResponse | null {
+  if (!data) return null;
+  if ("user" in data && data.user) {
+    return data.user;
+  }
+  return data as UserResponse;
+}
+
+/**
+ * Đồng bộ cờ phiên trên cả localStorage và Cookie (để Next.js Edge Proxy nhận diện chính xác).
+ */
+function markClientSessionActive() {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("apsports_has_session", "true");
+    setCookie("apsports_has_session", "true", 7);
+  }
+}
+
+function clearClientSessionFlags() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("apsports_has_session");
+    eraseCookie("apsports_has_session");
+    eraseCookie("accessToken");
+    eraseCookie("refreshToken");
+  }
+}
 
 /**
  * AuthProvider – bọc toàn bộ app trong RootLayout.
  * Mọi component (Navbar, Profile, v.v.) dùng useAuth() sẽ đọc từ
  * cùng một state – tự động cập nhật ngay khi đăng nhập / đăng xuất.
  */
-import { getCookie } from "@/services/api/cookies";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -79,13 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Lấy user hiện tại từ Cookie – chạy 1 lần khi app khởi động hoặc khi chủ động refetch
   const fetchCurrentUser = useCallback(async (isInitial = false) => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/demo')) {
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/demo")) {
       setLoading(false);
       return;
     }
 
     // Nếu trình duyệt chưa từng đăng nhập (khách vãng lai), không gọi /auth/me để tránh request 401 thừa
-    if (typeof window !== 'undefined' && !localStorage.getItem("apsports_has_session")) {
+    if (typeof window !== "undefined" && !localStorage.getItem("apsports_has_session")) {
       setUser(null);
       setLoading(false);
       return;
@@ -95,22 +135,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isInitial) setLoading(true);
       setError(null);
       const res = await authController.getCurrentUser();
-      if (res?.data && res.data.roleName === 'CUSTOMER') {
+      if (res?.data && res.data.roleName === "CUSTOMER") {
         setUser(res.data);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem("apsports_has_session", "true");
-        }
+        markClientSessionActive();
       } else {
         setUser(null);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem("apsports_has_session");
-        }
+        clearClientSessionFlags();
       }
     } catch {
       setUser(null);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem("apsports_has_session");
-      }
+      clearClientSessionFlags();
     } finally {
       if (isInitial) setLoading(false);
     }
@@ -119,49 +153,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Chủ động làm mới phiên ngầm định kỳ mỗi 20 phút trước khi Access Token 30 phút hết hạn.
    * CHỈ thực hiện khi người dùng ĐÃ ĐĂNG NHẬP.
-   * TUYỆT ĐỐI không gọi khi chuyển tab (visibilitychange) để tránh gây gián đoạn phiên hoặc đăng xuất nhầm.
    */
   const proactiveRefresh = useCallback(async () => {
-    // Không refresh nếu chưa đăng nhập (khách)
     if (!userRef.current) return;
 
     const now = Date.now();
-    // Debounce: không refresh lại nếu vừa refresh trong vòng 60 giây
     if (now - lastRefreshAtRef.current < 60_000) return;
     lastRefreshAtRef.current = now;
 
     try {
-      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
       const xsrfToken = getCookie("XSRF-TOKEN");
       const refreshRes = await fetch(`${BASE_URL}/customer/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
+        method: "POST",
+        credentials: "include",
         headers: {
-          'X-Client-Type': 'web',
-          ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
+          "X-Client-Type": "web",
+          ...(xsrfToken ? { "X-XSRF-TOKEN": xsrfToken } : {}),
         },
       });
 
       if (refreshRes.ok) {
-        // Refresh thành công → cập nhật nhẹ nhàng không làm giật UI
         await fetchCurrentUser(false);
       } else if (refreshRes.status === 401) {
-        // CHỈ đăng xuất khi Server trả về 401 xác nhận Refresh Token đã hết hạn / bị thu hồi
         setUser(null);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem("apsports_has_session");
-        }
+        clearClientSessionFlags();
       }
     } catch {
-      // Network error hoặc sự cố mạng tạm thời → GIỮ NGUYÊN trạng thái đăng nhập, không tự ý đăng xuất
+      // Network error tạm thời -> giữ nguyên trạng thái đăng nhập
     }
   }, [fetchCurrentUser]);
 
   useEffect(() => {
-    // Khởi động: Chỉ fetch user 1 lần duy nhất qua /auth/me khi App Mount.
     fetchCurrentUser(true);
 
-    // Chủ động refresh định kỳ mỗi 20 phút (trước khi Access Token 30 phút hết hạn)
     const intervalId = setInterval(() => {
       if (userRef.current) {
         proactiveRefresh();
@@ -180,8 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       return await authController.register(data);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Đăng ký không thành công";
+      const msg = err instanceof Error ? err.message : "Đăng ký không thành công";
       setError(msg);
       throw err;
     } finally {
@@ -196,8 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       return await authController.activateAccount(token);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Kích hoạt không thành công";
+      const msg = err instanceof Error ? err.message : "Kích hoạt không thành công";
       setError(msg);
       throw err;
     } finally {
@@ -205,16 +228,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Đăng nhập – cập nhật user ngay trong context → Navbar re-render tức thì
+  // Đăng nhập truyền thống – cập nhật user ngay trong context → Navbar re-render tức thì
   const login = async (data: LoginRequest) => {
     try {
       setLoading(true);
       setError(null);
       const res = await authController.login(data);
-      if (res?.data) {
-        setUser(res.data);
+      const extractedUser = extractUserFromLoginData(res?.data);
+      if (extractedUser) {
+        setUser(extractedUser);
+        markClientSessionActive();
         if (typeof window !== "undefined") {
-          localStorage.setItem("apsports_has_session", "true");
           window.dispatchEvent(new CustomEvent("auth:login"));
         }
       }
@@ -228,19 +252,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Đăng xuất – xóa user trong context ngay → Navbar re-render tức thì
-  const logout = async () => {
+  // Đăng nhập bằng Google OAuth2 (GIS idToken) – cập nhật user ngay trong context
+  const loginWithGoogle = async (idToken: string) => {
     try {
-      await authController.logout();
-    } catch (err) {
-      console.error("Lỗi đăng xuất:", err);
+      setLoading(true);
+      setError(null);
+      const res = await authController.loginWithGoogle(idToken);
+      const extractedUser = extractUserFromLoginData(res?.data);
+      if (extractedUser) {
+        setUser(extractedUser);
+        markClientSessionActive();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("auth:login"));
+        }
+      }
+      return res;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Đăng nhập bằng Google thất bại";
+      setError(msg);
+      throw err;
     } finally {
-      setUser(null);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("apsports_has_session");
-        window.dispatchEvent(new CustomEvent("auth:logout"));
+      setLoading(false);
+    }
+  };
+
+  // Đăng xuất – xóa user & ngắt phiên Google GIS ngay lập tức, đồng thời xóa sạch HttpOnly Cookies
+  const logout = async () => {
+    // 1. Vô hiệu hóa tự động chọn tài khoản của Google Identity Services (nếu có)
+    if (typeof window !== "undefined") {
+      try {
+        const googleIdApi = (
+          window as unknown as {
+            google?: { accounts?: { id?: { disableAutoSelect?: () => void } } };
+          }
+        ).google?.accounts?.id;
+        googleIdApi?.disableAutoSelect?.();
+      } catch {
+        // Bỏ qua nếu script GIS chưa nạp
       }
     }
+
+    // 2. Xóa trạng thái user và cờ phiên ở Client ngay lập tức
+    setUser(null);
+    clearClientSessionFlags();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("auth:logout"));
+    }
+
+    // 3. Gọi song song API Backend (thu hồi RefreshToken trong DB) và Next.js Route (đảm bảo xóa 100% HttpOnly Cookies)
+    await Promise.allSettled([
+      authController.logout(),
+      typeof window !== "undefined"
+        ? fetch("/api/auth/clear-cookies", { method: "POST", credentials: "include" })
+        : Promise.resolve(),
+    ]);
   };
 
   return (
@@ -252,6 +317,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         activateAccount,
         login,
+        loginWithGoogle,
         logout,
         refetchUser: fetchCurrentUser,
       }}

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import ClientTopBar from '@/components/layout/ClientTopBar';
 import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
@@ -32,7 +33,9 @@ export default function LoginPage() {
           bannerImage="/images/banners/fast_transparent_shopping_banner.png"
           bannerAlt="Mua sắm thuận tiện nhanh chóng và minh bạch AP Sports"
         >
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
         </AuthLayoutWrapper>
       </section>
     </main>

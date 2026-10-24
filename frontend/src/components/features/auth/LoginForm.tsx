@@ -7,14 +7,16 @@ import { Mail, Lock, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff, Info } from
 
 /**
  * UI Component Form Đăng Nhập Khách Hàng (LoginForm).
- * Pure UI Component: Toàn bộ State & Business Logic được quản lý bởi `useLoginForm()` hook.
- * Không dùng useState/useEffect trong Component.
+ * Pure UI Component: Toàn bộ State, Google GIS SDK & Business Logic được quản lý bởi `useLoginForm()` hook.
+ * Tuyệt đối không dùng useState / useEffect trong Component.
  */
 export default function LoginForm() {
   const {
     formData,
     showPassword,
     isSubmitting,
+    isGoogleLoading,
+    googleButtonRef,
     formError,
     successMessage,
     noticeMessage,
@@ -46,7 +48,7 @@ export default function LoginForm() {
       {/* Thông báo Lỗi */}
       {formError && (
         <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-3">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping shrink-0" />
           <span>{formError}</span>
         </div>
       )}
@@ -73,6 +75,7 @@ export default function LoginForm() {
               value={formData.email}
               onChange={handleChange}
               placeholder="name@example.com"
+              suppressHydrationWarning
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
             />
           </div>
@@ -99,11 +102,13 @@ export default function LoginForm() {
               value={formData.password}
               onChange={handleChange}
               placeholder="••••••••"
+              suppressHydrationWarning
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-11 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
             />
             <button
               type="button"
               onClick={toggleShowPassword}
+              suppressHydrationWarning
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-orange-400 transition-colors p-1"
               title={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
             >
@@ -112,10 +117,11 @@ export default function LoginForm() {
           </div>
         </div>
 
-        {/* Nút Submit */}
+        {/* Nút Submit Đăng nhập bằng Mật khẩu */}
         <button
           type="submit"
-          disabled={isSubmitting || !hasInput}
+          disabled={isSubmitting || isGoogleLoading || !hasInput}
+          suppressHydrationWarning
           className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
         >
           {isSubmitting ? (
@@ -131,6 +137,32 @@ export default function LoginForm() {
           )}
         </button>
       </form>
+
+      {/* Đường phân cách HOẶC ĐĂNG NHẬP VỚI */}
+      <div className="relative my-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-slate-800" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-slate-900 px-3 text-slate-500 font-semibold tracking-wider">
+            Hoặc đăng nhập với
+          </span>
+        </div>
+      </div>
+
+      {/* Khu vực hiển thị nút Đăng nhập bằng Google chuẩn GIS */}
+      <div className="w-full flex flex-col items-center justify-center min-h-[44px] relative">
+        {isGoogleLoading && (
+          <div className="absolute inset-0 z-10 bg-slate-900/80 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-orange-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Đang xác thực với Google...</span>
+          </div>
+        )}
+        <div
+          ref={googleButtonRef}
+          className="w-full flex items-center justify-center overflow-hidden rounded-xl"
+        />
+      </div>
 
       {/* Footer Chuyển hướng */}
       <div className="mt-8 pt-6 border-t border-slate-800 text-center">

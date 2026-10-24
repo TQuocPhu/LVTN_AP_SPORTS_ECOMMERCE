@@ -41,6 +41,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('accessToken')?.value;
   const hasRefreshToken = !!request.cookies.get('refreshToken')?.value;
+  const hasClientSessionFlag = request.cookies.get('apsports_has_session')?.value === 'true';
 
   let isValidToken = false;
   let userRole: string | undefined = undefined;
@@ -146,8 +147,19 @@ export async function proxy(request: NextRequest) {
   }
 
   // 5. Trang dành riêng cho khách chưa đăng nhập (/login, /register)
-  if (isGuestOnlyRoute && isValidToken) {
-    return NextResponse.redirect(new URL('/', request.url), 307);
+  if (isGuestOnlyRoute) {
+    // Chỉ chuyển hướng về '/' khi cả AccessToken hợp lệ VÀ cờ phiên Client ('apsports_has_session') đang bật.
+    // Nếu người dùng đã bấm Đăng xuất ở Client (mất cờ 'apsports_has_session') nhưng HttpOnly Cookie cũ còn sót lại,
+    // lập tức dọn sạch Cookie cũ để cho phép mở trang /login và /register bình thường.
+    if (isValidToken && hasClientSessionFlag) {
+      return NextResponse.redirect(new URL('/', request.url), 307);
+    }
+    if (token || hasRefreshToken) {
+      const res = NextResponse.next();
+      res.cookies.set('accessToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+      res.cookies.set('refreshToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+      return res;
+    }
   }
 
   return NextResponse.next();

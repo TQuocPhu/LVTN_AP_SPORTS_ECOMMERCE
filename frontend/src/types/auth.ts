@@ -12,8 +12,19 @@ export interface UserResponse {
   address?: string;
   roleName: string;
   permissions?: string[];
+  googleId?: string;
+  googleAccount?: boolean;
   emailVerifiedAt?: string;
   createdAt: string;
+}
+
+export interface CustomerLoginResponse {
+  user: UserResponse;
+  tokens?: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  };
 }
 
 export interface RegisterRequest {
@@ -26,6 +37,12 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+export interface GoogleLoginRequest {
+  idToken?: string;
+  code?: string;
+  redirectUri?: string;
 }
 
 export interface AdminLoginRequest {
@@ -62,4 +79,3 @@ export interface UserSessionResponse {
   lastActiveAt?: string;
   currentDevice?: boolean;
 }
-

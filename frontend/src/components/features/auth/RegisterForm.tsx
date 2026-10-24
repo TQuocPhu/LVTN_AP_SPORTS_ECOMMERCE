@@ -1,72 +1,29 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useRegisterForm } from '@/hooks/useRegisterForm';
 import { User, Mail, Lock, ShieldCheck, ArrowRight, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 /**
  * UI Component Form Đăng Ký Tài Khoản Khách Hàng (RegisterForm).
- * Tuân thủ Clean Page Rule: Toàn bộ JSX Form & State xử lý ở Component này, file page.tsx chỉ gọi nhúng.
+ * Tuân thủ nghiêm ngặt kiến trúc Layer Architecture:
+ * - Pure UI Component: Không sử dụng useState hay useEffect trong Component.
+ * - Toàn bộ trạng thái và xử lý sự kiện nằm tại `useRegisterForm`.
  */
 export default function RegisterForm() {
-  const router = useRouter();
-  const { register, loading } = useAuth();
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setFormError(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    setSuccessMessage(null);
-
-    // Validation cơ bản phía Client
-    if (!formData.name.trim()) {
-      setFormError('Họ và tên không được để trống.');
-      return;
-    }
-    if (!formData.email.trim()) {
-      setFormError('Email không được để trống.');
-      return;
-    }
-    if (formData.password.length < 6) {
-      setFormError('Mật khẩu phải có ít nhất 6 ký tự.');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setFormError('Xác nhận mật khẩu không khớp.');
-      return;
-    }
-
-    try {
-      const res = await register(formData);
-      setSuccessMessage(res.message || 'Đăng ký thành công! Vui lòng kiểm tra email để kích hoạt tài khoản.');
-      
-      // Chuyển hướng sau 3 giây
-      setTimeout(() => {
-        router.push('/login');
-      }, 3500);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Đăng ký không thành công. Vui lòng thử lại.';
-      setFormError(msg);
-    }
-  };
+  const {
+    formData,
+    loading,
+    showPassword,
+    showConfirmPassword,
+    formError,
+    successMessage,
+    hasInput,
+    handleChange,
+    toggleShowPassword,
+    toggleShowConfirmPassword,
+    handleSubmit,
+  } = useRegisterForm();
 
   return (
     <div className="w-full max-w-md mx-auto bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
@@ -113,6 +70,7 @@ export default function RegisterForm() {
               value={formData.name}
               onChange={handleChange}
               placeholder="Nguyễn Văn A"
+              suppressHydrationWarning
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
             />
           </div>
@@ -131,6 +89,7 @@ export default function RegisterForm() {
               value={formData.email}
               onChange={handleChange}
               placeholder="name@example.com"
+              suppressHydrationWarning
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
             />
           </div>
@@ -149,11 +108,13 @@ export default function RegisterForm() {
               value={formData.password}
               onChange={handleChange}
               placeholder="••••••••"
+              suppressHydrationWarning
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-11 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={toggleShowPassword}
+              suppressHydrationWarning
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-orange-400 transition-colors p-1"
               title={showPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
             >
@@ -175,11 +136,13 @@ export default function RegisterForm() {
               value={formData.confirmPassword}
               onChange={handleChange}
               placeholder="••••••••"
+              suppressHydrationWarning
               className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-11 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all"
             />
             <button
               type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              onClick={toggleShowConfirmPassword}
+              suppressHydrationWarning
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-orange-400 transition-colors p-1"
               title={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiển thị mật khẩu'}
             >
@@ -189,33 +152,24 @@ export default function RegisterForm() {
         </div>
 
         {/* Nút Submit */}
-        {(() => {
-          const hasInput = Boolean(
-            formData.name.trim() &&
-            formData.email.trim() &&
-            formData.password.trim() &&
-            formData.confirmPassword.trim()
-          );
-          return (
-            <button
-              type="submit"
-              disabled={loading || !hasInput}
-              className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>ĐANG XỬ LÝ...</span>
-                </>
-              ) : (
-                <>
-                  <span>ĐĂNG KÝ TÀI KHOẢN</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
-          );
-        })()}
+        <button
+          type="submit"
+          disabled={loading || !hasInput}
+          suppressHydrationWarning
+          className="w-full mt-2 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>ĐANG XỬ LÝ...</span>
+            </>
+          ) : (
+            <>
+              <span>ĐĂNG KÝ TÀI KHOẢN</span>
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
       </form>
 
       {/* Footer Chuyển hướng */}
