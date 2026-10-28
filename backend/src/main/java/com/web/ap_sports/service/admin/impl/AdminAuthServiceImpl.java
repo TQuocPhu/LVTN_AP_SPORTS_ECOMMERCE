@@ -45,7 +45,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     @Transactional
     public UserResponse login(AdminLoginRequest request, HttpServletResponse response) {
         // 1. Tìm User theo email
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Thông tin đăng nhập không hợp lệ hoặc tài khoản không tồn tại."));
 
         // 2. Kiểm tra trạng thái tài khoản active

@@ -39,7 +39,7 @@ public class DemoLogisticsAuthServiceImpl implements DemoLogisticsAuthService {
     @Override
     @Transactional
     public UserResponse login(AdminLoginRequest request, HttpServletResponse response) {
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Thông tin đăng nhập không hợp lệ."));
 
         if (user.getStatus() != UserStatus.active) {
