@@ -29,8 +29,13 @@ export const useRegisterForm = (onSuccess?: () => void) => {
       setErrorMessage('Định dạng Email không hợp lệ.');
       return;
     }
-    if (password.length < 6) {
-      setErrorMessage('Mật khẩu phải có ít nhất 6 ký tự.');
+    if (password.length < 8 || password.length > 100) {
+      setErrorMessage('Mật khẩu phải từ 8 đến 100 ký tự.');
+      return;
+    }
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).+$/;
+    if (!passwordRegex.test(password)) {
+      setErrorMessage('Mật khẩu phải chứa ít nhất 1 chữ cái và 1 chữ số.');
       return;
     }
     if (password !== confirmPassword) {
@@ -44,6 +49,7 @@ export const useRegisterForm = (onSuccess?: () => void) => {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
+        confirmPassword,
       });
 
       const message =

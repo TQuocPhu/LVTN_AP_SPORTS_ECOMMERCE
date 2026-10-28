@@ -47,8 +47,13 @@ export function useRegisterForm() {
       setFormError('Email không được để trống.');
       return;
     }
-    if (formData.password.length < 6) {
-      setFormError('Mật khẩu phải có ít nhất 6 ký tự.');
+    if (formData.password.length < 8 || formData.password.length > 100) {
+      setFormError('Mật khẩu phải từ 8 đến 100 ký tự.');
+      return;
+    }
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).+$/;
+    if (!passwordRegex.test(formData.password)) {
+      setFormError('Mật khẩu phải chứa ít nhất 1 chữ cái và 1 chữ số.');
       return;
     }
     if (formData.password !== formData.confirmPassword) {

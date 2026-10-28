@@ -72,7 +72,7 @@ export async function proxy(request: NextRequest) {
   );
   const isAdminRoute = pathname.startsWith('/admin');
   const isWarehouseRoute = pathname.startsWith('/warehouse');
-  const isSaleRoute = pathname.startsWith('/sale');
+  const isSaleRoute = pathname.startsWith('/staff');
   const isGuestOnlyRoute = ['/login', '/register'].some((path) => pathname.startsWith(path));
 
   // 1. Trang bắt buộc đăng nhập (Customer Routes)
@@ -120,7 +120,7 @@ export async function proxy(request: NextRequest) {
     }
     if (isValidToken) {
       const normalizedRole = userRole?.replace(/^ROLE_/, '');
-      if (normalizedRole !== 'ADMIN' && normalizedRole !== 'WAREHOUSE') {
+      if (normalizedRole !== 'ADMIN' && normalizedRole !== 'WAREHOUSE_MANAGER') {
         const forbiddenUrl = new URL('/403', request.url);
         forbiddenUrl.searchParams.set('reason', 'unauthorized');
         return NextResponse.redirect(forbiddenUrl, 307);
@@ -138,7 +138,7 @@ export async function proxy(request: NextRequest) {
     }
     if (isValidToken) {
       const normalizedRole = userRole?.replace(/^ROLE_/, '');
-      if (normalizedRole !== 'ADMIN' && normalizedRole !== 'SALE') {
+      if (normalizedRole !== 'ADMIN' && normalizedRole !== 'STAFF') {
         const forbiddenUrl = new URL('/403', request.url);
         forbiddenUrl.searchParams.set('reason', 'unauthorized');
         return NextResponse.redirect(forbiddenUrl, 307);

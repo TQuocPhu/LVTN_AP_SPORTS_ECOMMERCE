@@ -54,6 +54,7 @@ export const authController = {
     name: string;
     email: string;
     password: string;
+    confirmPassword: string;
     phone?: string;
   }): Promise<ApiResponse<User>> {
     const res = await apiClient.post<ApiResponse<User>>('/customer/auth/register', data);
