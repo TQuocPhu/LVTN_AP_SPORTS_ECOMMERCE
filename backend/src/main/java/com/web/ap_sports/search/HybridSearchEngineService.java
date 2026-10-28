@@ -257,11 +257,24 @@ public class HybridSearchEngineService {
             tokens.addAll(nameTokens);
         }
 
-        // Danh mục sản phẩm -> Nhân trọng số x2
+        // Danh mục sản phẩm (Chính + Phụ, loại trừ trùng lặp) -> Nhân trọng số x2
+        Set<Long> addedCategoryIds = new HashSet<>();
         if (product.getCategory() != null) {
+            if (product.getCategory().getId() != null) {
+                addedCategoryIds.add(product.getCategory().getId());
+            }
             List<String> catTokens = VietnameseTokenizer.tokenize(product.getCategory().getName());
             tokens.addAll(catTokens);
             tokens.addAll(catTokens);
+        }
+        if (product.getCategories() != null) {
+            for (Category c : product.getCategories()) {
+                if (c != null && (c.getId() == null || addedCategoryIds.add(c.getId()))) {
+                    List<String> secCatTokens = VietnameseTokenizer.tokenize(c.getName());
+                    tokens.addAll(secCatTokens);
+                    tokens.addAll(secCatTokens);
+                }
+            }
         }
 
         // Thông tin biến thể (SKU, Color, Size) -> Nhân trọng số x1.5

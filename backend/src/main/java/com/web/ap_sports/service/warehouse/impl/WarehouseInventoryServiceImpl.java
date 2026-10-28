@@ -74,7 +74,8 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         List<InventoryTransaction> savedList = new java.util.ArrayList<>();
 
         for (TransactionItemRequest item : items) {
-            ProductVariant variant = variantRepository.findById(item.getVariantId())
+            ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariantId())
+                    .or(() -> variantRepository.findById(item.getVariantId()))
                     .orElseThrow(() -> new AppException("Biến thể sản phẩm với ID " + item.getVariantId() + " không tồn tại", HttpStatus.NOT_FOUND));
 
             int qty = item.getQuantity();
@@ -126,7 +127,8 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new AppException("Người dùng không tồn tại", HttpStatus.NOT_FOUND));
 
-        ProductVariant variant = variantRepository.findById(request.getVariantId())
+        ProductVariant variant = variantRepository.findByIdForUpdate(request.getVariantId())
+                .or(() -> variantRepository.findById(request.getVariantId()))
                 .orElseThrow(() -> new AppException("Biến thể sản phẩm không tồn tại", HttpStatus.NOT_FOUND));
 
         int currentStock = variant.getStockQuantity();

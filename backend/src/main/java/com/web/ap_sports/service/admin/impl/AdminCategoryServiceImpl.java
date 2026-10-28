@@ -126,10 +126,16 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
             }
             parent = categoryRepository.findById(request.getParentId())
                     .orElseThrow(() -> new AppException("Không tìm thấy danh mục cha với ID: " + request.getParentId(), HttpStatus.BAD_REQUEST));
-            
+
             int parentDepth = getCategoryDepth(parent);
             if (parentDepth >= 3) {
                 throw new AppException("Hệ thống chỉ hỗ trợ tối đa 3 cấp danh mục (Gốc -> Cấp 2 -> Cấp 3). Danh mục '" + parent.getName() + "' đã ở Cấp " + parentDepth + " nên không thể chọn làm danh mục cha.", HttpStatus.BAD_REQUEST);
+            }
+            if (isDescendantOf(parent, id)) {
+                throw new AppException("Không thể chọn danh mục con/cháu làm danh mục cha của chính nó.", HttpStatus.BAD_REQUEST);
+            }
+            if (parentDepth == 2 && categoryRepository.existsByParentId(id)) {
+                throw new AppException("Không thể di chuyển danh mục '" + category.getName() + "' vào danh mục Cấp 2 vì danh mục này đang chứa danh mục con (sẽ vượt quá 3 cấp).", HttpStatus.BAD_REQUEST);
             }
         }
 
@@ -216,6 +222,19 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
             if (depth > 10) break; // Guard against potential loop
         }
         return depth;
+    }
+
+    private boolean isDescendantOf(Category candidateParent, Long targetCategoryId) {
+        int guard = 0;
+        Category current = candidateParent.getParent();
+        while (current != null && guard < 10) {
+            if (targetCategoryId.equals(current.getId())) {
+                return true;
+            }
+            current = current.getParent();
+            guard++;
+        }
+        return false;
     }
 
     private String generateUniqueSlug(String name, Long currentId) {

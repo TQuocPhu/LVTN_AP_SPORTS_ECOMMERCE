@@ -82,9 +82,7 @@ public class AdminProductServiceImpl implements AdminProductService {
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
 
-        List<ProductResponse> responses = productPage.getContent().stream()
-                .map(this::mapToProductResponse)
-                .collect(Collectors.toList());
+        List<ProductResponse> responses = mapToProductResponseList(productPage.getContent());
 
         return new PageImpl<>(responses, pageable, productPage.getTotalElements());
     }
@@ -135,24 +133,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                     .orElseThrow(() -> new AppException("Nhà cung cấp đã chọn không tồn tại trên hệ thống!", HttpStatus.BAD_REQUEST));
         }
 
-        // Pre-upload all product images to Cloudinary IN PARALLEL before DB transaction logic
-        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
-            if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
-                request.setMainImage(urlMap.get(request.getMainImage().trim()));
-            }
-            if (request.getVariants() != null) {
-                for (VariantRequest vr : request.getVariants()) {
-                    if (vr.getImages() != null && !vr.getImages().isEmpty()) {
-                        List<String> updatedImgs = vr.getImages().stream()
-                                .map(img -> urlMap.getOrDefault(img.trim(), img))
-                                .collect(Collectors.toList());
-                        vr.setImages(updatedImgs);
-                    }
-                }
-            }
-        });
-
-        // Validate slug uniqueness
+        // Validate slug uniqueness BEFORE uploading images to Cloudinary
         String slug = StringUtils.hasText(request.getSlug())
                 ? toSlug(request.getSlug())
                 : toSlug(request.getName());
@@ -161,8 +142,13 @@ public class AdminProductServiceImpl implements AdminProductService {
             throw new AppException("Slug sản phẩm '" + slug + "' đã tồn tại trong hệ thống.", HttpStatus.BAD_REQUEST);
         }
 
-        // Validate variants SKUs
+        // Validate variants SKUs (both internal duplicate in request and DB uniqueness)
+        Set<String> seenSkus = new HashSet<>();
         for (VariantRequest vr : request.getVariants()) {
+            String normalizedSku = vr.getSku() != null ? vr.getSku().trim().toUpperCase() : "";
+            if (StringUtils.hasText(normalizedSku) && !seenSkus.add(normalizedSku)) {
+                throw new AppException("Mã SKU '" + vr.getSku().trim() + "' bị trùng lặp ngay trong danh sách biến thể gửi lên.", HttpStatus.BAD_REQUEST);
+            }
             if (variantRepository.existsBySku(vr.getSku())) {
                 throw new AppException("Mã SKU '" + vr.getSku() + "' đã tồn tại trên hệ thống.", HttpStatus.BAD_REQUEST);
             }
@@ -180,6 +166,23 @@ public class AdminProductServiceImpl implements AdminProductService {
 
         Category primaryCategory = categoryRepository.findById(primaryCatId)
                 .orElseThrow(() -> new AppException("Không tìm thấy danh mục chính ID: " + primaryCatId, HttpStatus.BAD_REQUEST));
+
+        // Pre-upload all product images to Cloudinary IN PARALLEL only AFTER all validations succeed
+        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
+            if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
+                request.setMainImage(urlMap.get(request.getMainImage().trim()));
+            }
+            if (request.getVariants() != null) {
+                for (VariantRequest vr : request.getVariants()) {
+                    if (vr.getImages() != null && !vr.getImages().isEmpty()) {
+                        List<String> updatedImgs = vr.getImages().stream()
+                                .map(img -> urlMap.getOrDefault(img.trim(), img))
+                                .collect(Collectors.toList());
+                        vr.setImages(updatedImgs);
+                    }
+                }
+            }
+        });
 
         // Calculate initial total stock from variants
         int totalStock = request.getVariants().stream()
@@ -264,23 +267,6 @@ public class AdminProductServiceImpl implements AdminProductService {
     @Override
     @Transactional
     public ProductDetailResponse updateProduct(Long id, UpdateProductRequest request) {
-        // Pre-upload all product images to Cloudinary IN PARALLEL before DB transaction logic
-        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
-            if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
-                request.setMainImage(urlMap.get(request.getMainImage().trim()));
-            }
-            if (request.getVariants() != null) {
-                for (VariantRequest vr : request.getVariants()) {
-                    if (vr.getImages() != null && !vr.getImages().isEmpty()) {
-                        List<String> updatedImgs = vr.getImages().stream()
-                                .map(img -> urlMap.getOrDefault(img.trim(), img))
-                                .collect(Collectors.toList());
-                        vr.setImages(updatedImgs);
-                    }
-                }
-            }
-        });
-
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy sản phẩm với ID: " + id, HttpStatus.NOT_FOUND));
 
@@ -289,8 +275,13 @@ public class AdminProductServiceImpl implements AdminProductService {
             throw new AppException("Slug sản phẩm '" + slug + "' đã trùng với sản phẩm khác.", HttpStatus.BAD_REQUEST);
         }
 
-        // Validate variants SKUs
+        // Validate variants SKUs (both internal duplicate in request and DB uniqueness)
+        Set<String> seenSkus = new HashSet<>();
         for (VariantRequest vr : request.getVariants()) {
+            String normalizedSku = vr.getSku() != null ? vr.getSku().trim().toUpperCase() : "";
+            if (StringUtils.hasText(normalizedSku) && !seenSkus.add(normalizedSku)) {
+                throw new AppException("Mã SKU '" + vr.getSku().trim() + "' bị trùng lặp ngay trong danh sách biến thể gửi lên.", HttpStatus.BAD_REQUEST);
+            }
             if (vr.getId() == null && variantRepository.existsBySku(vr.getSku())) {
                 throw new AppException("Mã SKU '" + vr.getSku() + "' đã tồn tại trên hệ thống.", HttpStatus.BAD_REQUEST);
             }
@@ -316,6 +307,46 @@ public class AdminProductServiceImpl implements AdminProductService {
         List<ProductVariant> existingVariants = variantRepository.findByProductId(id);
         Map<Long, Integer> existingStockMap = existingVariants.stream()
                 .collect(Collectors.toMap(ProductVariant::getId, ProductVariant::getStockQuantity));
+
+        // Validate deletion of old variants not included in request BEFORE uploading any images
+        Set<Long> requestVariantIds = request.getVariants().stream()
+                .map(VariantRequest::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        List<ProductVariant> variantsToDelete = new ArrayList<>();
+        for (ProductVariant oldVar : existingVariants) {
+            if (!requestVariantIds.contains(oldVar.getId())) {
+                if (orderItemRepository.existsByVariantId(oldVar.getId())) {
+                    throw new AppException("Phân loại hàng [SKU: " + oldVar.getSku() + "] đã phát sinh trong đơn hàng của khách, không thể xóa bỏ. Vui lòng giữ lại phân loại này.", HttpStatus.BAD_REQUEST);
+                }
+                if (transactionRepository.existsByVariantId(oldVar.getId())) {
+                    throw new AppException("Phân loại hàng [SKU: " + oldVar.getSku() + "] đã phát sinh phiếu nhập/xuất kho, không thể xóa bỏ. Vui lòng giữ lại phân loại này.", HttpStatus.BAD_REQUEST);
+                }
+                variantsToDelete.add(oldVar);
+            }
+        }
+
+        // Pre-upload all product images to Cloudinary IN PARALLEL only AFTER all validations succeed
+        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), (urlMap) -> {
+            if (StringUtils.hasText(request.getMainImage()) && urlMap.containsKey(request.getMainImage().trim())) {
+                request.setMainImage(urlMap.get(request.getMainImage().trim()));
+            }
+            if (request.getVariants() != null) {
+                for (VariantRequest vr : request.getVariants()) {
+                    if (vr.getImages() != null && !vr.getImages().isEmpty()) {
+                        List<String> updatedImgs = vr.getImages().stream()
+                                .map(img -> urlMap.getOrDefault(img.trim(), img))
+                                .collect(Collectors.toList());
+                        vr.setImages(updatedImgs);
+                    }
+                }
+            }
+        });
+
+        for (ProductVariant oldVar : variantsToDelete) {
+            variantRepository.delete(oldVar);
+        }
 
         product.setName(request.getName().trim());
         product.setSlug(slug);
@@ -345,24 +376,6 @@ public class AdminProductServiceImpl implements AdminProductService {
                     .isPrimary(true)
                     .build();
             imageRepository.save(newMainImg);
-        }
-
-        // Delete old variants not included in request
-        Set<Long> requestVariantIds = request.getVariants().stream()
-                .map(VariantRequest::getId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        for (ProductVariant oldVar : existingVariants) {
-            if (!requestVariantIds.contains(oldVar.getId())) {
-                if (orderItemRepository.existsByVariantId(oldVar.getId())) {
-                    throw new AppException("Phân loại hàng [SKU: " + oldVar.getSku() + "] đã phát sinh trong đơn hàng của khách, không thể xóa bỏ. Vui lòng giữ lại phân loại này.", HttpStatus.BAD_REQUEST);
-                }
-                if (transactionRepository.existsByVariantId(oldVar.getId())) {
-                    throw new AppException("Phân loại hàng [SKU: " + oldVar.getSku() + "] đã phát sinh phiếu nhập/xuất kho, không thể xóa bỏ. Vui lòng giữ lại phân loại này.", HttpStatus.BAD_REQUEST);
-                }
-                variantRepository.delete(oldVar);
-            }
         }
 
         // Update or create variants without altering stock quantity
@@ -506,17 +519,52 @@ public class AdminProductServiceImpl implements AdminProductService {
         return String.format("%s-%s-%d", prefix, timestamp, randomSeq);
     }
 
+    private List<ProductResponse> mapToProductResponseList(List<Product> products) {
+        if (products == null || products.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> productIds = products.stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        List<ProductVariant> batchVariants = variantRepository.findByProductIdIn(productIds);
+        Map<Long, List<ProductVariant>> variantMap = batchVariants != null
+                ? batchVariants.stream()
+                        .filter(v -> v.getProduct() != null && v.getProduct().getId() != null)
+                        .collect(Collectors.groupingBy(v -> v.getProduct().getId()))
+                : Collections.emptyMap();
+
+        List<ProductImage> batchImages = imageRepository.findByProductIdIn(productIds);
+        Map<Long, List<ProductImage>> imageMap = batchImages != null
+                ? batchImages.stream()
+                        .filter(img -> img.getProduct() != null && img.getProduct().getId() != null)
+                        .collect(Collectors.groupingBy(img -> img.getProduct().getId()))
+                : Collections.emptyMap();
+
+        return products.stream()
+                .map(p -> mapToProductResponse(
+                        p,
+                        variantMap.getOrDefault(p.getId(), Collections.emptyList()),
+                        imageMap.getOrDefault(p.getId(), Collections.emptyList())
+                ))
+                .collect(Collectors.toList());
+    }
+
     private ProductResponse mapToProductResponse(Product product) {
         List<ProductVariant> variants = variantRepository.findByProductId(product.getId());
         List<ProductImage> images = imageRepository.findByProductId(product.getId());
+        return mapToProductResponse(product, variants, images);
+    }
 
+    private ProductResponse mapToProductResponse(Product product, List<ProductVariant> variants, List<ProductImage> images) {
         String mainImage = images.stream()
                 .filter(ProductImage::isPrimary)
                 .map(ProductImage::getImagePath)
                 .findFirst()
                 .orElse(images.isEmpty() ? null : images.get(0).getImagePath());
 
-        List<CategoryResponse> catResponses = product.getCategories().stream()
+        List<CategoryResponse> catResponses = (product.getCategories() != null ? product.getCategories() : Collections.<Category>emptySet()).stream()
                 .map(c -> CategoryResponse.builder()
                         .id(c.getId())
                         .name(c.getName())
@@ -553,7 +601,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                 .findFirst()
                 .orElse(images.isEmpty() ? null : images.get(0).getImagePath());
 
-        List<CategoryResponse> catResponses = product.getCategories().stream()
+        List<CategoryResponse> catResponses = (product.getCategories() != null ? product.getCategories() : Collections.<Category>emptySet()).stream()
                 .map(c -> CategoryResponse.builder()
                         .id(c.getId())
                         .name(c.getName())

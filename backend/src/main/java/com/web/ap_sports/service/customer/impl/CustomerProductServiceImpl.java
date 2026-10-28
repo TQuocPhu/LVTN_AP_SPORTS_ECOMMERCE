@@ -5,6 +5,7 @@ import com.web.ap_sports.dto.response.common.CategoryResponse;
 import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
 import com.web.ap_sports.dto.response.common.VariantResponse;
+import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductImage;
 import com.web.ap_sports.entity.ProductVariant;
@@ -53,9 +54,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
         Page<Product> productPage = productRepository.findAll(spec, pageable);
 
-        List<ProductResponse> responses = productPage.getContent().stream()
-                .map(this::mapToProductResponse)
-                .collect(Collectors.toList());
+        List<ProductResponse> responses = mapToProductResponseList(productPage.getContent(), null);
 
         return new PageImpl<>(responses, pageable, productPage.getTotalElements());
     }
@@ -103,8 +102,11 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         // BƯỚC 2: Trích xuất danh sách Biến thể (Variants: SKU, Color, Size) của các sản phẩm trong Corpus
         List<Long> productIds = corpus.stream().map(Product::getId).collect(Collectors.toList());
         List<ProductVariant> allVariants = variantRepository.findByProductIdIn(productIds);
-        Map<Long, List<ProductVariant>> variantMap = allVariants.stream()
-                .collect(Collectors.groupingBy(v -> v.getProduct().getId()));
+        Map<Long, List<ProductVariant>> variantMap = allVariants != null
+                ? allVariants.stream()
+                        .filter(v -> v.getProduct() != null && v.getProduct().getId() != null)
+                        .collect(Collectors.groupingBy(v -> v.getProduct().getId()))
+                : Collections.emptyMap();
 
         // BƯỚC 3: Thực thi Thuật toán Hybrid Search Engine (Bóc tách từ tiếng Việt, TF-IDF Vector, Cosine Similarity & Ngưỡng lọc THRESHOLD)
         List<Product> rankedProducts = hybridSearchEngineService.rankProducts(keyword, corpus, variantMap);
@@ -116,26 +118,56 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
         List<Product> pageContent = (fromIndex < toIndex) ? rankedProducts.subList(fromIndex, toIndex) : Collections.emptyList();
 
-        List<ProductResponse> responses = pageContent.stream()
-                .map(this::mapToProductResponse)
-                .collect(Collectors.toList());
+        List<ProductResponse> responses = mapToProductResponseList(pageContent, variantMap);
 
         Pageable pageable = PageRequest.of(validPage, validSize);
         return new PageImpl<>(responses, pageable, totalElements);
     }
 
+    private List<ProductResponse> mapToProductResponseList(List<Product> products, Map<Long, List<ProductVariant>> preloadedVariantMap) {
+        if (products == null || products.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> productIds = products.stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-    private ProductResponse mapToProductResponse(Product product) {
-        List<ProductVariant> variants = variantRepository.findByProductId(product.getId());
-        List<ProductImage> images = imageRepository.findByProductId(product.getId());
+        Map<Long, List<ProductVariant>> variantMap = preloadedVariantMap;
+        if (variantMap == null) {
+            List<ProductVariant> batchVariants = variantRepository.findByProductIdIn(productIds);
+            variantMap = batchVariants != null
+                    ? batchVariants.stream()
+                            .filter(v -> v.getProduct() != null && v.getProduct().getId() != null)
+                            .collect(Collectors.groupingBy(v -> v.getProduct().getId()))
+                    : Collections.emptyMap();
+        }
 
+        List<ProductImage> batchImages = imageRepository.findByProductIdIn(productIds);
+        Map<Long, List<ProductImage>> imageMap = batchImages != null
+                ? batchImages.stream()
+                        .filter(img -> img.getProduct() != null && img.getProduct().getId() != null)
+                        .collect(Collectors.groupingBy(img -> img.getProduct().getId()))
+                : Collections.emptyMap();
+
+        Map<Long, List<ProductVariant>> finalVariantMap = variantMap;
+        return products.stream()
+                .map(p -> mapToProductResponse(
+                        p,
+                        finalVariantMap.getOrDefault(p.getId(), Collections.emptyList()),
+                        imageMap.getOrDefault(p.getId(), Collections.emptyList())
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private ProductResponse mapToProductResponse(Product product, List<ProductVariant> variants, List<ProductImage> images) {
         String mainImage = images.stream()
                 .filter(ProductImage::isPrimary)
                 .map(ProductImage::getImagePath)
                 .findFirst()
                 .orElse(images.isEmpty() ? null : images.get(0).getImagePath());
 
-        List<CategoryResponse> catResponses = product.getCategories().stream()
+        List<CategoryResponse> catResponses = (product.getCategories() != null ? product.getCategories() : Collections.<Category>emptySet()).stream()
                 .map(c -> CategoryResponse.builder()
                         .id(c.getId())
                         .name(c.getName())
@@ -172,7 +204,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .findFirst()
                 .orElse(images.isEmpty() ? null : images.get(0).getImagePath());
 
-        List<CategoryResponse> catResponses = product.getCategories().stream()
+        List<CategoryResponse> catResponses = (product.getCategories() != null ? product.getCategories() : Collections.<Category>emptySet()).stream()
                 .map(c -> CategoryResponse.builder()
                         .id(c.getId())
                         .name(c.getName())
@@ -290,4 +322,3 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         }
     }
 }
-
