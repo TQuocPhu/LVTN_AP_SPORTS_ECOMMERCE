@@ -16,6 +16,7 @@ import com.web.ap_sports.dto.response.common.VariantResponse;
 import com.web.ap_sports.dto.response.warehouse.ImportRequestResponse;
 import com.web.ap_sports.dto.response.warehouse.InventoryTransactionResponse;
 import com.web.ap_sports.enums.InboundActionType;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.InventoryTransaction;
 import com.web.ap_sports.entity.Product;
@@ -121,11 +122,16 @@ public class AdminProductServiceImpl implements AdminProductService {
 
         // BE VALIDATION: Chặn tuyệt đối quyền Nhân viên (Staff) can thiệp vào kho (không được lập phiếu nhập kho và không được gửi yêu cầu nhập kho)
         if (isStaff) {
-            if (inboundAction == InboundActionType.DIRECT_IMPORT || inboundAction == InboundActionType.IMPORT_REQUEST) {
-                throw new AppException("Tài khoản Nhân viên không có quyền lập phiếu nhập kho hoặc tạo yêu cầu nhập kho!", HttpStatus.FORBIDDEN);
+            if (request.getSupplierId() != null || hasInitialStock || inboundAction == InboundActionType.DIRECT_IMPORT || inboundAction == InboundActionType.IMPORT_REQUEST) {
+                throw new AppException("Tài khoản Nhân viên (Staff) không có quyền tự lập phiếu nhập kho ban đầu!", HttpStatus.FORBIDDEN);
             }
             inboundAction = InboundActionType.NONE;
             hasInitialStock = false;
+        }
+
+        // Tự động tương thích ngược: Nếu Admin gửi có stockQuantity > 0 và không phải IMPORT_REQUEST -> coi như DIRECT_IMPORT
+        if (!isStaff && hasInitialStock && inboundAction != InboundActionType.IMPORT_REQUEST) {
+            inboundAction = InboundActionType.DIRECT_IMPORT;
         }
 
         // BE VALIDATION: Đối với DIRECT_IMPORT, nếu có số lượng > 0 thì BẮT BUỘC phải chọn Nhà cung cấp
@@ -133,7 +139,7 @@ public class AdminProductServiceImpl implements AdminProductService {
         if (inboundAction == InboundActionType.DIRECT_IMPORT) {
             if (hasInitialStock) {
                 if (request.getSupplierId() == null) {
-                    throw new AppException("Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho nhanh cho sản phẩm mới!", HttpStatus.BAD_REQUEST);
+                    throw new AppException("Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho cho sản phẩm mới!", HttpStatus.BAD_REQUEST);
                 }
                 supplier = supplierRepository.findById(request.getSupplierId())
                         .orElseThrow(() -> new AppException("Nhà cung cấp đã chọn không tồn tại trên hệ thống!", HttpStatus.BAD_REQUEST));
@@ -245,6 +251,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                     .price(vr.getPrice())
                     .costPrice(vr.getCostPrice())
                     .stockQuantity(qtyToSave)
+                    .status(vr.getStatus() != null ? vr.getStatus() : ProductVariantStatus.ACTIVE)
                     .images(vr.getImages())
                     .build();
             variantsToSave.add(copy);
@@ -471,6 +478,9 @@ public class AdminProductServiceImpl implements AdminProductService {
             variant.setAttributes(attributesJson);
             variant.setPrice(vr.getPrice());
             variant.setCostPrice(vr.getCostPrice());
+            if (vr.getStatus() != null) {
+                variant.setStatus(vr.getStatus());
+            }
 
             // Ensure stock quantity is untouched from existing database state
             if (existingStockMap.containsKey(variant.getId())) {
@@ -528,6 +538,57 @@ public class AdminProductServiceImpl implements AdminProductService {
 
     @Override
     @Transactional
+    public VariantResponse toggleVariantStatus(Long productId, Long variantId) {
+        ProductVariant variant = variantRepository.findById(variantId)
+                .orElseThrow(() -> new AppException("Không tìm thấy biến thể với ID: " + variantId, HttpStatus.NOT_FOUND));
+
+        if (!variant.getProduct().getId().equals(productId)) {
+            throw new AppException("Biến thể không thuộc sản phẩm này", HttpStatus.BAD_REQUEST);
+        }
+
+        ProductVariantStatus newStatus = (variant.getStatus() == ProductVariantStatus.DISCONTINUED)
+                ? ProductVariantStatus.ACTIVE
+                : ProductVariantStatus.DISCONTINUED;
+
+        variant.setStatus(newStatus);
+        ProductVariant saved = variantRepository.save(variant);
+
+        List<ProductImage> images = imageRepository.findByProductId(productId);
+        List<String> vImgs = images.stream()
+                .filter(img -> img.getVariant() != null && img.getVariant().getId().equals(saved.getId()))
+                .map(ProductImage::getImagePath)
+                .collect(Collectors.toList());
+
+        String variantName = null;
+        if (saved.getAttributes() != null && !saved.getAttributes().isBlank()) {
+            variantName = saved.getAttributes();
+        } else {
+            List<String> parts = new ArrayList<>();
+            if (saved.getSize() != null && !saved.getSize().isBlank()) parts.add("Size: " + saved.getSize());
+            if (saved.getColor() != null && !saved.getColor().isBlank()) parts.add("Màu: " + saved.getColor());
+            if (!parts.isEmpty()) variantName = String.join(" | ", parts);
+        }
+
+        return VariantResponse.builder()
+                .id(saved.getId())
+                .sku(saved.getSku())
+                .size(saved.getSize())
+                .color(saved.getColor())
+                .attributes(saved.getAttributes())
+                .variantName(variantName)
+                .price(saved.getPrice())
+                .costPrice(saved.getCostPrice())
+                .stockQuantity(saved.getStockQuantity())
+                .status(saved.getStatus())
+                .version(saved.getVersion())
+                .images(vImgs)
+                .createdAt(saved.getCreatedAt())
+                .updatedAt(saved.getUpdatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy sản phẩm với ID: " + id, HttpStatus.NOT_FOUND));
@@ -561,6 +622,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                     .price(vr.getPrice())
                     .costPrice(vr.getCostPrice())
                     .stockQuantity(vr.getStockQuantity() != null ? vr.getStockQuantity() : 0)
+                    .status(vr.getStatus() != null ? vr.getStatus() : ProductVariantStatus.ACTIVE)
                     .build();
 
             ProductVariant savedVariant = variantRepository.save(variant);
@@ -708,6 +770,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                             .price(v.getPrice())
                             .costPrice(v.getCostPrice())
                             .stockQuantity(v.getStockQuantity())
+                            .status(v.getStatus() != null ? v.getStatus() : ProductVariantStatus.ACTIVE)
                             .version(v.getVersion())
                             .images(vImgs)
                             .createdAt(v.getCreatedAt())

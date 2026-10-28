@@ -22,6 +22,8 @@ public class CartItemResponse {
     private String color;
     private String attributes;
     private String variantName;
+    private String variantStatus;
+    private Boolean isDiscontinued;
 
     private BigDecimal price;
     private Integer stockQuantity;

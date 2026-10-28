@@ -9,6 +9,7 @@ import com.web.ap_sports.dto.response.warehouse.ImportRequestResponse;
 import com.web.ap_sports.entity.*;
 import com.web.ap_sports.enums.ImportRequestStatus;
 import com.web.ap_sports.enums.NotificationActionType;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.common.InventoryAlertService;
@@ -90,6 +91,10 @@ public class WarehouseImportRequestServiceImpl implements WarehouseImportRequest
         Product product = productRepository.findById(dto.getProductId())
                 .orElseThrow(() -> new AppException("Sản phẩm không tồn tại với ID: " + dto.getProductId(), HttpStatus.NOT_FOUND));
 
+        if ("discontinued".equalsIgnoreCase(product.getStatus())) {
+            throw new AppException("Sản phẩm [" + product.getName() + "] đã ngừng kinh doanh, không thể tạo yêu cầu nhập kho.", HttpStatus.BAD_REQUEST);
+        }
+
         Supplier supplier = null;
         if (dto.getSupplierId() != null) {
             supplier = supplierRepository.findById(dto.getSupplierId())
@@ -113,6 +118,10 @@ public class WarehouseImportRequestServiceImpl implements WarehouseImportRequest
         for (var itemDto : dto.getItems()) {
             ProductVariant variant = variantRepository.findById(itemDto.getVariantId())
                     .orElseThrow(() -> new AppException("Biến thể ID " + itemDto.getVariantId() + " không tồn tại", HttpStatus.BAD_REQUEST));
+
+            if (variant.getStatus() == ProductVariantStatus.DISCONTINUED) {
+                throw new AppException("Biến thể [" + variant.getSku() + "] đã ngừng kinh doanh, không thể tạo yêu cầu nhập kho.", HttpStatus.BAD_REQUEST);
+            }
 
             ImportRequestItem item = ImportRequestItem.builder()
                     .importRequest(request)
@@ -209,6 +218,10 @@ public class WarehouseImportRequestServiceImpl implements WarehouseImportRequest
                 ProductVariant variant = variantRepository.findByIdForUpdate(item.getVariant().getId())
                         .or(() -> variantRepository.findById(item.getVariant().getId()))
                         .orElseThrow(() -> new AppException("Biến thể ID " + item.getVariant().getId() + " không tồn tại", HttpStatus.NOT_FOUND));
+
+                if (variant.getStatus() == ProductVariantStatus.DISCONTINUED) {
+                    throw new AppException("Biến thể [" + variant.getSku() + "] đã ngừng kinh doanh, không thể phê duyệt nhập kho.", HttpStatus.BAD_REQUEST);
+                }
 
                 int oldStock = variant.getStockQuantity();
                 variant.setStockQuantity(oldStock + approvedQty);

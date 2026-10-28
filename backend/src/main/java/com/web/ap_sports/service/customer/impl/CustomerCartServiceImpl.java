@@ -9,6 +9,7 @@ import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductImage;
 import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.entity.User;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.CartItemRepository;
 import com.web.ap_sports.repository.ProductImageRepository;
@@ -69,6 +70,10 @@ public class CustomerCartServiceImpl implements CustomerCartService {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new AppException("Sản phẩm không tồn tại", HttpStatus.NOT_FOUND));
 
+        if ("discontinued".equalsIgnoreCase(product.getStatus())) {
+            throw new AppException("Sản phẩm đã ngừng kinh doanh, không thể thêm vào giỏ hàng", HttpStatus.BAD_REQUEST);
+        }
+
         ProductVariant variant = null;
         if (request.getVariantId() != null) {
             variant = productVariantRepository.findById(request.getVariantId())
@@ -76,6 +81,10 @@ public class CustomerCartServiceImpl implements CustomerCartService {
 
             if (!variant.getProduct().getId().equals(product.getId())) {
                 throw new AppException("Biến thể không thuộc sản phẩm này", HttpStatus.BAD_REQUEST);
+            }
+
+            if (variant.getStatus() == ProductVariantStatus.DISCONTINUED) {
+                throw new AppException("Biến thể sản phẩm này đã ngừng kinh doanh, không thể thêm vào giỏ hàng", HttpStatus.BAD_REQUEST);
             }
         } else {
             // Validate: Nếu sản phẩm có biến thể mà không truyền variantId thì báo lỗi
@@ -131,6 +140,13 @@ public class CustomerCartServiceImpl implements CustomerCartService {
 
         if (!cartItem.getUser().getId().equals(userId)) {
             throw new AppException("Không có quyền thao tác trên giỏ hàng này", HttpStatus.FORBIDDEN);
+        }
+
+        if (cartItem.getProduct() != null && "discontinued".equalsIgnoreCase(cartItem.getProduct().getStatus())) {
+            throw new AppException("Sản phẩm đã ngừng kinh doanh, không thể cập nhật", HttpStatus.BAD_REQUEST);
+        }
+        if (cartItem.getVariant() != null && cartItem.getVariant().getStatus() == ProductVariantStatus.DISCONTINUED) {
+            throw new AppException("Biến thể sản phẩm này đã ngừng kinh doanh, không thể cập nhật", HttpStatus.BAD_REQUEST);
         }
 
         int availableStock = (cartItem.getVariant() != null) 
@@ -206,6 +222,9 @@ public class CustomerCartServiceImpl implements CustomerCartService {
             }
         }
 
+        boolean isDiscontinued = (p != null && "discontinued".equalsIgnoreCase(p.getStatus()))
+                || (v != null && v.getStatus() == ProductVariantStatus.DISCONTINUED);
+
         return CartItemResponse.builder()
                 .id(cartItem.getId())
                 .productId(p.getId())
@@ -218,13 +237,15 @@ public class CustomerCartServiceImpl implements CustomerCartService {
                 .color(v != null ? v.getColor() : null)
                 .attributes(v != null ? v.getAttributes() : null)
                 .variantName(variantName)
+                .variantStatus(v != null && v.getStatus() != null ? v.getStatus().name() : null)
+                .isDiscontinued(isDiscontinued)
                 .price(price)
                 .stockQuantity(stockQuantity)
                 .quantity(cartItem.getQuantity())
                 .subtotal(subtotal)
                 .weight((p.getWeight() != null && p.getWeight() > 0) ? p.getWeight() : 500)
-                .inStock(stockQuantity > 0)
-                .isSelected(cartItem.getIsSelected() != null ? cartItem.getIsSelected() : true)
+                .inStock(stockQuantity > 0 && !isDiscontinued)
+                .isSelected(isDiscontinued ? false : (cartItem.getIsSelected() != null ? cartItem.getIsSelected() : true))
                 .build();
     }
 
@@ -238,6 +259,13 @@ public class CustomerCartServiceImpl implements CustomerCartService {
             throw new AppException("Không có quyền thao tác trên giỏ hàng này", HttpStatus.FORBIDDEN);
         }
 
+        if (cartItem.getProduct() != null && "discontinued".equalsIgnoreCase(cartItem.getProduct().getStatus())) {
+            throw new AppException("Sản phẩm đã ngừng kinh doanh, không thể chọn để đặt hàng.", HttpStatus.BAD_REQUEST);
+        }
+        if (cartItem.getVariant() != null && cartItem.getVariant().getStatus() == ProductVariantStatus.DISCONTINUED) {
+            throw new AppException("Biến thể sản phẩm này đã ngừng kinh doanh, không thể chọn để đặt hàng.", HttpStatus.BAD_REQUEST);
+        }
+
         boolean currentSelected = !Boolean.FALSE.equals(cartItem.getIsSelected());
         cartItem.setIsSelected(!currentSelected);
         CartItem saved = cartItemRepository.save(cartItem);
@@ -249,7 +277,9 @@ public class CustomerCartServiceImpl implements CustomerCartService {
     public void toggleSelectAll(Long userId, boolean isSelected) {
         List<CartItem> cartItems = cartItemRepository.findByUserIdOrderByCreatedAtDesc(userId);
         for (CartItem item : cartItems) {
-            item.setIsSelected(isSelected);
+            boolean isItemDiscontinued = (item.getProduct() != null && "discontinued".equalsIgnoreCase(item.getProduct().getStatus()))
+                    || (item.getVariant() != null && item.getVariant().getStatus() == ProductVariantStatus.DISCONTINUED);
+            item.setIsSelected(isSelected && !isItemDiscontinued);
         }
         cartItemRepository.saveAll(cartItems);
     }

@@ -277,6 +277,21 @@ class CartAndShippingAddressServiceTest {
         }
 
         @Test
+        @DisplayName("TC-CART-05.1: Chặn thêm biến thể đã ngừng kinh doanh (DISCONTINUED) vào giỏ hàng")
+        void addToCart_DiscontinuedVariant_ThrowsBadRequest() {
+            sampleVariant.setStatus(com.web.ap_sports.enums.ProductVariantStatus.DISCONTINUED);
+            when(userRepository.findById(100L)).thenReturn(Optional.of(customerUser));
+            when(productRepository.findById(50L)).thenReturn(Optional.of(sampleProduct));
+            when(productVariantRepository.findById(10L)).thenReturn(Optional.of(sampleVariant));
+
+            AddToCartRequest req = AddToCartRequest.builder().productId(50L).variantId(10L).quantity(1).build();
+
+            AppException ex = assertThrows(AppException.class, () -> cartService.addToCart(100L, req));
+            assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+            assertTrue(ex.getMessage().contains("đã ngừng kinh doanh"));
+        }
+
+        @Test
         @DisplayName("TC-CART-06: Cập nhật số lượng mặt hàng trong giỏ (updateCartItem) thành công & Chặn khi vượt quá tồn kho")
         void updateCartItem_SuccessAndExceedsStockException() {
             sampleVariant.setStockQuantity(8);

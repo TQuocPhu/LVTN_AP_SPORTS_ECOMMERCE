@@ -6,6 +6,7 @@ import com.web.ap_sports.dto.request.common.ProductFilterRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
 import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
+import com.web.ap_sports.dto.response.common.VariantResponse;
 import com.web.ap_sports.service.admin.AdminProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,14 @@ public class AdminProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> toggleProductStatus(@PathVariable("id") Long id) {
         ProductResponse updated = adminProductService.toggleProductStatus(id);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái sản phẩm thành công.", updated));
+    }
+
+    @PatchMapping("/{productId}/variants/{variantId}/toggle-status")
+    public ResponseEntity<ApiResponse<VariantResponse>> toggleVariantStatus(
+            @PathVariable("productId") Long productId,
+            @PathVariable("variantId") Long variantId) {
+        VariantResponse updated = adminProductService.toggleVariantStatus(productId, variantId);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái biến thể thành công.", updated));
     }
 
     @DeleteMapping("/{id}")

@@ -1,5 +1,6 @@
 package com.web.ap_sports.dto.request.admin;
 
+import com.web.ap_sports.enums.ProductVariantStatus;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -40,6 +41,8 @@ public class VariantRequest {
     // Stock quantity is mandatory during creation, ignored/locked during product update
     @Min(value = 0, message = "Số lượng tồn kho phải lớn hơn hoặc bằng 0")
     private Integer stockQuantity;
+
+    private ProductVariantStatus status; // ACTIVE, DISCONTINUED
 
     @Builder.Default
     private List<String> images = new ArrayList<>();

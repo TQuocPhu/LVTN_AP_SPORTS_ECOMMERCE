@@ -10,6 +10,7 @@ import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductImage;
 import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.exception.AppException;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ProductRepository;
 import com.web.ap_sports.repository.ProductVariantRepository;
@@ -276,6 +277,7 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                             .price(v.getPrice())
                             .costPrice(v.getCostPrice())
                             .stockQuantity(v.getStockQuantity())
+                            .status(v.getStatus() != null ? v.getStatus() : ProductVariantStatus.ACTIVE)
                             .version(v.getVersion())
                             .images(vImgs)
                             .createdAt(v.getCreatedAt())

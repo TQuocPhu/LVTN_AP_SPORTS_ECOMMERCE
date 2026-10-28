@@ -1,5 +1,6 @@
 package com.web.ap_sports.entity;
 
+import com.web.ap_sports.enums.ProductVariantStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -44,6 +45,11 @@ public class ProductVariant {
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 30)
+    @Builder.Default
+    private ProductVariantStatus status = ProductVariantStatus.ACTIVE;
+
     @Version
     private Long version;
 
@@ -60,12 +66,18 @@ public class ProductVariant {
         if (barcode == null || barcode.trim().isEmpty()) {
             barcode = sku;
         }
+        if (status == null) {
+            status = ProductVariantStatus.ACTIVE;
+        }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
+        if (status == null) {
+            status = ProductVariantStatus.ACTIVE;
+        }
         updatedAt = LocalDateTime.now();
     }
 }

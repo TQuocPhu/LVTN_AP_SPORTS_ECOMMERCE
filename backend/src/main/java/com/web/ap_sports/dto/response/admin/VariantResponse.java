@@ -1,5 +1,6 @@
 package com.web.ap_sports.dto.response.admin;
 
+import com.web.ap_sports.enums.ProductVariantStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ public class VariantResponse {
     private BigDecimal price;
     private BigDecimal costPrice;
     private Integer stockQuantity;
+    private ProductVariantStatus status;
     private Long version;
 
     @Builder.Default

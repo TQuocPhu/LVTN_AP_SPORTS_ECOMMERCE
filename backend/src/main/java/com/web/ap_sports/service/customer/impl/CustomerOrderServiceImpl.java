@@ -9,6 +9,7 @@ import com.web.ap_sports.dto.response.customer.ShippingAddressResponse;
 import com.web.ap_sports.dto.response.customer.VNPayIpnResponse;
 import com.web.ap_sports.entity.*;
 import com.web.ap_sports.enums.OrderStatus;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.enums.PaymentStatus;
 import com.web.ap_sports.event.OrderPlacedEvent;
 import com.web.ap_sports.event.OrderCancelledByCustomerEvent;
@@ -115,6 +116,16 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         BigDecimal totalPrice = BigDecimal.ZERO;
         int totalWeight = 0;
         for (CartItem item : cartItems) {
+            Product prodCheck = item.getProduct();
+            if (prodCheck != null && "discontinued".equalsIgnoreCase(prodCheck.getStatus())) {
+                throw new AppException("Sản phẩm [" + prodCheck.getName() + "] đã ngừng kinh doanh. Vui lòng bỏ chọn để tiếp tục.", HttpStatus.BAD_REQUEST);
+            }
+            if (item.getVariant() != null) {
+                ProductVariant vCheck = item.getVariant();
+                if (vCheck.getStatus() == ProductVariantStatus.DISCONTINUED) {
+                    throw new AppException("Biến thể [" + (vCheck.getSku() != null ? vCheck.getSku() : "") + "] của sản phẩm " + (prodCheck != null ? "[" + prodCheck.getName() + "]" : "") + " đã ngừng kinh doanh. Vui lòng bỏ chọn để tiếp tục.", HttpStatus.BAD_REQUEST);
+                }
+            }
             BigDecimal price = item.getVariant() != null && item.getVariant().getPrice() != null
                     ? item.getVariant().getPrice()
                     : item.getProduct().getPrice();
@@ -328,6 +339,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             if (product != null) {
                 Product lockedProduct = productRepository.findByIdForUpdate(product.getId())
                         .orElseThrow(() -> new AppException("Sản phẩm không tồn tại", HttpStatus.NOT_FOUND));
+                if ("discontinued".equalsIgnoreCase(lockedProduct.getStatus())) {
+                    throw new AppException("Sản phẩm [" + lockedProduct.getName() + "] đã ngừng kinh doanh.", HttpStatus.BAD_REQUEST);
+                }
                 int currentProductStock = lockedProduct.getStock() != null ? lockedProduct.getStock() : 0;
                 if (currentProductStock < cartItem.getQuantity()) {
                     throw new AppException("Sản phẩm " + lockedProduct.getName() + " không đủ số lượng trong kho.", HttpStatus.BAD_REQUEST);
@@ -344,6 +358,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 ProductVariant variant = cartItem.getVariant();
                 ProductVariant lockedVariant = productVariantRepository.findByIdForUpdate(variant.getId())
                         .orElseThrow(() -> new AppException("Phân loại hàng không tồn tại", HttpStatus.NOT_FOUND));
+                if (lockedVariant.getStatus() == ProductVariantStatus.DISCONTINUED) {
+                    throw new AppException("Phân loại hàng [" + lockedVariant.getSku() + "] của sản phẩm đã ngừng kinh doanh.", HttpStatus.BAD_REQUEST);
+                }
                 int currentVariantStock = lockedVariant.getStockQuantity() != null ? lockedVariant.getStockQuantity() : 0;
                 if (currentVariantStock < cartItem.getQuantity()) {
                     throw new AppException("Phân loại hàng đã chọn của sản phẩm không đủ số lượng trong kho.", HttpStatus.BAD_REQUEST);

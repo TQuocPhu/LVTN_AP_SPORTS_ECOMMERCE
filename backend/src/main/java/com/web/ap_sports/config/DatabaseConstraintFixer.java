@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Tự động kiểm tra và dọn dẹp các Check Constraint Enum cũ của Hibernate trên PostgreSQL.
- * Đảm bảo các giá trị Enum mới thêm (như IMPORT_REQUEST_CREATED, IMPORT_REQUEST_APPROVED, v.v.)
+ * Đảm bảo các giá trị Enum mới thêm (như IMPORT_REQUEST_CREATED, IMPORT_REQUEST_APPROVED, ProductVariantStatus, v.v.)
  * không bị cơ chế kiểm tra cũ của PostgreSQL chặn lại gây lỗi AssertionFailure / Session Flush.
  */
 @Component
@@ -36,6 +36,15 @@ public class DatabaseConstraintFixer implements ApplicationRunner {
         } catch (Exception e) {
             log.warn("Không thể drop constraint import_requests_status_check: {}", e.getMessage());
         }
+
+        try {
+            // Tự động thêm cột status vào product_variants nếu chưa tồn tại và loại bỏ constraint cũ nếu có
+            jdbcTemplate.execute("ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'ACTIVE'");
+            jdbcTemplate.execute("UPDATE product_variants SET status = 'ACTIVE' WHERE status IS NULL");
+            jdbcTemplate.execute("ALTER TABLE product_variants DROP CONSTRAINT IF EXISTS product_variants_status_check");
+            log.info("✓ Đã kiểm tra và đồng bộ cấu trúc cột status cho bảng 'product_variants' trên PostgreSQL.");
+        } catch (Exception e) {
+            log.warn("Không thể kiểm tra/cập nhật status trên product_variants: {}", e.getMessage());
+        }
     }
 }
-

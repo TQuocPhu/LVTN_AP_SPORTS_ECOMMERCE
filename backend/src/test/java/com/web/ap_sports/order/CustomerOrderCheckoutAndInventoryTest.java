@@ -535,4 +535,40 @@ class CustomerOrderCheckoutAndInventoryTest {
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         assertTrue(ex.getMessage().contains("hiện đã hết hàng hoặc không đủ số lượng để thanh toán lại"));
     }
+
+    @Test
+    @DisplayName("TC-ORD-11: Chặn đặt hàng khi giỏ hàng chứa biến thể đã ngừng kinh doanh (DISCONTINUED)")
+    void createOrder_ThrowsWhenVariantIsDiscontinued() {
+        ProductVariant discontinuedVariant = ProductVariant.builder()
+                .id(99L)
+                .sku("VAR-DISCONTINUED")
+                .status(com.web.ap_sports.enums.ProductVariantStatus.DISCONTINUED)
+                .price(new BigDecimal("100000"))
+                .stockQuantity(10)
+                .build();
+        CartItem discontinuedCartItem = CartItem.builder()
+                .id(1L)
+                .user(customerUser)
+                .product(sampleProduct)
+                .variant(discontinuedVariant)
+                .quantity(1)
+                .isSelected(true)
+                .build();
+
+        when(userRepository.findByEmail("customer@apsports.com")).thenReturn(Optional.of(customerUser));
+        when(cartItemRepository.findByUserIdAndIdIn(100L, List.of(1L))).thenReturn(List.of(discontinuedCartItem));
+        when(shippingAddressRepository.findByIdAndUserId(10L, 100L)).thenReturn(Optional.of(validAddress));
+
+        CreateOrderRequest request = CreateOrderRequest.builder()
+                .cartItemIds(List.of(1L))
+                .shippingAddressId(10L)
+                .paymentMethod("COD")
+                .build();
+
+        AppException ex = assertThrows(AppException.class,
+                () -> customerOrderService.createOrder("customer@apsports.com", request, "127.0.0.1"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertTrue(ex.getMessage().contains("đã ngừng kinh doanh"));
+    }
 }

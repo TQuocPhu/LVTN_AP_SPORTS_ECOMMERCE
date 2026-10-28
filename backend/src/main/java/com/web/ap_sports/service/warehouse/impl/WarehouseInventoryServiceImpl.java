@@ -8,6 +8,7 @@ import com.web.ap_sports.dto.response.warehouse.InventoryTransactionResponse;
 import com.web.ap_sports.dto.response.warehouse.LowStockVariantResponse;
 import com.web.ap_sports.entity.*;
 import com.web.ap_sports.entity.InventoryTransaction.TransactionType;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.common.InventoryAlertService;
@@ -81,6 +82,12 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
             int qty = item.getQuantity();
             int oldStock = variant.getStockQuantity();
             if (request.getType() == TransactionType.IMPORT) {
+                if (variant.getStatus() == ProductVariantStatus.DISCONTINUED) {
+                    throw new AppException("Biến thể [" + variant.getSku() + "] đã ngừng kinh doanh, không thể nhập kho.", HttpStatus.BAD_REQUEST);
+                }
+                if (variant.getProduct() != null && "discontinued".equalsIgnoreCase(variant.getProduct().getStatus())) {
+                    throw new AppException("Sản phẩm [" + variant.getProduct().getName() + "] đã ngừng kinh doanh, không thể nhập kho.", HttpStatus.BAD_REQUEST);
+                }
                 variant.setStockQuantity(oldStock + qty);
                 if (item.getUnitCost() != null && item.getUnitCost().compareTo(BigDecimal.ZERO) > 0) {
                     variant.setCostPrice(item.getUnitCost());

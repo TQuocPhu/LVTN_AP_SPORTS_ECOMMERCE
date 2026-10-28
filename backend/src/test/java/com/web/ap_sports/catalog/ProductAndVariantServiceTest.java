@@ -854,5 +854,34 @@ class ProductAndVariantServiceTest {
                     () -> customerProductService.getProductBySlugOrId("khong-ton-tai"));
             assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
         }
+
+        @Test
+        @DisplayName("TC-PROD-08.2: Admin chuyển đổi trạng thái kinh doanh của biến thể (ACTIVE <-> DISCONTINUED)")
+        void toggleVariantStatus_Success() {
+            Product prod = Product.builder().id(100L).name("Áo Thun Thể Thao").build();
+            ProductVariant variant = ProductVariant.builder()
+                    .id(200L)
+                    .product(prod)
+                    .sku("AO-DO-L")
+                    .status(com.web.ap_sports.enums.ProductVariantStatus.ACTIVE)
+                    .stockQuantity(15)
+                    .price(new BigDecimal("250000"))
+                    .costPrice(new BigDecimal("150000"))
+                    .build();
+
+            when(variantRepository.findById(200L)).thenReturn(Optional.of(variant));
+            when(variantRepository.save(any(ProductVariant.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(imageRepository.findByProductId(100L)).thenReturn(List.of());
+
+            com.web.ap_sports.dto.response.common.VariantResponse res = adminProductService.toggleVariantStatus(100L, 200L);
+            assertNotNull(res);
+            assertEquals(com.web.ap_sports.enums.ProductVariantStatus.DISCONTINUED, res.getStatus());
+            assertEquals(com.web.ap_sports.enums.ProductVariantStatus.DISCONTINUED, variant.getStatus());
+
+            // Chuyển ngược lại sang ACTIVE
+            com.web.ap_sports.dto.response.common.VariantResponse res2 = adminProductService.toggleVariantStatus(100L, 200L);
+            assertEquals(com.web.ap_sports.enums.ProductVariantStatus.ACTIVE, res2.getStatus());
+            assertEquals(com.web.ap_sports.enums.ProductVariantStatus.ACTIVE, variant.getStatus());
+        }
     }
 }

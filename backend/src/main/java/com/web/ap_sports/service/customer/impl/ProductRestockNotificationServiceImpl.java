@@ -10,6 +10,7 @@ import com.web.ap_sports.entity.ProductRestockNotification;
 import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.entity.User;
 import com.web.ap_sports.enums.NotificationActionType;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ProductRepository;
@@ -66,6 +67,10 @@ public class ProductRestockNotificationServiceImpl implements ProductRestockNoti
         // Kiểm tra nếu sản phẩm đã ngừng kinh doanh vĩnh viễn (discontinued)
         if (product.getStatus() != null && "discontinued".equalsIgnoreCase(product.getStatus())) {
             throw new AppException("Sản phẩm đã ngừng kinh doanh hoàn toàn, không thể đăng ký nhận tin về hàng", HttpStatus.BAD_REQUEST);
+        }
+
+        if (variant.getStatus() == ProductVariantStatus.DISCONTINUED) {
+            throw new AppException("Biến thể này đã ngừng kinh doanh hoàn toàn, không thể đăng ký nhận tin về hàng", HttpStatus.BAD_REQUEST);
         }
 
         // Kiểm tra nếu biến thể này vẫn còn hàng trong kho
