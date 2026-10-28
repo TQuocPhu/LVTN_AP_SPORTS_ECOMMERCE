@@ -17,6 +17,7 @@ export default function AdminSidebar() {
     isItemActive,
     lowStockCount,
     waitingSupportCount,
+    pendingImportCount,
   } = useAdminSidebar();
 
   const isProfileActive = pathname === '/admin/profile';
@@ -78,6 +79,9 @@ export default function AdminSidebar() {
           const hasWaitingSupportInGroup = group.items.some(
             (i) => i.badge === 'supportQueue' && waitingSupportCount > 0
           );
+          const hasPendingImportInGroup = group.items.some(
+            (i) => i.badge === 'importRequests' && pendingImportCount > 0
+          );
 
           return (
             <div key={group.id} className="pt-1">
@@ -115,6 +119,14 @@ export default function AdminSidebar() {
                       title={`Hàng đợi tư vấn: Có ${waitingSupportCount} khách hàng đang chờ`}
                     >
                       {waitingSupportCount}
+                    </span>
+                  )}
+                  {hasPendingImportInGroup && (
+                    <span
+                      className="inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] font-bold text-white bg-amber-500 border border-amber-300 rounded-full animate-pulse shadow-sm"
+                      title={`Yêu cầu nhập kho: Có ${pendingImportCount} yêu cầu chờ duyệt`}
+                    >
+                      {pendingImportCount}
                     </span>
                   )}
                   <ChevronDown
@@ -165,6 +177,14 @@ export default function AdminSidebar() {
                             title={`Hỗ trợ trực tuyến: Có ${waitingSupportCount} khách hàng đang chờ`}
                           >
                             {waitingSupportCount}
+                          </span>
+                        )}
+                        {item.badge === 'importRequests' && pendingImportCount > 0 && (
+                          <span
+                            className="ml-2 inline-flex items-center justify-center px-1.5 py-0.2 text-[10px] font-bold text-white bg-amber-500 border border-amber-300 rounded-full shadow-sm animate-pulse"
+                            title={`Yêu cầu nhập kho: Có ${pendingImportCount} yêu cầu chờ duyệt`}
+                          >
+                            {pendingImportCount}
                           </span>
                         )}
                       </Link>

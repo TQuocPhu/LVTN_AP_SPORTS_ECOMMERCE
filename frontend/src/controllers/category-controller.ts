@@ -84,6 +84,9 @@ export const categoryController = {
    * [ADMIN] Xóa danh mục
    */
   async deleteCategoryAdmin(id: number): Promise<ApiResponse<VoidFunction>> {
-    return apiClient.delete<ApiResponse<VoidFunction>>(`/admin/categories/${id}`);
+    return apiClient.delete<ApiResponse<VoidFunction>>(`/admin/categories/${id}`, {
+      showSuccessToast: false,
+      suppressErrorToast: true,
+    });
   },
 };

@@ -53,11 +53,17 @@ export const warehouseInventoryController = {
   },
 
   async createImport(data: CreateInventoryTransactionRequest): Promise<ApiResponse<InventoryTransaction>> {
-    return apiClient.post<ApiResponse<InventoryTransaction>>('/warehouse/inventory/import', data);
+    return apiClient.post<ApiResponse<InventoryTransaction>>('/warehouse/inventory/import', data, {
+      showSuccessToast: false,
+      suppressErrorToast: true,
+    });
   },
 
   async createExport(data: CreateInventoryTransactionRequest): Promise<ApiResponse<InventoryTransaction>> {
-    return apiClient.post<ApiResponse<InventoryTransaction>>('/warehouse/inventory/export', data);
+    return apiClient.post<ApiResponse<InventoryTransaction>>('/warehouse/inventory/export', data, {
+      showSuccessToast: false,
+      suppressErrorToast: true,
+    });
   },
 
   async adjustStock(data: InventoryAuditRequest): Promise<ApiResponse<InventoryTransaction>> {

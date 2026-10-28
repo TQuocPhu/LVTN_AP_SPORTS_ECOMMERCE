@@ -6,6 +6,7 @@ import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useNotificationContext } from '@/context/NotificationContext';
 import { warehouseInventoryController } from '@/controllers/warehouse-inventory-controller';
 import { supportChatController } from '@/controllers/support-chat-controller';
+import { importRequestController } from '@/controllers/import-request-controller';
 import {
   LayoutDashboard,
   Package,
@@ -21,6 +22,7 @@ import {
   Headphones,
   ShoppingBag,
   Boxes,
+  ClipboardList,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -29,7 +31,7 @@ export interface MenuItem {
   icon: React.ElementType;
   permission?: string;
   allowedRoles?: string[];
-  badge?: 'lowStock' | 'supportQueue';
+  badge?: 'lowStock' | 'supportQueue' | 'importRequests';
 }
 
 export interface MenuGroup {
@@ -44,6 +46,7 @@ export function useAdminSidebar() {
   const { user } = useAdminAuth();
   const [lowStockCount, setLowStockCount] = useState<number>(0);
   const [waitingSupportCount, setWaitingSupportCount] = useState<number>(0);
+  const [pendingImportCount, setPendingImportCount] = useState<number>(0);
   const [openGroupIds, setOpenGroupIds] = useState<string[]>([]);
 
   const { notifications } = useNotificationContext();
@@ -53,7 +56,13 @@ export function useAdminSidebar() {
     user?.permissions?.includes('SUPPORT_LIVE_CHAT')
   );
 
+  const canAccessWarehouse = Boolean(
+    user?.roleName === 'ADMIN' ||
+    user?.roleName === 'WAREHOUSE_MANAGER'
+  );
+
   const loadLowStockAlerts = async (isMounted = true) => {
+    if (!canAccessWarehouse) return;
     try {
       const res = await warehouseInventoryController.getLowStockVariants(5, 0, 50);
       if (isMounted && res.data) {
@@ -63,6 +72,18 @@ export function useAdminSidebar() {
       // Silent catch
     }
   };
+
+  const loadPendingImportCount = useCallback(async (isMounted = true) => {
+    if (!canAccessWarehouse) return;
+    try {
+      const count = await importRequestController.getPendingCount();
+      if (isMounted) {
+        setPendingImportCount(count);
+      }
+    } catch {
+      // Silent catch
+    }
+  }, [canAccessWarehouse]);
 
   const loadWaitingSupportCount = useCallback(async (isMounted = true) => {
     if (!canAccessSupport) return;
@@ -77,9 +98,11 @@ export function useAdminSidebar() {
   }, [canAccessSupport]);
 
   useEffect(() => {
+    if (!user) return;
     let isMounted = true;
     loadLowStockAlerts(isMounted);
     loadWaitingSupportCount(isMounted);
+    loadPendingImportCount(isMounted);
 
     // Lắng nghe các sự kiện cập nhật realtime từ WebSocket
     const handleSupportUpdated = () => {
@@ -90,15 +113,21 @@ export function useAdminSidebar() {
       loadLowStockAlerts(true);
     };
 
+    const handleImportRequestsUpdated = () => {
+      loadPendingImportCount(true);
+    };
+
     window.addEventListener('support_queue_updated', handleSupportUpdated);
     window.addEventListener('inventory_updated', handleInventoryUpdated);
+    window.addEventListener('import_requests_updated', handleImportRequestsUpdated);
 
     return () => {
       isMounted = false;
       window.removeEventListener('support_queue_updated', handleSupportUpdated);
       window.removeEventListener('inventory_updated', handleInventoryUpdated);
+      window.removeEventListener('import_requests_updated', handleImportRequestsUpdated);
     };
-  }, [loadWaitingSupportCount]);
+  }, [user, loadWaitingSupportCount, loadPendingImportCount]);
 
   useEffect(() => {
     if (notifications && notifications.length > 0) {
@@ -163,7 +192,7 @@ export function useAdminSidebar() {
             href: '/admin/vouchers',
             icon: Tag,
             permission: 'MANAGE_VOUCHERS',
-            allowedRoles: ['ADMIN', 'STAFF'],
+            allowedRoles: ['ADMIN'],
           },
         ],
       },
@@ -179,6 +208,14 @@ export function useAdminSidebar() {
             permission: 'MANAGE_INVENTORY',
             allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'],
             badge: 'lowStock',
+          },
+          {
+            title: 'Yêu Cầu Nhập Kho',
+            href: '/admin/inventory/requests',
+            icon: ClipboardList,
+            permission: 'MANAGE_INVENTORY',
+            allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'],
+            badge: 'importRequests',
           },
           {
             title: 'Nhà Cung Cấp',
@@ -273,15 +310,29 @@ export function useAdminSidebar() {
       .filter((group) => group.items.length > 0);
   }, [rawGroups, hasAccessToMenuItem]);
 
-  // Kiểm tra route active
+  // Kiểm tra route active (Hỗ trợ phân biệt chính xác giữa các menu con cùng tiền tố như /admin/inventory và /admin/inventory/requests)
   const isItemActive = useCallback(
     (href: string): boolean => {
-      if (href === '/admin/dashboard') {
-        return pathname === '/admin/dashboard';
+      if (pathname === href) {
+        return true;
       }
-      return pathname === href || pathname.startsWith(href + '/');
+      if (href === '/admin/dashboard') {
+        return false;
+      }
+      if (pathname.startsWith(href + '/')) {
+        // Kiểm tra xem có menu item nào khác trong sidebar có tiền tố khớp cụ thể và dài hơn không
+        const allItems = visibleGroups.flatMap((g) => g.items);
+        const hasMoreSpecificItem = allItems.some(
+          (other) =>
+            other.href !== href &&
+            other.href.startsWith(href + '/') &&
+            (pathname === other.href || pathname.startsWith(other.href + '/'))
+        );
+        return !hasMoreSpecificItem;
+      }
+      return false;
     },
-    [pathname]
+    [pathname, visibleGroups]
   );
 
   const isGroupActive = useCallback(
@@ -332,5 +383,6 @@ export function useAdminSidebar() {
     visibleMenuItems,
     lowStockCount,
     waitingSupportCount,
+    pendingImportCount,
   };
 }

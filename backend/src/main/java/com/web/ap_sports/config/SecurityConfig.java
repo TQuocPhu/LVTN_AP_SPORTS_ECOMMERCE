@@ -133,9 +133,18 @@ public class SecurityConfig {
                 // 2. Protected Routes theo Role (Đồng bộ 100% với UserRole enum & DB roles)
                 .requestMatchers("/api/v1/customer/auth/me", "/api/v1/customer/auth/sessions", "/api/v1/customer/auth/sessions/**").hasRole("CUSTOMER")
                 .requestMatchers("/api/v1/customer/profile/**", "/api/v1/customer/addresses/**", "/api/v1/customer/cart/**", "/api/v1/customer/orders/**", "/api/v1/customer/reviews/**").hasRole("CUSTOMER")
-                .requestMatchers("/api/v1/admin/auth/me", "/api/v1/admin/auth/logout").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
-                .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
+                
+                // Admin Auth & Profile
+                .requestMatchers("/api/v1/admin/auth/me", "/api/v1/admin/auth/logout", "/api/v1/admin/profile/**").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
+                
+                // Chỉ ADMIN mới có quyền quản lý Mã Giảm Giá (Vouchers), Người dùng (Users), Danh mục (Categories) - CẤM STAFF
+                .requestMatchers("/api/v1/admin/vouchers/**", "/api/v1/admin/users/**", "/api/v1/admin/categories/**").hasRole("ADMIN")
+                
+                // Quản lý kho (Toàn bộ Kho vận & Yêu cầu nhập kho): Chỉ ADMIN và WAREHOUSE_MANAGER - CẤM STAFF
                 .requestMatchers("/api/v1/warehouse/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                
+                // Các chức năng Admin còn lại (Sản phẩm, Đơn hàng, CSKH, Báo cáo)
+                .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "STAFF", "WAREHOUSE_MANAGER")
                 .requestMatchers("/api/v1/staff/**").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers("/api/v1/demo/logistics/**").hasAnyRole("GHN_STATION", "GHN_SHIPPER")
 

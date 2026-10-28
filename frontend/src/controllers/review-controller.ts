@@ -34,7 +34,10 @@ export const reviewController = {
    * Khách hàng gửi bài đánh giá sản phẩm trong đơn hàng đã giao thành công
    */
   async createReview(request: CreateReviewRequest): Promise<ApiResponse<Review>> {
-    return apiClient.post<ApiResponse<Review>>('/customer/reviews', request);
+    return apiClient.post<ApiResponse<Review>>('/customer/reviews', request, {
+      showSuccessToast: false,
+      suppressErrorToast: true,
+    });
   },
 
   /**

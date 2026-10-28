@@ -45,9 +45,13 @@ export const adminProductController = {
 
   /**
    * Tạo sản phẩm mới (Multi-step Stepper Form).
+   * Tắt showSuccessToast để trang CreateProductPage tự hiển thị toast chi tiết theo nghiệp vụ (kèm mã phiếu / mã yêu cầu nhập kho), tránh double toast.
    */
   async createProduct(data: CreateProductFormRequest): Promise<ApiResponse<ProductDetail>> {
-    return apiClient.post<ApiResponse<ProductDetail>>('/admin/products', data, { timeoutMs: 120000 });
+    return apiClient.post<ApiResponse<ProductDetail>>('/admin/products', data, {
+      timeoutMs: 120000,
+      showSuccessToast: false,
+    });
   },
 
   /**
