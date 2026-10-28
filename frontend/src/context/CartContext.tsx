@@ -108,7 +108,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setCartSummary(res.data);
         const newSet = new Set<number>();
         res.data.items.forEach((item) => {
-          if (item.isSelected !== false) {
+          if (item.isSelected !== false && !item.isDiscontinued) {
             newSet.add(item.id);
           }
         });
@@ -130,8 +130,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const totalItems = useMemo(() => cartSummary?.totalItems || 0, [cartSummary]);
   const totalPrice = useMemo(() => cartSummary?.totalPrice || 0, [cartSummary]);
 
+  const activeItems = useMemo(() => {
+    return items.filter((item) => !item.isDiscontinued);
+  }, [items]);
+
   const selectedItems = useMemo(() => {
-    return items.filter((item) => selectedItemIds.has(item.id));
+    return items.filter(
+      (item) => selectedItemIds.has(item.id) && !item.isDiscontinued,
+    );
   }, [items, selectedItemIds]);
 
   const selectedTotalPrice = useMemo(() => {
@@ -143,12 +149,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [selectedItems]);
 
   const isAllSelected = useMemo(() => {
-    return items.length > 0 && selectedItems.length === items.length;
-  }, [items, selectedItems]);
+    return activeItems.length > 0 && selectedItems.length === activeItems.length;
+  }, [activeItems, selectedItems]);
 
   // Select / Deselect actions
   const toggleSelectItem = useCallback(
     async (cartItemId: number) => {
+      const targetItem = items.find((i) => i.id === cartItemId);
+      if (targetItem?.isDiscontinued) {
+        toast.warning("Sản phẩm hoặc phân loại hàng này đã ngừng kinh doanh.");
+        return;
+      }
+
       setSelectedItemIds((prev) => {
         const next = new Set(prev);
         if (next.has(cartItemId)) {
@@ -165,16 +177,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         refreshCart();
       }
     },
-    [refreshCart],
+    [items, refreshCart],
   );
 
   const toggleSelectAll = useCallback(async () => {
     const nextIsSelected = !(
-      items.length > 0 && selectedItemIds.size === items.length
+      activeItems.length > 0 && selectedItems.length === activeItems.length
     );
     setSelectedItemIds(() => {
       if (nextIsSelected) {
-        return new Set(items.map((i) => i.id));
+        return new Set(activeItems.map((i) => i.id));
       } else {
         return new Set();
       }
@@ -185,7 +197,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch {
       refreshCart();
     }
-  }, [items, selectedItemIds, refreshCart]);
+  }, [activeItems, selectedItems, refreshCart]);
 
   // Add to cart action with Auth Guard
   const addToCart = useCallback(
@@ -195,7 +207,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       quantity = 1,
     ): Promise<boolean> => {
       if (!user) {
-        // toast.error('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng!');
         const currentPath =
           typeof window !== "undefined" ? window.location.pathname : "/cart";
         router.push(
@@ -212,12 +223,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (res.data) {
-          // Add newly created/updated item to selected items
-          setSelectedItemIds((prev) => {
-            const next = new Set(prev);
-            next.add(res.data!.id);
-            return next;
-          });
+          // Add newly created/updated item to selected items if not discontinued
+          if (!res.data.isDiscontinued) {
+            setSelectedItemIds((prev) => {
+              const next = new Set(prev);
+              next.add(res.data!.id);
+              return next;
+            });
+          }
 
           await refreshCart();
           openMiniCart();
@@ -228,11 +241,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const errorMsg =
           (err as { response?: { data?: { message?: string } } })?.response
             ?.data?.message || "Không thể thêm sản phẩm vào giỏ hàng";
-        // toast.error(errorMsg);
         return false;
       }
     },
     [user, router, refreshCart, openMiniCart],
+  );
+
+  // Remove item action
+  const removeItem = useCallback(
+    async (cartItemId: number): Promise<boolean> => {
+      try {
+        await cartController.removeCartItem(cartItemId);
+        setSelectedItemIds((prev) => {
+          const next = new Set(prev);
+          next.delete(cartItemId);
+          return next;
+        });
+        await refreshCart();
+        return true;
+      } catch (err: unknown) {
+        const errorMsg =
+          (err as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || "Không thể xóa sản phẩm khỏi giỏ hàng";
+        return false;
+      }
+    },
+    [refreshCart],
   );
 
   // Update quantity action
@@ -255,34 +289,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const errorMsg =
           (err as { response?: { data?: { message?: string } } })?.response
             ?.data?.message || "Không thể cập nhật số lượng";
-        // toast.error(errorMsg);
         return false;
       }
     },
-    [refreshCart],
-  );
-
-  // Remove item action
-  const removeItem = useCallback(
-    async (cartItemId: number): Promise<boolean> => {
-      try {
-        await cartController.removeCartItem(cartItemId);
-        setSelectedItemIds((prev) => {
-          const next = new Set(prev);
-          next.delete(cartItemId);
-          return next;
-        });
-        await refreshCart();
-        return true;
-      } catch (err: unknown) {
-        const errorMsg =
-          (err as { response?: { data?: { message?: string } } })?.response
-            ?.data?.message || "Không thể xóa sản phẩm khỏi giỏ hàng";
-        // toast.error(errorMsg);
-        return false;
-      }
-    },
-    [refreshCart],
+    [refreshCart, removeItem],
   );
 
   // Clear cart action
@@ -296,7 +306,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const errorMsg =
         (err as { response?: { data?: { message?: string } } })?.response?.data
           ?.message || "Không thể dọn dẹp giỏ hàng";
-      // toast.error(errorMsg);
       return false;
     }
   }, [refreshCart]);

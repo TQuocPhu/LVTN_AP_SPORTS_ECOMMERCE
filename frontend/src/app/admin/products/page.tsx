@@ -57,6 +57,22 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleToggleVariantStatus = async (productId: number, variantId: number) => {
+    try {
+      const res = await adminProductController.toggleVariantStatus(productId, variantId);
+      if (res && res.data && selectedVariantDetail) {
+        setSelectedVariantDetail({
+          ...selectedVariantDetail,
+          variants: selectedVariantDetail.variants.map((v) =>
+            v.id === variantId ? { ...v, status: res.data.status } : v
+          ),
+        });
+      }
+    } catch (err) {
+      // Error handled by apiClient
+    }
+  };
+
   // Fetch product detail for Description Modal
   const handleOpenDescriptionModal = async (productId: number) => {
     try {
@@ -156,6 +172,7 @@ export default function AdminProductsPage() {
         product={selectedVariantDetail}
         isOpen={isVariantDrawerOpen}
         onClose={() => setIsVariantDrawerOpen(false)}
+        onToggleVariantStatus={handleToggleVariantStatus}
       />
 
       {/* Modular Description Preview Modal */}

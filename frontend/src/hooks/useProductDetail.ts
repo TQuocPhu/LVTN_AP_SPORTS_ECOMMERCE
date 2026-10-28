@@ -286,6 +286,9 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
     selectedVariant?.stockQuantity ?? product?.totalStock ?? 0;
   const isOutOfStock =
     effectiveStock <= 0 || product?.status === "out_of_stock";
+  const isDiscontinued =
+    product?.status === "discontinued" ||
+    selectedVariant?.status === "DISCONTINUED";
 
   // Handler chọn thuộc tính bất kỳ theo Tên Nhóm & Giá trị
   const handleAttributeSelect = (groupName: string, value: string) => {
@@ -346,7 +349,10 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   // Thêm vào giỏ hàng
   const handleAddToCart = async () => {
     if (isOutOfStock || !product) {
-      // toast.error('Sản phẩm tạm thời hết hàng!');
+      return;
+    }
+    if (isDiscontinued) {
+      toast.error("Sản phẩm hoặc phân loại hàng đã ngừng kinh doanh!");
       return;
     }
     await addToCart(product.id, selectedVariant?.id, quantity);
@@ -355,7 +361,10 @@ export function useProductDetail(slug: string): UseProductDetailReturn {
   // Mua ngay
   const handleBuyNow = async () => {
     if (isOutOfStock || !product) {
-      // toast.error('Sản phẩm tạm thời hết hàng!');
+      return;
+    }
+    if (isDiscontinued) {
+      toast.error("Sản phẩm hoặc phân loại hàng đã ngừng kinh doanh!");
       return;
     }
     const success = await addToCart(product.id, selectedVariant?.id, quantity);

@@ -180,6 +180,7 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
               unit={productUnit}
               selectedVariantId={selectedVariant?.id}
               selectedVariantName={selectedVariant?.variantName || [selectedVariant?.color, selectedVariant?.size].filter(Boolean).join(' - ')}
+              variantStatus={selectedVariant?.status}
               productStatus={product.status}
               onQuantityChange={handleQuantityChange}
               onAddToCart={handleAddToCart}

@@ -270,6 +270,7 @@ export function useProductForm(productId?: number) {
         price: basePrice,
         costPrice: Math.round(basePrice * 0.7),
         stockQuantity: isEdit ? 0 : 10,
+        status: 'ACTIVE',
         images: [],
       };
     });
@@ -313,6 +314,7 @@ export function useProductForm(productId?: number) {
         price: basePrice,
         costPrice: Math.round(basePrice * 0.7),
         stockQuantity: isEdit ? 0 : 0,
+        status: 'ACTIVE',
         images: [],
       },
     ]);
@@ -403,7 +405,7 @@ export function useProductForm(productId?: number) {
           status,
           mainImage,
           specifications: specsMap,
-          variants,
+          variants: variants.map((v) => ({ ...v, status: v.status || 'ACTIVE' })),
         };
         const res = await adminProductController.updateProduct(productId, updateData);
         return res;
@@ -441,7 +443,7 @@ export function useProductForm(productId?: number) {
           weight: typeof weight === 'number' ? weight : 500,
           mainImage,
           specifications: specsMap,
-          variants: finalVariants,
+          variants: finalVariants.map((v) => ({ ...v, status: v.status || 'ACTIVE' })),
           supplierId: finalSupplierId,
           importNote: finalImportNote,
           inboundAction,

@@ -2,6 +2,7 @@ import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client'
 import {
   Product,
   ProductDetail,
+  ProductVariant,
   CreateProductFormRequest,
   UpdateProductFormRequest,
   ProductFilterParams,
@@ -62,10 +63,19 @@ export const adminProductController = {
   },
 
   /**
-   * Đổi trạng thái nhanh trên dòng sản phẩm.
+   * Đổi trạng thái nhanh trên dòng sản phẩm (in_stock <-> discontinued).
    */
   async toggleProductStatus(id: number): Promise<ApiResponse<Product>> {
     return apiClient<Product>(`/admin/products/${id}/toggle-status`, {
+      method: 'PATCH',
+    });
+  },
+
+  /**
+   * Đổi trạng thái kinh doanh của biến thể sản phẩm (ACTIVE <-> DISCONTINUED).
+   */
+  async toggleVariantStatus(productId: number, variantId: number): Promise<ApiResponse<ProductVariant>> {
+    return apiClient<ProductVariant>(`/admin/products/${productId}/variants/${variantId}/toggle-status`, {
       method: 'PATCH',
     });
   },

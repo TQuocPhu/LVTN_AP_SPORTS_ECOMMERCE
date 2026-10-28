@@ -10,6 +10,8 @@ export interface CartItem {
   color: string | null;
   attributes?: string | null;
   variantName?: string | null;
+  variantStatus?: 'ACTIVE' | 'DISCONTINUED' | string | null;
+  isDiscontinued?: boolean;
   price: number;
   stockQuantity: number;
   quantity: number;

@@ -1,13 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ProductDetail } from '@/types/product';
-import { X, Layers, Tag, Box, Image as ImageIcon } from 'lucide-react';
+import { X, Layers, Tag, Box, Image as ImageIcon, Power, Loader2, CheckCircle, Ban } from 'lucide-react';
 
 interface ProductVariantDrawerProps {
   product: ProductDetail | null;
   isOpen: boolean;
   onClose: () => void;
+  onToggleVariantStatus?: (productId: number, variantId: number) => Promise<void>;
 }
 
 function getVariantAttrChips(variant: any): [string, string][] {
@@ -38,8 +39,25 @@ function getVariantAttrChips(variant: any): [string, string][] {
   return pairs;
 }
 
-export function ProductVariantDrawer({ product, isOpen, onClose }: ProductVariantDrawerProps) {
+export function ProductVariantDrawer({
+  product,
+  isOpen,
+  onClose,
+  onToggleVariantStatus,
+}: ProductVariantDrawerProps) {
+  const [togglingVariantId, setTogglingVariantId] = useState<number | null>(null);
+
   if (!isOpen || !product) return null;
+
+  const handleToggle = async (variantId?: number) => {
+    if (!variantId || !onToggleVariantStatus) return;
+    try {
+      setTogglingVariantId(variantId);
+      await onToggleVariantStatus(product.id, variantId);
+    } finally {
+      setTogglingVariantId(null);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-sm flex justify-end transition-opacity">
@@ -141,17 +159,35 @@ export function ProductVariantDrawer({ product, isOpen, onClose }: ProductVarian
               <div className="space-y-3">
                 {product.variants.map((variant) => {
                   const chips = getVariantAttrChips(variant);
+                  const isDiscontinued = variant.status === 'DISCONTINUED';
+                  const isToggling = togglingVariantId === variant.id;
+
                   return (
                     <div
                       key={variant.id || variant.sku}
-                      className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3 hover:border-slate-300 transition-colors"
+                      className={`p-4 rounded-2xl border shadow-sm space-y-3 transition-colors ${
+                        isDiscontinued
+                          ? 'bg-slate-50 border-slate-200 opacity-90'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      }`}
                     >
-                      {/* Header line: SKU and Badges */}
+                      {/* Header line: SKU, Attributes and Status Badges */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap min-w-0">
                           <span className="font-mono text-xs font-bold px-3 py-1.5 bg-slate-100 text-slate-800 rounded-lg border border-slate-200 inline-block break-all">
                             {variant.sku}
                           </span>
+
+                          {/* Status Badge */}
+                          {isDiscontinued ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full border border-rose-200">
+                              <Ban className="w-3.5 h-3.5" /> Ngừng kinh doanh
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                              <CheckCircle className="w-3.5 h-3.5" /> Đang kinh doanh
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
@@ -166,43 +202,65 @@ export function ProductVariantDrawer({ product, isOpen, onClose }: ProductVarian
                           <span className="text-xs font-bold px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200/60">
                             Tồn kho: {variant.stockQuantity}
                           </span>
+
+                          {/* Toggle Status Button */}
+                          {onToggleVariantStatus && variant.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggle(variant.id)}
+                              disabled={isToggling}
+                              className={`text-xs font-bold px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5 ${
+                                isDiscontinued
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                                  : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200'
+                              } disabled:opacity-50`}
+                              title={isDiscontinued ? 'Mở lại kinh doanh cho biến thể này' : 'Ngừng kinh doanh biến thể này'}
+                            >
+                              {isToggling ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Power className="w-3.5 h-3.5" />
+                              )}
+                              <span>{isDiscontinued ? 'Mở lại bán' : 'Ngừng bán'}</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                    {/* Pricing Grid */}
-                    <div className="grid grid-cols-2 gap-4 text-xs border-t border-slate-100 pt-3">
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                        <span className="text-slate-500 block mb-0.5">Giá bán niêm yết:</span>
-                        <strong className="text-slate-900 text-sm font-bold">
-                          {variant.price?.toLocaleString('vi-VN')} đ
-                        </strong>
-                      </div>
-                      <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                        <span className="text-slate-500 block mb-0.5">Giá nhập vốn:</span>
-                        <strong className="text-slate-600 text-sm font-bold">
-                          {variant.costPrice?.toLocaleString('vi-VN')} đ
-                        </strong>
-                      </div>
-                    </div>
-
-                    {/* Variant Images Gallery */}
-                    {variant.images && variant.images.length > 0 && (
-                      <div className="pt-1">
-                        <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
-                          Hình ảnh biến thể ({variant.images.length} ảnh):
-                        </span>
-                        <div className="flex gap-2 overflow-x-auto pb-1">
-                          {variant.images.map((img, i) => (
-                            <img
-                              key={i}
-                              src={img}
-                              alt={`${variant.sku}-${i}`}
-                              className="w-14 h-14 object-cover rounded-xl border border-slate-200 flex-shrink-0 shadow-sm"
-                            />
-                          ))}
+                      {/* Pricing Grid */}
+                      <div className="grid grid-cols-2 gap-4 text-xs border-t border-slate-100 pt-3">
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-slate-500 block mb-0.5">Giá bán niêm yết:</span>
+                          <strong className="text-slate-900 text-sm font-bold">
+                            {variant.price?.toLocaleString('vi-VN')} đ
+                          </strong>
+                        </div>
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <span className="text-slate-500 block mb-0.5">Giá nhập vốn:</span>
+                          <strong className="text-slate-600 text-sm font-bold">
+                            {variant.costPrice?.toLocaleString('vi-VN')} đ
+                          </strong>
                         </div>
                       </div>
-                    )}
+
+                      {/* Variant Images Gallery */}
+                      {variant.images && variant.images.length > 0 && (
+                        <div className="pt-1">
+                          <span className="text-[11px] font-semibold text-slate-400 block mb-1.5">
+                            Hình ảnh biến thể ({variant.images.length} ảnh):
+                          </span>
+                          <div className="flex gap-2 overflow-x-auto pb-1">
+                            {variant.images.map((img, i) => (
+                              <img
+                                key={i}
+                                src={img}
+                                alt={`${variant.sku}-${i}`}
+                                className="w-14 h-14 object-cover rounded-xl border border-slate-200 flex-shrink-0 shadow-sm"
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

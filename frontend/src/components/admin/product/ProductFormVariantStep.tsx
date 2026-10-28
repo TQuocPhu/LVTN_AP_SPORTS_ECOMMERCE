@@ -378,6 +378,7 @@ export function ProductFormVariantStep({
                     ? 'SL đề xuất nhập'
                     : 'Số lượng tồn kho'}
                 </th>
+                <th className="p-3.5 w-36 text-center">Trạng thái</th>
                 <th className="p-3.5 w-24 text-center">Ảnh biến thể</th>
                 <th className="p-3.5 w-14 text-right">Xóa</th>
               </tr>
@@ -463,6 +464,21 @@ export function ProductFormVariantStep({
                         <Lock className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400" />
                       </div>
                     )}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <select
+                      value={varItem.status || 'ACTIVE'}
+                      onChange={(e) => onUpdateVariant(idx, 'status', e.target.value)}
+                      className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border focus:ring-1 focus:ring-orange-500 cursor-pointer ${
+                        varItem.status === 'DISCONTINUED'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}
+                    >
+                      <option value="ACTIVE">Đang kinh doanh</option>
+                      <option value="DISCONTINUED">Ngừng kinh doanh</option>
+                    </select>
                   </td>
 
                   <td className="p-3">

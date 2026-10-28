@@ -1,6 +1,8 @@
 import { CategoryResponse } from './category';
 import { InventoryTransaction } from './inventory';
 
+export type ProductVariantStatus = 'ACTIVE' | 'DISCONTINUED';
+
 export interface ProductVariant {
   id?: number;
   sku: string;
@@ -11,6 +13,7 @@ export interface ProductVariant {
   price: number;
   costPrice: number;
   stockQuantity: number;
+  status?: ProductVariantStatus;
   images: string[];
 }
 
@@ -59,11 +62,11 @@ export interface CreateProductFormRequest {
   unit: string;
   weight?: number; // Tính bằng grams, mặc định 500g nếu không nhập
   mainImage?: string;
-  specifications: Record<string, string>;
+  specifications?: Record<string, string>;
   variants: ProductVariant[];
+  inboundAction?: 'NONE' | 'DIRECT_IMPORT' | 'IMPORT_REQUEST';
   supplierId?: number;
   importNote?: string;
-  inboundAction?: 'NONE' | 'DIRECT_IMPORT' | 'IMPORT_REQUEST';
 }
 
 export interface UpdateProductFormRequest {
@@ -77,7 +80,7 @@ export interface UpdateProductFormRequest {
   weight?: number; // Tính bằng grams
   status: string;
   mainImage?: string;
-  specifications: Record<string, string>;
+  specifications?: Record<string, string>;
   variants: ProductVariant[];
 }
 
@@ -102,6 +105,6 @@ export interface PaginatedResponse<T> {
   totalPages: number;
   size: number;
   number: number;
-  first: boolean;
-  last: boolean;
+  first?: boolean;
+  last?: boolean;
 }

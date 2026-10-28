@@ -16,6 +16,7 @@ import {
   Truck,
   AlertTriangle,
   X,
+  Ban,
 } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { formatCurrency } from '@/utils/formatters';
@@ -119,6 +120,8 @@ export default function CartItemList() {
     );
   }
 
+  const activeCount = items.filter((i) => !i.isDiscontinued).length;
+
   return (
     <div className="space-y-4">
       {/* Header bar: Select All & Bulk Actions */}
@@ -132,7 +135,7 @@ export default function CartItemList() {
           ) : (
             <Square className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           )}
-          <span>Chọn tất cả ({items.length} sản phẩm)</span>
+          <span>Chọn tất cả ({activeCount} sản phẩm hợp lệ)</span>
         </button>
 
         <button
@@ -147,14 +150,17 @@ export default function CartItemList() {
       {/* Item List Cards */}
       <div className="space-y-3">
         {items.map((item) => {
-          const isSelected = selectedItemIds.has(item.id);
+          const isDiscontinued = Boolean(item.isDiscontinued);
+          const isSelected = !isDiscontinued && selectedItemIds.has(item.id);
           const isMaxStockReached = item.quantity >= item.stockQuantity;
 
           return (
             <div
               key={item.id}
               className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 sm:p-5 transition-all duration-200 flex flex-col justify-between gap-4 shadow-sm dark:shadow-md ${
-                isSelected
+                isDiscontinued
+                  ? 'border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-950/60 opacity-80'
+                  : isSelected
                   ? 'border-orange-500 dark:border-orange-500/40 bg-orange-50/20 dark:bg-slate-900/90 shadow-orange-500/5'
                   : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
               }`}
@@ -163,10 +169,18 @@ export default function CartItemList() {
                 <div className="flex items-start space-x-3 sm:space-x-4 min-w-0">
                   {/* Item Checkbox */}
                   <button
+                    disabled={isDiscontinued}
                     onClick={() => toggleSelectItem(item.id)}
-                    className="text-slate-400 hover:text-orange-500 transition-colors shrink-0 mt-1"
+                    className={`transition-colors shrink-0 mt-1 ${
+                      isDiscontinued
+                        ? 'text-slate-300 dark:text-slate-700 cursor-not-allowed opacity-50'
+                        : 'text-slate-400 hover:text-orange-500'
+                    }`}
+                    title={isDiscontinued ? 'Sản phẩm đã ngừng kinh doanh' : 'Chọn thanh toán'}
                   >
-                    {isSelected ? (
+                    {isDiscontinued ? (
+                      <Ban className="w-5 h-5 text-slate-400 dark:text-slate-600" />
+                    ) : isSelected ? (
                       <CheckSquare className="w-5 h-5 text-orange-500" />
                     ) : (
                       <Square className="w-5 h-5 text-slate-300 dark:text-slate-600" />
@@ -176,7 +190,9 @@ export default function CartItemList() {
                   {/* Product Thumbnail */}
                   <Link
                     href={`/products/${item.productSlug}`}
-                    className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shrink-0 group"
+                    className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shrink-0 group ${
+                      isDiscontinued ? 'grayscale-[60%]' : ''
+                    }`}
                   >
                     <Image
                       src={item.mainImage || '/images/ap-sports_logo_no-back.png'}
@@ -191,7 +207,11 @@ export default function CartItemList() {
                   <div className="flex-1 min-w-0 space-y-1">
                     <Link
                       href={`/products/${item.productSlug}`}
-                      className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 hover:text-orange-600 dark:hover:text-orange-400 transition-colors line-clamp-1"
+                      className={`text-sm sm:text-base font-bold transition-colors line-clamp-1 ${
+                        isDiscontinued
+                          ? 'text-slate-500 dark:text-slate-400 line-through'
+                          : 'text-slate-900 dark:text-slate-100 hover:text-orange-600 dark:hover:text-orange-400'
+                      }`}
                     >
                       {item.productName}
                     </Link>
@@ -213,7 +233,11 @@ export default function CartItemList() {
 
                     {/* Stock Status Badge */}
                     <div className="pt-0.5">
-                      {item.stockQuantity <= 0 ? (
+                      {isDiscontinued ? (
+                        <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                          <Ban className="w-3 h-3" /> Ngừng kinh doanh
+                        </span>
+                      ) : item.stockQuantity <= 0 ? (
                         <span className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded">
                           Tạm hết hàng
                         </span>
@@ -270,9 +294,9 @@ export default function CartItemList() {
                   <div className="flex items-center bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 p-1">
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      disabled={item.quantity <= 1}
+                      disabled={isDiscontinued || item.quantity <= 1}
                       className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={item.quantity <= 1 ? "Số lượng tối thiểu là 1" : "Giảm số lượng"}
+                      title={isDiscontinued ? 'Sản phẩm đã ngừng kinh doanh' : item.quantity <= 1 ? "Số lượng tối thiểu là 1" : "Giảm số lượng"}
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
@@ -281,9 +305,9 @@ export default function CartItemList() {
                     </span>
                     <button
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      disabled={isMaxStockReached}
+                      disabled={isDiscontinued || isMaxStockReached}
                       className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      title={isMaxStockReached ? "Đã đạt số lượng tồn kho tối đa" : "Tăng số lượng"}
+                      title={isDiscontinued ? 'Sản phẩm đã ngừng kinh doanh' : isMaxStockReached ? "Đã đạt số lượng tồn kho tối đa" : "Tăng số lượng"}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>

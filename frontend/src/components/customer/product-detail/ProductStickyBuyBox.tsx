@@ -20,6 +20,7 @@ interface ProductStickyBuyBoxProps {
   unit: string;
   selectedVariantId?: number;
   selectedVariantName?: string;
+  variantStatus?: string;
   productStatus?: string;
   onQuantityChange: (delta: number) => void;
   onAddToCart: () => void;
@@ -40,6 +41,7 @@ export function ProductStickyBuyBox({
   unit,
   selectedVariantId,
   selectedVariantName,
+  variantStatus,
   productStatus,
   onQuantityChange,
   onAddToCart,
@@ -48,7 +50,7 @@ export function ProductStickyBuyBox({
   const { isInWishlist, toggleWishlist } = useWishlist();
   const isWishlist = productId ? isInWishlist(productId) : false;
 
-  const isDiscontinued = productStatus === 'discontinued';
+  const isDiscontinued = productStatus === 'discontinued' || variantStatus === 'DISCONTINUED';
 
   // Hook xử lý đăng ký nhận thông báo hàng về kho
   const restockModal = useRestockNotificationModal({
@@ -144,11 +146,13 @@ export function ProductStickyBuyBox({
       {/* 4. Action Buttons (Thêm giỏ / Mua ngay / Hoặc Nhận thông báo khi có hàng) */}
       {isDiscontinued ? (
         <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-center space-y-1">
-          <span className="text-xs font-black uppercase text-slate-600 dark:text-slate-300 block tracking-wider">
-            Sản phẩm đã ngừng kinh doanh
+          <span className="text-xs font-black uppercase text-rose-600 dark:text-rose-400 block tracking-wider">
+            {variantStatus === 'DISCONTINUED' ? 'Phân loại hàng đã ngừng kinh doanh' : 'Sản phẩm đã ngừng kinh doanh'}
           </span>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Mẫu mã này đã kết thúc vòng đời kinh doanh tại hệ thống AP Sports.
+            {variantStatus === 'DISCONTINUED'
+              ? 'Phân loại hàng này đã tạm ngừng hoặc kết thúc kinh doanh tại AP Sports. Quý khách vui lòng chọn phân loại khác.'
+              : 'Mẫu mã này đã kết thúc vòng đời kinh doanh tại hệ thống AP Sports.'}
           </p>
         </div>
       ) : isOutOfStock ? (

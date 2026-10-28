@@ -102,6 +102,14 @@ export function ProductMainInfo({
               </span>
             </>
           )}
+          {selectedVariant?.status === 'DISCONTINUED' && (
+            <>
+              <span>•</span>
+              <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 font-extrabold px-2 py-0.5 rounded-md border border-rose-500/30">
+                Ngừng kinh doanh
+              </span>
+            </>
+          )}
         </div>
       </div>
 

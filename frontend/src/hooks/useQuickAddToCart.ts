@@ -66,6 +66,10 @@ export function useQuickAddToCart(
         setErrorMsg("Vui lòng chọn phân loại sản phẩm");
         return;
       }
+      if (selectedVariant.status === "DISCONTINUED") {
+        setErrorMsg("Phân loại hàng này đã ngừng kinh doanh, không thể thêm vào giỏ hàng");
+        return;
+      }
       setErrorMsg(null);
       await addToCart(product.id, selectedVariant.id, quantity);
     } else {
