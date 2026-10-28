@@ -9,3 +9,4 @@ public enum ProductVariantStatus {
     ACTIVE,
     DISCONTINUED
 }
+
