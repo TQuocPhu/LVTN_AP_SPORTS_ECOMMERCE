@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 interface CategoryTableProps {
+  isSearching?: boolean;
   categories: CategoryResponse[];
   loading: boolean;
   actionLoading: boolean;
@@ -27,6 +28,7 @@ interface CategoryTableProps {
 }
 
 export function CategoryTable({
+  isSearching = false,
   categories,
   loading,
   actionLoading,
@@ -69,7 +71,8 @@ export function CategoryTable({
           <CategoryTreeNode
             key={rootCategory.id}
             category={rootCategory}
-            level={1}
+            isSearching={isSearching}
+            level={rootCategory.level || 1}
             expandedIds={expandedIds}
             actionLoading={actionLoading}
             onToggleExpand={onToggleExpand}
@@ -84,6 +87,7 @@ export function CategoryTable({
 }
 
 interface CategoryTreeNodeProps {
+  isSearching?: boolean;
   category: CategoryResponse;
   level: number; // 1, 2, or 3
   expandedIds: Set<number>;
@@ -95,6 +99,7 @@ interface CategoryTreeNodeProps {
 }
 
 function CategoryTreeNode({
+  isSearching = false,
   category,
   level,
   expandedIds,
@@ -107,13 +112,14 @@ function CategoryTreeNode({
   const hasChildren = category.children && category.children.length > 0;
   const isExpanded = expandedIds.has(category.id);
 
-  // Indentation and Tree styling according to level
-  const levelIndentClasses =
-    level === 1
-      ? 'pl-6 bg-white'
-      : level === 2
-      ? 'pl-12 bg-slate-50/60 border-l-2 border-orange-200/80 ml-6'
-      : 'pl-16 bg-slate-100/50 border-l-2 border-purple-200 ml-12';
+  // Indentation and Tree styling according to level (khi đang tìm kiếm thì luôn căn thẳng hàng pl-6)
+  const levelIndentClasses = isSearching
+    ? 'pl-6 bg-white'
+    : level === 1
+    ? 'pl-6 bg-white'
+    : level === 2
+    ? 'pl-12 bg-slate-50/60 border-l-2 border-orange-200/80 ml-6'
+    : 'pl-16 bg-slate-100/50 border-l-2 border-purple-200 ml-12';
 
   return (
     <div className="transition-colors">
@@ -123,8 +129,8 @@ function CategoryTreeNode({
       >
         {/* Left Side: Icon, Expand Toggle, Name & Slug */}
         <div className="flex items-center gap-3.5 flex-1 min-w-[280px] pr-4">
-          {/* Expand/Collapse Toggle Button (only if has children) */}
-          {hasChildren ? (
+          {/* Expand/Collapse Toggle Button (chỉ hiển thị ở chế độ cây, ẩn khi đang tìm kiếm) */}
+          {!isSearching && hasChildren ? (
             <button
               onClick={() => onToggleExpand(category.id)}
               className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer flex-shrink-0"
@@ -165,6 +171,11 @@ function CategoryTreeNode({
 
           {/* Name & Slug */}
           <div className="min-w-0 flex-1">
+            {isSearching && (category.fullPath || category.parentName) && (
+              <div className="text-[11px] font-semibold text-orange-600/90 flex items-center gap-1 mb-0.5">
+                <span>{category.fullPath || `${category.parentName} > ${category.name}`}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className={`font-extrabold text-slate-900 group-hover:text-orange-600 transition-colors break-words ${
@@ -251,8 +262,8 @@ function CategoryTreeNode({
         </div>
       </div>
 
-      {/* Render Subcategories Recursively if Expanded */}
-      {hasChildren && isExpanded && (
+      {/* Render Subcategories Recursively if Expanded (chỉ ở chế độ cây, không đệ quy khi đang tìm kiếm) */}
+      {!isSearching && hasChildren && isExpanded && (
         <div className="animate-in fade-in duration-150">
           {category.children.map((child) => (
             <CategoryTreeNode

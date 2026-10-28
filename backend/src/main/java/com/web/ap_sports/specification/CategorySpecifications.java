@@ -34,6 +34,10 @@ public class CategorySpecifications {
                         // Subcategories of a specific parent
                         predicates.add(cb.equal(root.get("parent").get("id"), filter.getParentId()));
                     }
+                } else if (!StringUtils.hasText(filter.getKeyword())) {
+                    // Mặc định ở chế độ xem cây phân cấp: chỉ lấy các danh mục gốc làm tầng ngoài cùng,
+                    // các danh mục con đã được nạp đệ quy trong thuộc tính children!
+                    predicates.add(cb.isNull(root.get("parent")));
                 }
             }
 

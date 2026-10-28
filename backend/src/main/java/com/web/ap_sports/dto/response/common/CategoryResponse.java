@@ -19,6 +19,7 @@ public class CategoryResponse {
     private String image;
     private Long parentId;
     private String parentName;
+    private String fullPath;
     private Integer level; // 1 = Cấp 1 (Gốc), 2 = Cấp 2, 3 = Cấp 3 (Cấp cuối)
     private Long productCount; // Tổng số lượng sản phẩm của danh mục (gồm cả các danh mục con)
 

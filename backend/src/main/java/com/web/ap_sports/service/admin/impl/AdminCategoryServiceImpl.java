@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -192,13 +193,15 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
 
     private CategoryResponse mapToResponse(Category category) {
         int level = getCategoryDepth(category);
+        String fullPath = buildCategoryPath(category);
         CategoryResponse.CategoryResponseBuilder builder = CategoryResponse.builder()
                 .id(category.getId())
                 .name(category.getName())
                 .slug(category.getSlug())
                 .description(category.getDescription())
                 .image(category.getImage())
-                .level(level);
+                .level(level)
+                .fullPath(fullPath);
 
         if (category.getParent() != null) {
             builder.parentId(category.getParent().getId())
@@ -211,6 +214,18 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
         }
 
         return builder.build();
+    }
+
+    private String buildCategoryPath(Category category) {
+        List<String> names = new ArrayList<>();
+        Category current = category;
+        int guard = 0;
+        while (current != null && guard < 10) {
+            names.add(0, current.getName());
+            current = current.getParent();
+            guard++;
+        }
+        return String.join(" > ", names);
     }
 
     private int getCategoryDepth(Category category) {

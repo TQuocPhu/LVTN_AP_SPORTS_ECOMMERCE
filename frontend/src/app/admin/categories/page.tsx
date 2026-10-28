@@ -82,6 +82,7 @@ export default function AdminCategoriesPage() {
 
       {/* Hierarchical Categories Tree Table */}
       <CategoryTable
+        isSearching={Boolean(keyword && keyword.trim().length > 0)}
         categories={categories}
         loading={loading}
         actionLoading={actionLoading}
