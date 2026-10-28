@@ -67,7 +67,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
-        requestHandler.setCsrfRequestAttributeName("_csrf");
+        requestHandler.setCsrfRequestAttributeName(null);
 
         http
             .csrf(csrf -> csrf
@@ -118,6 +118,7 @@ public class SecurityConfig {
                         "/api/v1/products/**",
                         "/api/v1/categories",
                         "/api/v1/categories/**",
+                        "/api/v1/csrf",
                         "/api/v1/locations",
                         "/api/v1/locations/**",
                         "/api/v1/reviews/product/**",
@@ -142,7 +143,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
+            .addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class);
 
         return http.build();
     }

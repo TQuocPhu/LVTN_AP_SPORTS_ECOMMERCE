@@ -31,9 +31,19 @@ export async function apiClient<T>(
 ): Promise<ApiResponse<T>> {
   // 1. Tự động lấy Access Token từ COOKIE nếu có (ví dụ môi trường không HttpOnly)
   const token = getCookie("accessToken");
-  const xsrfToken = getCookie("XSRF-TOKEN");
+  let xsrfToken = getCookie("XSRF-TOKEN");
   const method = (options.method || "GET").toUpperCase();
   const requiresCsrf = ["POST", "PUT", "DELETE", "PATCH"].includes(method);
+
+  // Nếu là mutation cần CSRF mà chưa có XSRF-TOKEN trong cookie, tự động fetch endpoint /csrf để nhận cookie
+  if (requiresCsrf && !xsrfToken && typeof window !== "undefined" && !endpoint.includes("/csrf")) {
+    try {
+      await fetch(`${BASE_URL}/csrf`, { credentials: "include" });
+      xsrfToken = getCookie("XSRF-TOKEN");
+    } catch {
+      // bỏ qua nếu lỗi mạng, tiếp tục gửi request
+    }
+  }
 
   // 2. Thiết lập HTTP Headers mặc định (JSON format + Bearer JWT Token từ Cookie + Client Type header + CSRF Token)
   const isFormData = options.body instanceof FormData;
@@ -228,6 +238,24 @@ export async function apiClient<T>(
           },
         });
       }
+    }
+  }
+
+  // 5.5. Tự động Retry 1 lần nếu gặp lỗi 403 Forbidden do CSRF Token hết hạn / chưa đồng bộ
+  if (response.status === 403 && requiresCsrf && !isRetry) {
+    const latestXsrf = getCookie("XSRF-TOKEN");
+    if (latestXsrf && latestXsrf !== xsrfToken) {
+      const retryHeaders: HeadersInit = {
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "X-XSRF-TOKEN": latestXsrf,
+        "X-Client-Type": "web",
+        ...options.headers,
+      };
+      response = await fetch(`${BASE_URL}${endpoint}`, {
+        ...config,
+        headers: retryHeaders,
+      });
     }
   }
 
