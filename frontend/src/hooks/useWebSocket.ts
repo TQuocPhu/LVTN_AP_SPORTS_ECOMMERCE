@@ -232,6 +232,100 @@ export function useWebSocket() {
                 });
               }
             }
+          
+
+// Bắn popup thông báo thời gian thực & tooltip nổi cho Quản lý kho: Yêu cầu nhập kho mới
+            if (newNotification.actionType === 'IMPORT_REQUEST_CREATED') {
+              let requestCode = 'Mới';
+              let productName = 'Sản phẩm mới';
+              let senderName = 'Nhân viên';
+              let totalQty = 0;
+              try {
+                if (newNotification.payload) {
+                  const p = JSON.parse(newNotification.payload);
+                  if (p.requestCode) requestCode = p.requestCode;
+                  if (p.productName) productName = p.productName;
+                  if (p.senderName) senderName = p.senderName;
+                  if (p.totalQuantity) totalQty = p.totalQuantity;
+                }
+              } catch {}
+
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('import_requests_updated'));
+              }
+
+              playNotificationSound('support');
+              toast.info(`📦 Yêu Cầu Nhập Kho: ${requestCode}`, {
+                description: `${senderName} vừa gửi yêu cầu nhập kho cho "${productName}" (${totalQty > 0 ? `${totalQty} cái` : 'Chờ kiểm đếm'}).`,
+                duration: 10000,
+                action: {
+                  label: 'Xem & Duyệt',
+                  onClick: () => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/admin/inventory/requests';
+                    }
+                  },
+                },
+              });
+            }
+
+            // Bắn popup thông báo thời gian thực khi Yêu cầu nhập kho được duyệt
+            if (newNotification.actionType === 'IMPORT_REQUEST_APPROVED') {
+              let requestCode = '';
+              try {
+                if (newNotification.payload) {
+                  const p = JSON.parse(newNotification.payload);
+                  if (p.requestCode) requestCode = p.requestCode;
+                }
+              } catch {}
+
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('import_requests_updated'));
+              }
+
+              playNotificationSound('support');
+              toast.success(`✅ Yêu Cầu Nhập Kho Đã Được Duyệt: ${requestCode}`, {
+                description: newNotification.message || 'Quản lý kho đã hoàn tất kiểm đếm và ghi nhận hàng vào kho.',
+                duration: 8000,
+                action: {
+                  label: 'Xem Chi Tiết',
+                  onClick: () => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/admin/inventory/requests';
+                    }
+                  },
+                },
+              });
+            }
+
+            // Bắn popup thông báo thời gian thực khi Yêu cầu nhập kho bị từ chối
+            if (newNotification.actionType === 'IMPORT_REQUEST_REJECTED') {
+              let requestCode = '';
+              try {
+                if (newNotification.payload) {
+                  const p = JSON.parse(newNotification.payload);
+                  if (p.requestCode) requestCode = p.requestCode;
+                }
+              } catch {}
+
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('import_requests_updated'));
+              }
+
+              playNotificationSound('warning');
+              toast.error(`❌ Yêu Cầu Nhập Kho Bị Từ Chối: ${requestCode}`, {
+                description: newNotification.message || 'Yêu cầu nhập kho đã bị từ chối bởi Quản lý kho.',
+                duration: 8000,
+                action: {
+                  label: 'Kiểm Tra',
+                  onClick: () => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/admin/inventory/requests';
+                    }
+                  },
+                },
+              });
+            }
           } catch (e) {
             console.error('Lỗi parse JSON thông báo:', e);
           }
