@@ -1,5 +1,6 @@
 package com.web.ap_sports.dto.request.admin;
 
+import com.web.ap_sports.enums.InboundActionType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -50,7 +51,15 @@ public class CreateProductRequest {
     @Builder.Default
     private List<VariantRequest> variants = new ArrayList<>();
 
-    // Tùy chọn Lập phiếu nhập kho ban đầu (chỉ dành cho ADMIN và WAREHOUSE_MANAGER)
+    /**
+     * Tùy chọn xử lý nhập kho ban đầu:
+     * NONE: Không nhập kho ban đầu (mặc định)
+     * DIRECT_IMPORT: Lập phiếu nhập kho nhanh (chỉ dành cho ADMIN)
+     * IMPORT_REQUEST: Gửi yêu cầu nhập kho đến Quản lý kho (dành cho cả ADMIN và STAFF)
+     */
+    @Builder.Default
+    private InboundActionType inboundAction = InboundActionType.NONE;
+
     private Long supplierId;
 
     private String importNote;

@@ -7,11 +7,15 @@ import com.web.ap_sports.dto.request.admin.CreateProductRequest;
 import com.web.ap_sports.dto.request.admin.UpdateProductRequest;
 import com.web.ap_sports.dto.request.admin.VariantRequest;
 import com.web.ap_sports.dto.request.common.ProductFilterRequest;
+import com.web.ap_sports.dto.request.warehouse.CreateImportRequestDto;
+import com.web.ap_sports.dto.request.warehouse.CreateImportRequestItemDto;
 import com.web.ap_sports.dto.response.common.CategoryResponse;
 import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
 import com.web.ap_sports.dto.response.common.VariantResponse;
+import com.web.ap_sports.dto.response.warehouse.ImportRequestResponse;
 import com.web.ap_sports.dto.response.warehouse.InventoryTransactionResponse;
+import com.web.ap_sports.enums.InboundActionType;
 import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.InventoryTransaction;
 import com.web.ap_sports.entity.Product;
@@ -30,6 +34,7 @@ import com.web.ap_sports.repository.SupplierRepository;
 import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.admin.AdminProductService;
 import com.web.ap_sports.service.common.CloudinaryService;
+import com.web.ap_sports.service.warehouse.WarehouseImportRequestService;
 import com.web.ap_sports.service.warehouse.WarehouseInventoryService;
 import com.web.ap_sports.specification.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +68,7 @@ public class AdminProductServiceImpl implements AdminProductService {
     private final InventoryTransactionRepository transactionRepository;
     private final OrderItemRepository orderItemRepository;
     private final WarehouseInventoryService warehouseInventoryService;
+    private final WarehouseImportRequestService importRequestService;
     private final ObjectMapper objectMapper;
     private final CloudinaryService cloudinaryService;
 
@@ -106,32 +112,34 @@ public class AdminProductServiceImpl implements AdminProductService {
         }
 
         boolean isStaff = currentUser != null && "STAFF".equalsIgnoreCase(currentUser.getRole().getName());
+        InboundActionType inboundAction = request.getInboundAction() != null 
+                ? request.getInboundAction() 
+                : InboundActionType.NONE;
+
         boolean hasInitialStock = request.getVariants() != null && request.getVariants().stream()
                 .anyMatch(v -> v.getStockQuantity() != null && v.getStockQuantity() > 0);
 
-        // BE VALIDATION: Chặn tuyệt đối quyền STAFF cố tình gửi số lượng kho hoặc supplierId
-        if (isStaff && (request.getSupplierId() != null || hasInitialStock)) {
-            throw new AppException("Tài khoản Nhân viên (Staff) không có quyền tự lập phiếu nhập kho ban đầu!", HttpStatus.FORBIDDEN);
-        }
-
-        // Nếu là Staff, cưỡng chế đặt toàn bộ tồn kho = 0 và supplierId = null
+        // BE VALIDATION: Chặn tuyệt đối quyền Nhân viên (Staff) can thiệp vào kho (không được lập phiếu nhập kho và không được gửi yêu cầu nhập kho)
         if (isStaff) {
-            if (request.getVariants() != null) {
-                request.getVariants().forEach(v -> v.setStockQuantity(0));
+            if (inboundAction == InboundActionType.DIRECT_IMPORT || inboundAction == InboundActionType.IMPORT_REQUEST) {
+                throw new AppException("Tài khoản Nhân viên không có quyền lập phiếu nhập kho hoặc tạo yêu cầu nhập kho!", HttpStatus.FORBIDDEN);
             }
-            request.setSupplierId(null);
+            inboundAction = InboundActionType.NONE;
             hasInitialStock = false;
         }
 
-        // BE VALIDATION: Đối với Admin/Warehouse, nếu có nhập số lượng tồn kho > 0 thì BẮT BUỘC phải chọn Supplier
+        // BE VALIDATION: Đối với DIRECT_IMPORT, nếu có số lượng > 0 thì BẮT BUỘC phải chọn Nhà cung cấp
         Supplier supplier = null;
-        if (!isStaff && hasInitialStock) {
-            if (request.getSupplierId() == null) {
-                throw new AppException("Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho cho sản phẩm mới!", HttpStatus.BAD_REQUEST);
+        if (inboundAction == InboundActionType.DIRECT_IMPORT) {
+            if (hasInitialStock) {
+                if (request.getSupplierId() == null) {
+                    throw new AppException("Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho nhanh cho sản phẩm mới!", HttpStatus.BAD_REQUEST);
+                }
+                supplier = supplierRepository.findById(request.getSupplierId())
+                        .orElseThrow(() -> new AppException("Nhà cung cấp đã chọn không tồn tại trên hệ thống!", HttpStatus.BAD_REQUEST));
             }
-            supplier = supplierRepository.findById(request.getSupplierId())
-                    .orElseThrow(() -> new AppException("Nhà cung cấp đã chọn không tồn tại trên hệ thống!", HttpStatus.BAD_REQUEST));
         }
+        // Lưu ý: Đối với IMPORT_REQUEST, không cần chọn Nhà cung cấp tại bước gửi yêu cầu (bắn WebSocket tới Quản lý kho).
 
         // Validate slug uniqueness BEFORE uploading images to Cloudinary
         String slug = StringUtils.hasText(request.getSlug())
@@ -184,10 +192,13 @@ public class AdminProductServiceImpl implements AdminProductService {
             }
         });
 
-        // Calculate initial total stock from variants
-        int totalStock = request.getVariants().stream()
-                .mapToInt(v -> v.getStockQuantity() != null ? v.getStockQuantity() : 0)
-                .sum();
+        // Chỉ DIRECT_IMPORT mới cộng dồn tồn kho ban đầu ngay lập tức
+        int totalStock = 0;
+        if (inboundAction == InboundActionType.DIRECT_IMPORT) {
+            totalStock = request.getVariants().stream()
+                    .mapToInt(v -> v.getStockQuantity() != null ? v.getStockQuantity() : 0)
+                    .sum();
+        }
 
         String specificationsJson = serializeSpecifications(request.getSpecifications());
 
@@ -218,13 +229,34 @@ public class AdminProductServiceImpl implements AdminProductService {
             imageRepository.save(mainImg);
         }
 
-        // Save Variants and Variant Images
-        List<ProductVariant> savedVariants = saveVariantsAndImages(savedProduct, request.getVariants(), true);
+        // Quyết định số lượng lưu thực tế vào ProductVariant
+        List<VariantRequest> variantsToSave = new ArrayList<>();
+        for (VariantRequest vr : request.getVariants()) {
+            int qtyToSave = (inboundAction == InboundActionType.DIRECT_IMPORT && vr.getStockQuantity() != null)
+                    ? vr.getStockQuantity()
+                    : 0;
 
-        // LẬP PHIẾU NHẬP KHO CHÍNH QUY (IMPORT INVENTORY TRANSACTION) NẾU CÓ KHỞI TẠO TỒN KHO
+            VariantRequest copy = VariantRequest.builder()
+                    .id(vr.getId())
+                    .sku(vr.getSku())
+                    .color(vr.getColor())
+                    .size(vr.getSize())
+                    .attributes(vr.getAttributes())
+                    .price(vr.getPrice())
+                    .costPrice(vr.getCostPrice())
+                    .stockQuantity(qtyToSave)
+                    .images(vr.getImages())
+                    .build();
+            variantsToSave.add(copy);
+        }
+
+        // Save Variants and Variant Images
+        List<ProductVariant> savedVariants = saveVariantsAndImages(savedProduct, variantsToSave, true);
+
+        // 1. NHÁNH DIRECT_IMPORT (ADMIN LẬP PHIẾU NHẬP KHO NHANH)
         String ticketCode = null;
         InventoryTransactionResponse initialImportTicket = null;
-        if (supplier != null && hasInitialStock && currentUser != null) {
+        if (inboundAction == InboundActionType.DIRECT_IMPORT && supplier != null && hasInitialStock && currentUser != null) {
             ticketCode = generateTicketCode(InventoryTransaction.TransactionType.IMPORT);
             List<InventoryTransaction> savedTxList = new ArrayList<>();
             Map<String, ProductVariant> variantSkuMap = savedVariants.stream()
@@ -243,7 +275,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                                 .unitCost(vr.getCostPrice() != null ? vr.getCostPrice() : BigDecimal.ZERO)
                                 .note(StringUtils.hasText(request.getImportNote())
                                         ? request.getImportNote().trim()
-                                        : "Nhập kho ban đầu khi tạo sản phẩm: " + savedProduct.getName())
+                                        : "Nhập kho nhanh khi tạo sản phẩm: " + savedProduct.getName())
                                 .createdBy(currentUser)
                                 .build();
                         savedTxList.add(transactionRepository.save(tx));
@@ -253,14 +285,54 @@ public class AdminProductServiceImpl implements AdminProductService {
 
             if (!savedTxList.isEmpty()) {
                 initialImportTicket = warehouseInventoryService.getTransactionById(savedTxList.get(0).getId());
-                log.info("Đã tự động tạo phiếu nhập kho ban đầu [{}] cho sản phẩm ID={} gồm {} biến thể bởi {}",
+                log.info("Đã tự động lập phiếu nhập kho nhanh [{}] cho sản phẩm ID={} gồm {} biến thể bởi {}",
                         ticketCode, savedProduct.getId(), savedTxList.size(), currentUser.getEmail());
+            }
+        }
+
+        // 2. NHÁNH IMPORT_REQUEST (ADMIN HOẶC STAFF GỬI YÊU CẦU NHẬP KHO TỚI BỘ PHẬN KHO)
+        String importRequestCode = null;
+        ImportRequestResponse initialImportRequest = null;
+        if (inboundAction == InboundActionType.IMPORT_REQUEST && hasInitialStock && currentUser != null) {
+            Map<String, ProductVariant> variantSkuMap = savedVariants.stream()
+                    .collect(Collectors.toMap(ProductVariant::getSku, v -> v));
+
+            List<CreateImportRequestItemDto> reqItems = new ArrayList<>();
+            for (VariantRequest vr : request.getVariants()) {
+                if (vr.getStockQuantity() != null && vr.getStockQuantity() > 0) {
+                    ProductVariant v = variantSkuMap.get(vr.getSku().trim());
+                    if (v != null) {
+                        reqItems.add(CreateImportRequestItemDto.builder()
+                                .variantId(v.getId())
+                                .requestedQuantity(vr.getStockQuantity())
+                                .expectedCostPrice(vr.getCostPrice())
+                                .build());
+                    }
+                }
+            }
+
+            if (!reqItems.isEmpty()) {
+                CreateImportRequestDto reqDto = CreateImportRequestDto.builder()
+                        .productId(savedProduct.getId())
+                        .supplierId(null) // Gửi yêu cầu nhập kho: không gắn nhà cung cấp tại bước gửi đề xuất
+                        .note(StringUtils.hasText(request.getImportNote())
+                                ? request.getImportNote().trim()
+                                : "Yêu cầu nhập kho ban đầu cho sản phẩm mới: " + savedProduct.getName())
+                        .items(reqItems)
+                        .build();
+
+                initialImportRequest = importRequestService.createImportRequest(reqDto, currentUserEmail);
+                importRequestCode = initialImportRequest.getCode();
+                log.info("Đã tự động gửi yêu cầu nhập kho [{}] cho sản phẩm ID={} gồm {} biến thể tới Quản lý kho",
+                        importRequestCode, savedProduct.getId(), reqItems.size());
             }
         }
 
         ProductDetailResponse detailResponse = getProductById(savedProduct.getId());
         detailResponse.setInitialImportTicketCode(ticketCode);
         detailResponse.setInitialImportTransaction(initialImportTicket);
+        detailResponse.setInitialImportRequestCode(importRequestCode);
+        detailResponse.setInitialImportRequest(initialImportRequest);
         return detailResponse;
     }
 

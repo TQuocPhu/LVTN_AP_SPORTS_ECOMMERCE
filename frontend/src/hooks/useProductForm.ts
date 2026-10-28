@@ -7,7 +7,7 @@ import { Supplier } from '@/types/inventory';
 import { supplierController } from '@/controllers/supplier-controller';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { isApiError } from '@/services/api-client';
-import { toast } from 'sonner';
+
 
 export interface SpecPair {
   key: string;
@@ -44,12 +44,22 @@ export function useProductForm(productId?: number) {
     { key: 'Thương hiệu', value: '' },
   ]);
 
-  // Initial Stock & Inbound Receipt State (Only available for ADMIN and WAREHOUSE_MANAGER)
+  // Initial Stock & Inbound Receipt State (Chỉ áp dụng cho ADMIN và WAREHOUSE_MANAGER; STAFF tuyệt đối không được nhập kho)
+  const [inboundAction, setInboundAction] = useState<'NONE' | 'DIRECT_IMPORT' | 'IMPORT_REQUEST'>(
+    canCreateImport ? 'DIRECT_IMPORT' : 'NONE'
+  );
   const [hasInitialStock, setHasInitialStock] = useState<boolean>(canCreateImport);
   const [supplierId, setSupplierId] = useState<number | undefined>(undefined);
   const [importNote, setImportNote] = useState<string>('');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!canCreateImport) {
+      setInboundAction('NONE');
+      setHasInitialStock(false);
+    }
+  }, [canCreateImport]);
 
   // Dynamic Variant Attribute Groups (Color, Size, Weight, Tension, etc.)
   const [attributeGroups, setAttributeGroups] = useState<VariantAttributeGroup[]>([
@@ -141,7 +151,7 @@ export function useProductForm(productId?: number) {
   }, [fetchProductDetail]);
 
   useEffect(() => {
-    if (!isEdit && canCreateImport) {
+    if (!isEdit) {
       setLoadingSuppliers(true);
       supplierController
         .getSuppliersList()
@@ -339,7 +349,7 @@ export function useProductForm(productId?: number) {
       });
 
       // Validation chọn Nhà cung cấp khi Admin/Warehouse bật nhập kho và có số lượng > 0
-      if (!isEdit && canCreateImport && hasInitialStock) {
+      if (!isEdit && inboundAction === 'DIRECT_IMPORT' && hasInitialStock) {
         const hasPositiveStock = variants.some((v) => Number(v.stockQuantity) > 0);
         if (hasPositiveStock && !supplierId) {
           errs.supplierId = 'Vui lòng chọn Nhà cung cấp để lập phiếu nhập kho ban đầu';
@@ -403,11 +413,20 @@ export function useProductForm(productId?: number) {
         let finalSupplierId: number | undefined = undefined;
         let finalImportNote: string | undefined = undefined;
 
-        if (!canCreateImport || !hasInitialStock) {
+        if (inboundAction === 'NONE') {
           // Với Staff hoặc khi tắt lập phiếu nhập kho: cưỡng chế số lượng = 0
           finalVariants = variants.map((v) => ({ ...v, stockQuantity: 0 }));
-        } else {
+        } else if (inboundAction === 'DIRECT_IMPORT') {
           finalSupplierId = supplierId;
+          finalImportNote = importNote.trim() || undefined;
+        } else if (inboundAction === 'IMPORT_REQUEST') {
+          finalSupplierId = undefined;
+          finalImportNote = importNote.trim() || undefined;
+        } else if (inboundAction === 'DIRECT_IMPORT') {
+          finalSupplierId = supplierId;
+          finalImportNote = importNote.trim() || undefined;
+        } else if (inboundAction === 'IMPORT_REQUEST') {
+          finalSupplierId = undefined;
           finalImportNote = importNote.trim() || undefined;
         }
 
@@ -425,6 +444,7 @@ export function useProductForm(productId?: number) {
           variants: finalVariants,
           supplierId: finalSupplierId,
           importNote: finalImportNote,
+          inboundAction,
         };
         const res = await adminProductController.createProduct(createData);
         return res;
@@ -448,8 +468,15 @@ export function useProductForm(productId?: number) {
 
     // Permissions & Inbound Stock Management
     canCreateImport,
+    isStaff: !canCreateImport,
+    inboundAction,
+    setInboundAction,
     hasInitialStock,
     setHasInitialStock,
+    isStockInputAllowed: !isEdit && inboundAction !== 'NONE',
+    totalCalculatedStock: (!isEdit && inboundAction !== 'NONE') || isEdit
+      ? variants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0)
+      : 0,
     supplierId,
     setSupplierId,
     importNote,

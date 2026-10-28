@@ -84,19 +84,6 @@ export function ProductFormBasicStep({
         </p>
       </div>
 
-      {/* Category Selector */}
-      <div>
-        <label className="block text-sm font-bold text-slate-800 uppercase tracking-wider mb-2">
-          Phân loại danh mục <span className="text-rose-500">*</span>
-        </label>
-        <ProductCategorySelect
-          categoryTree={categoryTree}
-          selectedCategoryIds={categoryIds}
-          onChange={onCategoryIdsChange}
-          error={errors.categoryIds}
-        />
-      </div>
-
       {/* Price, Unit & Weight Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div>
@@ -158,6 +145,19 @@ export function ProductFormBasicStep({
             </p>
           )}
         </div>
+      </div>
+
+      {/* Category Selector (Nằm ngay phía dưới Trọng lượng) */}
+      <div>
+        <label className="block text-sm font-bold text-slate-800 uppercase tracking-wider mb-2">
+          Phân loại danh mục <span className="text-rose-500">*</span>
+        </label>
+        <ProductCategorySelect
+          categoryTree={categoryTree}
+          selectedCategoryIds={categoryIds}
+          onChange={onCategoryIdsChange}
+          error={errors.categoryIds}
+        />
       </div>
 
       {/* Main Image File Upload */}

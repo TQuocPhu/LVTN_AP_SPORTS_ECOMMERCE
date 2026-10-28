@@ -45,6 +45,8 @@ export interface ProductDetail extends Product {
   allImages: string[];
   initialImportTicketCode?: string;
   initialImportTransaction?: InventoryTransaction;
+  initialImportRequestCode?: string;
+  initialImportRequest?: any;
 }
 
 export interface CreateProductFormRequest {
@@ -61,6 +63,7 @@ export interface CreateProductFormRequest {
   variants: ProductVariant[];
   supplierId?: number;
   importNote?: string;
+  inboundAction?: 'NONE' | 'DIRECT_IMPORT' | 'IMPORT_REQUEST';
 }
 
 export interface UpdateProductFormRequest {

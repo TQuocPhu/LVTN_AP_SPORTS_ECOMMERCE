@@ -29,6 +29,7 @@ import com.web.ap_sports.service.admin.impl.AdminProductServiceImpl;
 import com.web.ap_sports.service.common.CloudinaryService;
 import com.web.ap_sports.service.customer.impl.CustomerProductServiceImpl;
 import com.web.ap_sports.service.warehouse.WarehouseInventoryService;
+import com.web.ap_sports.service.warehouse.WarehouseImportRequestService;
 import com.web.ap_sports.util.VariantAttributeUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -79,6 +80,8 @@ class ProductAndVariantServiceTest {
     @Mock
     private WarehouseInventoryService warehouseInventoryService;
     @Mock
+    private WarehouseImportRequestService importRequestService;
+    @Mock
     private CloudinaryService cloudinaryService;
     @Mock
     private HybridSearchEngineService hybridSearchEngineService;
@@ -105,6 +108,7 @@ class ProductAndVariantServiceTest {
                 transactionRepository,
                 orderItemRepository,
                 warehouseInventoryService,
+                importRequestService,
                 objectMapper,
                 cloudinaryService
         );

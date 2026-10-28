@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Check, Image as ImageIcon, Building2, FileText, AlertCircle } from 'lucide-react';
+import { Check, Image as ImageIcon, Building2, FileText, AlertCircle, Zap, SendHorizontal, PackageX } from 'lucide-react';
 import { ProductVariant } from '@/types/product';
+import { InboundActionType } from '@/types/import-request';
 
 interface ProductFormReviewStepProps {
   isEdit?: boolean;
@@ -14,6 +15,7 @@ interface ProductFormReviewStepProps {
   categoryIds: number[];
   variants: ProductVariant[];
   hasInitialStock?: boolean;
+  inboundAction?: InboundActionType;
   supplierName?: string;
   importNote?: string;
 }
@@ -28,6 +30,7 @@ export function ProductFormReviewStep({
   categoryIds,
   variants,
   hasInitialStock = false,
+  inboundAction = 'NONE',
   supplierName,
   importNote,
 }: ProductFormReviewStepProps) {
@@ -89,11 +92,11 @@ export function ProductFormReviewStep({
         {/* Inbound Ticket Preview Card */}
         {!isEdit && (
           <div className="pt-4 border-t border-slate-100">
-            {hasInitialStock && supplierName ? (
+            {inboundAction === 'DIRECT_IMPORT' && hasInitialStock && supplierName ? (
               <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-2">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  Chứng từ nhập kho khởi tạo (Sẽ tự động lập khi bấm Lưu)
+                  <Zap className="w-4 h-4 text-emerald-600" />
+                  Lập phiếu nhập kho nhanh trực tiếp (PNK) - Tự động cộng tồn kho ngay
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700 pt-1">
                   <div>
@@ -111,11 +114,33 @@ export function ProductFormReviewStep({
                   )}
                 </div>
               </div>
+            ) : inboundAction === 'IMPORT_REQUEST' && hasInitialStock ? (
+              <div className="p-4 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-2">
+                <div className="flex items-center gap-2 text-blue-800 font-bold text-sm">
+                  <SendHorizontal className="w-4 h-4 text-blue-600" />
+                  Gửi yêu cầu nhập kho (YCNK) - Bắn WebSocket realtime tới Quản lý kho
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700 pt-1">
+                  <div>
+                    <span className="text-slate-500">Quy trình:</span>{' '}
+                    <strong className="text-blue-900">Ban quản lý kho kiểm đếm thực tế & duyệt</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Tổng số lượng đề xuất:</span>{' '}
+                    <strong className="text-blue-700">{totalCalculatedStock} {unit}</strong>
+                  </div>
+                  {importNote && (
+                    <div className="sm:col-span-2">
+                      <span className="text-slate-500">Ghi chú gửi kho:</span> {importNote}
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : (
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2.5 text-xs text-slate-600">
                 <AlertCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
                 <span>
-                  Sản phẩm sẽ được tạo với tồn kho <strong>0</strong> (Hết hàng). Bạn có thể lập phiếu nhập kho sau tại menu Quản lý kho.
+                  Sản phẩm sẽ được tạo với tồn kho <strong>0</strong> (Chưa nhập kho). Bạn có thể lập phiếu nhập kho hoặc gửi yêu cầu sau.
                 </span>
               </div>
             )}

@@ -39,6 +39,12 @@ export default function CreateProductPage() {
         setCreatedProductName(productData.name || form.name);
         setShowSuccessDialog(true);
         toast.success(`Tạo sản phẩm & phiếu nhập kho ${productData.initialImportTicketCode} thành công!`);
+      } else if (productData?.initialImportRequestCode) {
+        toast.success(
+          `Đã tạo sản phẩm & gửi yêu cầu nhập kho ${productData.initialImportRequestCode} tới Quản lý kho qua WebSocket!`,
+          { duration: 6000 }
+        );
+        router.push('/admin/products');
       } else {
         toast.success('Thêm sản phẩm mới thành công!');
         router.push('/admin/products');
@@ -123,6 +129,10 @@ export default function CreateProductPage() {
           <ProductFormVariantStep
             isEdit={false}
             canCreateImport={form.canCreateImport}
+            isStockInputAllowed={form.isStockInputAllowed}
+            totalCalculatedStock={form.totalCalculatedStock}
+            inboundAction={form.inboundAction}
+            setInboundAction={form.setInboundAction}
             hasInitialStock={form.hasInitialStock}
             setHasInitialStock={form.setHasInitialStock}
             supplierId={form.supplierId}
@@ -155,6 +165,7 @@ export default function CreateProductPage() {
             categoryIds={form.categoryIds}
             variants={form.variants}
             hasInitialStock={form.hasInitialStock}
+            inboundAction={form.inboundAction}
             supplierName={selectedSupplierName}
             importNote={form.importNote}
           />

@@ -12,7 +12,7 @@ import { ProductFormVariantStep } from '@/components/admin/product/ProductFormVa
 import { ProductFormReviewStep } from '@/components/admin/product/ProductFormReviewStep';
 import { ProductFormFooterNav } from '@/components/admin/product/ProductFormFooterNav';
 import { ArrowLeft, RefreshCw, AlertTriangle, Warehouse } from 'lucide-react';
-import { toast } from 'sonner';
+
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -82,12 +82,14 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
-          <Link
-            href={`/admin/inventory?keyword=${encodeURIComponent(form.name)}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
-          >
-            <Warehouse className="w-4 h-4" /> Lập phiếu nhập kho bổ sung
-          </Link>
+          {form.canCreateImport && (
+            <Link
+              href={`/admin/inventory?keyword=${encodeURIComponent(form.name)}`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+            >
+              <Warehouse className="w-4 h-4" /> Lập phiếu nhập kho bổ sung
+            </Link>
+          )}
         </div>
       )}
 
@@ -142,6 +144,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         {form.activeStep === 2 && (
           <ProductFormVariantStep
             isEdit={true}
+
+            totalCalculatedStock={form.totalCalculatedStock}
+            isStockInputAllowed={form.isStockInputAllowed}
             attributeGroups={form.attributeGroups}
             variants={form.variants}
             errors={form.errors}
@@ -158,6 +163,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         {form.activeStep === 3 && (
           <ProductFormReviewStep
             isEdit={true}
+
             name={form.name}
             slug={form.slug}
             price={form.price}
