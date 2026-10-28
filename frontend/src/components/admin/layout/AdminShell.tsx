@@ -19,7 +19,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     // Chỉ redirect khi loading=false để tránh vòng lặp vô tận
     if (loading) return;
     if (!user && !isLoginPage) {
-      router.replace('/admin/login');
+      router.replace('/admin/login?reason=session_expired');
     }
   }, [user, loading, isLoginPage, router]);
 

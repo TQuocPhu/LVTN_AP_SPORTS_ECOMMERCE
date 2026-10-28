@@ -43,7 +43,7 @@ public class Notification {
     private String message;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "action_type", nullable = false)
+    @Column(name = "action_type", nullable = false, length = 50)
     private NotificationActionType actionType;
 
     @Column(columnDefinition = "TEXT", nullable = false)

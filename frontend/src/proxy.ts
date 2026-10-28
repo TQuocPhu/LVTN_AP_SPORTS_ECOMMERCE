@@ -87,12 +87,27 @@ export async function proxy(request: NextRequest) {
 
   // 2. Trang Quản trị Admin
   if (pathname === '/admin/login') {
-    if (isValidToken) {
+    const hasAdminSessionFlag = request.cookies.get('apsports_admin_has_session')?.value === 'true';
+    const hasReason = request.nextUrl.searchParams.has('reason');
+
+    // Chỉ chuyển hướng về dashboard nếu token còn hợp lệ, cờ client session đang bật VÀ không có query báo lỗi/hết phiên
+    if (isValidToken && hasAdminSessionFlag && !hasReason) {
       const normalizedRole = userRole?.replace(/^ROLE_/, '');
       if (normalizedRole && normalizedRole !== 'CUSTOMER') {
         return NextResponse.redirect(new URL('/admin/dashboard', request.url), 307);
       }
     }
+
+    // Nếu người dùng truy cập /admin/login nhưng cờ session tắt hoặc phiên hết hạn:
+    // Dọn sạch toàn bộ Cookie HttpOnly cũ còn sót lại để triệt tiêu hoàn toàn Infinite Redirect Loop
+    if (token || hasRefreshToken) {
+      const res = NextResponse.next();
+      res.cookies.set('accessToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+      res.cookies.set('refreshToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+      res.cookies.set('apsports_admin_has_session', '', { path: '/', maxAge: 0 });
+      return res;
+    }
+
     return NextResponse.next();
   }
 
@@ -106,6 +121,33 @@ export async function proxy(request: NextRequest) {
       const normalizedRole = userRole?.replace(/^ROLE_/, '');
       if (normalizedRole === 'CUSTOMER') {
         return NextResponse.redirect(new URL('/admin/login', request.url), 307);
+      }
+
+      // Phân quyền chặt chẽ các sub-routes trong /admin:
+      if (normalizedRole === 'STAFF') {
+        // STAFF KHÔNG có quyền truy cập: Kho vận (/admin/inventory, /admin/inventory/requests, /admin/suppliers), Mã giảm giá (/admin/vouchers), Quản lý người dùng (/admin/users), Danh mục (/admin/categories)
+        if (
+          pathname.startsWith('/admin/inventory') ||
+          pathname.startsWith('/admin/suppliers') ||
+          pathname.startsWith('/admin/vouchers') ||
+          pathname.startsWith('/admin/users') ||
+          pathname.startsWith('/admin/categories')
+        ) {
+          return NextResponse.redirect(new URL('/admin/orders', request.url), 307);
+        }
+      }
+
+      if (normalizedRole === 'WAREHOUSE_MANAGER') {
+        // Quản lý kho chỉ phụ trách Kho vận, Báo cáo và Sản phẩm; không truy cập: Đơn hàng, Voucher, Người dùng, Danh mục, CSKH
+        if (
+          pathname.startsWith('/admin/orders') ||
+          pathname.startsWith('/admin/vouchers') ||
+          pathname.startsWith('/admin/users') ||
+          pathname.startsWith('/admin/categories') ||
+          pathname.startsWith('/admin/support-chat')
+        ) {
+          return NextResponse.redirect(new URL('/admin/inventory', request.url), 307);
+        }
       }
     }
   }

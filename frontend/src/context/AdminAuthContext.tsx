@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { adminAuthController } from "@/controllers/admin-auth-controller";
 import { AdminLoginRequest, ApiResponse, UserResponse } from "@/types/auth";
+import { setCookie, eraseCookie } from "@/services/api/cookies";
 
 interface AdminAuthContextType {
   user: UserResponse | null;
@@ -61,17 +62,20 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.data);
         if (typeof window !== 'undefined') {
           localStorage.setItem("apsports_admin_has_session", "true");
+          setCookie("apsports_admin_has_session", "true", 7);
         }
       } else {
         setUser(null);
         if (typeof window !== 'undefined') {
           localStorage.removeItem("apsports_admin_has_session");
+          eraseCookie("apsports_admin_has_session");
         }
       }
     } catch {
       setUser(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem("apsports_admin_has_session");
+        eraseCookie("apsports_admin_has_session");
       }
     } finally {
       if (isInitial) setLoading(false);
@@ -118,6 +122,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         setUser(res.data);
         if (typeof window !== "undefined") {
           localStorage.setItem("apsports_admin_has_session", "true");
+          setCookie("apsports_admin_has_session", "true", 7);
           window.dispatchEvent(new CustomEvent("auth:login"));
         }
       }
@@ -140,6 +145,7 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       if (typeof window !== "undefined") {
         localStorage.removeItem("apsports_admin_has_session");
+        eraseCookie("apsports_admin_has_session");
         window.dispatchEvent(new CustomEvent("auth:logout"));
       }
     }

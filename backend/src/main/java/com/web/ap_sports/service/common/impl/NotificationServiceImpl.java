@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -105,6 +106,9 @@ public class NotificationServiceImpl implements NotificationService {
             case ORDER_PACKED -> "Đơn hàng đã được kiểm đếm đóng gói";
             case NEW_SUPPORT_REQUEST -> "Yêu cầu tư vấn trực tuyến mới";
             case SYSTEM_ALERT -> "Cảnh báo vi phạm & sự cố";
+            case IMPORT_REQUEST_CREATED -> "Yêu cầu nhập kho mới";
+            case IMPORT_REQUEST_APPROVED -> "Yêu cầu nhập kho đã được duyệt";
+            case IMPORT_REQUEST_REJECTED -> "Yêu cầu nhập kho bị từ chối";
             default -> "Thông báo mới từ hệ thống";
         };
     }
@@ -161,6 +165,9 @@ public class NotificationServiceImpl implements NotificationService {
                 case NEW_SUPPORT_REQUEST -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Khách hàng " + (customerName.isBlank() ? "vừa" : customerName) + " đang chờ tư vấn hỗ trợ trực tuyến" + (map.get("subject") != null ? ": " + map.get("subject") : "."));
                 case WELCOME -> map.get("content") != null ? String.valueOf(map.get("content")) : "Hệ thống thông báo thời gian thực đã sẵn sàng phục vụ bạn.";
                 case SYSTEM_ALERT -> map.get("content") != null ? String.valueOf(map.get("content")) : defaultTitle;
+                case IMPORT_REQUEST_CREATED -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Yêu cầu nhập kho mới #" + map.get("requestCode") + " đang chờ duyệt từ bộ phận kho.");
+                case IMPORT_REQUEST_APPROVED -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Yêu cầu nhập kho #" + map.get("requestCode") + " đã được thủ kho duyệt và nhập kho thành công.");
+                case IMPORT_REQUEST_REJECTED -> map.get("content") != null ? String.valueOf(map.get("content")) : ("Yêu cầu nhập kho #" + map.get("requestCode") + " đã bị từ chối." + (map.get("reason") != null ? " Lý do: " + map.get("reason") : ""));
                 default -> defaultTitle;
             };
         } catch (Exception e) {
@@ -199,83 +206,119 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendToUser(Long targetUserId, Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
         if (senderId != null && senderId.equals(targetUserId)) {
             log.debug("Bỏ qua gửi thông báo cho chính người thực hiện (senderId = targetUserId = {})", senderId);
             return;
         }
-        User targetUser = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người nhận"));
+        try {
+            User targetUser = userRepository.findById(targetUserId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người nhận"));
 
-        Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
-        notification = notificationRepository.save(notification);
-        sendWebSocketMessage(targetUserId, mapToResponse(notification));
+            Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
+            notification = notificationRepository.save(notification);
+            sendWebSocketMessage(targetUserId, mapToResponse(notification));
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi thông báo cho user ID {}: {}", targetUserId, e.getMessage(), e);
+        }
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendToInternalUsers(List<String> roles, Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
-        List<User> internalUsers = userRepository.findActiveUsersByRoles(roles);
+        try {
+            List<User> internalUsers = userRepository.findActiveUsersByRoles(roles);
 
-        for (User targetUser : internalUsers) {
-            if (senderId != null && targetUser.getId().equals(senderId)) {
-                continue;
+            for (User targetUser : internalUsers) {
+                if (senderId != null && targetUser.getId().equals(senderId)) {
+                    continue;
+                }
+                try {
+                    Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
+                    notification = notificationRepository.save(notification);
+                    sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+                } catch (Exception ex) {
+                    log.error("Lỗi lưu thông báo cho user {} (role: {}): {}", targetUser.getEmail(), roles, ex.getMessage());
+                }
             }
-            Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
-            notification = notificationRepository.save(notification);
-            sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi thông báo tới nhóm nội bộ roles {}: {}", roles, e.getMessage(), e);
         }
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendToUsersWithPermission(String permissionName, Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
-        List<User> eligibleUsers = userRepository.findActiveUsersByPermission(permissionName);
-        log.info("Gửi thông báo action: {} theo quyền [{}], tìm thấy {} người nhận hợp lệ",
-                actionType, permissionName, eligibleUsers.size());
+        try {
+            List<User> eligibleUsers = userRepository.findActiveUsersByPermission(permissionName);
+            log.info("Gửi thông báo action: {} theo quyền [{}], tìm thấy {} người nhận hợp lệ",
+                    actionType, permissionName, eligibleUsers.size());
 
-        for (User targetUser : eligibleUsers) {
-            if (senderId != null && targetUser.getId().equals(senderId)) {
-                continue;
+            for (User targetUser : eligibleUsers) {
+                if (senderId != null && targetUser.getId().equals(senderId)) {
+                    continue;
+                }
+                try {
+                    Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
+                    notification = notificationRepository.save(notification);
+                    sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+                } catch (Exception ex) {
+                    log.error("Lỗi lưu thông báo cho user {}: {}", targetUser.getEmail(), ex.getMessage());
+                }
             }
-            Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
-            notification = notificationRepository.save(notification);
-            sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+        } catch (Exception e) {
+            log.error("Lỗi gửi thông báo theo quyền {}: {}", permissionName, e.getMessage(), e);
         }
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendToUsersWithAnyPermission(List<String> permissionNames, Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
-        List<User> eligibleUsers = userRepository.findActiveUsersByPermissions(permissionNames);
-        log.info("Gửi thông báo action: {} theo danh sách quyền {}, tìm thấy {} người nhận hợp lệ",
-                actionType, permissionNames, eligibleUsers.size());
+        try {
+            List<User> eligibleUsers = userRepository.findActiveUsersByPermissions(permissionNames);
+            log.info("Gửi thông báo action: {} theo danh sách quyền {}, tìm thấy {} người nhận hợp lệ",
+                    actionType, permissionNames, eligibleUsers.size());
 
-        for (User targetUser : eligibleUsers) {
-            if (senderId != null && targetUser.getId().equals(senderId)) {
-                continue;
+            for (User targetUser : eligibleUsers) {
+                if (senderId != null && targetUser.getId().equals(senderId)) {
+                    continue;
+                }
+                try {
+                    Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
+                    notification = notificationRepository.save(notification);
+                    sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+                } catch (Exception ex) {
+                    log.error("Lỗi lưu thông báo cho user {}: {}", targetUser.getEmail(), ex.getMessage());
+                }
             }
-            Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
-            notification = notificationRepository.save(notification);
-            sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+        } catch (Exception e) {
+            log.error("Lỗi gửi thông báo theo danh sách quyền {}: {}", permissionNames, e.getMessage(), e);
         }
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendToSupportLiveChatUsers(Long senderId, NotificationActionType actionType, String targetUrl, String payload) {
-        List<User> eligibleUsers = userRepository.findActiveSupportLiveChatUsers();
-        log.info("Gửi thông báo live chat action: {}, tìm thấy {} người nhận hợp lệ (SUPPORT_LIVE_CHAT hoặc ADMIN)",
-                actionType, eligibleUsers.size());
+        try {
+            List<User> eligibleUsers = userRepository.findActiveSupportLiveChatUsers();
+            log.info("Gửi thông báo live chat action: {}, tìm thấy {} người nhận hợp lệ (SUPPORT_LIVE_CHAT hoặc ADMIN)",
+                    actionType, eligibleUsers.size());
 
-        for (User targetUser : eligibleUsers) {
-            if (senderId != null && targetUser.getId().equals(senderId)) {
-                continue;
+            for (User targetUser : eligibleUsers) {
+                if (senderId != null && targetUser.getId().equals(senderId)) {
+                    continue;
+                }
+                try {
+                    Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
+                    notification = notificationRepository.save(notification);
+                    sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+                } catch (Exception ex) {
+                    log.error("Lỗi lưu thông báo live chat cho user {}: {}", targetUser.getEmail(), ex.getMessage());
+                }
             }
-            Notification notification = buildNotification(targetUser, senderId, actionType, targetUrl, payload);
-            notification = notificationRepository.save(notification);
-            sendWebSocketMessage(targetUser.getId(), mapToResponse(notification));
+        } catch (Exception e) {
+            log.error("Lỗi gửi thông báo live chat: {}", e.getMessage(), e);
         }
     }
 
