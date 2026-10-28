@@ -223,19 +223,15 @@ export const supportChatController = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${BASE_URL}/support-chat/upload-message-image`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || 'Không thể tải ảnh tin nhắn lên Cloudinary.');
-    }
-
-    const json = await response.json();
-    return json.data;
+    const res = await apiClient<{ url: string; publicId: string }>(
+      '/support-chat/upload-message-image',
+      {
+        method: 'POST',
+        body: formData,
+        timeoutMs: 60000,
+      }
+    );
+    return res.data;
   },
 
   /**
@@ -246,18 +242,14 @@ export const supportChatController = {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
 
-    const response = await fetch(`${BASE_URL}/support-chat/upload-report-evidence`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err.message || 'Không thể tải ảnh bằng chứng vi phạm lên Cloudinary.');
-    }
-
-    const json = await response.json();
-    return json.data;
+    const res = await apiClient<string[]>(
+      '/support-chat/upload-report-evidence',
+      {
+        method: 'POST',
+        body: formData,
+        timeoutMs: 60000,
+      }
+    );
+    return res.data;
   },
 };
