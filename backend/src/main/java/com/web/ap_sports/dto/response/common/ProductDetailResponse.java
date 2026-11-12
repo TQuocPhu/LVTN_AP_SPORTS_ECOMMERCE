@@ -18,6 +18,10 @@ public class ProductDetailResponse {
     private String slug;
     private String description;
     private BigDecimal price;
+    /** Điểm đánh giá trung bình thực tế từ các đánh giá đã duyệt (status = 'approved') */
+    private Double rating;
+    /** Tổng số lượt đánh giá đã duyệt của sản phẩm */
+    private Long reviewsCount;
     private Integer totalStock;
     private String status;
     private String unit;

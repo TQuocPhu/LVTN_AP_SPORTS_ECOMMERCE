@@ -77,6 +77,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Object[]> countApprovedByRating(@Param("productId") Long productId);
 
     /**
+     * Thống kê điểm đánh giá trung bình và tổng số lượt đánh giá đã duyệt (status = 'approved')
+     * cho một danh sách sản phẩm bằng 1 câu truy vấn Batch duy nhất (chống N+1 query).
+     * Mỗi phần tử trả về: [productId (Long), averageRating (Double), reviewCount (Long)]
+     */
+    @Query("SELECT r.product.id, AVG(r.rating), COUNT(r.id) FROM Review r WHERE r.product.id IN :productIds AND r.status = 'approved' GROUP BY r.product.id")
+    List<Object[]> findReviewStatsByProductIds(@Param("productIds") List<Long> productIds);
+
+    /**
      * Tìm kiếm & Lọc đánh giá cho Admin với Bộ lọc Phân trang
      */
     @Query("SELECT r FROM Review r WHERE " +

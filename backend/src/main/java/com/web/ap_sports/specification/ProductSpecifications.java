@@ -4,6 +4,7 @@ import com.web.ap_sports.dto.request.common.ProductFilterRequest;
 import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductVariant;
+import com.web.ap_sports.entity.Review;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -39,8 +40,15 @@ public class ProductSpecifications {
                 predicates.add(cb.or(nameLike, slugLike, skuIn));
             }
 
-            // Category Filter (Primary Category or Many-to-Many Categories)
-            if (filter.getCategoryId() != null) {
+            // Category Filter (Hỗ trợ lọc theo tập categoryIds bao gồm cả danh mục cha + con + cháu, hoặc categoryId đơn lẻ)
+            if (filter.getCategoryIds() != null && !filter.getCategoryIds().isEmpty()) {
+                Predicate primaryCatIn = root.get("category").get("id").in(filter.getCategoryIds());
+
+                Join<Product, Category> categoryJoin = root.join("categories", JoinType.LEFT);
+                Predicate secondaryCatIn = categoryJoin.get("id").in(filter.getCategoryIds());
+
+                predicates.add(cb.or(primaryCatIn, secondaryCatIn));
+            } else if (filter.getCategoryId() != null) {
                 Predicate primaryCatEqual = cb.equal(root.get("category").get("id"), filter.getCategoryId());
 
                 Join<Product, Category> categoryJoin = root.join("categories", JoinType.LEFT);
@@ -83,6 +91,18 @@ public class ProductSpecifications {
             }
             if (filter.getMaxPrice() != null) {
                 predicates.add(cb.lessThanOrEqualTo(root.get("price"), filter.getMaxPrice()));
+            }
+
+            // Rating Filter (Lọc các sản phẩm có điểm đánh giá trung bình đã duyệt >= mức sao đã chọn)
+            if (filter.getRating() != null && filter.getRating() > 0) {
+                Subquery<Long> ratingSubquery = query.subquery(Long.class);
+                Root<Review> reviewRoot = ratingSubquery.from(Review.class);
+                ratingSubquery.select(reviewRoot.get("product").get("id"))
+                        .where(cb.equal(reviewRoot.get("status"), "approved"))
+                        .groupBy(reviewRoot.get("product").get("id"))
+                        .having(cb.greaterThanOrEqualTo(cb.avg(reviewRoot.get("rating")), filter.getRating().doubleValue()));
+
+                predicates.add(cb.in(root.get("id")).value(ratingSubquery));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

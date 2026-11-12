@@ -10,14 +10,19 @@ export interface UseProductRatingStarsProps {
 }
 
 export function useProductRatingStars({
-  rating = 5,
+  rating,
   totalReviews,
   size = 'sm',
   interactive = false,
 }: UseProductRatingStarsProps) {
   const safeRating = useMemo(() => {
-    return Math.max(0, Math.min(5, Number(rating) || 0));
-  }, [rating]);
+    if (rating === undefined || rating === null) {
+      return totalReviews === 0 ? 0 : 5;
+    }
+    const numericRating = Number(rating);
+    if (Number.isNaN(numericRating)) return 0;
+    return Math.max(0, Math.min(5, numericRating));
+  }, [rating, totalReviews]);
 
   const roundedRating = useMemo(() => {
     return Math.round(safeRating * 10) / 10;

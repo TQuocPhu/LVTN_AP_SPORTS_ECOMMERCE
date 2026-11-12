@@ -14,7 +14,7 @@ export interface ProductRatingStarsProps extends UseProductRatingStarsProps {
 }
 
 export function ProductRatingStars({
-  rating = 5,
+  rating,
   totalReviews,
   size = 'sm',
   showRatingValue = true,

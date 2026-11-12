@@ -11,13 +11,17 @@ import com.web.ap_sports.entity.ProductImage;
 import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.enums.ProductVariantStatus;
+import com.web.ap_sports.repository.CategoryRepository;
 import com.web.ap_sports.repository.ProductImageRepository;
 import com.web.ap_sports.repository.ProductRepository;
 import com.web.ap_sports.repository.ProductVariantRepository;
+import com.web.ap_sports.repository.ReviewRepository;
 import com.web.ap_sports.search.HybridSearchEngineService;
+import com.web.ap_sports.service.common.CategoryCacheService;
 import com.web.ap_sports.service.customer.CustomerProductService;
 import com.web.ap_sports.specification.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
@@ -39,11 +43,28 @@ public class CustomerProductServiceImpl implements CustomerProductService {
     private final HybridSearchEngineService hybridSearchEngineService;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
+    @Autowired(required = false)
+    private ReviewRepository reviewRepository;
+
+    @Autowired(required = false)
+    private CategoryRepository categoryRepository;
+
+    @Autowired(required = false)
+    private CategoryCacheService categoryCacheService;
+
     @Override
     @Transactional(readOnly = true)
     public Page<ProductResponse> getPublicProducts(ProductFilterRequest filterRequest) {
         int page = Math.max(0, filterRequest.getPage());
         int size = filterRequest.getSize() <= 0 ? 12 : filterRequest.getSize();
+
+        // Mở rộng categoryId của danh mục cha thành danh sách gồm cả danh mục cha + toàn bộ danh mục con/cháu
+        if (filterRequest.getCategoryId() != null) {
+            List<Long> expandedCategoryIds = expandCategoryAndDescendantIds(filterRequest.getCategoryId());
+            if (!expandedCategoryIds.isEmpty()) {
+                filterRequest.setCategoryIds(expandedCategoryIds);
+            }
+        }
 
         Sort sort = Sort.by(
                 "ASC".equalsIgnoreCase(filterRequest.getSortDir()) ? Sort.Direction.ASC : Sort.Direction.DESC,
@@ -151,17 +172,43 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                         .collect(Collectors.groupingBy(img -> img.getProduct().getId()))
                 : Collections.emptyMap();
 
+        // Nạp hàng loạt (Batch) thống kê đánh giá thực tế (rating trung bình & tổng lượt đánh giá đã duyệt)
+        Map<Long, Double> ratingMap = new HashMap<>();
+        Map<Long, Long> reviewCountMap = new HashMap<>();
+        if (reviewRepository != null && !productIds.isEmpty()) {
+            List<Object[]> reviewStats = reviewRepository.findReviewStatsByProductIds(productIds);
+            if (reviewStats != null) {
+                for (Object[] row : reviewStats) {
+                    Long prodId = (Long) row[0];
+                    Double avgRating = row[1] != null ? ((Number) row[1]).doubleValue() : 0.0;
+                    Long count = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+                    if (prodId != null) {
+                        ratingMap.put(prodId, Math.round(avgRating * 10.0) / 10.0);
+                        reviewCountMap.put(prodId, count);
+                    }
+                }
+            }
+        }
+
         Map<Long, List<ProductVariant>> finalVariantMap = variantMap;
         return products.stream()
                 .map(p -> mapToProductResponse(
                         p,
                         finalVariantMap.getOrDefault(p.getId(), Collections.emptyList()),
-                        imageMap.getOrDefault(p.getId(), Collections.emptyList())
+                        imageMap.getOrDefault(p.getId(), Collections.emptyList()),
+                        ratingMap.getOrDefault(p.getId(), 0.0),
+                        reviewCountMap.getOrDefault(p.getId(), 0L)
                 ))
                 .collect(Collectors.toList());
     }
 
-    private ProductResponse mapToProductResponse(Product product, List<ProductVariant> variants, List<ProductImage> images) {
+    private ProductResponse mapToProductResponse(
+            Product product,
+            List<ProductVariant> variants,
+            List<ProductImage> images,
+            Double rating,
+            Long reviewsCount
+    ) {
         String mainImage = images.stream()
                 .filter(ProductImage::isPrimary)
                 .map(ProductImage::getImagePath)
@@ -181,6 +228,8 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .name(product.getName())
                 .slug(product.getSlug())
                 .price(product.getPrice())
+                .rating(rating)
+                .reviewsCount(reviewsCount)
                 .totalStock(product.getStock())
                 .status(product.getStatus())
                 .unit(product.getUnit())
@@ -293,12 +342,27 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
         Map<String, String> specsMap = deserializeSpecifications(product.getSpecifications());
 
+        Double rating = 0.0;
+        Long reviewsCount = 0L;
+        if (reviewRepository != null && product.getId() != null) {
+            Double avg = reviewRepository.findAverageRatingByProductId(product.getId());
+            Long cnt = reviewRepository.countByProductIdAndStatus(product.getId(), "approved");
+            if (avg != null) {
+                rating = Math.round(avg * 10.0) / 10.0;
+            }
+            if (cnt != null) {
+                reviewsCount = cnt;
+            }
+        }
+
         return ProductDetailResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .slug(product.getSlug())
                 .description(product.getDescription())
                 .price(product.getPrice())
+                .rating(rating)
+                .reviewsCount(reviewsCount)
                 .totalStock(product.getStock())
                 .status(product.getStatus())
                 .unit(product.getUnit())
@@ -313,6 +377,82 @@ public class CustomerProductServiceImpl implements CustomerProductService {
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Thu thập đệ quy ID của danh mục đang chọn cùng toàn bộ các danh mục con (Cấp 2) và cháu (Cấp 3).
+     * Ưu tiên đọc từ khung cây danh mục trên Redis Cache, nếu chưa có thì truy vấn từ CategoryRepository.
+     */
+    private List<Long> expandCategoryAndDescendantIds(Long targetCategoryId) {
+        if (targetCategoryId == null) return Collections.emptyList();
+        Set<Long> collectedIds = new LinkedHashSet<>();
+        collectedIds.add(targetCategoryId);
+
+        // 1. Thử tìm trong khung cây danh mục từ Redis Cache trước (0ms)
+        if (categoryCacheService != null) {
+            try {
+                List<CategoryResponse> skeletonTree = categoryCacheService.getCachedCategoryTreeSkeleton();
+                CategoryResponse targetNode = findCategoryNodeRecursive(skeletonTree, targetCategoryId);
+                if (targetNode != null) {
+                    collectDescendantIdsFromNode(targetNode, collectedIds, 0);
+                    return new ArrayList<>(collectedIds);
+                }
+            } catch (Exception ignored) {
+                // Fallback qua CategoryRepository nếu Redis Cache hoặc DevTools ClassLoader gặp lỗi
+            }
+        }
+
+        // 2. Fallback qua CategoryRepository nếu không tìm thấy trong cache
+        if (categoryRepository != null) {
+            List<Category> allCategories = categoryRepository.findAll();
+            Map<Long, List<Category>> childrenMap = allCategories.stream()
+                    .filter(c -> c.getParent() != null && c.getParent().getId() != null)
+                    .collect(Collectors.groupingBy(c -> c.getParent().getId()));
+            collectDescendantIdsFromMap(targetCategoryId, childrenMap, collectedIds, 0);
+        }
+
+        return new ArrayList<>(collectedIds);
+    }
+
+    private CategoryResponse findCategoryNodeRecursive(List<CategoryResponse> nodes, Long targetId) {
+        if (nodes == null) return null;
+        for (CategoryResponse node : nodes) {
+            if (targetId.equals(node.getId())) {
+                return node;
+            }
+            if (node.getChildren() != null && !node.getChildren().isEmpty()) {
+                CategoryResponse found = findCategoryNodeRecursive(node.getChildren(), targetId);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private void collectDescendantIdsFromNode(CategoryResponse node, Set<Long> collectedIds, int depth) {
+        if (node == null || depth > 10) return;
+        if (node.getId() != null) {
+            collectedIds.add(node.getId());
+        }
+        if (node.getChildren() != null) {
+            for (CategoryResponse child : node.getChildren()) {
+                collectDescendantIdsFromNode(child, collectedIds, depth + 1);
+            }
+        }
+    }
+
+    private void collectDescendantIdsFromMap(
+            Long parentId,
+            Map<Long, List<Category>> childrenMap,
+            Set<Long> collectedIds,
+            int depth
+    ) {
+        if (parentId == null || depth > 10) return;
+        List<Category> children = childrenMap.getOrDefault(parentId, Collections.emptyList());
+        for (Category child : children) {
+            if (child.getId() != null && collectedIds.add(child.getId())) {
+                collectDescendantIdsFromMap(child.getId(), childrenMap, collectedIds, depth + 1);
+            }
+        }
     }
 
     private Map<String, String> deserializeSpecifications(String json) {

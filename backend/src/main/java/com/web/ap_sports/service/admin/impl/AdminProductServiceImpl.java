@@ -79,6 +79,22 @@ public class AdminProductServiceImpl implements AdminProductService {
         int page = Math.max(0, filterRequest.getPage());
         int size = filterRequest.getSize() <= 0 ? 10 : filterRequest.getSize();
 
+        // Mở rộng categoryId của danh mục cha thành tập categoryIds (bao gồm cả danh mục con Cấp 2 và cháu Cấp 3)
+        if (filterRequest.getCategoryId() != null) {
+            Set<Long> expandedCategoryIds = new LinkedHashSet<>();
+            expandedCategoryIds.add(filterRequest.getCategoryId());
+            List<Category> allCategories = categoryRepository.findAll();
+            if (allCategories != null && !allCategories.isEmpty()) {
+                Map<Long, List<Category>> childrenMap = allCategories.stream()
+                        .filter(c -> c.getParent() != null && c.getParent().getId() != null)
+                        .collect(Collectors.groupingBy(c -> c.getParent().getId()));
+                collectAdminDescendantCategoryIds(filterRequest.getCategoryId(), childrenMap, expandedCategoryIds, 0);
+            }
+            if (expandedCategoryIds.size() > 1) {
+                filterRequest.setCategoryIds(new ArrayList<>(expandedCategoryIds));
+            }
+        }
+
         Sort sort = Sort.by(
                 "ASC".equalsIgnoreCase(filterRequest.getSortDir()) ? Sort.Direction.ASC : Sort.Direction.DESC,
                 StringUtils.hasText(filterRequest.getSortBy()) ? filterRequest.getSortBy() : "createdAt"
@@ -892,6 +908,25 @@ public class AdminProductServiceImpl implements AdminProductService {
             return objectMapper.writeValueAsString(map);
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /**
+     * Đệ quy thu thập toàn bộ ID của danh mục con và cháu (giới hạn chiều sâu tối đa 5 cấp để chống vòng lặp vô hạn).
+     */
+    private void collectAdminDescendantCategoryIds(
+            Long parentId,
+            Map<Long, List<Category>> childrenMap,
+            Set<Long> collectedIds,
+            int depth
+    ) {
+        if (depth > 5 || parentId == null) return;
+        List<Category> children = childrenMap.get(parentId);
+        if (children == null || children.isEmpty()) return;
+        for (Category child : children) {
+            if (child.getId() != null && collectedIds.add(child.getId())) {
+                collectAdminDescendantCategoryIds(child.getId(), childrenMap, collectedIds, depth + 1);
+            }
         }
     }
 }

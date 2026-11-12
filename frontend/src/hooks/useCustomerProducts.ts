@@ -102,6 +102,7 @@ export function useCustomerProducts(
         categoryId: selectedCategoryId || undefined,
         status: 'in_stock', // Mặc định cửa hàng chỉ hiển thị sản phẩm đang còn hàng
         variantSize: selectedSizes.length > 0 ? selectedSizes.join(',') : undefined,
+        rating: selectedRating !== null ? selectedRating : undefined,
         minPrice: minPrice !== null ? minPrice : undefined,
         maxPrice: maxPrice !== null ? maxPrice : undefined,
         page,
@@ -129,7 +130,7 @@ export function useCustomerProducts(
     } finally {
       setLoading(false);
     }
-  }, [debouncedKeyword, selectedCategoryId, selectedSizes, minPrice, maxPrice, page, pageSize, sortBy, sortDir]);
+  }, [debouncedKeyword, selectedCategoryId, selectedSizes, selectedRating, minPrice, maxPrice, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
     fetchProducts();

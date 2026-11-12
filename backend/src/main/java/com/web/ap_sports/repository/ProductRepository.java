@@ -29,8 +29,25 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query("SELECT p.category.id, COUNT(DISTINCT p.id) FROM Product p WHERE p.status = 'in_stock' GROUP BY p.category.id")
     List<Object[]> countInStockProductsGroupedByPrimaryCategory();
 
-    @Query("SELECT c.id, COUNT(DISTINCT p.id) FROM Product p JOIN p.categories c WHERE p.status = 'in_stock' GROUP BY c.id")
+    /**
+     * Đếm số sản phẩm đang kinh doanh (in_stock) theo danh mục phụ,
+     * loại trừ trường hợp danh mục phụ trùng với danh mục chính (c.id <> p.category.id) để tránh đếm nhân đôi 1 sản phẩm thành 2.
+     */
+    @Query("SELECT c.id, COUNT(DISTINCT p.id) FROM Product p JOIN p.categories c WHERE p.status = 'in_stock' AND (p.category IS NULL OR c.id <> p.category.id) GROUP BY c.id")
     List<Object[]> countInStockProductsGroupedBySecondaryCategory();
+
+    /**
+     * Lấy danh sách cặp [categoryId, productId] từ danh mục chính của các sản phẩm đang kinh doanh (in_stock)
+     * phục vụ gộp tập hợp Set<Long> chống trùng lặp tuyệt đối khi cộng dồn từ danh mục con lên danh mục cha.
+     */
+    @Query("SELECT p.category.id, p.id FROM Product p WHERE p.status = 'in_stock' AND p.category IS NOT NULL")
+    List<Object[]> findInStockPrimaryCategoryProductPairs();
+
+    /**
+     * Lấy danh sách cặp [categoryId, productId] từ bảng danh mục phụ (product_categories) của các sản phẩm đang kinh doanh (in_stock).
+     */
+    @Query("SELECT c.id, p.id FROM Product p JOIN p.categories c WHERE p.status = 'in_stock'")
+    List<Object[]> findInStockSecondaryCategoryProductPairs();
 
     /**
      * Truy vấn tất cả sản phẩm đang kinh doanh (in_stock) kèm danh mục để đưa vào tập dữ liệu (Corpus)

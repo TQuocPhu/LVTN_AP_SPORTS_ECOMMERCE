@@ -40,18 +40,51 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategoryTree() {
-        // 1. Lấy số lượng sản phẩm đang kinh doanh (in_stock) Real-time từ Database
-        Map<Long, Long> directCountMap = queryRealtimeInStockCounts();
+        // 1. Ưu tiên lấy tập hợp ID sản phẩm duy nhất (Set<Long>) theo từng danh mục để chống đếm trùng 100%
+        //    (kể cả khi 1 sản phẩm vừa lưu ở category_id vừa lưu ở bảng phụ product_categories hoặc thuộc nhiều nhánh con)
+        Map<Long, Set<Long>> directProductIdsMap = queryRealtimeInStockProductIdSets();
 
-        // 2. Nếu có CategoryCacheService (môi trường Runtime), lấy khung cây tĩnh từ Redis Cache
-        if (categoryCacheService != null) {
-            List<CategoryResponse> cachedSkeleton = categoryCacheService.getCachedCategoryTreeSkeleton();
-            return cachedSkeleton.stream()
-                    .map(root -> attachRealtimeCountToSkeleton(root, directCountMap))
+        if (!directProductIdsMap.isEmpty()) {
+            if (categoryCacheService != null) {
+                try {
+                    List<CategoryResponse> cachedSkeleton = categoryCacheService.getCachedCategoryTreeSkeleton();
+                    if (cachedSkeleton != null && !cachedSkeleton.isEmpty()) {
+                        return cachedSkeleton.stream()
+                                .map(root -> attachDistinctProductSetToSkeleton(root, directProductIdsMap, new HashSet<>()))
+                                .collect(Collectors.toList());
+                    }
+                } catch (Exception ignored) {
+                    // Fallback xuống truy vấn trực tiếp từ Database nếu ClassLoader/Redis gặp lỗi ép kiểu
+                }
+            }
+
+            List<Category> rootCategories = categoryRepository.findByParentIsNull();
+            List<Category> allCategories = categoryRepository.findAll();
+            Map<Long, List<Category>> childrenMap = allCategories.stream()
+                    .filter(c -> c.getParent() != null)
+                    .collect(Collectors.groupingBy(c -> c.getParent().getId()));
+
+            return rootCategories.stream()
+                    .map(root -> mapToResponseTreeWithDistinctSet(root, childrenMap, directProductIdsMap, new HashSet<>()))
                     .collect(Collectors.toList());
         }
 
-        // 3. Fallback trực tiếp qua Repository (phục vụ môi trường Unit Test độc lập không nạp Spring Context)
+        // 2. Fallback qua phép đếm trực tiếp (tương thích 100% với các Unit Test mock countInStockProductsGroupedBy*)
+        Map<Long, Long> directCountMap = queryRealtimeInStockCounts();
+
+        if (categoryCacheService != null) {
+            try {
+                List<CategoryResponse> cachedSkeleton = categoryCacheService.getCachedCategoryTreeSkeleton();
+                if (cachedSkeleton != null && !cachedSkeleton.isEmpty()) {
+                    return cachedSkeleton.stream()
+                            .map(root -> attachRealtimeCountToSkeleton(root, directCountMap))
+                            .collect(Collectors.toList());
+                }
+            } catch (Exception ignored) {
+                // Fallback xuống truy vấn trực tiếp từ Database
+            }
+        }
+
         List<Category> rootCategories = categoryRepository.findByParentIsNull();
         List<Category> allCategories = categoryRepository.findAll();
 
@@ -106,6 +139,113 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryRepository.findByParentIsNull().stream()
                 .map(this::mapToResponseFlat)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Truy vấn tập hợp ID sản phẩm duy nhất (Set<Long>) của từng danh mục (gồm cả danh mục chính và phụ).
+     * Sử dụng Set giúp loại bỏ hoàn toàn việc 1 sản phẩm bị đếm 2 lần khi vừa nằm ở bảng products.category_id
+     * vừa nằm ở bảng liên kết product_categories, hoặc thuộc đồng thời cả danh mục con và danh mục cha.
+     */
+    private Map<Long, Set<Long>> queryRealtimeInStockProductIdSets() {
+        Map<Long, Set<Long>> map = new HashMap<>();
+
+        List<Object[]> primaryPairs = productRepository.findInStockPrimaryCategoryProductPairs();
+        if (primaryPairs != null) {
+            for (Object[] row : primaryPairs) {
+                Long catId = (Long) row[0];
+                Long prodId = (Long) row[1];
+                if (catId != null && prodId != null) {
+                    map.computeIfAbsent(catId, k -> new HashSet<>()).add(prodId);
+                }
+            }
+        }
+
+        List<Object[]> secondaryPairs = productRepository.findInStockSecondaryCategoryProductPairs();
+        if (secondaryPairs != null) {
+            for (Object[] row : secondaryPairs) {
+                Long catId = (Long) row[0];
+                Long prodId = (Long) row[1];
+                if (catId != null && prodId != null) {
+                    map.computeIfAbsent(catId, k -> new HashSet<>()).add(prodId);
+                }
+            }
+        }
+
+        return map;
+    }
+
+    /**
+     * Gắn số lượng sản phẩm duy nhất (Set Union) đệ quy từ cấp con lên cấp cha trên khung cây từ Redis Cache.
+     */
+    private CategoryResponse attachDistinctProductSetToSkeleton(
+            CategoryResponse skeletonNode,
+            Map<Long, Set<Long>> directProductIdsMap,
+            Set<Long> outAccumulatedProductIds
+    ) {
+        Set<Long> nodeProductIds = new HashSet<>(
+                directProductIdsMap.getOrDefault(skeletonNode.getId(), Collections.emptySet())
+        );
+
+        List<CategoryResponse> children = skeletonNode.getChildren() != null
+                ? skeletonNode.getChildren()
+                : Collections.emptyList();
+
+        List<CategoryResponse> childResponses = new ArrayList<>(children.size());
+        for (CategoryResponse child : children) {
+            Set<Long> childSet = new HashSet<>();
+            childResponses.add(attachDistinctProductSetToSkeleton(child, directProductIdsMap, childSet));
+            nodeProductIds.addAll(childSet);
+        }
+
+        outAccumulatedProductIds.addAll(nodeProductIds);
+
+        return CategoryResponse.builder()
+                .id(skeletonNode.getId())
+                .name(skeletonNode.getName())
+                .slug(skeletonNode.getSlug())
+                .description(skeletonNode.getDescription())
+                .image(skeletonNode.getImage())
+                .parentId(skeletonNode.getParentId())
+                .parentName(skeletonNode.getParentName())
+                .productCount((long) nodeProductIds.size())
+                .children(childResponses)
+                .build();
+    }
+
+    /**
+     * Gắn số lượng sản phẩm duy nhất (Set Union) đệ quy từ cấp con lên cấp cha khi đọc trực tiếp từ Category entity.
+     */
+    private CategoryResponse mapToResponseTreeWithDistinctSet(
+            Category category,
+            Map<Long, List<Category>> childrenMap,
+            Map<Long, Set<Long>> directProductIdsMap,
+            Set<Long> outAccumulatedProductIds
+    ) {
+        Set<Long> nodeProductIds = new HashSet<>(
+                directProductIdsMap.getOrDefault(category.getId(), Collections.emptySet())
+        );
+
+        List<Category> children = childrenMap.getOrDefault(category.getId(), Collections.emptyList());
+        List<CategoryResponse> childResponses = new ArrayList<>(children.size());
+        for (Category child : children) {
+            Set<Long> childSet = new HashSet<>();
+            childResponses.add(mapToResponseTreeWithDistinctSet(child, childrenMap, directProductIdsMap, childSet));
+            nodeProductIds.addAll(childSet);
+        }
+
+        outAccumulatedProductIds.addAll(nodeProductIds);
+
+        return CategoryResponse.builder()
+                .id(category.getId())
+                .name(category.getName())
+                .slug(category.getSlug())
+                .description(category.getDescription())
+                .image(category.getImage())
+                .parentId(category.getParent() != null ? category.getParent().getId() : null)
+                .parentName(category.getParent() != null ? category.getParent().getName() : null)
+                .productCount((long) nodeProductIds.size())
+                .children(childResponses)
+                .build();
     }
 
     /**

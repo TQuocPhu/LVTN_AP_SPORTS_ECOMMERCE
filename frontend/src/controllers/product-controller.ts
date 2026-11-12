@@ -18,6 +18,7 @@ export const productController = {
     if (params?.status) searchParams.append('status', params.status);
     if (params?.unit) searchParams.append('unit', params.unit);
     if (params?.variantSize) searchParams.append('variantSize', params.variantSize);
+    if (params?.rating !== undefined && params?.rating !== null) searchParams.append('rating', params.rating.toString());
     if (params?.minPrice !== undefined && params?.minPrice !== null) searchParams.append('minPrice', params.minPrice.toString());
     if (params?.maxPrice !== undefined && params?.maxPrice !== null) searchParams.append('maxPrice', params.maxPrice.toString());
     if (params?.page !== undefined) searchParams.append('page', params.page.toString());
