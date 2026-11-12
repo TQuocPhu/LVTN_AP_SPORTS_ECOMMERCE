@@ -63,19 +63,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) =>
           {product.name}
         </Text>
 
-        {/* Rating and Sold */}
+        {/* Rating and Reviews / Sold */}
         <View style={styles.metaRow}>
           <View style={styles.ratingBox}>
-            <Ionicons name="star" size={12} color="#f59e0b" />
+            <Ionicons
+              name={product.averageRating && product.averageRating > 0 ? 'star' : 'star-outline'}
+              size={12}
+              color="#f59e0b"
+            />
             <Text style={[styles.ratingText, { color: colors.textMuted }]}>
-              {product.averageRating ? product.averageRating.toFixed(1) : '5.0'}
+              {(product.averageRating ?? 0).toFixed(1)}
             </Text>
           </View>
-          {product.totalSold ? (
-            <Text style={[styles.soldText, { color: colors.textMuted }]}>
-              Đã bán {product.totalSold}
-            </Text>
-          ) : null}
+          <Text style={[styles.soldText, { color: colors.textMuted }]}>
+            {product.totalSold
+              ? `Đã bán ${product.totalSold}`
+              : `${product.reviewsCount ?? 0} đánh giá`}
+          </Text>
         </View>
 
         {/* Price Row */}

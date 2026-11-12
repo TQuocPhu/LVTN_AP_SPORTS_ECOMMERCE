@@ -38,6 +38,8 @@ export const productController = {
       ...p,
       basePrice: p.basePrice ?? p.price ?? 0,
       thumbnail: p.thumbnail || p.mainImage || (p.images && p.images[0]) || '',
+      averageRating: p.averageRating ?? p.rating ?? 0,
+      reviewsCount: p.reviewsCount ?? 0,
     }));
 
     return {
@@ -57,6 +59,8 @@ export const productController = {
           ...p,
           basePrice: p.basePrice ?? p.price ?? 0,
           thumbnail: p.thumbnail || p.mainImage || (p.images && p.images[0]) || '',
+          averageRating: p.averageRating ?? p.rating ?? 0,
+          reviewsCount: p.reviewsCount ?? 0,
         }
       : p;
 
@@ -78,6 +82,8 @@ export const productController = {
       ...p,
       basePrice: p.basePrice ?? p.price ?? 0,
       thumbnail: p.thumbnail || p.mainImage || (p.images && p.images[0]) || '',
+      averageRating: p.averageRating ?? p.rating ?? 0,
+      reviewsCount: p.reviewsCount ?? 0,
     }));
 
     return {

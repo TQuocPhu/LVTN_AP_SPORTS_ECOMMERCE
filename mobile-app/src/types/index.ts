@@ -44,6 +44,8 @@ export interface Category {
   iconName?: string;
   description?: string;
   parentId?: number;
+  productCount?: number;
+  children?: Category[];
 }
 
 export interface Brand {

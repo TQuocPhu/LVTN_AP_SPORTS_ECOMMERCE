@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supportChatController, SupportMessage, SupportConversation } from '../controllers/support-chat-controller';
+import { customerOrderController } from '../controllers/customer-order-controller';
 import { useAuth } from '../context/AuthContext';
+import { Order } from '../types';
 
 export interface LocalChatMessage {
   id: string;
@@ -45,6 +47,12 @@ export const useSupportChat = () => {
   const [loadingLive, setLoadingLive] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
 
+  // Chọn đơn hàng của khách để đính kèm trước khi bấm Gửi (chế độ Live)
+  const [myOrders, setMyOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState<boolean>(false);
+  const [isOrderPickerOpen, setIsOrderPickerOpen] = useState<boolean>(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
   // Nạp ca hỗ trợ trực tuyến khi chuyển sang tab Live
   const fetchLiveChat = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -66,8 +74,42 @@ export const useSupportChat = () => {
   useEffect(() => {
     if (chatMode === 'live') {
       fetchLiveChat();
+    } else {
+      setIsOrderPickerOpen(false);
     }
   }, [chatMode, fetchLiveChat]);
+
+  // Mở/đóng danh sách đơn hàng của chính khách hàng để chọn đính kèm
+  const toggleOrderPicker = useCallback(async () => {
+    const nextState = !isOrderPickerOpen;
+    setIsOrderPickerOpen(nextState);
+    if (nextState && myOrders.length === 0 && isAuthenticated) {
+      setLoadingOrders(true);
+      try {
+        const res = await customerOrderController.getMyOrders('ALL', 0, 20);
+        const items = res.data?.content || res.data || [];
+        setMyOrders(items);
+      } catch (err) {
+        console.warn('Không thể tải danh sách đơn hàng của khách:', err);
+      } finally {
+        setLoadingOrders(false);
+      }
+    }
+  }, [isOrderPickerOpen, myOrders.length, isAuthenticated]);
+
+  const closeOrderPicker = useCallback(() => {
+    setIsOrderPickerOpen(false);
+  }, []);
+
+  // Khi khách chọn 1 đơn hàng -> gắn vào thanh Preview (chờ bấm Gửi mới gửi đi)
+  const handleSelectOrder = useCallback((order: Order) => {
+    setSelectedOrder(order);
+    setIsOrderPickerOpen(false);
+  }, []);
+
+  const clearSelectedOrder = useCallback(() => {
+    setSelectedOrder(null);
+  }, []);
 
   // Gửi tin nhắn AI
   const handleSendAiMessage = useCallback((textToSend: string) => {
@@ -117,31 +159,56 @@ export const useSupportChat = () => {
     }, 700);
   }, []);
 
-  // Gửi tin nhắn Live tới nhân viên
+  // Gửi tin nhắn Live tới nhân viên (hỗ trợ đính kèm orderId của khách)
   const handleSendLiveMessage = useCallback(async (textToSend: string) => {
     const text = textToSend.trim();
-    if (!text) return;
+    if (!text && !selectedOrder) return;
 
     try {
       setIsSending(true);
       let convId = liveConversation?.id;
 
-      // Nếu chưa có ca hỗ trợ thì tạo ca mới
+      // Nếu chưa có ca hỗ trợ thì tạo ca mới (kèm orderId nếu có)
       if (!convId) {
-        const convRes = await supportChatController.getOrCreateConversation('Tư vấn sản phẩm thể thao qua mobile');
+        const defaultSubject = selectedOrder
+          ? `Hỗ trợ đơn hàng #${selectedOrder.orderCode}`
+          : 'Tư vấn sản phẩm thể thao qua mobile';
+        const convRes = await supportChatController.getOrCreateConversation(
+          text || defaultSubject,
+          selectedOrder?.id
+        );
         setLiveConversation(convRes.data);
         convId = convRes.data.id;
       }
 
-      const res = await supportChatController.sendMessage(convId, text);
-      setLiveMessages((prev) => [...prev, res.data]);
+      const res = await supportChatController.sendMessage(
+        convId,
+        text,
+        undefined,
+        selectedOrder?.id
+      );
+      if (res.data) {
+        setLiveMessages((prev) => [...prev, res.data]);
+        if (res.data.orderId || res.data.orderCode) {
+          setLiveConversation((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  orderId: res.data.orderId ?? prev.orderId,
+                  orderCode: res.data.orderCode ?? prev.orderCode,
+                }
+              : prev
+          );
+        }
+      }
       setInputText('');
+      setSelectedOrder(null);
     } catch (err: any) {
       console.warn('Lỗi gửi tin nhắn trực tiếp:', err);
     } finally {
       setIsSending(false);
     }
-  }, [liveConversation]);
+  }, [liveConversation, selectedOrder]);
 
   const handleSendMessage = useCallback(() => {
     if (chatMode === 'ai') {
@@ -166,6 +233,15 @@ export const useSupportChat = () => {
     liveMessages,
     loadingLive,
     isSending,
+    // Chọn đơn hàng của khách để đính kèm
+    myOrders,
+    loadingOrders,
+    isOrderPickerOpen,
+    selectedOrder,
+    toggleOrderPicker,
+    closeOrderPicker,
+    handleSelectOrder,
+    clearSelectedOrder,
     handleSendMessage,
     handleQuickPrompt,
     isAuthenticated,

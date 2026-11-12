@@ -3,12 +3,16 @@ import { ApiResponse } from '../types';
 
 export interface SupportMessage {
   id: number;
-  senderType: 'CUSTOMER' | 'STAFF' | 'SYSTEM';
+  senderRole?: 'CUSTOMER' | 'STAFF' | 'SYSTEM';
+  senderType?: 'CUSTOMER' | 'STAFF' | 'SYSTEM';
   senderName: string;
   senderAvatar?: string;
   content: string;
+  attachmentUrl?: string;
   mediaUrl?: string;
   messageType?: 'TEXT' | 'IMAGE';
+  orderId?: number;
+  orderCode?: string;
   createdAt: string;
 }
 
@@ -18,6 +22,8 @@ export interface SupportConversation {
   customerName: string;
   staffName?: string;
   staffAvatar?: string;
+  orderId?: number;
+  orderCode?: string;
   status: 'WAITING' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
   lastMessageSnippet?: string;
   lastMessageTime?: string;
@@ -35,12 +41,18 @@ export const supportChatController = {
   },
 
   /**
-   * Khởi tạo ca hỗ trợ trực tuyến mới
+   * Khởi tạo ca hỗ trợ trực tuyến mới (hỗ trợ đính kèm orderId của chính khách hàng)
    */
-  async getOrCreateConversation(subject?: string): Promise<ApiResponse<SupportConversation>> {
+  async getOrCreateConversation(
+    subject?: string,
+    orderId?: number
+  ): Promise<ApiResponse<SupportConversation>> {
     const res = await apiClient.post<ApiResponse<SupportConversation>>(
       '/customer/support-chat/conversation',
-      { subject: subject || 'Khách hàng yêu cầu hỗ trợ qua mobile app' }
+      {
+        subject: subject || 'Khách hàng yêu cầu hỗ trợ qua mobile app',
+        orderId: orderId || undefined,
+      }
     );
     return res.data;
   },
@@ -56,19 +68,20 @@ export const supportChatController = {
   },
 
   /**
-   * Gửi tin nhắn mới tới nhân viên CSKH
+   * Gửi tin nhắn mới tới nhân viên CSKH (hỗ trợ đính kèm orderId)
    */
   async sendMessage(
     conversationId: number,
     content: string,
-    mediaUrl?: string
+    mediaUrl?: string,
+    orderId?: number
   ): Promise<ApiResponse<SupportMessage>> {
     const res = await apiClient.post<ApiResponse<SupportMessage>>(
       `/customer/support-chat/conversations/${conversationId}/messages`,
       {
-        content,
-        messageType: mediaUrl ? 'IMAGE' : 'TEXT',
-        mediaUrl: mediaUrl || null,
+        content: content || undefined,
+        attachmentUrl: mediaUrl || undefined,
+        orderId: orderId || undefined,
       }
     );
     return res.data;

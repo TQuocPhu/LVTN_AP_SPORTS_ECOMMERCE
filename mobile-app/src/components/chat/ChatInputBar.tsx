@@ -9,6 +9,10 @@ interface ChatInputBarProps {
   onSend: () => void;
   sending?: boolean;
   placeholder?: string;
+  showOrderButton?: boolean;
+  isOrderPickerActive?: boolean;
+  hasAttachment?: boolean;
+  onToggleOrderPicker?: () => void;
 }
 
 export const ChatInputBar: React.FC<ChatInputBarProps> = ({
@@ -17,11 +21,32 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onSend,
   sending,
   placeholder = 'Nhập tin nhắn tư vấn...',
+  showOrderButton = false,
+  isOrderPickerActive = false,
+  hasAttachment = false,
+  onToggleOrderPicker,
 }) => {
-  const canSend = value.trim().length > 0 && !sending;
+  const canSend = (value.trim().length > 0 || hasAttachment) && !sending;
 
   return (
     <View style={styles.container}>
+      {showOrderButton && onToggleOrderPicker && (
+        <TouchableOpacity
+          style={[
+            styles.btnOrder,
+            isOrderPickerActive && styles.btnOrderActive,
+          ]}
+          onPress={onToggleOrderPicker}
+          disabled={sending}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="cube-outline"
+            size={20}
+            color={isOrderPickerActive ? Colors.primary : Colors.slate600}
+          />
+        </TouchableOpacity>
+      )}
       <TextInput
         style={styles.input}
         placeholder={placeholder}
@@ -57,6 +82,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.slate200,
     gap: Spacing.sm,
+  },
+  btnOrder: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: Colors.slate100,
+    borderWidth: 1,
+    borderColor: Colors.slate200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnOrderActive: {
+    backgroundColor: Colors.primaryMuted,
+    borderColor: Colors.primary,
   },
   input: {
     flex: 1,
