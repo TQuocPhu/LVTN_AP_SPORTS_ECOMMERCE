@@ -33,6 +33,8 @@ import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -327,6 +329,121 @@ class HybridSearchAndSpecificationTest {
             Page<ProductResponse> pageOut = customerProductService.searchProductsByRelevance("Giày Nike", 5, 2);
             assertTrue(pageOut.getContent().isEmpty());
             assertEquals(3, pageOut.getTotalElements());
+        }
+
+        @Test
+        @DisplayName("TC-SRCH-03.8: Thực nghiệm tính toán điểm số tìm kiếm Hybrid Search Engine khớp với số liệu Bảng 18 Luận văn")
+        void rankProducts_Table18EmpiricalDemonstration_Success() throws Exception {
+            Category catGiayBongDa = Category.builder().id(1L).name("Giày Bóng Đá").slug("giay-bong-da").build();
+            Category catPhuKien = Category.builder().id(2L).name("Phụ Kiện Thể Thao").slug("phu-kien").build();
+
+            Product p1 = Product.builder()
+                    .id(1L)
+                    .name("Giày đá bóng Nike Mercurial Vapor 15")
+                    .category(catGiayBongDa)
+                    .description("Giày đá bóng Nike Mercurial Vapor 15 chuyên nghiệp sân cỏ tự nhiên và nhân tạo")
+                    .build();
+            ProductVariant v1 = ProductVariant.builder()
+                    .id(101L).product(p1).sku("NK-VAPOR-RED-42").color("Đỏ").size("42").build();
+
+            Product p2 = Product.builder()
+                    .id(2L)
+                    .name("Giày đá bóng Adidas Predator Elite")
+                    .category(catGiayBongDa)
+                    .description("Giày đá bóng Adidas Predator kiểm soát bóng đỉnh cao")
+                    .build();
+            ProductVariant v2 = ProductVariant.builder()
+                    .id(102L).product(p2).sku("AD-PRED-BLK-42").color("Đen").size("42").build();
+
+            Product p3 = Product.builder()
+                    .id(3L)
+                    .name("Bình xịt vệ sinh giày thể thao chuyên dụng")
+                    .category(catPhuKien)
+                    .description("Dung dịch làm sạch bảo dưỡng giày cao cấp chống ố vàng khử mùi hôi")
+                    .build();
+
+            List<Product> corpus = List.of(p1, p2, p3);
+            Map<Long, List<ProductVariant>> variantMap = Map.of(
+                    1L, List.of(v1),
+                    2L, List.of(v2),
+                    3L, List.of()
+            );
+
+            String rawQuery = "giay da bong Nike do 42";
+
+            // 1. Kiểm thử xếp hạng tổng thể của rankProducts
+            List<Product> ranked = hybridSearchEngineService.rankProducts(rawQuery, corpus, variantMap);
+            assertEquals(2, ranked.size(), "P3 có điểm < 0.15 nên bị loại, chỉ còn P1 và P2");
+            assertEquals(1L, ranked.get(0).getId(), "P1 (Nike) đạt điểm cao nhất, xếp Hạng 1");
+            assertEquals(2L, ranked.get(1).getId(), "P2 (Adidas) đạt điểm cao thứ hai, xếp Hạng 2");
+
+            // 2. Trích xuất chi tiết từng thành phần điểm bằng Reflection để đối soát 100% với Bảng 18 Luận văn
+            java.lang.reflect.Method mNormAttr = HybridSearchEngineService.class.getDeclaredMethod(
+                    "calculateNormalizedAttributeScore", String.class, List.class, Product.class, List.class);
+            mNormAttr.setAccessible(true);
+
+            java.lang.reflect.Method mExtract = HybridSearchEngineService.class.getDeclaredMethod(
+                    "extractProductTokens", Product.class, List.class);
+            mExtract.setAccessible(true);
+
+            java.lang.reflect.Method mQueryVec = HybridSearchEngineService.class.getDeclaredMethod(
+                    "buildQueryTfidfVector", List.class, Map.class, int.class);
+            mQueryVec.setAccessible(true);
+
+            java.lang.reflect.Method mDocVec = HybridSearchEngineService.class.getDeclaredMethod(
+                    "buildDocumentTfidfVector", List.class, Map.class, int.class);
+            mDocVec.setAccessible(true);
+
+            List<String> queryTokens = VietnameseTokenizer.tokenize(rawQuery);
+            String normQuery = VietnameseTokenizer.normalizeText(rawQuery);
+            int corpusSize = corpus.size();
+
+            Map<Long, List<String>> docTokensMap = new HashMap<>();
+            Map<String, Integer> docFrequencyMap = new HashMap<>();
+            for (Product p : corpus) {
+                @SuppressWarnings("unchecked")
+                List<String> dt = (List<String>) mExtract.invoke(hybridSearchEngineService, p, variantMap.get(p.getId()));
+                docTokensMap.put(p.getId(), dt);
+                for (String t : new HashSet<>(dt)) {
+                    docFrequencyMap.put(t, docFrequencyMap.getOrDefault(t, 0) + 1);
+                }
+            }
+
+            SearchVector qVec = (SearchVector) mQueryVec.invoke(hybridSearchEngineService, queryTokens, docFrequencyMap, corpusSize);
+
+            // Kiểm tra số liệu Sản phẩm 1 (Nike)
+            double attr1 = (double) mNormAttr.invoke(hybridSearchEngineService, normQuery, queryTokens, p1, variantMap.get(1L));
+            SearchVector dVec1 = (SearchVector) mDocVec.invoke(hybridSearchEngineService, docTokensMap.get(1L), docFrequencyMap, corpusSize);
+            double tfidf1 = qVec.cosineSimilarity(dVec1);
+            double hybrid1 = 0.6 * attr1 + 0.4 * tfidf1;
+
+            assertEquals(0.5789, attr1, 1e-4, "Attr P1 = 110/190 = 0.5789");
+            assertEquals(0.6408, tfidf1, 1e-4, "TFIDF P1 = 0.6408");
+            assertEquals(0.6037, hybrid1, 1e-4, "Hybrid P1 = 0.6037");
+
+            // Kiểm tra số liệu Sản phẩm 2 (Adidas)
+            double attr2 = (double) mNormAttr.invoke(hybridSearchEngineService, normQuery, queryTokens, p2, variantMap.get(2L));
+            SearchVector dVec2 = (SearchVector) mDocVec.invoke(hybridSearchEngineService, docTokensMap.get(2L), docFrequencyMap, corpusSize);
+            double tfidf2 = qVec.cosineSimilarity(dVec2);
+            double hybrid2 = 0.6 * attr2 + 0.4 * tfidf2;
+
+            assertEquals(0.5263, attr2, 1e-4, "Attr P2 = 100/190 = 0.5263");
+            assertEquals(0.5036, tfidf2, 1e-4, "TFIDF P2 = 0.5036");
+            assertEquals(0.5172, hybrid2, 1e-4, "Hybrid P2 = 0.5172");
+
+            // Kiểm tra số liệu Sản phẩm 3 (Bình xịt)
+            double attr3 = (double) mNormAttr.invoke(hybridSearchEngineService, normQuery, queryTokens, p3, variantMap.get(3L));
+            SearchVector dVec3 = (SearchVector) mDocVec.invoke(hybridSearchEngineService, docTokensMap.get(3L), docFrequencyMap, corpusSize);
+            double tfidf3 = qVec.cosineSimilarity(dVec3);
+            double hybrid3 = 0.6 * attr3 + 0.4 * tfidf3;
+
+            assertEquals(0.0526, attr3, 1e-4, "Attr P3 = 10/190 = 0.0526");
+            assertEquals(0.0661, tfidf3, 1e-4, "TFIDF P3 = 0.0661");
+            assertEquals(0.0580, hybrid3, 1e-4, "Hybrid P3 = 0.0580");
+
+            System.out.printf("JUNIT CHECK P1: Attr=%.4f, TFIDF=%.4f, Hybrid=%.4f (Rank 1)%n", attr1, tfidf1, hybrid1);
+            System.out.printf("JUNIT CHECK P2: Attr=%.4f, TFIDF=%.4f, Hybrid=%.4f (Rank 2)%n", attr2, tfidf2, hybrid2);
+            System.out.printf("JUNIT CHECK P3: Attr=%.4f, TFIDF=%.4f, Hybrid=%.4f (Eliminated)%n", attr3, tfidf3, hybrid3);
         }
 
         @Test
