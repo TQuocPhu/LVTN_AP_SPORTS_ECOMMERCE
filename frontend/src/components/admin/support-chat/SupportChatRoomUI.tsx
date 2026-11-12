@@ -506,12 +506,54 @@ export default function SupportChatRoomUI({
             </label>
 
             <textarea
-              rows={1}
+              rows={Math.min(Math.max(inputText.split('\n').length, 1), 4)}
+              wrap={inputText.includes('\n') ? 'soft' : 'off'}
               value={inputText}
+              style={{
+                height: `${Math.min(Math.max(inputText.split('\n').length, 1), 4) * 20 + 20}px`,
+              }}
               onChange={onInputChange}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                const isEnter =
+                  e.key === 'Enter' ||
+                  e.key === '\n' ||
+                  e.code === 'Enter' ||
+                  e.code === 'NumpadEnter' ||
+                  e.keyCode === 13 ||
+                  e.keyCode === 10;
+                if (!isEnter) return;
+
+                const el = e.currentTarget;
+                if (
+                  e.ctrlKey ||
+                  e.metaKey ||
+                  e.nativeEvent.ctrlKey ||
+                  e.nativeEvent.metaKey ||
+                  e.getModifierState?.('Control')
+                ) {
                   e.preventDefault();
+                  e.stopPropagation();
+                  const currentVal = el.value;
+                  const start = el.selectionStart ?? currentVal.length;
+                  const end = el.selectionEnd ?? currentVal.length;
+                  const nextVal = `${currentVal.slice(0, start)}\n${currentVal.slice(end)}`;
+                  el.value = nextVal;
+                  el.setSelectionRange(start + 1, start + 1);
+                  onInputChange({
+                    ...e,
+                    target: { ...el, value: nextVal },
+                    currentTarget: { ...el, value: nextVal },
+                  } as any);
+                  requestAnimationFrame(() => {
+                    el.setSelectionRange(start + 1, start + 1);
+                    el.scrollTop = el.scrollHeight;
+                  });
+                  return;
+                }
+
+                if (!e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  e.stopPropagation();
                   if (inputText.trim() || selectedImagePreview) {
                     onSubmit(e);
                   }
@@ -520,10 +562,14 @@ export default function SupportChatRoomUI({
               placeholder={
                 isUploadingImage
                   ? 'Đang nén & tải ảnh lên Cloudinary...'
-                  : 'Nhập tin nhắn phản hồi (Enter gửi, Shift+Enter xuống dòng)...'
+                  : 'Nhập tin nhắn phản hồi (Enter gửi, Ctrl+Enter xuống dòng)...'
               }
               disabled={isSending || isUploadingImage}
-              className="flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-orange-500 transition-colors resize-none min-h-[42px] max-h-32 overflow-y-auto"
+              className={`flex-1 px-4 py-2 rounded-xl text-xs sm:text-sm leading-5 bg-slate-50 border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-orange-500 transition-[border-color,height] duration-150 resize-none min-h-[40px] max-h-[100px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+                inputText.includes('\n')
+                  ? 'whitespace-pre-wrap overflow-y-auto'
+                  : 'whitespace-nowrap overflow-hidden'
+              }`}
             />
 
             <button

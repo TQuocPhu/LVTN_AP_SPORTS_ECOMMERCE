@@ -5,7 +5,9 @@ import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from '@/hooks/useAuth';
 import { supportChatController } from '@/controllers/support-chat-controller';
+import { orderController } from '@/controllers/order-controller';
 import { SupportConversation, SupportMessage } from '@/types/support-chat';
+import { OrderResponse } from '@/types/order';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 const BASE_WS_URL = BASE_URL.replace('/api/v1', '/ws');
@@ -33,6 +35,12 @@ export function useCustomerSupportChat() {
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
+  // Chọn đơn hàng của khách để đính kèm trước khi bấm Gửi
+  const [myOrders, setMyOrders] = useState<OrderResponse[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [isOrderPickerOpen, setIsOrderPickerOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
+
   // Lịch sử các ca trò chuyện trước đó của khách
   const [isViewingHistory, setIsViewingHistory] = useState(false);
   const [historyList, setHistoryList] = useState<SupportConversation[]>([]);
@@ -42,6 +50,21 @@ export function useCustomerSupportChat() {
 
   const clientRef = useRef<Client | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isCtrlPressedRef = useRef<boolean>(false);
+  const lastCtrlTimeRef = useRef<number>(0);
+
+  // Tự động điều chỉnh chiều cao ô nhập: mặc định giữ gọn 1 dòng (36px), chỉ giãn khi xuống dòng (Ctrl+Enter)
+  const syncTextareaHeight = useCallback((textVal: string) => {
+    const el = inputTextareaRef.current;
+    if (!el) return;
+    if (!textVal || !textVal.includes('\n')) {
+      el.style.height = '36px';
+      return;
+    }
+    el.style.height = '36px';
+    el.style.height = `${Math.min(el.scrollHeight, 104)}px`;
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -109,13 +132,15 @@ export function useCustomerSupportChat() {
               return [...prev, newMsg];
             });
 
-            // Đồng bộ trạng thái conversation realtime nếu message có mang conversationStatus
-            if (newMsg.conversationStatus) {
+            // Đồng bộ trạng thái conversation & mã đơn hàng realtime nếu message có mang thông tin cập nhật
+            if (newMsg.conversationStatus || newMsg.orderId || newMsg.orderCode) {
               setConversation((prev) => {
                 if (!prev) return null;
                 return {
                   ...prev,
-                  status: newMsg.conversationStatus as any,
+                  status: (newMsg.conversationStatus as any) || prev.status,
+                  orderId: newMsg.orderId ?? prev.orderId,
+                  orderCode: newMsg.orderCode ?? prev.orderCode,
                 };
               });
             }
@@ -173,13 +198,123 @@ export function useCustomerSupportChat() {
     setSelectedImagePreview(null);
   };
 
-  // Gửi tin nhắn (Form Submit)
-  const handleFormSubmit = async (e: React.FormEvent) => {
+  // Mở/đóng danh sách đơn hàng của chính khách hàng để chọn đính kèm
+  const toggleOrderPicker = async () => {
+    const nextState = !isOrderPickerOpen;
+    setIsOrderPickerOpen(nextState);
+    if (nextState && myOrders.length === 0 && userId) {
+      setIsLoadingOrders(true);
+      try {
+        const res = await orderController.getMyOrders(0, 20);
+        if (res.data?.content) {
+          setMyOrders(res.data.content);
+        }
+      } catch (err) {
+        console.warn('Không thể tải danh sách đơn hàng của khách:', err);
+      } finally {
+        setIsLoadingOrders(false);
+      }
+    }
+  };
+
+  const closeOrderPicker = () => {
+    setIsOrderPickerOpen(false);
+  };
+
+  // Khi khách chọn 1 đơn hàng từ danh sách -> gắn vào thanh Preview (chưa tự động gửi ngay)
+  const handleSelectOrder = (order: OrderResponse) => {
+    setSelectedOrder(order);
+    setIsOrderPickerOpen(false);
+  };
+
+  const clearSelectedOrder = () => {
+    setSelectedOrder(null);
+  };
+
+  // Xử lý thay đổi nội dung ô nhập
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+  };
+
+  // Theo dõi trạng thái phím Ctrl (kể cả khi bộ gõ tiếng Việt Unikey/EVKey nhả tạm VK_CONTROL trong vài ms)
+  const handleInputKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Control' || e.key === 'Meta') {
+      isCtrlPressedRef.current = false;
+      lastCtrlTimeRef.current = Date.now();
+    }
+  };
+
+  // Xử lý phím bấm: Ctrl+Enter (hoặc Cmd+Enter) mới xuống dòng, Enter thường là gửi tin nhắn
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Control' || e.key === 'Meta' || e.ctrlKey || e.metaKey) {
+      isCtrlPressedRef.current = true;
+      lastCtrlTimeRef.current = Date.now();
+    }
+
+    const isEnterKey =
+      e.key === 'Enter' ||
+      e.key === '\n' ||
+      e.code === 'Enter' ||
+      e.code === 'NumpadEnter' ||
+      e.keyCode === 13 ||
+      e.keyCode === 10;
+
+    if (!isEnterKey) return;
+
+    const isCtrlActive =
+      e.ctrlKey ||
+      e.metaKey ||
+      e.nativeEvent.ctrlKey ||
+      e.nativeEvent.metaKey ||
+      e.getModifierState?.('Control') ||
+      isCtrlPressedRef.current ||
+      Date.now() - lastCtrlTimeRef.current < 180;
+
+    // Nhấn Ctrl + Enter -> Chèn xuống dòng (\n) ngay tại con trỏ và mở rộng dòng
+    if (isCtrlActive) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = e.currentTarget;
+      const currentVal = el.value;
+      const start = el.selectionStart ?? currentVal.length;
+      const end = el.selectionEnd ?? currentVal.length;
+      const nextVal = `${currentVal.slice(0, start)}\n${currentVal.slice(end)}`;
+
+      // Cập nhật đồng bộ DOM value + vị trí con trỏ ngay lập tức để không bị nhảy hoặc trễ nhịp render
+      el.value = nextVal;
+      el.setSelectionRange(start + 1, start + 1);
+      setInputText(nextVal);
+
+      requestAnimationFrame(() => {
+        if (inputTextareaRef.current) {
+          inputTextareaRef.current.setSelectionRange(start + 1, start + 1);
+          inputTextareaRef.current.scrollTop = inputTextareaRef.current.scrollHeight;
+        }
+      });
+      return;
+    }
+
+    // Nếu đang gõ dở dấu tiếng Việt (IME composing) thì không tự động gửi
+    if (e.nativeEvent.isComposing) return;
+
+    // Nhấn Enter đơn thuần -> Gửi tin nhắn (không xuống dòng)
     e.preventDefault();
+    e.stopPropagation();
+    if (inputText.trim() || selectedImageFile || selectedOrder) {
+      handleFormSubmit();
+    }
+  };
+
+  // Gửi tin nhắn
+  const handleFormSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setErrorMessage(null);
 
     const trimmed = inputText.trim();
-    if (!trimmed && !selectedImageFile) return;
+    if (!trimmed && !selectedImageFile && !selectedOrder) return;
 
     setIsSending(true);
     let attachmentUrl: string | undefined = undefined;
@@ -188,8 +323,12 @@ export function useCustomerSupportChat() {
       // Nếu chưa có phiên nào, lúc khách bấm GỬI tin nhắn đầu tiên mới tạo ca mới
       let currentConv = conversation;
       if (!currentConv) {
+        const defaultSubject = selectedOrder
+          ? `Hỗ trợ đơn hàng #${selectedOrder.orderCode}`
+          : 'Khách hàng liên hệ tư vấn';
         const createRes = await supportChatController.getOrCreateConversation({
-          subject: trimmed || 'Khách hàng liên hệ tư vấn',
+          subject: trimmed || defaultSubject,
+          orderId: selectedOrder?.id,
         });
         if (createRes.data) {
           currentConv = createRes.data;
@@ -209,6 +348,7 @@ export function useCustomerSupportChat() {
       const res = await supportChatController.sendMessage(currentConv.id, {
         content: trimmed || undefined,
         attachmentUrl,
+        orderId: selectedOrder?.id,
       });
 
       if (res.data) {
@@ -217,8 +357,21 @@ export function useCustomerSupportChat() {
           if (prev.some((m) => m.id === savedMsg.id)) return prev;
           return [...prev, savedMsg];
         });
+        if (savedMsg.orderId || savedMsg.orderCode) {
+          setConversation((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  orderId: savedMsg.orderId ?? prev.orderId,
+                  orderCode: savedMsg.orderCode ?? prev.orderCode,
+                }
+              : prev
+          );
+        }
         setInputText('');
+        syncTextareaHeight('');
         clearSelectedImage();
+        clearSelectedOrder();
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Không thể gửi tin nhắn.');
@@ -254,7 +407,10 @@ export function useCustomerSupportChat() {
     setConversation(null);
     setMessages([]);
     setInputText('');
+    syncTextareaHeight('');
     clearSelectedImage();
+    clearSelectedOrder();
+    setIsOrderPickerOpen(false);
     setFeedbackNote('');
     setRatingStars(5);
     setErrorMessage(null);
@@ -317,6 +473,10 @@ export function useCustomerSupportChat() {
     clearError: () => setErrorMessage(null),
     inputText,
     setInputText,
+    inputTextareaRef,
+    handleInputChange,
+    handleInputKeyDown,
+    handleInputKeyUp,
     ratingStars,
     setRatingStars,
     feedbackNote,
@@ -328,6 +488,15 @@ export function useCustomerSupportChat() {
     messagesEndRef,
     handleSelectImage,
     clearSelectedImage,
+    // Chọn đơn hàng của khách để đính kèm
+    myOrders,
+    isLoadingOrders,
+    isOrderPickerOpen,
+    selectedOrder,
+    toggleOrderPicker,
+    closeOrderPicker,
+    handleSelectOrder,
+    clearSelectedOrder,
     handleFormSubmit,
     handleRatingSubmit,
     startNewConversation,

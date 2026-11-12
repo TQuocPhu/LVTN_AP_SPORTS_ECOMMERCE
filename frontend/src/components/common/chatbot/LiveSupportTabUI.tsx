@@ -19,8 +19,29 @@ import {
   History,
   ArrowLeft,
   Calendar,
+  Package,
 } from 'lucide-react';
 import { useCustomerSupportChat } from '@/hooks/useCustomerSupportChat';
+import { OrderResponse } from '@/types/order';
+
+const ORDER_STATUS_LABELS: Record<string, { label: string; className: string }> = {
+  PENDING: { label: 'Chờ xác nhận', className: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  CONFIRMED: { label: 'Đã xác nhận', className: 'bg-blue-500/15 text-blue-600 dark:text-blue-400' },
+  PROCESSING: { label: 'Đang chuẩn bị', className: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' },
+  SHIPPING: { label: 'Đang giao', className: 'bg-purple-500/15 text-purple-600 dark:text-purple-400' },
+  DELIVERED: { label: 'Đã giao', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  COMPLETED: { label: 'Hoàn tất', className: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  CANCELLED: { label: 'Đã hủy', className: 'bg-red-500/15 text-red-600 dark:text-red-400' },
+  RETURNED: { label: 'Hoàn trả', className: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
+};
+
+function getOrderProductSummary(order: OrderResponse): string {
+  const items = order.items || [];
+  if (items.length === 0) return `Đơn hàng #${order.orderCode}`;
+  const firstItem = items[0].productName || 'Sản phẩm thể thao';
+  if (items.length === 1) return firstItem;
+  return `${firstItem} (+${items.length - 1} SP khác)`;
+}
 
 export default function LiveSupportTabUI() {
   const {
@@ -32,7 +53,10 @@ export default function LiveSupportTabUI() {
     isSending,
     isUploadingImage,
     inputText,
-    setInputText,
+    inputTextareaRef,
+    handleInputChange,
+    handleInputKeyDown,
+    handleInputKeyUp,
     ratingStars,
     setRatingStars,
     feedbackNote,
@@ -45,6 +69,15 @@ export default function LiveSupportTabUI() {
     messagesEndRef,
     handleSelectImage,
     clearSelectedImage,
+    // Chọn đơn hàng của khách để đính kèm
+    myOrders,
+    isLoadingOrders,
+    isOrderPickerOpen,
+    selectedOrder,
+    toggleOrderPicker,
+    closeOrderPicker,
+    handleSelectOrder,
+    clearSelectedOrder,
     handleFormSubmit,
     handleRatingSubmit,
     startNewConversation,
@@ -504,6 +537,129 @@ export default function LiveSupportTabUI() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Popover chọn đơn hàng cần hỗ trợ (hiển thị ảnh sản phẩm + tên SP mua + mã đơn + tổng tiền + trạng thái) */}
+      {isOrderPickerOpen && (
+        <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 max-h-56 flex flex-col shadow-lg">
+          <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+            <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-orange-500" />
+              <span>Chọn đơn hàng bạn cần hỗ trợ</span>
+            </span>
+            <button
+              type="button"
+              onClick={closeOrderPicker}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto p-2 space-y-1.5">
+            {isLoadingOrders ? (
+              <div className="py-6 flex items-center justify-center text-xs text-slate-400">
+                <Loader2 className="w-4 h-4 animate-spin mr-1.5 text-orange-500" />
+                Đang tải đơn hàng của bạn...
+              </div>
+            ) : myOrders.length === 0 ? (
+              <div className="py-5 text-center text-[11px] text-slate-400">
+                Bạn chưa có đơn hàng nào để đính kèm.
+              </div>
+            ) : (
+              myOrders.map((order) => {
+                const firstItem = order.items?.[0];
+                const statusInfo = ORDER_STATUS_LABELS[order.status] || {
+                  label: order.status,
+                  className: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
+                };
+                const isSelected = selectedOrder?.id === order.id;
+
+                return (
+                  <button
+                    key={order.id}
+                    type="button"
+                    onClick={() => handleSelectOrder(order)}
+                    className={`w-full text-left p-2 rounded-xl border transition-all flex items-center gap-2.5 cursor-pointer ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-500/10 dark:bg-orange-500/15'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-orange-400 dark:hover:border-orange-500/60 bg-slate-50/70 dark:bg-slate-800/50'
+                    }`}
+                  >
+                    {firstItem?.image ? (
+                      <img
+                        src={firstItem.image}
+                        alt={firstItem.productName}
+                        className="w-10 h-10 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-700 bg-white"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center shrink-0">
+                        <Package className="w-5 h-5" />
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                        {getOrderProductSummary(order)}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                        <span className="font-mono font-semibold text-orange-600 dark:text-orange-400">
+                          #{order.orderCode}
+                        </span>
+                        <span>•</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {Number(order.finalAmount || 0).toLocaleString('vi-VN')}đ
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`text-[9px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${statusInfo.className}`}
+                    >
+                      {statusInfo.label}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Thanh Preview Đơn Hàng Đã Chọn (chờ khách bấm Gửi mới gửi đi) */}
+      {selectedOrder && (
+        <div className="p-2 px-3 bg-orange-500/10 dark:bg-orange-950/40 border-t border-orange-500/30 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {selectedOrder.items?.[0]?.image ? (
+              <img
+                src={selectedOrder.items[0].image}
+                alt={selectedOrder.items[0].productName}
+                className="w-9 h-9 object-cover rounded-lg border border-orange-500/40 shrink-0 bg-white"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-lg bg-orange-500/20 text-orange-500 flex items-center justify-center shrink-0">
+                <Package className="w-4 h-4" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate">
+                {getOrderProductSummary(selectedOrder)}
+              </p>
+              <p className="text-[10px] text-orange-600 dark:text-orange-400 font-mono">
+                Đính kèm #{selectedOrder.orderCode} •{' '}
+                {Number(selectedOrder.finalAmount || 0).toLocaleString('vi-VN')}đ (Bấm Gửi để xác nhận)
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={clearSelectedOrder}
+            className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 hover:bg-red-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            title="Bỏ chọn đơn hàng này"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Selected Image Preview */}
       {selectedImagePreview && (
         <div className="p-2 px-3 bg-slate-100 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
@@ -545,10 +701,10 @@ export default function LiveSupportTabUI() {
             </p>
           </div>
         ) : (
-          <form onSubmit={handleFormSubmit} className="flex items-end gap-2">
+          <div className="flex items-end gap-1.5">
             <label
               htmlFor="support-chat-image-input"
-              className="w-9 h-9 mb-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+              className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
               title="Đính kèm hình ảnh trao đổi"
             >
               <ImageIcon className="w-4 h-4" />
@@ -562,34 +718,57 @@ export default function LiveSupportTabUI() {
               />
             </label>
 
+            <button
+              type="button"
+              onClick={toggleOrderPicker}
+              disabled={isSending || isUploadingImage}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-colors border ${
+                isOrderPickerOpen || selectedOrder
+                  ? 'bg-orange-500/15 border-orange-500 text-orange-600 dark:text-orange-400'
+                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+              }`}
+              title="Chọn đơn hàng cần tư vấn / hỗ trợ"
+            >
+              <Package className="w-4 h-4" />
+            </button>
+
             <textarea
-              rows={1}
+              ref={inputTextareaRef}
+              rows={Math.min(Math.max(inputText.split('\n').length, 1), 4)}
+              wrap={inputText.includes('\n') ? 'soft' : 'off'}
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  if (inputText.trim() || selectedImagePreview) {
-                    handleFormSubmit(e);
-                  }
-                }
+              onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
+              onKeyUp={handleInputKeyUp}
+              style={{
+                height: `${Math.min(Math.max(inputText.split('\n').length, 1), 4) * 20 + 16}px`,
               }}
               placeholder={
                 isUploadingImage
-                  ? 'Đang nén & tải ảnh lên Cloudinary...'
-                  : !conversation
-                  ? 'Nhập tin nhắn để kết nối với tư vấn viên...'
-                  : 'Nhắn tin (Enter để gửi, Shift+Enter xuống dòng)...'
+                  ? 'Đang tải ảnh lên...'
+                  : selectedOrder
+                  ? `Hỏi về đơn #${selectedOrder.orderCode}...`
+                  : 'Nhập tin nhắn...'
               }
+              title="Nhấn Enter để gửi, Ctrl + Enter để xuống dòng"
               disabled={isSending || isUploadingImage}
-              className="flex-1 px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500 dark:focus:border-orange-500 transition-colors resize-none min-h-[38px] max-h-28 overflow-y-auto"
+              className={`flex-1 px-3 py-2 rounded-xl text-xs leading-5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500 dark:focus:border-orange-500 transition-[border-color,height] duration-150 resize-none min-h-[36px] max-h-[96px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+                inputText.includes('\n')
+                  ? 'whitespace-pre-wrap overflow-y-auto'
+                  : 'whitespace-nowrap overflow-hidden'
+              }`}
             />
 
             <button
-              type="submit"
-              disabled={(!inputText.trim() && !selectedImagePreview) || isSending || isUploadingImage}
-              className="w-9 h-9 mb-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-orange-500/20 cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
-              title="Gửi tin nhắn"
+              type="button"
+              onClick={handleFormSubmit}
+              disabled={
+                (!inputText.trim() && !selectedImagePreview && !selectedOrder) ||
+                isSending ||
+                isUploadingImage
+              }
+              className="w-9 h-9 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-orange-500/20 cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+              title="Gửi tin nhắn (Enter)"
             >
               {isSending || isUploadingImage ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -597,7 +776,7 @@ export default function LiveSupportTabUI() {
                 <SendHorizontal className="w-4 h-4" />
               )}
             </button>
-          </form>
+          </div>
         )}
       </footer>
 

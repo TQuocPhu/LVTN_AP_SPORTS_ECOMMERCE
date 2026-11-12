@@ -214,21 +214,30 @@ export function useStaffSupportChat() {
               });
               supportChatController.markStaffAsRead(newMsg.conversationId);
 
-              // Cập nhật trạng thái active conversation realtime
-              if (newMsg.conversationStatus) {
+              // Cập nhật trạng thái và mã đơn hàng active conversation realtime
+              if (newMsg.conversationStatus || newMsg.orderId || newMsg.orderCode) {
                 setActiveConversation((prev) =>
-                  prev ? { ...prev, status: newMsg.conversationStatus as any } : prev
+                  prev
+                    ? {
+                        ...prev,
+                        status: (newMsg.conversationStatus as any) || prev.status,
+                        orderId: newMsg.orderId ?? prev.orderId,
+                        orderCode: newMsg.orderCode ?? prev.orderCode,
+                      }
+                    : prev
                 );
               }
             }
 
-            // Đồng bộ trạng thái vào danh sách myConversations
+            // Đồng bộ trạng thái và mã đơn hàng vào danh sách myConversations
             setMyConversations((prev) =>
               prev.map((c) => {
                 if (c.id === newMsg.conversationId) {
                   return {
                     ...c,
                     status: newMsg.conversationStatus ? (newMsg.conversationStatus as any) : c.status,
+                    orderId: newMsg.orderId ?? c.orderId,
+                    orderCode: newMsg.orderCode ?? c.orderCode,
                     lastMessageAt: newMsg.createdAt,
                     unreadCount:
                       currentActive?.id === newMsg.conversationId

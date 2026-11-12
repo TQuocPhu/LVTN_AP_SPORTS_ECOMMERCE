@@ -48,6 +48,8 @@ export interface SupportMessage {
   maskedContent?: string;
   originalContent?: string;
   conversationStatus?: SupportConversationStatus;
+  orderId?: number;
+  orderCode?: string;
   createdAt: string;
 }
 
@@ -73,6 +75,7 @@ export interface CreateConversationRequest {
 export interface SendSupportMessageRequest {
   content?: string;
   attachmentUrl?: string;
+  orderId?: number;
 }
 
 export interface RateConversationRequest {

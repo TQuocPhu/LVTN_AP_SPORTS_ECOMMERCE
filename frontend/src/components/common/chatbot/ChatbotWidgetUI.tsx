@@ -238,32 +238,76 @@ export default function ChatbotWidgetUI() {
 
           {/* Footer: Input Bar */}
           <footer className="p-2.5 sm:p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
-            <form onSubmit={handleSubmit} className="flex items-end gap-2">
+            <div className="flex items-end gap-2">
               <textarea
-                rows={1}
+                rows={Math.min(Math.max(inputText.split('\n').length, 1), 4)}
+                wrap={inputText.includes('\n') ? 'soft' : 'off'}
                 value={inputText}
+                style={{
+                  height: `${Math.min(Math.max(inputText.split('\n').length, 1), 4) * 20 + 16}px`,
+                }}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  const isEnter =
+                    e.key === 'Enter' ||
+                    e.key === '\n' ||
+                    e.code === 'Enter' ||
+                    e.code === 'NumpadEnter' ||
+                    e.keyCode === 13 ||
+                    e.keyCode === 10;
+                  if (!isEnter) return;
+
+                  const el = e.currentTarget;
+                  if (
+                    e.ctrlKey ||
+                    e.metaKey ||
+                    e.nativeEvent.ctrlKey ||
+                    e.nativeEvent.metaKey ||
+                    e.getModifierState?.('Control')
+                  ) {
                     e.preventDefault();
+                    e.stopPropagation();
+                    const currentVal = el.value;
+                    const start = el.selectionStart ?? currentVal.length;
+                    const end = el.selectionEnd ?? currentVal.length;
+                    const nextVal = `${currentVal.slice(0, start)}\n${currentVal.slice(end)}`;
+                    el.value = nextVal;
+                    el.setSelectionRange(start + 1, start + 1);
+                    setInputText(nextVal);
+                    requestAnimationFrame(() => {
+                      el.setSelectionRange(start + 1, start + 1);
+                      el.scrollTop = el.scrollHeight;
+                    });
+                    return;
+                  }
+
+                  if (!e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (inputText.trim()) {
                       handleSubmit(e);
                     }
                   }
                 }}
-                placeholder="Nhập câu hỏi (Enter gửi, Shift+Enter xuống dòng)..."
-                className="flex-1 px-3.5 py-2 rounded-xl text-xs sm:text-sm bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500 dark:focus:border-orange-500 transition-colors resize-none min-h-[38px] max-h-28 overflow-y-auto"
+                placeholder="Nhập câu hỏi..."
+                title="Nhấn Enter để gửi, Ctrl + Enter để xuống dòng"
+                className={`flex-1 px-3 py-2 rounded-xl text-xs leading-5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:border-orange-500 dark:focus:border-orange-500 transition-[border-color,height] duration-150 resize-none min-h-[36px] max-h-[96px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+                  inputText.includes('\n')
+                    ? 'whitespace-pre-wrap overflow-y-auto'
+                    : 'whitespace-nowrap overflow-hidden'
+                }`}
               />
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 disabled={!inputText.trim()}
-                className="w-9 h-9 mb-0.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-orange-500/20 cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
-                title="Gửi câu hỏi"
+                className="w-9 h-9 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-all shadow-md shadow-orange-500/20 cursor-pointer disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                title="Gửi câu hỏi (Enter)"
                 aria-label="Gửi câu hỏi"
               >
                 <SendHorizontal className="w-3.5 h-3.5" />
               </button>
-            </form>
+            </div>
             <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1.5">
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
