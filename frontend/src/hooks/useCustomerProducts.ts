@@ -1,36 +1,96 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Product, ProductFilterParams } from '@/types/product';
+import { CategoryResponse } from '@/types/category';
 import { productController } from '@/controllers/product-controller';
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 
-export function useCustomerProducts(initialCategoryId?: number) {
+/**
+ * Hàm đệ quy tìm tên danh mục theo ID trong cây danh mục để hiển thị nhãn (Badge) bộ lọc đang chọn.
+ */
+function findCategoryNameById(tree: CategoryResponse[], targetId: number): string | null {
+  for (const node of tree) {
+    if (node.id === targetId) return node.name;
+    if (node.children && node.children.length > 0) {
+      const found = findCategoryNameById(node.children, targetId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Custom Hook quản lý toàn bộ trạng thái lọc, tìm kiếm, phân trang và giao diện danh sách sản phẩm khách hàng.
+ * Tuân thủ nghiêm ngặt kiến trúc Layer Architecture:
+ * - Tự động đồng bộ tham số `categoryId` hoặc `search` từ URL (khi điều hướng từ Trang chủ sang).
+ * - Gọi tới `productController.getPublicProducts()` để lấy dữ liệu sản phẩm.
+ */
+export function useCustomerProducts(
+  initialCategoryId?: number,
+  categoryTree: CategoryResponse[] = []
+) {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Pagination State
+  // Trạng thái phân trang (Pagination State)
   const [page, setPage] = useState<number>(0);
-  const [pageSize, setPageSize] = useState<number>(12);
+  const [pageSize] = useState<number>(12);
   const [totalElements, setTotalElements] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
 
-  // Filter States with Debounce 400ms
-  const { keyword, debouncedKeyword, setKeyword, clearKeyword } = useDebouncedSearch('', 400);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(initialCategoryId || null);
+  // Đọc và kiểm tra an toàn tham số categoryId trên URL
+  const urlCategoryIdParam = searchParams?.get('categoryId');
+  const parsedUrlCatId = urlCategoryIdParam ? Number(urlCategoryIdParam) : NaN;
+  const validUrlCategoryId =
+    Number.isInteger(parsedUrlCatId) && parsedUrlCatId > 0 ? parsedUrlCatId : null;
+
+  const urlSearchParam = searchParams?.get('search') || '';
+
+  // Trạng thái bộ lọc kèm Debounce 400ms cho từ khóa tìm kiếm
+  const { keyword, debouncedKeyword, setKeyword } = useDebouncedSearch(urlSearchParam, 400);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(
+    validUrlCategoryId ?? initialCategoryId ?? null
+  );
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [minPrice, setMinPrice] = useState<number | null>(null);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
 
-  // Sorting State
+  // Trạng thái sắp xếp (Sorting State)
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortDir, setSortDir] = useState<'ASC' | 'DESC'>('DESC');
 
+  // Đồng bộ khi tham số categoryId trên URL thay đổi (ví dụ khách bấm từ Trang chủ hoặc Menu)
+  useEffect(() => {
+    if (validUrlCategoryId !== null) {
+      setSelectedCategoryId(validUrlCategoryId);
+      setPage(0);
+    }
+  }, [validUrlCategoryId]);
+
+  // Tự động ánh xạ tên danh mục từ cây danh mục khi có selectedCategoryId
+  useEffect(() => {
+    if (selectedCategoryId !== null && categoryTree.length > 0) {
+      const matchedName = findCategoryNameById(categoryTree, selectedCategoryId);
+      if (matchedName) {
+        setSelectedCategoryName(matchedName);
+      }
+    } else if (selectedCategoryId === null) {
+      setSelectedCategoryName(null);
+    }
+  }, [selectedCategoryId, categoryTree]);
+
+  /**
+   * Gọi API lấy danh sách sản phẩm đang kinh doanh (in_stock) theo bộ lọc hiện tại.
+   */
   const fetchProducts = useCallback(async () => {
-    // 1. Hủy request đang bay trước đó để chống race-condition
+    // 1. Hủy request đang chạy trước đó để chống Race Condition
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -40,7 +100,7 @@ export function useCustomerProducts(initialCategoryId?: number) {
       const filterParams: ProductFilterParams = {
         keyword: debouncedKeyword.trim() || undefined,
         categoryId: selectedCategoryId || undefined,
-        status: 'in_stock', // Default customer view only shows in_stock items
+        status: 'in_stock', // Mặc định cửa hàng chỉ hiển thị sản phẩm đang còn hàng
         variantSize: selectedSizes.length > 0 ? selectedSizes.join(',') : undefined,
         minPrice: minPrice !== null ? minPrice : undefined,
         maxPrice: maxPrice !== null ? maxPrice : undefined,
@@ -63,7 +123,7 @@ export function useCustomerProducts(initialCategoryId?: number) {
         controller.signal.aborted ||
         (err instanceof Error && (err.name === 'AbortError' || err.name === 'CanceledError'))
       ) {
-        return; // Request cũ đã bị hủy bởi từ khóa mới, không xử lý
+        return; // Request cũ đã bị hủy bởi bộ lọc mới, không xử lý lỗi
       }
       console.error('Lỗi khi tải danh sách sản phẩm cửa hàng:', err);
     } finally {
@@ -149,6 +209,8 @@ export function useCustomerProducts(initialCategoryId?: number) {
     sortBy,
     sortDir,
     hasActiveFilters,
+    mobileFilterOpen,
+    setMobileFilterOpen,
     setPage,
     setKeyword,
     setSelectedCategory: handleSelectCategory,

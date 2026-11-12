@@ -131,6 +131,7 @@ export function ImportRequestDetailModal({
               <p className="text-xs text-slate-500">Ghi nhận hệ thống</p>
             </div>
 
+            {/* Card 4: Thông tin Phiếu nhập kho, Người duyệt & Mốc thời gian duyệt */}
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Hash className="w-3.5 h-3.5" /> Phiếu Nhập Kho
@@ -139,7 +140,20 @@ export function ImportRequestDetailModal({
                 {request.importTicketCode || 'Chưa phát sinh'}
               </p>
               <p className="text-xs text-slate-500">
-                {request.approvedByUserName ? `Duyệt bởi: ${request.approvedByUserName}` : 'Đang chờ xử lý'}
+                {request.approvedByUserName ? (
+                  <>
+                    <span>
+                      Duyệt bởi: <strong>{request.approvedByUserName}</strong>
+                    </span>
+                    {request.approvedAt && (
+                      <span className="block text-[11px] text-slate-400 mt-0.5">
+                        Lúc: {formatDateTime(request.approvedAt)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  'Đang chờ xử lý'
+                )}
               </p>
             </div>
           </div>

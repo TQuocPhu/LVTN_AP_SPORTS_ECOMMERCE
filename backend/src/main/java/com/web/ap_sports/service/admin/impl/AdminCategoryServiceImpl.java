@@ -13,6 +13,8 @@ import com.web.ap_sports.service.common.CloudinaryService;
 import com.web.ap_sports.specification.CategorySpecifications;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -55,8 +57,13 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
         return mapToResponse(category);
     }
 
+    /**
+     * Tạo mới danh mục sản phẩm và tự động xóa toàn bộ cache danh mục ('categories') trên Redis
+     * để đồng bộ ngay lập tức với Trang chủ và Bộ lọc trang sản phẩm.
+     */
     @Override
     @Transactional
+    @CacheEvict(value = "categories", allEntries = true)
     public CategoryResponse createCategory(CreateCategoryRequest request) {
         String categoryName = request.getName().trim();
         if (categoryRepository.existsByName(categoryName)) {
@@ -101,8 +108,12 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
         return mapToResponse(saved);
     }
 
+    /**
+     * Cập nhật thông tin danh mục và tự động làm sạch bộ nhớ đệm 'categories' trên Redis.
+     */
     @Override
     @Transactional
+    @CacheEvict(value = "categories", allEntries = true)
     public CategoryResponse updateCategory(Long id, UpdateCategoryRequest request) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy danh mục với ID: " + id, HttpStatus.NOT_FOUND));
@@ -161,8 +172,12 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
         return mapToResponse(saved);
     }
 
+    /**
+     * Xóa danh mục sản phẩm và tự động làm sạch bộ nhớ đệm 'categories' trên Redis.
+     */
     @Override
     @Transactional
+    @CacheEvict(value = "categories", allEntries = true)
     public void deleteCategory(Long id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy danh mục với ID: " + id, HttpStatus.NOT_FOUND));
@@ -183,8 +198,16 @@ public class AdminCategoryServiceImpl implements AdminCategoryService {
         log.info("Đã xóa thành công danh mục ID: {}", id);
     }
 
+    /**
+     * Lấy danh sách danh mục gốc (parent == null) cho trang Quản trị, có hỗ trợ lưu đệm trên Redis.
+     */
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(
+            value = "categories",
+            key = "'lvtn:dev:catalog:category:admin_roots'",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public List<CategoryResponse> getRootCategories() {
         return categoryRepository.findByParentIsNull().stream()
                 .map(this::mapToResponse)

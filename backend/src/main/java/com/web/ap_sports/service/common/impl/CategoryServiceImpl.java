@@ -4,14 +4,24 @@ import com.web.ap_sports.dto.response.common.CategoryResponse;
 import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.repository.CategoryRepository;
 import com.web.ap_sports.repository.ProductRepository;
+import com.web.ap_sports.service.common.CategoryCacheService;
 import com.web.ap_sports.service.common.CategoryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Triển khai nghiệp vụ truy vấn Danh mục sản phẩm dùng chung cho Khách hàng (Trang chủ & Bộ lọc Trang sản phẩm).
+ *
+ * Kết hợp giữa:
+ * 1. Khung danh mục tĩnh lấy từ Redis Cache (thông qua CategoryCacheService) để tối ưu tốc độ truy vấn.
+ * 2. Số lượng sản phẩm đang còn hàng (in_stock) tính toán Real-time từ Database để đảm bảo
+ *    khi thêm sản phẩm mới hoặc khi khách đặt hàng trừ hết tồn kho, số liệu luôn đồng bộ chính xác 100%.
+ */
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
@@ -19,9 +29,29 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
 
+    @Autowired(required = false)
+    private CategoryCacheService categoryCacheService;
+
+    /**
+     * Lấy cây danh mục đa cấp cho Bộ lọc trang sản phẩm:
+     * - Khung phân cấp danh mục được lấy từ Redis Cache.
+     * - Số đếm sản phẩm còn hàng (productCount) được cộng dồn đệ quy Real-time từ Database.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategoryTree() {
+        // 1. Lấy số lượng sản phẩm đang kinh doanh (in_stock) Real-time từ Database
+        Map<Long, Long> directCountMap = queryRealtimeInStockCounts();
+
+        // 2. Nếu có CategoryCacheService (môi trường Runtime), lấy khung cây tĩnh từ Redis Cache
+        if (categoryCacheService != null) {
+            List<CategoryResponse> cachedSkeleton = categoryCacheService.getCachedCategoryTreeSkeleton();
+            return cachedSkeleton.stream()
+                    .map(root -> attachRealtimeCountToSkeleton(root, directCountMap))
+                    .collect(Collectors.toList());
+        }
+
+        // 3. Fallback trực tiếp qua Repository (phục vụ môi trường Unit Test độc lập không nạp Spring Context)
         List<Category> rootCategories = categoryRepository.findByParentIsNull();
         List<Category> allCategories = categoryRepository.findAll();
 
@@ -29,45 +59,116 @@ public class CategoryServiceImpl implements CategoryService {
                 .filter(c -> c.getParent() != null)
                 .collect(Collectors.groupingBy(c -> c.getParent().getId()));
 
-        Map<Long, Long> directCountMap = new HashMap<>();
-        List<Object[]> primaryCounts = productRepository.countInStockProductsGroupedByPrimaryCategory();
-        for (Object[] row : primaryCounts) {
-            Long catId = (Long) row[0];
-            Long count = (Long) row[1];
-            if (catId != null && count != null) {
-                directCountMap.merge(catId, count, Long::sum);
-            }
-        }
-
-        List<Object[]> secondaryCounts = productRepository.countInStockProductsGroupedBySecondaryCategory();
-        for (Object[] row : secondaryCounts) {
-            Long catId = (Long) row[0];
-            Long count = (Long) row[1];
-            if (catId != null && count != null) {
-                directCountMap.merge(catId, count, Long::sum);
-            }
-        }
-
         return rootCategories.stream()
                 .map(root -> mapToResponseTree(root, childrenMap, directCountMap))
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lấy danh sách tất cả danh mục dạng phẳng (Flat) có hỗ trợ Redis Cache.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<CategoryResponse> getAllCategoriesFlat() {
+        if (categoryCacheService != null) {
+            return categoryCacheService.getCachedAllCategoriesFlat();
+        }
         List<Category> allCategories = categoryRepository.findAll();
         return allCategories.stream()
                 .map(this::mapToResponseFlat)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lấy danh sách các danh mục gốc (Primary/Root Categories - Cấp 1) cho Trang chủ khách hàng.
+     * Kết hợp khung danh mục từ Redis Cache và tổng số lượng sản phẩm (gồm cả danh mục con) theo thời gian thực.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<CategoryResponse> getPrimaryCategories() {
+        List<CategoryResponse> treeWithCounts = getCategoryTree();
+        if (!treeWithCounts.isEmpty()) {
+            return treeWithCounts.stream()
+                    .map(root -> CategoryResponse.builder()
+                            .id(root.getId())
+                            .name(root.getName())
+                            .slug(root.getSlug())
+                            .description(root.getDescription())
+                            .image(root.getImage())
+                            .parentId(null)
+                            .parentName(null)
+                            .productCount(root.getProductCount())
+                            .children(root.getChildren())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+
         return categoryRepository.findByParentIsNull().stream()
                 .map(this::mapToResponseFlat)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Truy vấn trực tiếp số lượng sản phẩm còn hàng (in_stock) của từng danh mục chính và phụ từ Database.
+     */
+    private Map<Long, Long> queryRealtimeInStockCounts() {
+        Map<Long, Long> directCountMap = new HashMap<>();
+        List<Object[]> primaryCounts = productRepository.countInStockProductsGroupedByPrimaryCategory();
+        if (primaryCounts != null) {
+            for (Object[] row : primaryCounts) {
+                Long catId = (Long) row[0];
+                Long count = (Long) row[1];
+                if (catId != null && count != null) {
+                    directCountMap.merge(catId, count, Long::sum);
+                }
+            }
+        }
+
+        List<Object[]> secondaryCounts = productRepository.countInStockProductsGroupedBySecondaryCategory();
+        if (secondaryCounts != null) {
+            for (Object[] row : secondaryCounts) {
+                Long catId = (Long) row[0];
+                Long count = (Long) row[1];
+                if (catId != null && count != null) {
+                    directCountMap.merge(catId, count, Long::sum);
+                }
+            }
+        }
+        return directCountMap;
+    }
+
+    /**
+     * Tạo bản sao DTO từ khung Redis Cache và gắn số lượng sản phẩm Real-time đệ quy từ cấp con lên cấp cha.
+     * Không chỉnh sửa trực tiếp đối tượng gốc đang lưu trong bộ nhớ đệm.
+     */
+    private CategoryResponse attachRealtimeCountToSkeleton(
+            CategoryResponse skeletonNode,
+            Map<Long, Long> directCountMap
+    ) {
+        List<CategoryResponse> children = skeletonNode.getChildren() != null
+                ? skeletonNode.getChildren()
+                : Collections.emptyList();
+
+        List<CategoryResponse> childResponses = children.stream()
+                .map(child -> attachRealtimeCountToSkeleton(child, directCountMap))
+                .collect(Collectors.toList());
+
+        long directCount = directCountMap.getOrDefault(skeletonNode.getId(), 0L);
+        long totalCount = directCount + childResponses.stream()
+                .mapToLong(c -> c.getProductCount() != null ? c.getProductCount() : 0L)
+                .sum();
+
+        return CategoryResponse.builder()
+                .id(skeletonNode.getId())
+                .name(skeletonNode.getName())
+                .slug(skeletonNode.getSlug())
+                .description(skeletonNode.getDescription())
+                .image(skeletonNode.getImage())
+                .parentId(skeletonNode.getParentId())
+                .parentName(skeletonNode.getParentName())
+                .productCount(totalCount)
+                .children(childResponses)
+                .build();
     }
 
     private CategoryResponse mapToResponseTree(Category category, Map<Long, List<Category>> childrenMap, Map<Long, Long> directCountMap) {

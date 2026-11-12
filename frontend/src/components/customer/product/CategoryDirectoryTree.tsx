@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { CategoryResponse } from '@/types/category';
 import { Folder, FolderOpen, ChevronRight, ChevronDown, Tag, Layers } from 'lucide-react';
 
@@ -8,23 +8,38 @@ interface CategoryDirectoryTreeProps {
   categoryTree: CategoryResponse[];
   selectedCategoryId: number | null;
   onSelectCategory: (id: number | null, name: string | null) => void;
+  collapsedCategoryIds?: number[];
+  onToggleExpand?: (categoryId: number) => void;
 }
 
 interface TreeNodeProps {
   category: CategoryResponse;
   selectedCategoryId: number | null;
   onSelectCategory: (id: number | null, name: string | null) => void;
+  collapsedCategoryIds: number[];
+  onToggleExpand?: (categoryId: number) => void;
   level: number;
 }
 
-function TreeNode({ category, selectedCategoryId, onSelectCategory, level }: TreeNodeProps) {
-  const hasChildren = category.children && category.children.length > 0;
+/**
+ * Component hiển thị từng nút (Node) trong cây danh mục đa cấp.
+ * Tuân thủ Layer Architecture: Hoàn toàn không dùng useState/useEffect, nhận trạng thái đóng/mở từ Hook cha.
+ */
+function TreeNode({
+  category,
+  selectedCategoryId,
+  onSelectCategory,
+  collapsedCategoryIds,
+  onToggleExpand,
+  level,
+}: TreeNodeProps) {
+  const hasChildren = Boolean(category.children && category.children.length > 0);
   const isSelected = selectedCategoryId === category.id;
-  const [expanded, setExpanded] = useState<boolean>(true);
+  const expanded = !collapsedCategoryIds.includes(category.id);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setExpanded(!expanded);
+    onToggleExpand?.(category.id);
   };
 
   const handleSelect = () => {
@@ -47,6 +62,7 @@ function TreeNode({ category, selectedCategoryId, onSelectCategory, level }: Tre
         <div className="flex items-center gap-2 truncate">
           {hasChildren ? (
             <button
+              type="button"
               onClick={handleToggle}
               className={`p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${
                 isSelected ? 'text-white' : 'text-slate-400 dark:text-slate-500'
@@ -95,6 +111,8 @@ function TreeNode({ category, selectedCategoryId, onSelectCategory, level }: Tre
               category={child}
               selectedCategoryId={selectedCategoryId}
               onSelectCategory={onSelectCategory}
+              collapsedCategoryIds={collapsedCategoryIds}
+              onToggleExpand={onToggleExpand}
               level={level + 1}
             />
           ))}
@@ -104,16 +122,22 @@ function TreeNode({ category, selectedCategoryId, onSelectCategory, level }: Tre
   );
 }
 
+/**
+ * Component hiển thị Cây danh mục sản phẩm (Directory Tree) trên thanh Bộ lọc của trang Sản phẩm.
+ * Hỗ trợ đầy đủ giao diện Dark/Light mode của khách hàng và không chứa state nội bộ.
+ */
 export function CategoryDirectoryTree({
   categoryTree,
   selectedCategoryId,
   onSelectCategory,
+  collapsedCategoryIds = [],
+  onToggleExpand,
 }: CategoryDirectoryTreeProps) {
   const isAllSelected = selectedCategoryId === null;
 
   return (
     <div className="space-y-1">
-      {/* Root item: Tất cả danh mục */}
+      {/* Mục gốc: Tất cả danh mục */}
       <div
         onClick={() => onSelectCategory(null, null)}
         className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
@@ -126,7 +150,7 @@ export function CategoryDirectoryTree({
         <span>Tất cả danh mục</span>
       </div>
 
-      {/* Category Tree Nodes */}
+      {/* Danh sách các nhánh Danh mục từ Redis/DB */}
       <div className="pt-1">
         {categoryTree.map((cat) => (
           <TreeNode
@@ -134,6 +158,8 @@ export function CategoryDirectoryTree({
             category={cat}
             selectedCategoryId={selectedCategoryId}
             onSelectCategory={onSelectCategory}
+            collapsedCategoryIds={collapsedCategoryIds}
+            onToggleExpand={onToggleExpand}
             level={0}
           />
         ))}

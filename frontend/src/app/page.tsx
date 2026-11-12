@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import ClientTopBar from '@/components/layout/ClientTopBar';
 import HeroBannerSlider from '@/components/customer/home/HeroBannerSlider';
+import CategoryGrid from '@/components/customer/home/CategoryGrid';
 import HomeShoppingSteps from '@/components/customer/home/HomeShoppingSteps';
 import HomeFeaturedSportsBanners from '@/components/customer/home/HomeFeaturedSportsBanners';
 import FeaturedProducts from '@/components/customer/home/FeaturedProducts';
@@ -37,7 +38,10 @@ export default function HomePage() {
       {/* 2. Featured Sports Banners (Bóng đá, Cầu lông, Karate) */}
       <HomeFeaturedSportsBanners />
 
-      {/* 3. Featured Products Showcase (Sản phẩm nổi bật từ API) */}
+      {/* 3. Danh mục thể thao chuyên sâu (Lấy từ API có hỗ trợ Redis Cache) */}
+      <CategoryGrid />
+
+      {/* 4. Featured Products Showcase (Sản phẩm nổi bật từ API) */}
       <FeaturedProducts />
 
       {/* 4. Quy Trình Mua Sắm Chuẩn Vận Động Viên (4 Bước Tiêu Chuẩn) */}
