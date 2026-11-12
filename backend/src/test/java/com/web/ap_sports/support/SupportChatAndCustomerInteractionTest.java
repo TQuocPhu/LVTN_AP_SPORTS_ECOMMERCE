@@ -268,7 +268,7 @@ public class SupportChatAndCustomerInteractionTest {
                     .build();
 
             when(userRepository.findByEmail(sampleCustomer.getEmail())).thenReturn(Optional.of(sampleCustomer));
-            when(conversationRepository.findById(100L)).thenReturn(Optional.of(conv));
+            when(conversationRepository.findByIdAndCustomerId(100L, sampleCustomer.getId())).thenReturn(Optional.of(conv));
             when(contentModerationAiService.moderate(request.getContent()))
                     .thenReturn(ContentModerationAiService.ModerationResult.clean());
 
@@ -308,7 +308,7 @@ public class SupportChatAndCustomerInteractionTest {
                     .build();
 
             when(userRepository.findByEmail(sampleCustomer.getEmail())).thenReturn(Optional.of(sampleCustomer));
-            when(conversationRepository.findById(100L)).thenReturn(Optional.of(conv));
+            when(conversationRepository.findByIdAndCustomerId(100L, sampleCustomer.getId())).thenReturn(Optional.of(conv));
             when(contentModerationAiService.moderate(request.getContent()))
                     .thenReturn(ContentModerationAiService.ModerationResult.violation("PROFANITY", "Sử dụng từ ngữ xúc phạm"));
 
@@ -350,7 +350,7 @@ public class SupportChatAndCustomerInteractionTest {
                     .build();
 
             when(userRepository.findByEmail(sampleCustomer.getEmail())).thenReturn(Optional.of(sampleCustomer));
-            when(conversationRepository.findById(100L)).thenReturn(Optional.of(conv));
+            when(conversationRepository.findByIdAndCustomerId(100L, sampleCustomer.getId())).thenReturn(Optional.of(conv));
             when(conversationRepository.save(any(SupportConversation.class))).thenAnswer(inv -> inv.getArgument(0));
             when(messageRepository.save(any(SupportMessage.class))).thenAnswer(inv -> {
                 SupportMessage m = inv.getArgument(0);
@@ -364,6 +364,35 @@ public class SupportChatAndCustomerInteractionTest {
             assertEquals(5, conv.getRating());
             assertEquals("Nhân viên tư vấn rất nhiệt tình và chu đáo!", conv.getFeedbackNote());
             verify(conversationRepository).save(conv);
+        }
+
+        @Test
+        @DisplayName("TC-CHAT-07: Chống IDOR kép (Conversation + Order) ở tầng Repository -> Ném lỗi FORBIDDEN (403) khi truyền ID của người khác")
+        void testSendMessage_WhenForeignOrderId_ShouldThrowForbidden() {
+            SupportConversation conv = SupportConversation.builder()
+                    .id(100L)
+                    .customer(sampleCustomer)
+                    .status("IN_PROGRESS")
+                    .staff(sampleStaff)
+                    .createdAt(LocalDateTime.now())
+                    .lastMessageAt(LocalDateTime.now())
+                    .build();
+
+            // Giả lập truyền orderId = 888L (thuộc về khách hàng khác) trong phiên chat hợp lệ
+            SendSupportMessageRequest request = SendSupportMessageRequest.builder()
+                    .content("Kiểm tra giúp em đơn hàng này")
+                    .orderId(888L)
+                    .build();
+
+            when(userRepository.findByEmail(sampleCustomer.getEmail())).thenReturn(Optional.of(sampleCustomer));
+            when(conversationRepository.findByIdAndCustomerId(100L, sampleCustomer.getId())).thenReturn(Optional.of(conv));
+            when(orderRepository.findByIdAndUserId(888L, sampleCustomer.getId())).thenReturn(Optional.empty());
+
+            AppException ex = assertThrows(AppException.class, () ->
+                    customerSupportChatService.sendMessage(sampleCustomer.getEmail(), 100L, request));
+
+            assertEquals(org.springframework.http.HttpStatus.FORBIDDEN, ex.getStatus());
+            verify(messageRepository, never()).save(any());
         }
     }
 
@@ -533,7 +562,7 @@ public class SupportChatAndCustomerInteractionTest {
 
             when(userRepository.findByEmail(sampleCustomer.getEmail())).thenReturn(Optional.of(sampleCustomer));
             when(productRepository.findById(50L)).thenReturn(Optional.of(product));
-            when(orderItemRepository.findById(200L)).thenReturn(Optional.of(orderItem));
+            when(orderItemRepository.findByIdAndOrderUserId(200L, sampleCustomer.getId())).thenReturn(Optional.of(orderItem));
             when(reviewRepository.existsByOrderItemId(200L)).thenReturn(false);
 
             Review savedReview = Review.builder()
@@ -574,7 +603,7 @@ public class SupportChatAndCustomerInteractionTest {
 
             when(userRepository.findByEmail(sampleCustomer.getEmail())).thenReturn(Optional.of(sampleCustomer));
             when(productRepository.findById(50L)).thenReturn(Optional.of(product1));
-            when(orderItemRepository.findById(200L)).thenReturn(Optional.of(orderItem));
+            when(orderItemRepository.findByIdAndOrderUserId(200L, sampleCustomer.getId())).thenReturn(Optional.of(orderItem));
 
             assertThrows(IllegalArgumentException.class, () ->
                     customerReviewService.createReview(sampleCustomer.getEmail(), request));

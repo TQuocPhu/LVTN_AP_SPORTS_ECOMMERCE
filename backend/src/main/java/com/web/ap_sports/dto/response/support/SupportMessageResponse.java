@@ -19,6 +19,8 @@ public class SupportMessageResponse {
     private String attachmentUrl;
     private String senderAvatar;
     private String conversationStatus; // WAITING, IN_PROGRESS, RESOLVED, CLOSED
+    private Long orderId;              // ID đơn hàng đính kèm trong phiên hỗ trợ (nếu có)
+    private String orderCode;          // Mã đơn hàng đính kèm (ví dụ: ORD-...)
 
     @com.fasterxml.jackson.annotation.JsonProperty("isViolation")
     private boolean isViolation;

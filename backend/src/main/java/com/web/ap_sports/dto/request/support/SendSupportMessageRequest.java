@@ -12,4 +12,6 @@ public class SendSupportMessageRequest {
     private String content;        // Nội dung tin nhắn text
 
     private String attachmentUrl;  // Link ảnh đã upload lên Cloudinary (nếu có)
+
+    private Long orderId;          // ID đơn hàng của khách hàng đính kèm khi bấm Gửi (nếu có)
 }

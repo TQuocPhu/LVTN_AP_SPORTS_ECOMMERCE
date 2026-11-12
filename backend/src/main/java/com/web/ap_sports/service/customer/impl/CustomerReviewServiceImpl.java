@@ -52,18 +52,18 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("Sản phẩm không tồn tại"));
 
-        // 3. Kiểm tra OrderItem trong đơn hàng
-        OrderItem orderItem = orderItemRepository.findById(request.getOrderItemId())
-                .orElseThrow(() -> new IllegalArgumentException("Chi tiết mục đơn hàng không tồn tại"));
+        // 3. Kiểm tra OrderItem trong đơn hàng gắn chặt với userId của khách hàng ngay tại tầng Repository (Chống IDOR)
+        OrderItem orderItem = orderItemRepository.findByIdAndOrderUserId(request.getOrderItemId(), user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Chi tiết mục đơn hàng không tồn tại hoặc không thuộc về tài khoản của bạn"));
 
         // Kiểm tra khớp sản phẩm với mục đơn hàng
         if (orderItem.getProduct() == null || !orderItem.getProduct().getId().equals(product.getId())) {
             throw new IllegalArgumentException("Sản phẩm đánh giá không khớp với mục đơn hàng");
         }
 
-        // 4. Kiểm tra quyền sở hữu đơn hàng & Trạng thái giao hàng thành công (delivered)
+        // 4. Kiểm tra phòng thủ chiều sâu quyền sở hữu đơn hàng & Trạng thái giao hàng thành công (delivered/completed)
         Order order = orderItem.getOrder();
-        if (order == null || !order.getUser().getId().equals(user.getId())) {
+        if (order == null || order.getUser() == null || !order.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("Mục đơn hàng này không thuộc về tài khoản của bạn");
         }
         if (order.getStatus() != com.web.ap_sports.enums.OrderStatus.delivered && order.getStatus() != com.web.ap_sports.enums.OrderStatus.completed) {

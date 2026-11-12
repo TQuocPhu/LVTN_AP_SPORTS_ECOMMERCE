@@ -67,19 +67,31 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
             CreateConversationRequest request) {
         User customer = getUserByEmail(customerEmail);
 
-        // 1. Chống mở nhiều ca: Nếu khách có ca WAITING hoặc IN_PROGRESS thì trả về ca
-        // cũ
+        // 1. Chống mở nhiều ca: Nếu khách có ca WAITING hoặc IN_PROGRESS thì trả về ca cũ
         List<SupportConversation> activeList = conversationRepository
                 .findActiveConversationsForCustomer(customer.getId());
 
         if (!activeList.isEmpty()) {
-            return mapToConversationResponse(activeList.get(0), customer.getId());
+            SupportConversation existingConv = activeList.get(0);
+            // Nếu khách có truyền kèm orderId mới vào ca đang mở, bắt buộc kiểm tra quyền sở hữu ngay tại tầng Repository
+            if (request != null && request.getOrderId() != null) {
+                Order verifiedOrder = orderRepository.findByIdAndUserId(request.getOrderId(), customer.getId())
+                        .orElseThrow(() -> new AppException(
+                                "Đơn hàng không tồn tại hoặc không thuộc quyền sở hữu của tài khoản bạn.",
+                                HttpStatus.FORBIDDEN));
+                existingConv.setOrder(verifiedOrder);
+                existingConv = conversationRepository.save(existingConv);
+            }
+            return mapToConversationResponse(existingConv, customer.getId());
         }
 
-        // 2. Tạo ca mới
+        // 2. Tạo ca mới: Kiểm soát chặt chẽ đơn hàng theo userId của khách hàng ngay tại tầng Repository (Chống IDOR)
         Order linkedOrder = null;
         if (request != null && request.getOrderId() != null) {
-            linkedOrder = orderRepository.findById(request.getOrderId()).orElse(null);
+            linkedOrder = orderRepository.findByIdAndUserId(request.getOrderId(), customer.getId())
+                    .orElseThrow(() -> new AppException(
+                            "Đơn hàng không tồn tại hoặc không thuộc quyền sở hữu của tài khoản bạn.",
+                            HttpStatus.FORBIDDEN));
         }
 
         String subject = (request != null && request.getSubject() != null && !request.getSubject().isBlank())
@@ -129,13 +141,13 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     @Transactional
     public List<SupportMessageResponse> getMessages(String customerEmail, Long conversationId) {
         User customer = getUserByEmail(customerEmail);
-        SupportConversation conversation = getConversationById(conversationId);
-        validateConversationOwner(conversation, customer.getId());
+        // Chống IDOR tầng 1: Chỉ truy vấn phiên hỗ trợ thuộc về chính customerId tại tầng Repository
+        SupportConversation conversation = getConversationByIdAndCustomer(conversationId, customer.getId());
 
-        // Cập nhật customer_last_read_at
-        conversationRepository.markCustomerRead(conversationId);
+        // Cập nhật customer_last_read_at gắn chặt với customerId
+        conversationRepository.markCustomerReadByCustomer(conversationId, customer.getId());
 
-        return messageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId).stream()
+        return messageRepository.findByConversationIdOrderByCreatedAtAsc(conversation.getId()).stream()
                 .map(this::mapToMessageResponse)
                 .collect(Collectors.toList());
     }
@@ -145,19 +157,39 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     public SupportMessageResponse sendMessage(String customerEmail, Long conversationId,
             SendSupportMessageRequest request) {
         User customer = getUserByEmail(customerEmail);
-        SupportConversation conversation = getConversationById(conversationId);
-        validateConversationOwner(conversation, customer.getId());
+        // Chống IDOR tầng 1: Kiểm tra quyền sở hữu phiên chat ngay tại tầng Repository
+        SupportConversation conversation = getConversationByIdAndCustomer(conversationId, customer.getId());
 
         if ("CLOSED".equalsIgnoreCase(conversation.getStatus())
                 || "RESOLVED".equalsIgnoreCase(conversation.getStatus())) {
             throw new IllegalArgumentException("Ca hỗ trợ này đã kết thúc. Bạn vui lòng mở yêu cầu hỗ trợ mới.");
         }
 
+        // Chống IDOR tầng 2: Nếu khách đính kèm orderId khi bấm Gửi, bắt buộc kiểm tra đơn hàng thuộc về customerId ngay tại tầng Repository
+        Order attachedOrder = null;
+        if (request.getOrderId() != null) {
+            attachedOrder = orderRepository.findByIdAndUserId(request.getOrderId(), customer.getId())
+                    .orElseThrow(() -> new AppException(
+                            "Đơn hàng không tồn tại hoặc không thuộc quyền sở hữu của tài khoản bạn.",
+                            HttpStatus.FORBIDDEN));
+            conversation.setOrder(attachedOrder);
+        }
+
         String content = request.getContent() != null ? request.getContent().trim() : null;
         String attachmentUrl = request.getAttachmentUrl() != null ? request.getAttachmentUrl().trim() : null;
 
+        // Nếu khách đính kèm đơn hàng, tự động bổ sung nhãn mã đơn vào nội dung tin nhắn để chuyên viên dễ theo dõi
+        if (attachedOrder != null) {
+            String orderPrefix = "[Đơn hàng #" + attachedOrder.getOrderCode() + "] ";
+            if (content == null || content.isEmpty()) {
+                content = orderPrefix + "Tôi cần hỗ trợ kiểm tra đơn hàng này.";
+            } else if (!content.contains(attachedOrder.getOrderCode())) {
+                content = orderPrefix + content;
+            }
+        }
+
         if ((content == null || content.isEmpty()) && (attachmentUrl == null || attachmentUrl.isEmpty())) {
-            throw new IllegalArgumentException("Nội dung tin nhắn hoặc ảnh đính kèm không được để trống.");
+            throw new IllegalArgumentException("Nội dung tin nhắn, đơn hàng hoặc ảnh đính kèm không được để trống.");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -196,9 +228,8 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     @Transactional
     public void markAsRead(String customerEmail, Long conversationId) {
         User customer = getUserByEmail(customerEmail);
-        SupportConversation conversation = getConversationById(conversationId);
-        validateConversationOwner(conversation, customer.getId());
-        conversationRepository.markCustomerRead(conversationId);
+        SupportConversation conversation = getConversationByIdAndCustomer(conversationId, customer.getId());
+        conversationRepository.markCustomerReadByCustomer(conversation.getId(), customer.getId());
     }
 
     @Override
@@ -206,8 +237,7 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     public SupportConversationResponse rateConversation(String customerEmail, Long conversationId,
             RateConversationRequest request) {
         User customer = getUserByEmail(customerEmail);
-        SupportConversation conversation = getConversationById(conversationId);
-        validateConversationOwner(conversation, customer.getId());
+        SupportConversation conversation = getConversationByIdAndCustomer(conversationId, customer.getId());
 
         if (!"RESOLVED".equalsIgnoreCase(conversation.getStatus())
                 && !"CLOSED".equalsIgnoreCase(conversation.getStatus())) {
@@ -340,15 +370,13 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
         return user;
     }
 
-    private SupportConversation getConversationById(Long id) {
-        return conversationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiên hỗ trợ"));
-    }
-
-    private void validateConversationOwner(SupportConversation conversation, Long customerId) {
-        if (!conversation.getCustomer().getId().equals(customerId)) {
-            throw new IllegalArgumentException("Bạn không có quyền truy cập phiên hỗ trợ này.");
-        }
+    /**
+     * Truy vấn phiên hỗ trợ gắn chặt với customerId ngay tại tầng Repository (Chống IDOR).
+     */
+    private SupportConversation getConversationByIdAndCustomer(Long id, Long customerId) {
+        return conversationRepository.findByIdAndCustomerId(id, customerId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy phiên hỗ trợ hoặc bạn không có quyền truy cập phiên hỗ trợ này."));
     }
 
     private SupportConversationResponse mapToConversationResponse(SupportConversation c, Long currentUserId) {
@@ -379,6 +407,7 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
 
     private SupportMessageResponse mapToMessageResponse(SupportMessage m) {
         String displayContent = m.isViolation() ? m.getMaskedContent() : m.getContent();
+        Order linkedOrder = m.getConversation() != null ? m.getConversation().getOrder() : null;
         return SupportMessageResponse.builder()
                 .id(m.getId())
                 .conversationId(m.getConversation().getId())
@@ -389,6 +418,8 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
                 .attachmentUrl(m.getAttachmentUrl())
                 .senderAvatar(m.getSender() != null ? m.getSender().getAvatar() : null)
                 .conversationStatus(m.getConversation() != null ? m.getConversation().getStatus() : null)
+                .orderId(linkedOrder != null ? linkedOrder.getId() : null)
+                .orderCode(linkedOrder != null ? linkedOrder.getOrderCode() : null)
                 .isViolation(m.isViolation())
                 .violationReason(m.getViolationReason())
                 .maskedContent(m.getMaskedContent())
@@ -398,6 +429,7 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
     }
 
     private SupportMessageResponse mapToStaffMessageResponse(SupportMessage m) {
+        Order linkedOrder = m.getConversation() != null ? m.getConversation().getOrder() : null;
         return SupportMessageResponse.builder()
                 .id(m.getId())
                 .conversationId(m.getConversation().getId())
@@ -408,6 +440,8 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
                 .attachmentUrl(m.getAttachmentUrl())
                 .senderAvatar(m.getSender() != null ? m.getSender().getAvatar() : null)
                 .conversationStatus(m.getConversation() != null ? m.getConversation().getStatus() : null)
+                .orderId(linkedOrder != null ? linkedOrder.getId() : null)
+                .orderCode(linkedOrder != null ? linkedOrder.getOrderCode() : null)
                 .isViolation(m.isViolation())
                 .violationReason(m.getViolationReason())
                 .maskedContent(m.getMaskedContent())

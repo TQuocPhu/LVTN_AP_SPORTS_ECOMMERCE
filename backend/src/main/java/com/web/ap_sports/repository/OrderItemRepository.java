@@ -10,10 +10,18 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     List<OrderItem> findByOrderId(Long orderId);
+
+    /**
+     * Truy vấn mục đơn hàng (OrderItem) kết hợp kiểm tra chặt chẽ chủ sở hữu đơn hàng (userId) ngay tại tầng Repository.
+     * Ngăn chặn triệt để việc người dùng truyền ID mục đơn hàng của khách hàng khác (Chống lỗ hổng IDOR).
+     */
+    @Query("SELECT oi FROM OrderItem oi JOIN FETCH oi.order o WHERE oi.id = :id AND o.user.id = :userId")
+    Optional<OrderItem> findByIdAndOrderUserId(@Param("id") Long id, @Param("userId") Long userId);
 
     boolean existsByProductId(Long productId);
 

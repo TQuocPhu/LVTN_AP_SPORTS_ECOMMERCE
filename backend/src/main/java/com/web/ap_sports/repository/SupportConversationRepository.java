@@ -17,6 +17,12 @@ import java.util.Optional;
 public interface SupportConversationRepository extends JpaRepository<SupportConversation, Long> {
 
     /**
+     * Truy vấn ca hỗ trợ kết hợp kiểm tra chặt chẽ ID khách hàng sở hữu (customerId) ngay tại tầng Repository.
+     * Chặn triệt để lỗ hổng IDOR khi khách hàng thao tác trên phiên chat.
+     */
+    Optional<SupportConversation> findByIdAndCustomerId(Long id, Long customerId);
+
+    /**
      * Tìm ca hỗ trợ đang hoạt động của khách hàng (chống spam mở nhiều ca)
      */
     Optional<SupportConversation> findFirstByCustomerIdAndStatusInOrderByCreatedAtDesc(
@@ -65,11 +71,15 @@ public interface SupportConversationRepository extends JpaRepository<SupportConv
     int assignStaffAtomically(@Param("convId") Long convId, @Param("staff") User staff);
 
     /**
-     * Cập nhật thời điểm đọc tin cuối của khách hàng
+     * Cập nhật thời điểm đọc tin cuối của khách hàng (ràng buộc chặt chẽ theo convId và customerId)
      */
     @Modifying
     @Query("UPDATE SupportConversation c SET c.customerLastReadAt = CURRENT_TIMESTAMP WHERE c.id = :convId")
     void markCustomerRead(@Param("convId") Long convId);
+
+    @Modifying
+    @Query("UPDATE SupportConversation c SET c.customerLastReadAt = CURRENT_TIMESTAMP WHERE c.id = :convId AND c.customer.id = :customerId")
+    void markCustomerReadByCustomer(@Param("convId") Long convId, @Param("customerId") Long customerId);
 
     /**
      * Cập nhật thời điểm đọc tin cuối của nhân viên
