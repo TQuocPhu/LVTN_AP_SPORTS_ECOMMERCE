@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -205,6 +206,11 @@ public class StaffSupportChatServiceImpl implements StaffSupportChatService {
         SupportConversation conversation = getConversationById(conversationId);
         User customer = conversation.getCustomer();
 
+        // Chặn gửi báo cáo trùng lặp khi ca hỗ trợ đang có báo cáo PENDING chờ duyệt
+        if (reportRepository.existsByConversationIdAndStatus(conversationId, "PENDING")) {
+            throw new IllegalArgumentException("Ca hỗ trợ này đã có báo cáo vi phạm đang chờ Ban Quản Trị xem xét và xử lý.");
+        }
+
         String evidenceJson = null;
         if (request.getEvidenceImageUrls() != null && !request.getEvidenceImageUrls().isEmpty()) {
             try {
@@ -331,6 +337,30 @@ public class StaffSupportChatServiceImpl implements StaffSupportChatService {
 
     private SupportConversationResponse mapToStaffConversationResponse(SupportConversation c) {
         long unread = messageRepository.countUnreadForStaff(c.getId(), c.getStaffLastReadAt());
+
+        // Kiểm tra báo cáo vi phạm đang chờ duyệt (Pending Report) để phản ánh trạng thái realtime
+        Optional<SupportReport> pendingReportOpt = reportRepository.findFirstByConversationIdAndStatusOrderByCreatedAtDesc(c.getId(), "PENDING");
+        boolean hasPending = pendingReportOpt.isPresent();
+        Long pendingReportId = null;
+        String pendingReportReason = null;
+        List<String> evidenceUrls = null;
+        String reportedByStaffName = null;
+        LocalDateTime reportCreatedAt = null;
+
+        if (hasPending) {
+            SupportReport rep = pendingReportOpt.get();
+            pendingReportId = rep.getId();
+            pendingReportReason = rep.getReason();
+            reportedByStaffName = rep.getReportedByStaff() != null ? rep.getReportedByStaff().getName() : null;
+            reportCreatedAt = rep.getCreatedAt();
+            if (rep.getEvidenceImageUrls() != null && !rep.getEvidenceImageUrls().isBlank()) {
+                try {
+                    evidenceUrls = objectMapper.readValue(rep.getEvidenceImageUrls(),
+                            objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
+                } catch (Exception ignored) {}
+            }
+        }
+
         return SupportConversationResponse.builder()
                 .id(c.getId())
                 .customerId(c.getCustomer().getId())
@@ -352,6 +382,12 @@ public class StaffSupportChatServiceImpl implements StaffSupportChatService {
                 .acceptedAt(c.getAcceptedAt())
                 .closedAt(c.getClosedAt())
                 .createdAt(c.getCreatedAt())
+                .hasPendingReport(hasPending)
+                .pendingReportId(pendingReportId)
+                .pendingReportReason(pendingReportReason)
+                .pendingReportEvidenceUrls(evidenceUrls)
+                .pendingReportedByStaffName(reportedByStaffName)
+                .pendingReportCreatedAt(reportCreatedAt)
                 .build();
     }
 

@@ -280,7 +280,12 @@ export default function SupportQueueListUI({
                         minute: '2-digit',
                       })}
                     </span>
-                    {conv.status === 'IN_PROGRESS' ? (
+                    {conv.hasPendingReport ? (
+                      <span className="text-red-600 font-bold flex items-center gap-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        Chờ duyệt vi phạm
+                      </span>
+                    ) : conv.status === 'IN_PROGRESS' ? (
                       <span className="text-emerald-600 font-semibold flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Đang chat

@@ -7,6 +7,8 @@ import SupportChatRoomUI from '@/components/admin/support-chat/SupportChatRoomUI
 import SupportCustomerDetailUI from '@/components/admin/support-chat/SupportCustomerDetailUI';
 import ReportCustomerModalUI from '@/components/admin/support-chat/ReportCustomerModalUI';
 import ResolveConversationModalUI from '@/components/admin/support-chat/ResolveConversationModalUI';
+import AdminReportReviewModalUI from '@/components/admin/support-chat/AdminReportReviewModalUI';
+import AdminDirectBanModalUI from '@/components/admin/support-chat/AdminDirectBanModalUI';
 import { ShieldAlert, Loader2 } from 'lucide-react';
 
 export default function AdminSupportChatPage() {
@@ -65,6 +67,27 @@ export default function AdminSupportChatPage() {
     isLoadingAiSuggestions,
     handleFetchAiSuggestions,
     handleApplyAiSuggestion,
+    // Phê duyệt Báo cáo vi phạm dành cho Admin & Chặn báo cáo trùng
+    isAdmin,
+    reportedMessageIds,
+    isAdminReviewModalOpen,
+    isProcessingReport,
+    adminReviewNote,
+    setAdminReviewNote,
+    isBanCustomerChecked,
+    setIsBanCustomerChecked,
+    openAdminReviewModal,
+    closeAdminReviewModal,
+    handleAdminProcessReport,
+    handleAdminRejectReport,
+    // Khóa tài khoản trực tiếp dành cho Admin
+    isDirectBanModalOpen,
+    directBanReason,
+    setDirectBanReason,
+    isDirectBanning,
+    openDirectBanModal,
+    closeDirectBanModal,
+    handleDirectBanCustomer,
   } = useStaffSupportChat();
 
   // Kiểm tra quyền SUPPORT_LIVE_CHAT hoặc ADMIN
@@ -137,6 +160,10 @@ export default function AdminSupportChatPage() {
         revealedMessageIds={revealedMessageIds}
         onToggleRevealOriginalContent={toggleRevealOriginalContent}
         onQuickReport={handleQuickReport}
+        isAdmin={isAdmin}
+        reportedMessageIds={reportedMessageIds}
+        onOpenAdminReviewModal={openAdminReviewModal}
+        onOpenDirectBanModal={openDirectBanModal}
       />
 
       {/* CỘT 3: THÔNG TIN KHÁCH HÀNG & ĐƠN HÀNG (Pure Presentation) */}
@@ -167,6 +194,36 @@ export default function AdminSupportChatPage() {
         customerName={activeConversation?.customerName}
         onClose={closeResolveModal}
         onConfirm={resolveConversation}
+      />
+
+      {/* MODAL THẨM TRA & PHÊ DUYỆT BÁO CÁO VI PHẠM DÀNH CHO ADMIN (Pure Presentation) */}
+      <AdminReportReviewModalUI
+        isOpen={isAdminReviewModalOpen}
+        isProcessing={isProcessingReport}
+        conversation={activeConversation}
+        banCustomer={isBanCustomerChecked}
+        adminNote={adminReviewNote}
+        errorMessage={errorMessage}
+        onBanCustomerChange={setIsBanCustomerChecked}
+        onAdminNoteChange={setAdminReviewNote}
+        onClose={closeAdminReviewModal}
+        onProcess={handleAdminProcessReport}
+        onReject={handleAdminRejectReport}
+        onOpenPreviewModal={(url) => setPreviewImageModalUrl(url)}
+      />
+
+      {/* MODAL KHÓA TÀI KHOẢN TRỰC TIẾP DÀNH RIÊNG CHO ADMIN (Pure Presentation) */}
+      <AdminDirectBanModalUI
+        isOpen={isDirectBanModalOpen}
+        isBanning={isDirectBanning}
+        customerName={activeConversation?.customerName}
+        customerEmail={activeConversation?.customerEmail}
+        customerId={activeConversation?.customerId}
+        reason={directBanReason}
+        errorMessage={errorMessage}
+        onReasonChange={setDirectBanReason}
+        onClose={closeDirectBanModal}
+        onConfirm={handleDirectBanCustomer}
       />
     </div>
   );

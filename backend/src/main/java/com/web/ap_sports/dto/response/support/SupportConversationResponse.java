@@ -30,4 +30,12 @@ public class SupportConversationResponse {
     private LocalDateTime acceptedAt;
     private LocalDateTime closedAt;
     private LocalDateTime createdAt;
+
+    // Thông tin báo cáo vi phạm đang chờ duyệt (Pending Report)
+    private Boolean hasPendingReport;
+    private Long pendingReportId;
+    private String pendingReportReason;
+    private java.util.List<String> pendingReportEvidenceUrls;
+    private String pendingReportedByStaffName;
+    private LocalDateTime pendingReportCreatedAt;
 }

@@ -5,6 +5,8 @@ import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { supportChatController } from '@/controllers/support-chat-controller';
+import { adminSupportReportController } from '@/controllers/admin-support-report-controller';
+import { userController } from '@/controllers/user-controller';
 import {
   SupportConversation,
   SupportMessage,
@@ -12,9 +14,37 @@ import {
 } from '@/types/support-chat';
 
 import { adminAiController } from '@/controllers/admin-ai-controller';
+import { toast } from 'sonner';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 const BASE_WS_URL = BASE_URL.replace('/api/v1', '/ws');
+
+/**
+ * Phát âm thanh chuông hai âm tươi sáng qua Web Audio API (D5 -> A5)
+ */
+function playNotificationSound() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // Nốt D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.09); // Nốt A5
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.28);
+  } catch {
+    // Bỏ qua nếu browser chặn audio autoplay
+  }
+}
+
 
 export function useStaffSupportChat() {
   const { user } = useAdminAuth();
@@ -52,6 +82,20 @@ export function useStaffSupportChat() {
   const [reportReason, setReportReason] = useState('');
   const [reportFiles, setReportFiles] = useState<File[]>([]);
   const [reportPreviews, setReportPreviews] = useState<string[]>([]);
+  // Lưu danh sách ID các tin nhắn đã gửi báo cáo nhanh để khóa nút chống bấm lặp
+  const [reportedMessageIds, setReportedMessageIds] = useState<Set<number>>(new Set());
+  const [reportingMessageId, setReportingMessageId] = useState<number | null>(null);
+
+  // Modal Thẩm Tra & Phê Duyệt Báo Cáo Vi Phạm Dành Riêng Cho ADMIN
+  const [isAdminReviewModalOpen, setIsAdminReviewModalOpen] = useState(false);
+  const [isProcessingReport, setIsProcessingReport] = useState(false);
+  const [adminReviewNote, setAdminReviewNote] = useState('');
+  const [isBanCustomerChecked, setIsBanCustomerChecked] = useState(true);
+
+  // Modal Khóa Tài Khoản Trực Tiếp Dành Riêng Cho ADMIN (Không qua quy trình báo cáo của nhân viên)
+  const [isDirectBanModalOpen, setIsDirectBanModalOpen] = useState(false);
+  const [directBanReason, setDirectBanReason] = useState('');
+  const [isDirectBanning, setIsDirectBanning] = useState(false);
 
   // Modal Hoàn Tất Ca (Resolve Modal State & Logic)
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
@@ -195,8 +239,9 @@ export function useStaffSupportChat() {
       onConnect: () => {
         if (!isSubscribed) return;
 
-        stompClient.subscribe('/topic/support-queue', () => {
+        stompClient.subscribe('/topic/support-queue', (frame: IMessage) => {
           if (!isSubscribed) return;
+          // Kênh /topic/support-queue dùng để đồng bộ hàng đợi tư vấn trực tiếp cho toàn bộ nhân viên/quản trị viên
           loadConversations();
           loadHistoryConversations();
         });
@@ -207,6 +252,15 @@ export function useStaffSupportChat() {
             const newMsg: SupportMessage = JSON.parse(frame.body);
             const currentActive = activeConversationRef.current;
 
+            if (newMsg.senderRole === 'CUSTOMER') {
+              playNotificationSound();
+              if (!currentActive || currentActive.id !== newMsg.conversationId) {
+                toast.info(`💬 Tin nhắn mới từ ${newMsg.senderName || 'Khách hàng'}`, {
+                  description: newMsg.content || '[Hình ảnh đính kèm]',
+                  duration: 5000,
+                });
+              }
+            }
             if (currentActive && currentActive.id === newMsg.conversationId) {
               setMessages((prev) => {
                 if (prev.some((m) => m.id === newMsg.id)) return prev;
@@ -382,11 +436,16 @@ export function useStaffSupportChat() {
     setReportReason('');
     setReportFiles([]);
     setReportPreviews([]);
+    setReportingMessageId(null);
     setErrorMessage(null);
     setIsReportModalOpen(true);
   };
 
   const handleQuickReport = useCallback((msg: SupportMessage) => {
+    // Nếu tin nhắn này đã được gửi báo cáo trước đó, không mở lại
+    if (reportedMessageIds.has(msg.id)) return;
+
+    setReportingMessageId(msg.id);
     const reasonText = msg.isViolation
       ? (msg.violationReason || 'Ngôn từ vi phạm chuẩn mực cộng đồng')
       : 'Khách hàng có hành vi không chuẩn mực trong cuộc trò chuyện';
@@ -400,7 +459,7 @@ export function useStaffSupportChat() {
     setReportPreviews([]);
     setErrorMessage(null);
     setIsReportModalOpen(true);
-  }, []);
+  }, [reportedMessageIds]);
 
   const toggleRevealOriginalContent = useCallback((msgId: number) => {
     setRevealedMessageIds((prev) => ({
@@ -412,6 +471,7 @@ export function useStaffSupportChat() {
   const closeReportModal = () => {
     if (isReporting) return;
     setIsReportModalOpen(false);
+    setReportingMessageId(null);
     setErrorMessage(null);
   };
 
@@ -462,6 +522,34 @@ export function useStaffSupportChat() {
 
       const res = await supportChatController.reportCustomer(activeConversation.id, payload);
       if (res.data) {
+        // Khóa nút báo cáo nhanh cho tin nhắn vừa báo cáo (nếu có)
+        if (reportingMessageId) {
+          setReportedMessageIds((prev) => new Set(prev).add(reportingMessageId));
+          setReportingMessageId(null);
+        }
+
+        // Cập nhật trạng thái hasPendingReport ngay trên ca đang chat
+        setActiveConversation((prev) =>
+          prev
+            ? {
+                ...prev,
+                hasPendingReport: true,
+                pendingReportId: res.data?.id,
+                pendingReportReason: res.data?.reason,
+                pendingReportEvidenceUrls: res.data?.evidenceImageUrls,
+                pendingReportedByStaffName: res.data?.reportedByStaffName,
+                pendingReportCreatedAt: res.data?.createdAt,
+              }
+            : prev
+        );
+
+        // Đồng bộ vào myConversations
+        setMyConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversation.id ? { ...c, hasPendingReport: true } : c
+          )
+        );
+
         setIsReportModalOpen(false);
         setReportReason('');
         setReportFiles([]);
@@ -471,6 +559,184 @@ export function useStaffSupportChat() {
       setErrorMessage(err.message || 'Không thể gửi báo cáo vi phạm.');
     } finally {
       setIsReporting(false);
+    }
+  };
+
+  // =========================================================================
+  // LOGIC PHÊ DUYỆT BÁO CÁO VI PHẠM DÀNH CHO ADMIN
+  // =========================================================================
+
+  const openAdminReviewModal = useCallback(() => {
+    setAdminReviewNote('');
+    setIsBanCustomerChecked(true);
+    setErrorMessage(null);
+    setIsAdminReviewModalOpen(true);
+  }, []);
+
+  const closeAdminReviewModal = useCallback(() => {
+    if (isProcessingReport) return;
+    setIsAdminReviewModalOpen(false);
+    setErrorMessage(null);
+  }, [isProcessingReport]);
+
+  const handleAdminProcessReport = async () => {
+    if (!activeConversation?.pendingReportId) {
+      setErrorMessage('Không tìm thấy mã báo cáo vi phạm để phê duyệt.');
+      return;
+    }
+
+    setIsProcessingReport(true);
+    setErrorMessage(null);
+    try {
+      const res = await adminSupportReportController.processReport(
+        activeConversation.pendingReportId,
+        {
+          banCustomer: isBanCustomerChecked,
+          adminNote: adminReviewNote.trim() || undefined,
+        }
+      );
+
+      if (res.data) {
+        setIsAdminReviewModalOpen(false);
+        setAdminReviewNote('');
+
+        // Cập nhật trạng thái ca: Nếu ban thì chuyển sang CLOSED, giải phóng hasPendingReport
+        setActiveConversation((prev) =>
+          prev
+            ? {
+                ...prev,
+                hasPendingReport: false,
+                pendingReportId: undefined,
+                status: isBanCustomerChecked ? 'CLOSED' : prev.status,
+              }
+            : prev
+        );
+
+        setMyConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversation.id
+              ? {
+                  ...c,
+                  hasPendingReport: false,
+                  status: isBanCustomerChecked ? 'CLOSED' : c.status,
+                }
+              : c
+          )
+        );
+
+        await loadConversations();
+        await loadHistoryConversations();
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Không thể phê duyệt báo cáo vi phạm.');
+    } finally {
+      setIsProcessingReport(false);
+    }
+  };
+
+  const handleAdminRejectReport = async () => {
+    if (!activeConversation?.pendingReportId) {
+      setErrorMessage('Không tìm thấy mã báo cáo vi phạm để xử lý.');
+      return;
+    }
+
+    if (!adminReviewNote.trim()) {
+      setErrorMessage('Vui lòng nhập lý do từ chối/bác bỏ báo cáo để nhân viên hỗ trợ nắm thông tin.');
+      return;
+    }
+
+    setIsProcessingReport(true);
+    setErrorMessage(null);
+    try {
+      const res = await adminSupportReportController.rejectReport(
+        activeConversation.pendingReportId,
+        {
+          adminNote: adminReviewNote.trim(),
+        }
+      );
+
+      if (res.data) {
+        setIsAdminReviewModalOpen(false);
+        setAdminReviewNote('');
+
+        // Giải phóng cờ hasPendingReport
+        setActiveConversation((prev) =>
+          prev
+            ? {
+                ...prev,
+                hasPendingReport: false,
+                pendingReportId: undefined,
+              }
+            : prev
+        );
+
+        setMyConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConversation.id
+              ? { ...c, hasPendingReport: false }
+              : c
+          )
+        );
+
+        await loadConversations();
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Không thể bác bỏ báo cáo vi phạm.');
+    } finally {
+      setIsProcessingReport(false);
+    }
+  };
+
+  // =========================================================================
+  // LOGIC ADMIN KHÓA TRỰC TIẾP TÀI KHOẢN KHÁCH HÀNG (DIRECT BAN)
+  // =========================================================================
+
+  const openDirectBanModal = useCallback(() => {
+    setDirectBanReason('');
+    setErrorMessage(null);
+    setIsDirectBanModalOpen(true);
+  }, []);
+
+  const closeDirectBanModal = useCallback(() => {
+    if (isDirectBanning) return;
+    setIsDirectBanModalOpen(false);
+    setErrorMessage(null);
+  }, [isDirectBanning]);
+
+  const handleDirectBanCustomer = async () => {
+    if (!activeConversation) return;
+
+    setIsDirectBanning(true);
+    setErrorMessage(null);
+    try {
+      // 1. Cập nhật trạng thái tài khoản người dùng sang banned (UserStatus.banned)
+      await userController.updateUserStatus(activeConversation.customerId, 'banned');
+
+      // 2. Tự động hoàn tất / đóng ca trò chuyện hiện tại nếu chưa đóng
+      if (activeConversation.status !== 'RESOLVED' && activeConversation.status !== 'CLOSED') {
+        await supportChatController.resolveConversation(activeConversation.id);
+      }
+
+      setIsDirectBanModalOpen(false);
+      setDirectBanReason('');
+
+      // Cập nhật trạng thái ca trên giao diện sang CLOSED
+      setActiveConversation((prev) =>
+        prev ? { ...prev, status: 'CLOSED' } : prev
+      );
+
+      setMyConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConversation.id ? { ...c, status: 'CLOSED' } : c
+        )
+      );
+
+      await loadConversations();
+      await loadHistoryConversations();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Lỗi khi khóa tài khoản khách hàng.');
+    } finally {
+      setIsDirectBanning(false);
     }
   };
 
@@ -563,5 +829,29 @@ export function useStaffSupportChat() {
     isResolveModalOpen,
     openResolveModal,
     closeResolveModal,
+    // Phê duyệt Báo cáo vi phạm dành cho Admin & Chặn spam báo cáo
+    isAdmin:
+      user?.roleName === 'ADMIN' ||
+      user?.role === 'ADMIN' ||
+      (user as any)?.roleName === 'ROLE_ADMIN',
+    reportedMessageIds,
+    isAdminReviewModalOpen,
+    isProcessingReport,
+    adminReviewNote,
+    setAdminReviewNote,
+    isBanCustomerChecked,
+    setIsBanCustomerChecked,
+    openAdminReviewModal,
+    closeAdminReviewModal,
+    handleAdminProcessReport,
+    handleAdminRejectReport,
+    // Khóa tài khoản trực tiếp dành cho Admin (Direct Ban)
+    isDirectBanModalOpen,
+    directBanReason,
+    setDirectBanReason,
+    isDirectBanning,
+    openDirectBanModal,
+    closeDirectBanModal,
+    handleDirectBanCustomer,
   };
 }

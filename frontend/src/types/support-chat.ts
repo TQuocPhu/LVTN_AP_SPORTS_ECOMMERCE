@@ -32,6 +32,12 @@ export interface SupportConversation {
   rating?: number;
   feedbackNote?: string;
   unreadCount?: number;
+  hasPendingReport?: boolean;
+  pendingReportId?: number;
+  pendingReportReason?: string;
+  pendingReportEvidenceUrls?: string[];
+  pendingReportedByStaffName?: string;
+  pendingReportCreatedAt?: string;
 }
 
 export interface SupportMessage {
@@ -59,12 +65,16 @@ export interface SupportReport {
   reportedCustomerId: number;
   reportedCustomerName: string;
   reportedCustomerEmail: string;
+  reportedCustomerAvatar?: string;
   reportedByStaffId: number;
   reportedByStaffName: string;
   reason: string;
   evidenceImageUrls: string[];
   status: SupportReportStatus;
   createdAt: string;
+  resolvedAt?: string;
+  resolvedByAdminName?: string;
+  adminNote?: string;
 }
 
 export interface CreateConversationRequest {
@@ -86,4 +96,13 @@ export interface RateConversationRequest {
 export interface CreateSupportReportRequest {
   reason: string;
   evidenceImageUrls?: string[];
+}
+
+export interface ProcessSupportReportRequest {
+  banCustomer: boolean;
+  adminNote?: string;
+}
+
+export interface RejectSupportReportRequest {
+  adminNote: string;
 }

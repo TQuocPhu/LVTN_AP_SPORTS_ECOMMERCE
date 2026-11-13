@@ -40,6 +40,11 @@ interface Props {
   revealedMessageIds?: Record<number, boolean>;
   onToggleRevealOriginalContent?: (msgId: number) => void;
   onQuickReport?: (msg: SupportMessage) => void;
+  // Quyền Admin & Khóa chống spam báo cáo
+  isAdmin?: boolean;
+  reportedMessageIds?: Set<number>;
+  onOpenAdminReviewModal?: () => void;
+  onOpenDirectBanModal?: () => void;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onOpenPreviewModal: (url: string | null) => void;
   onClosePreviewModal: () => void;
@@ -68,6 +73,10 @@ export default function SupportChatRoomUI({
   revealedMessageIds = {},
   onToggleRevealOriginalContent,
   onQuickReport,
+  isAdmin = false,
+  reportedMessageIds = new Set(),
+  onOpenAdminReviewModal,
+  onOpenDirectBanModal,
   onInputChange,
   onOpenPreviewModal,
   onClosePreviewModal,
@@ -145,18 +154,60 @@ export default function SupportChatRoomUI({
           </div>
         </div>
 
-        {/* Action Controls: Report & Resolve */}
+        {/* Action Controls: Report & Resolve & Admin Review */}
         <div className="flex items-center gap-2">
-          {/* Nút Báo Cáo Vi Phạm (Chỉ Staff/Admin) */}
-          <button
-            type="button"
-            onClick={onOpenReportModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-all cursor-pointer shadow-2xs hover:border-red-300"
-            title="Báo cáo khách hàng vi phạm lên Ban Quản Trị"
-          >
-            <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-            <span className="hidden sm:inline">Báo Cáo Vi Phạm</span>
-          </button>
+          {/* NÚT DÀNH CHO ADMIN: Thẩm tra hoặc Khóa tài khoản trực tiếp (Không có nút báo cáo vi phạm) */}
+          {isAdmin ? (
+            conversation.hasPendingReport ? (
+              onOpenAdminReviewModal && (
+                <button
+                  type="button"
+                  onClick={onOpenAdminReviewModal}
+                  className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-xs hover:shadow-md animate-pulse"
+                  title="Có báo cáo vi phạm từ nhân viên đang chờ Quản trị viên thẩm tra & phê duyệt"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Duyệt Vi Phạm</span>
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping absolute -top-0.5 -right-0.5" />
+                </button>
+              )
+            ) : (
+              onOpenDirectBanModal && (
+                <button
+                  type="button"
+                  onClick={onOpenDirectBanModal}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-all cursor-pointer shadow-2xs hover:border-red-300"
+                  title="Khóa tài khoản khách hàng vi phạm nghiêm trọng"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-red-600" />
+                  <span className="hidden sm:inline">Khóa Tài Khoản</span>
+                </button>
+              )
+            )
+          ) : (
+            /* NÚT DÀNH CHO NHÂN VIÊN (STAFF) */
+            conversation.hasPendingReport ? (
+              <button
+                type="button"
+                disabled
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300 opacity-90 cursor-not-allowed shadow-2xs"
+                title="Báo cáo vi phạm cho ca này đã được gửi lên Ban Quản Trị và đang chờ duyệt"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                <span className="hidden sm:inline">Đã Báo Cáo (Chờ Duyệt)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenReportModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-all cursor-pointer shadow-2xs hover:border-red-300"
+                title="Báo cáo khách hàng vi phạm lên Ban Quản Trị"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                <span className="hidden sm:inline">Báo Cáo Vi Phạm</span>
+              </button>
+            )
+          )}
 
           {/* Nút Hoàn Tất Ca */}
           {!isClosed && (
@@ -281,17 +332,59 @@ export default function SupportChatRoomUI({
                             )}
                           </button>
 
-                          {/* NÚT 2: BÁO CÁO NHANH LÊN ADMIN */}
-                          {onQuickReport && (
-                            <button
-                              type="button"
-                              onClick={() => onQuickReport(msg)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all cursor-pointer shadow-2xs hover:shadow-xs"
-                              title="Báo cáo nhanh tin nhắn vi phạm này tới Ban Quản Trị"
-                            >
-                              <AlertTriangle className="w-3.5 h-3.5 text-white" />
-                              <span>Báo cáo nhanh</span>
-                            </button>
+                          {/* NÚT 2: PHÂN QUYỀN RÕ RÀNG GIỮA ADMIN VÀ STAFF */}
+                          {isAdmin ? (
+                            /* ĐỐI VỚI ADMIN: TUYỆT ĐỐI KHÔNG BÁO CÁO NHANH, MÀ CÓ QUYỀN XỬ PHẠT / DUYỆT */
+                            conversation.hasPendingReport ? (
+                              onOpenAdminReviewModal && (
+                                <button
+                                  type="button"
+                                  onClick={onOpenAdminReviewModal}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                                  title="Ca này đã có báo cáo vi phạm, bấm để Quản trị viên duyệt và xử phạt"
+                                >
+                                  <ShieldAlert className="w-3.5 h-3.5 text-white" />
+                                  <span>Duyệt vi phạm</span>
+                                </button>
+                              )
+                            ) : (
+                              onOpenDirectBanModal && (
+                                <button
+                                  type="button"
+                                  onClick={onOpenDirectBanModal}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                                  title="Quản trị viên trực tiếp khóa tài khoản khách hàng vi phạm này"
+                                >
+                                  <ShieldAlert className="w-3.5 h-3.5 text-white" />
+                                  <span>Khóa tài khoản</span>
+                                </button>
+                              )
+                            )
+                          ) : (
+                            /* ĐỐI VỚI NHÂN VIÊN (STAFF): BÁO CÁO NHANH HOẶC HIỂN THỊ ĐÃ BÁO CÁO (CHỐNG LẶP) */
+                            reportedMessageIds.has(msg.id) ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700 cursor-not-allowed shadow-2xs"
+                                title="Tin nhắn vi phạm này đã được gửi báo cáo lên Ban Quản Trị"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Đã báo cáo</span>
+                              </button>
+                            ) : (
+                              onQuickReport && (
+                                <button
+                                  type="button"
+                                  onClick={() => onQuickReport(msg)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                                  title="Báo cáo nhanh tin nhắn vi phạm này tới Ban Quản Trị"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 text-white" />
+                                  <span>Báo cáo nhanh</span>
+                                </button>
+                              )
+                            )
                           )}
                         </div>
                       )}
