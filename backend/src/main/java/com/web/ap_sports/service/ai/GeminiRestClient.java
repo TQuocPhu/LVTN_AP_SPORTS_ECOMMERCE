@@ -101,7 +101,7 @@ public class GeminiRestClient {
 
             Map<String, Object> generationConfig = new LinkedHashMap<>();
             generationConfig.put("temperature", Math.max(0.0, Math.min(1.0, temperature)));
-            generationConfig.put("maxOutputTokens", Math.max(1024, Math.min(4096, maxOutputTokens)));
+            generationConfig.put("maxOutputTokens", Math.max(32, Math.min(4096, maxOutputTokens)));
             // Chỉ gắn thinkingConfig cho model chuẩn ở lần thử đầu tiên; model -lite không hỗ trợ thinkingBudget=0 (sẽ báo 400 INVALID_ARGUMENT)
             if (!isLiteModel && !disableThinkingConfig && attempt == 1) {
                 generationConfig.put("thinkingConfig", Map.of("thinkingBudget", 0));
