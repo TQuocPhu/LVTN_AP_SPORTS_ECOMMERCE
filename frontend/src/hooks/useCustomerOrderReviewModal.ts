@@ -173,17 +173,13 @@ export function useCustomerOrderReviewModal(onReviewSuccess?: () => void) {
       });
 
       if (res && (res.status === 200 || res.status === 201)) {
-        toast.success('Gửi đánh giá sản phẩm thành công!');
         closeReviewModal();
         if (onReviewSuccess) {
           onReviewSuccess();
         }
-      } else {
-        toast.error(res?.message || 'Không thể gửi đánh giá, vui lòng thử lại');
       }
     } catch (err: any) {
       console.error('Lỗi khi gửi đánh giá:', err);
-      toast.error(err?.response?.data?.message || err?.message || 'Không thể gửi đánh giá, vui lòng thử lại');
     } finally {
       setIsSubmitting(false);
     }

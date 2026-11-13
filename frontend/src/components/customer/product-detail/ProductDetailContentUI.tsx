@@ -148,8 +148,8 @@ export default function ProductDetailContentUI({ slug }: ProductDetailContentUIP
                 primaryCategory={primaryCategory}
                 selectedVariant={selectedVariant}
                 effectivePrice={effectivePrice}
-                averageRating={reviewsData.summary?.averageRating}
-                totalReviews={reviewsData.summary?.totalReviews}
+                averageRating={reviewsData.summary ? reviewsData.summary.averageRating : product.rating}
+                totalReviews={reviewsData.summary ? reviewsData.summary.totalReviews : product.reviewsCount}
                 attributeGroups={attributeGroups}
                 selectedAttributes={selectedAttributes}
                 availableColors={availableColors}

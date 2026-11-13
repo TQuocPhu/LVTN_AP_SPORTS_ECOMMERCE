@@ -121,11 +121,26 @@ export function useAdminSidebar() {
     window.addEventListener('inventory_updated', handleInventoryUpdated);
     window.addEventListener('import_requests_updated', handleImportRequestsUpdated);
 
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('apsports_inventory');
+      bc.onmessage = (event) => {
+        if (event.data?.type === 'INVENTORY_UPDATED') {
+          loadLowStockAlerts(true);
+        }
+      };
+    } catch {}
+
     return () => {
       isMounted = false;
       window.removeEventListener('support_queue_updated', handleSupportUpdated);
       window.removeEventListener('inventory_updated', handleInventoryUpdated);
       window.removeEventListener('import_requests_updated', handleImportRequestsUpdated);
+      if (bc) {
+        try {
+          bc.close();
+        } catch {}
+      }
     };
   }, [user, loadWaitingSupportCount, loadPendingImportCount]);
 

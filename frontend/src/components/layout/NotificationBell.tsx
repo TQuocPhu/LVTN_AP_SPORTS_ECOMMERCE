@@ -97,7 +97,7 @@ export default function NotificationBell({ noBorder = false }: NotificationBellP
                           case "GHN_ORDER_UPDATE":
                             return `Cập nhật vận chuyển GHN #${payloadObj.orderCode || 'N/A'}`;
                           case "PRODUCT_RESTOCKED":
-                            return `Sản phẩm yêu thích đã có hàng!`;
+                            return `Sản phẩm chờ đặt đã có hàng!`;
                           case "ORDER_PLACED":
                             return `Đơn hàng mới #${payloadObj.orderCode || 'N/A'}`;
                           case "ORDER_PLACED_CUSTOMER":

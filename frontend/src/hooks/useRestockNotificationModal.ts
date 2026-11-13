@@ -100,13 +100,10 @@ export function useRestockNotificationModal({
 
       if (res && res.status === 200) {
         setIsSubscribed(true);
-        toast.success(res.message || 'Đăng ký nhận thông báo hàng về kho thành công!');
         closeModal();
-      } else {
-        toast.error(res.message || 'Không thể đăng ký nhận thông báo');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Có lỗi xảy ra khi gửi yêu cầu nhận tin');
+      console.error('Lỗi khi gửi yêu cầu nhận tin:', err);
     } finally {
       setLoading(false);
     }
@@ -120,11 +117,10 @@ export function useRestockNotificationModal({
       const res = await restockNotificationController.cancel(variantId);
       if (res && res.status === 200) {
         setIsSubscribed(false);
-        toast.success('Đã hủy nhận thông báo cho biến thể này');
         closeModal();
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Có lỗi khi hủy nhận tin');
+      console.error('Lỗi khi hủy nhận tin:', err);
     } finally {
       setLoading(false);
     }

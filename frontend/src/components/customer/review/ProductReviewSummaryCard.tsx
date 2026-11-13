@@ -9,8 +9,8 @@ interface ProductReviewSummaryCardProps {
 }
 
 export const ProductReviewSummaryCard: React.FC<ProductReviewSummaryCardProps> = ({ summary }) => {
-  const avg = summary?.averageRating || 5.0;
   const total = summary?.totalReviews || 0;
+  const avg = total > 0 ? (summary?.averageRating ?? 0) : 0;
 
   const getPercent = (count: number) => {
     if (!total || total === 0) return 0;
@@ -30,7 +30,7 @@ export const ProductReviewSummaryCard: React.FC<ProductReviewSummaryCardProps> =
             <Star
               key={s}
               className={`w-5 h-5 ${
-                s <= Math.round(avg)
+                avg > 0 && s <= Math.round(avg)
                   ? 'fill-amber-400 text-amber-400'
                   : 'text-slate-300 dark:text-slate-600'
               }`}

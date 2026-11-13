@@ -97,7 +97,7 @@ export function ProductSizeGuideModal({
               }`}
             >
               <Footprints className="w-4 h-4" />
-              <span>Giày Đá Bóng (38 - 45)</span>
+              <span>Giày Thể Thao (38 - 45)</span>
             </button>
 
             <button
@@ -136,7 +136,7 @@ export function ProductSizeGuideModal({
               }`}
             >
               <ShieldAlert className="w-4 h-4" />
-              <span>Găng Tay Thủ Môn (Size 7 - 10)</span>
+              <span>Găng Tay GK (Size 7 - 10)</span>
             </button>
           </div>
         </div>
@@ -144,7 +144,7 @@ export function ProductSizeGuideModal({
         {/* Scrollable Content Body */}
         <div className="p-6 space-y-6 overflow-y-auto">
           {/* ========================================================================= */}
-          {/* TAB 1: GIÀY ĐÁ BÓNG */}
+          {/* TAB 1: GIÀY THỂ THAO */}
           {/* ========================================================================= */}
           {activeCategory === 'shoes' && (
             <div className="space-y-6">

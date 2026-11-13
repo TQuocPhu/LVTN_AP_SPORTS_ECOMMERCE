@@ -26,7 +26,8 @@ export const STAFF_TIME_PRESETS: { label: string; value: TimeRangePreset }[] = [
   { label: 'Toàn thời gian', value: 'ALL_TIME' },
 ];
 
-export function useStaffReports() {
+export function useStaffReports(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const [timeRange, setTimeRange] = useState<TimeRangePreset>('THIS_MONTH');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +43,7 @@ export function useStaffReports() {
   }, [timeRange]);
 
   const loadStaffData = useCallback(async () => {
+    if (!enabled) return;
     try {
       setLoading(true);
       setError(null);
@@ -61,7 +63,6 @@ export function useStaffReports() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi tải báo cáo nhân viên';
       setError(msg);
-      toast.error(msg);
     } finally {
       setLoading(false);
     }

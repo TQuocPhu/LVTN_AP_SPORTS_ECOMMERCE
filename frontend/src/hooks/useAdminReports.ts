@@ -41,7 +41,8 @@ export const REPORT_TABS: { key: ReportTabType; label: string; iconName: string 
   { key: 'merchandise', label: 'Sản Phẩm & Danh Mục', iconName: 'Package' },
 ];
 
-export function useAdminReports() {
+export function useAdminReports(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const [activeTab, setActiveTab] = useState<ReportTabType>('overview');
   const [timeRange, setTimeRange] = useState<TimeRangePreset>('LAST_30_DAYS');
   const [startDate, setStartDate] = useState<string>('');
@@ -78,6 +79,7 @@ export function useAdminReports() {
 
   // Load danh sách nhân viên để phục vụ dropdown
   useEffect(() => {
+    if (!enabled) return;
     let isMounted = true;
     reportController
       .getStaffDropdownList()
@@ -93,9 +95,10 @@ export function useAdminReports() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [enabled]);
 
   const loadReportData = useCallback(async () => {
+    if (!enabled) return;
     try {
       setLoading(true);
       setError(null);
@@ -117,7 +120,6 @@ export function useAdminReports() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi tải dữ liệu báo cáo thống kê';
       setError(msg);
-      toast.error(msg);
     } finally {
       setLoading(false);
     }

@@ -242,7 +242,6 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
       });
 
       if (res && res.status === 200 && res.data) {
-        toast.success(res.message || 'Kiểm đếm và đóng gói đơn hàng thành công!');
         closeModal();
 
         // Đồng bộ toàn cục cho Quản lý kho & Nhật ký giao dịch kho tự động refetch
@@ -260,11 +259,9 @@ export function useOrderPackingScanner({ order, onSuccess, onOpenChange }: UseOr
         if (onSuccess) {
           onSuccess(res.data);
         }
-      } else {
-        toast.error(res.message || 'Không thể xác thực kiểm đếm đơn hàng');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Có lỗi xảy ra khi xác thực đóng gói');
+      console.error('Lỗi khi xác thực đóng gói:', err);
     } finally {
       setLoading(false);
     }

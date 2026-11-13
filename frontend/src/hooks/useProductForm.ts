@@ -151,7 +151,7 @@ export function useProductForm(productId?: number) {
   }, [fetchProductDetail]);
 
   useEffect(() => {
-    if (!isEdit) {
+    if (!isEdit && canCreateImport) {
       setLoadingSuppliers(true);
       supplierController
         .getSuppliersList()

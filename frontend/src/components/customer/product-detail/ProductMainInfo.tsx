@@ -63,6 +63,10 @@ export function ProductMainInfo({
   const productUnit = product.unit || 'sản phẩm';
   const hasDynamicGroups = attributeGroups && Object.keys(attributeGroups).length > 0;
 
+  // Tính điểm đánh giá sao thực tế từ Backend: nếu chưa có đánh giá nào thì hiển thị 0.0 sao (thay vì mặc định 5.0)
+  const effectiveReviewsCount = totalReviews ?? product.reviewsCount ?? 0;
+  const effectiveRating = effectiveReviewsCount > 0 ? (averageRating ?? product.rating ?? 0) : 0;
+
   return (
     <div className="space-y-6">
       {/* 1. Header Info & Title */}
@@ -78,11 +82,11 @@ export function ProductMainInfo({
           {product.name}
         </h1>
 
-        {/* Component Đánh Giá Sao Trung Bình */}
+        {/* Component Đánh Giá Sao Trung Bình (Dựa trên đánh giá thực tế từ Backend) */}
         <div className="pt-0.5">
           <ProductRatingStars
-            rating={averageRating ?? 5.0}
-            totalReviews={totalReviews ?? 0}
+            rating={effectiveRating}
+            totalReviews={effectiveReviewsCount}
             size="sm"
             showRatingValue={true}
             showCount={true}

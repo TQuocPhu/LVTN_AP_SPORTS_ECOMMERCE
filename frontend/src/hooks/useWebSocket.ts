@@ -252,6 +252,7 @@ export function useWebSocket() {
 
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('import_requests_updated'));
+                window.dispatchEvent(new CustomEvent('inventory_updated'));
               }
 
               playNotificationSound('support');
@@ -281,6 +282,7 @@ export function useWebSocket() {
 
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('import_requests_updated'));
+                window.dispatchEvent(new CustomEvent('inventory_updated'));
               }
 
               playNotificationSound('support');
@@ -310,6 +312,7 @@ export function useWebSocket() {
 
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('import_requests_updated'));
+                window.dispatchEvent(new CustomEvent('inventory_updated'));
               }
 
               playNotificationSound('warning');

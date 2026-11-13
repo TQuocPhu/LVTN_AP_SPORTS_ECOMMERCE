@@ -137,7 +137,7 @@ export function useWarehouseInventory() {
       const res = await warehouseInventoryController.getLowStockVariants(
         5,
         0,
-        20,
+        50,
       );
       if (res.data) {
         setLowStockItems(res.data.content || []);
@@ -239,21 +239,34 @@ export function useWarehouseInventory() {
     setTicketToPrint(null);
   }, []);
 
+  const notifyInventorySync = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('inventory_updated'));
+      try {
+        const bc = new BroadcastChannel('apsports_inventory');
+        bc.postMessage({ type: 'INVENTORY_UPDATED' });
+        bc.close();
+      } catch {
+        // Ignore if BroadcastChannel not supported
+      }
+    }
+  };
+
   const handleCreateImport = async (
     data: CreateInventoryTransactionRequest,
   ): Promise<InventoryTransaction | null> => {
     try {
       const res = await warehouseInventoryController.createImport(data);
       if (res.data) {
-        toast.success(`Lập phiếu nhập kho [${res.data.code || 'MỚI'}] thành công!`);
         setTicketToPrint(res.data);
         setPage(0);
         await refreshAll();
+        notifyInventorySync();
         return res.data;
       }
       return null;
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Lỗi khi lập phiếu nhập kho!');
+      console.error('Lỗi khi lập phiếu nhập kho:', err);
       return null;
     }
   };
@@ -264,15 +277,15 @@ export function useWarehouseInventory() {
     try {
       const res = await warehouseInventoryController.createExport(data);
       if (res.data) {
-        toast.success(`Lập phiếu xuất kho [${res.data.code || 'MỚI'}] thành công!`);
         setTicketToPrint(res.data);
         setPage(0);
         await refreshAll();
+        notifyInventorySync();
         return res.data;
       }
       return null;
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Lỗi khi lập phiếu xuất kho!');
+      console.error('Lỗi khi lập phiếu xuất kho:', err);
       return null;
     }
   };
@@ -283,9 +296,9 @@ export function useWarehouseInventory() {
     try {
       const res = await warehouseInventoryController.adjustStock(data);
       if (res.data) {
-        // toast.success('Cập nhật kiểm kê điều chỉnh tồn kho thành công!');
         setTicketToPrint(res.data);
         await refreshAll();
+        notifyInventorySync();
         return res.data;
       }
       return null;

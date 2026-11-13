@@ -24,7 +24,7 @@ export const adminAuthController = {
    * Gọi API Đăng xuất Admin Portal -> Xóa Session Cookie.
    */
   async logout(): Promise<ApiResponse<void>> {
-    return apiClient.post<ApiResponse<void>>('/admin/auth/logout', {});
+    return apiClient.post<ApiResponse<void>>('/admin/auth/logout', {}, { suppressErrorToast: true });
   },
 
   /**

@@ -16,8 +16,9 @@ export function useProductRatingStars({
   interactive = false,
 }: UseProductRatingStarsProps) {
   const safeRating = useMemo(() => {
+    if (totalReviews === 0) return 0;
     if (rating === undefined || rating === null) {
-      return totalReviews === 0 ? 0 : 5;
+      return 0;
     }
     const numericRating = Number(rating);
     if (Number.isNaN(numericRating)) return 0;

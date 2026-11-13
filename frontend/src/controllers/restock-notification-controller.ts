@@ -17,11 +17,7 @@ export const restockNotificationController = {
   ): Promise<ApiResponse<RestockNotificationResponse>> {
     return apiClient.post<ApiResponse<RestockNotificationResponse>>(
       '/customer/restock-notifications',
-      data,
-      {
-        showSuccessToast: false,
-        suppressErrorToast: true,
-      }
+      data
     );
   },
 
@@ -30,11 +26,7 @@ export const restockNotificationController = {
    */
   async cancel(variantId: number): Promise<ApiResponse<void>> {
     return apiClient.delete<ApiResponse<void>>(
-      `/customer/restock-notifications/${variantId}`,
-      {
-        showSuccessToast: false,
-        suppressErrorToast: true,
-      }
+      `/customer/restock-notifications/${variantId}`
     );
   },
 

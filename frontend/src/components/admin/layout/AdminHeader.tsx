@@ -13,8 +13,11 @@ export default function AdminHeader() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/admin/login');
+    try {
+      await logout();
+    } finally {
+      router.push('/admin/login');
+    }
   };
 
   const getRoleBadgeColor = (roleName?: string) => {

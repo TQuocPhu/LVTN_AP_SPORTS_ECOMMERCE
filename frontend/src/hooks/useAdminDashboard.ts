@@ -61,7 +61,6 @@ export function useAdminDashboard() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi khi tải dữ liệu bảng điều khiển tổng quan';
       setError(msg);
-      toast.error(msg);
     } finally {
       setLoading(false);
       setRefreshing(false);

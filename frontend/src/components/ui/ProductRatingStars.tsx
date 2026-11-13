@@ -68,14 +68,14 @@ export function ProductRatingStars({
         </span>
       )}
 
-      {/* Review Count (ví dụ: (12 đánh giá)) */}
+      {/* Review Count (ví dụ: (12 đánh giá) hoặc (Chưa có đánh giá)) */}
       {showCount && totalReviews !== undefined && (
         <span
           className={`text-slate-500 dark:text-slate-400 ${textSizeClass} ${
             isInteractive ? 'group-hover:underline text-orange-600 dark:text-orange-400 font-semibold' : ''
           }`}
         >
-          ({totalReviews} đánh giá)
+          {totalReviews > 0 ? `(${totalReviews} đánh giá)` : '(Chưa có đánh giá)'}
         </span>
       )}
     </div>

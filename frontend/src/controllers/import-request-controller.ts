@@ -55,10 +55,7 @@ export const importRequestController = {
    * Tạo yêu cầu nhập kho mới
    */
   async createImportRequest(payload: CreateImportRequestPayload): Promise<ImportRequest> {
-    const res = await apiClient.post<ApiResponse<ImportRequest>>('/warehouse/import-requests', payload, {
-      showSuccessToast: false,
-      suppressErrorToast: true,
-    });
+    const res = await apiClient.post<ApiResponse<ImportRequest>>('/warehouse/import-requests', payload);
     return res.data;
   },
 
@@ -66,10 +63,7 @@ export const importRequestController = {
    * Quản lý kho phê duyệt và chốt số lượng thực nhập
    */
   async approveImportRequest(id: number, payload: ApproveImportRequestPayload): Promise<ImportRequest> {
-    const res = await apiClient.put<ApiResponse<ImportRequest>>(`/warehouse/import-requests/${id}/approve`, payload, {
-      showSuccessToast: false,
-      suppressErrorToast: true,
-    });
+    const res = await apiClient.put<ApiResponse<ImportRequest>>(`/warehouse/import-requests/${id}/approve`, payload);
     return res.data;
   },
 
@@ -77,10 +71,7 @@ export const importRequestController = {
    * Quản lý kho từ chối yêu cầu nhập kho kèm lý do
    */
   async rejectImportRequest(id: number, payload: RejectImportRequestPayload): Promise<ImportRequest> {
-    const res = await apiClient.put<ApiResponse<ImportRequest>>(`/warehouse/import-requests/${id}/reject`, payload, {
-      showSuccessToast: false,
-      suppressErrorToast: true,
-    });
+    const res = await apiClient.put<ApiResponse<ImportRequest>>(`/warehouse/import-requests/${id}/reject`, payload);
     return res.data;
   },
 };

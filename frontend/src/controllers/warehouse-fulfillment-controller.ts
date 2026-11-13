@@ -15,11 +15,7 @@ export const warehouseFulfillmentController = {
   ): Promise<ApiResponse<AdminOrderDetail>> {
     return apiClient.post<ApiResponse<AdminOrderDetail>>(
       `/warehouse/fulfillment/orders/${orderId}/verify-pack`,
-      data,
-      {
-        showSuccessToast: false,
-        suppressErrorToast: true,
-      }
+      data
     );
   },
 

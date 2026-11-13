@@ -72,7 +72,6 @@ export function useImportRequests() {
       setPendingCount(pCount);
     } catch (err: any) {
       console.error('Lỗi tải danh sách yêu cầu nhập kho:', err);
-      toast.error('Không thể tải danh sách yêu cầu nhập kho');
     } finally {
       setLoading(false);
     }
@@ -201,12 +200,22 @@ export function useImportRequests() {
         items: approveItems,
       });
 
-      toast.success(`Đã phê duyệt và nhập kho thành công yêu cầu ${approvingRequest.code}`);
       handleCloseApprove();
       if (detailModalOpen) handleCloseDetail();
       fetchRequests();
+
+      // Đồng bộ realtime tồn kho & sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('inventory_updated'));
+        window.dispatchEvent(new CustomEvent('import_requests_updated'));
+        try {
+          const bc = new BroadcastChannel('apsports_inventory');
+          bc.postMessage({ type: 'INVENTORY_UPDATED' });
+          bc.close();
+        } catch {}
+      }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Lỗi khi phê duyệt nhập kho');
+      console.error('Lỗi khi phê duyệt nhập kho:', err);
     } finally {
       setSubmittingApprove(false);
     }
@@ -240,12 +249,11 @@ export function useImportRequests() {
         reason: rejectReason.trim(),
       });
 
-      toast.success(`Đã từ chối yêu cầu nhập kho ${rejectingRequest.code}`);
       handleCloseReject();
       if (detailModalOpen) handleCloseDetail();
       fetchRequests();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || err?.message || 'Lỗi khi từ chối yêu cầu nhập kho');
+      console.error('Lỗi khi từ chối yêu cầu nhập kho:', err);
     } finally {
       setSubmittingReject(false);
     }
