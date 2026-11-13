@@ -52,8 +52,8 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  const averageRating = summary?.averageRating ?? (reviews.length > 0 ? 5.0 : 0);
   const totalReviews = summary?.totalReviews ?? reviews.length;
+  const averageRating = totalReviews > 0 ? (summary?.averageRating ?? (reviews.length > 0 ? 5.0 : 0)) : 0;
 
   return (
     <View style={styles.container}>

@@ -119,12 +119,20 @@ export const ProductDetailScreen: React.FC = () => {
             </View>
 
             <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={14} color="#eab308" />
+              <Ionicons
+                name={product.reviewsCount && product.reviewsCount > 0 && product.averageRating && product.averageRating > 0 ? 'star' : 'star-outline'}
+                size={14}
+                color="#eab308"
+              />
               <Text style={styles.ratingText}>
-                {product.averageRating ? product.averageRating.toFixed(1) : '5.0'}
+                {product.reviewsCount && product.reviewsCount > 0 && product.averageRating
+                  ? product.averageRating.toFixed(1)
+                  : '0.0'}
               </Text>
               <Text style={styles.reviewsCount}>
-                ({product.reviewsCount || 0} đánh giá)
+                {product.reviewsCount && product.reviewsCount > 0
+                  ? `(${product.reviewsCount} đánh giá)`
+                  : '(Chưa có đánh giá)'}
               </Text>
             </View>
           </View>
