@@ -25,4 +25,6 @@ public interface CustomerSupportChatService {
     void markAsRead(String customerEmail, Long conversationId);
 
     SupportConversationResponse rateConversation(String customerEmail, Long conversationId, RateConversationRequest request);
+
+    SupportConversationResponse closeConversation(String customerEmail, Long conversationId);
 }

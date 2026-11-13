@@ -90,4 +90,13 @@ public class CustomerSupportChatController {
                 .rateConversation(authentication.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.success("Cảm ơn bạn đã đánh giá chất lượng dịch vụ hỗ trợ", response));
     }
+
+    @PostMapping("/conversations/{id}/close")
+    public ResponseEntity<ApiResponse<SupportConversationResponse>> closeConversation(
+            Authentication authentication,
+            @PathVariable Long id) {
+        SupportConversationResponse response = customerSupportChatService
+                .closeConversation(authentication.getName(), id);
+        return ResponseEntity.ok(ApiResponse.success("Đã hoàn tất đóng ca hỗ trợ", response));
+    }
 }

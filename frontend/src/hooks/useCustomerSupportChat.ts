@@ -320,9 +320,9 @@ export function useCustomerSupportChat() {
     let attachmentUrl: string | undefined = undefined;
 
     try {
-      // Nếu chưa có phiên nào, lúc khách bấm GỬI tin nhắn đầu tiên mới tạo ca mới
+      // Nếu chưa có phiên nào hoặc phiên cũ đã kết thúc (RESOLVED/CLOSED), tạo ca mới
       let currentConv = conversation;
-      if (!currentConv) {
+      if (!currentConv || currentConv.status === 'RESOLVED' || currentConv.status === 'CLOSED') {
         const defaultSubject = selectedOrder
           ? `Hỗ trợ đơn hàng #${selectedOrder.orderCode}`
           : 'Khách hàng liên hệ tư vấn';
@@ -333,6 +333,10 @@ export function useCustomerSupportChat() {
         if (createRes.data) {
           currentConv = createRes.data;
           setConversation(createRes.data);
+          // Nếu tạo phiên mới hoàn toàn, làm sạch danh sách tin nhắn cũ
+          if (!conversation || createRes.data.id !== conversation.id) {
+            setMessages([]);
+          }
         } else {
           throw new Error('Không thể khởi tạo phiên trò chuyện.');
         }
@@ -402,8 +406,16 @@ export function useCustomerSupportChat() {
     }
   };
 
-  // Khởi tạo phiên trò chuyện mới (sau khi ca cũ đã hoàn tất/đóng)
-  const startNewConversation = () => {
+  // Khởi tạo phiên trò chuyện mới (sau khi ca cũ đã hoàn tất/đóng hoặc bấm Bỏ qua)
+  const startNewConversation = async () => {
+    // Nếu ca hiện tại đang ở trạng thái RESOLVED (chờ đánh giá), báo Backend đóng ca sang CLOSED
+    if (conversation && conversation.status === 'RESOLVED') {
+      try {
+        await supportChatController.closeConversation(conversation.id);
+      } catch (err) {
+        console.warn('Lỗi khi tự động đóng ca hỗ trợ cũ:', err);
+      }
+    }
     setConversation(null);
     setMessages([]);
     setInputText('');

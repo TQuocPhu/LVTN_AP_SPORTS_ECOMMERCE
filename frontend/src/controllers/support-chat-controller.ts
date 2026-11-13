@@ -103,6 +103,18 @@ export const supportChatController = {
     );
   },
 
+  /**
+   * Đóng ca hỗ trợ khi khách hàng bấm Bỏ qua đánh giá.
+   * Chuyển ca sang trạng thái CLOSED để khách hàng có thể mở phiên trò chuyện mới.
+   */
+  async closeConversation(conversationId: number): Promise<ApiResponse<SupportConversation>> {
+    return apiClient.post<ApiResponse<SupportConversation>>(
+      `/customer/support-chat/conversations/${conversationId}/close`,
+      {},
+      { showSuccessToast: false, suppressErrorToast: true }
+    );
+  },
+
   // =========================================================================
   // 2. DÀNH CHO NHÂN VIÊN & QUẢN TRỊ VIÊN (STAFF & ADMIN)
   // =========================================================================

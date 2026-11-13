@@ -67,12 +67,13 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
             CreateConversationRequest request) {
         User customer = getUserByEmail(customerEmail);
 
-        // 1. Chống mở nhiều ca: Nếu khách có ca WAITING hoặc IN_PROGRESS thì trả về ca cũ
-        List<SupportConversation> activeList = conversationRepository
-                .findActiveConversationsForCustomer(customer.getId());
+        // 1. Chống mở nhiều ca: Nếu khách có ca WAITING hoặc IN_PROGRESS thì trả về ca đó
+        Optional<SupportConversation> activeOpt = conversationRepository
+                .findFirstByCustomerIdAndStatusInOrderByCreatedAtDesc(
+                        customer.getId(), List.of("WAITING", "IN_PROGRESS"));
 
-        if (!activeList.isEmpty()) {
-            SupportConversation existingConv = activeList.get(0);
+        if (activeOpt.isPresent()) {
+            SupportConversation existingConv = activeOpt.get();
             // Nếu khách có truyền kèm orderId mới vào ca đang mở, bắt buộc kiểm tra quyền sở hữu ngay tại tầng Repository
             if (request != null && request.getOrderId() != null) {
                 Order verifiedOrder = orderRepository.findByIdAndUserId(request.getOrderId(), customer.getId())
@@ -83,6 +84,19 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
                 existingConv = conversationRepository.save(existingConv);
             }
             return mapToConversationResponse(existingConv, customer.getId());
+        }
+
+        // Tự động đóng các ca cũ đang ở trạng thái RESOLVED (chưa đánh giá hoặc đã bấm bỏ qua) sang CLOSED
+        Optional<SupportConversation> pendingResolvedOpt = conversationRepository
+                .findFirstByCustomerIdAndStatusInOrderByCreatedAtDesc(
+                        customer.getId(), List.of("RESOLVED"));
+        if (pendingResolvedOpt.isPresent()) {
+            SupportConversation resolvedConv = pendingResolvedOpt.get();
+            resolvedConv.setStatus("CLOSED");
+            if (resolvedConv.getClosedAt() == null) {
+                resolvedConv.setClosedAt(LocalDateTime.now());
+            }
+            conversationRepository.save(resolvedConv);
         }
 
         // 2. Tạo ca mới: Kiểm soát chặt chẽ đơn hàng theo userId của khách hàng ngay tại tầng Repository (Chống IDOR)
@@ -269,6 +283,21 @@ public class CustomerSupportChatServiceImpl implements CustomerSupportChatServic
         pushRealtimeMessage(saved, mapToMessageResponse(ratingMsg));
         notifyStaffQueueUpdated();
 
+        return mapToConversationResponse(saved, customer.getId());
+    }
+
+    @Override
+    @Transactional
+    public SupportConversationResponse closeConversation(String customerEmail, Long conversationId) {
+        User customer = getUserByEmail(customerEmail);
+        SupportConversation conversation = getConversationByIdAndCustomer(conversationId, customer.getId());
+
+        conversation.setStatus("CLOSED");
+        if (conversation.getClosedAt() == null) {
+            conversation.setClosedAt(LocalDateTime.now());
+        }
+        SupportConversation saved = conversationRepository.save(conversation);
+        notifyStaffQueueUpdated();
         return mapToConversationResponse(saved, customer.getId());
     }
 
