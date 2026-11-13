@@ -51,6 +51,53 @@ public interface InventoryTransactionRepository extends JpaRepository<InventoryT
             Pageable pageable
     );
 
+    @Query(value = "SELECT it.code " +
+           "FROM InventoryTransaction it " +
+           "LEFT JOIN it.variant v " +
+           "LEFT JOIN v.product p " +
+           "LEFT JOIN it.supplier s " +
+           "WHERE (:type IS NULL OR it.type = :type) " +
+           "AND (:supplierId IS NULL OR (s IS NOT NULL AND s.id = :supplierId)) " +
+           "AND (CAST(:keyword AS string) IS NULL OR " +
+           "     LOWER(it.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "     LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "     LOWER(v.sku) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+           "     LOWER(it.note) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+           "AND (CAST(:fromDate AS java.time.LocalDateTime) IS NULL OR it.createdAt >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.LocalDateTime) IS NULL OR it.createdAt <= :toDate) " +
+           "GROUP BY it.code " +
+           "ORDER BY MAX(it.createdAt) DESC, MAX(it.id) DESC",
+           countQuery = "SELECT COUNT(DISTINCT it.code) " +
+                        "FROM InventoryTransaction it " +
+                        "LEFT JOIN it.variant v " +
+                        "LEFT JOIN v.product p " +
+                        "LEFT JOIN it.supplier s " +
+                        "WHERE (:type IS NULL OR it.type = :type) " +
+                        "AND (:supplierId IS NULL OR (s IS NOT NULL AND s.id = :supplierId)) " +
+                        "AND (CAST(:keyword AS string) IS NULL OR " +
+                        "     LOWER(it.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+                        "     LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+                        "     LOWER(v.sku) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR " +
+                        "     LOWER(it.note) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+                        "AND (CAST(:fromDate AS java.time.LocalDateTime) IS NULL OR it.createdAt >= :fromDate) " +
+                        "AND (CAST(:toDate AS java.time.LocalDateTime) IS NULL OR it.createdAt <= :toDate)")
+    Page<String> searchTicketCodes(
+            @Param("type") TransactionType type,
+            @Param("supplierId") Long supplierId,
+            @Param("keyword") String keyword,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            Pageable pageable
+    );
+
+    @Query("SELECT it FROM InventoryTransaction it " +
+           "LEFT JOIN FETCH it.variant v " +
+           "LEFT JOIN FETCH v.product p " +
+           "LEFT JOIN FETCH it.supplier s " +
+           "LEFT JOIN FETCH it.createdBy u " +
+           "WHERE it.code IN :codes")
+    java.util.List<InventoryTransaction> findByCodeInWithDetails(@Param("codes") java.util.Collection<String> codes);
+
     java.util.List<InventoryTransaction> findByCode(String code);
 
     @Query("SELECT SUM(it.quantity) FROM InventoryTransaction it WHERE it.type = :type AND (CAST(:fromDate AS java.time.LocalDateTime) IS NULL OR it.createdAt >= :fromDate) AND (CAST(:toDate AS java.time.LocalDateTime) IS NULL OR it.createdAt <= :toDate)")

@@ -343,7 +343,7 @@ public class AdminReportServiceImpl implements AdminReportService {
         long totalOutboundQty = manualOutboundQty + orderOutboundQty;
 
         List<ProductVariant> lowVariants = productVariantRepository.findLowStockVariants(LOW_STOCK_THRESHOLD,
-                PageRequest.of(0, 15));
+                PageRequest.of(0, 50));
         List<LowStockVariantItemResponse> lowStockItems = new ArrayList<>();
 
         for (ProductVariant v : lowVariants) {

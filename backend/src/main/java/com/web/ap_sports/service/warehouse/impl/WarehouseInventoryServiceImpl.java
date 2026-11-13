@@ -16,6 +16,7 @@ import com.web.ap_sports.service.warehouse.WarehouseInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -207,14 +208,38 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
             } catch (Exception ignored) {}
         }
 
-        Page<InventoryTransaction> page;
-        if (type == null && supplierId == null && cleanKeyword == null && parsedFromDate == null && parsedToDate == null) {
-            page = transactionRepository.findAll(pageable);
-        } else {
-            page = transactionRepository.searchTransactions(type, supplierId, cleanKeyword, parsedFromDate, parsedToDate, pageable);
+        // Phân trang theo mã phiếu kho (Group by Ticket Code), đảm bảo đếm đúng số lượng phiếu thực tế
+        Pageable unpagedSort = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        Page<String> codePage = transactionRepository.searchTicketCodes(
+                type, supplierId, cleanKeyword, parsedFromDate, parsedToDate, unpagedSort
+        );
+
+        if (codePage.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, codePage.getTotalElements());
         }
 
-        return page.map(this::mapToResponse);
+        List<String> codes = codePage.getContent().stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (codes.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), pageable, codePage.getTotalElements());
+        }
+
+        List<InventoryTransaction> allTx = transactionRepository.findByCodeInWithDetails(codes);
+        Map<String, List<InventoryTransaction>> groupedMap = allTx.stream()
+                .filter(tx -> tx.getCode() != null)
+                .collect(Collectors.groupingBy(InventoryTransaction::getCode));
+
+        List<InventoryTransactionResponse> responses = new ArrayList<>();
+        for (String code : codes) {
+            List<InventoryTransaction> txList = groupedMap.get(code);
+            if (txList != null && !txList.isEmpty()) {
+                responses.add(mapGroupedResponse(txList, code));
+            }
+        }
+
+        return new PageImpl<>(responses, pageable, codePage.getTotalElements());
     }
 
     @Override
@@ -272,6 +297,8 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
 
         List<LowStockVariantResponse> lowStockList = allVariants.stream()
                 .filter(v -> v.getStockQuantity() <= limit)
+                .sorted(Comparator.comparing(ProductVariant::getStockQuantity)
+                        .thenComparing(Comparator.comparing(ProductVariant::getId, Comparator.nullsLast(Comparator.reverseOrder()))))
                 .map(this::mapToLowStockResponse)
                 .collect(Collectors.toList());
 
@@ -325,6 +352,7 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         response.setTotalAmount(totalSum);
         response.setQuantity(totalQty);
         response.setCode(ticketCode);
+        response.setTicketNumber(ticketCode);
         return response;
     }
 

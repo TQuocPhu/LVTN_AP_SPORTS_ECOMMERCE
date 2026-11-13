@@ -102,7 +102,7 @@ public class NotificationServiceImpl implements NotificationService {
             case LOW_INVENTORY -> "Cảnh báo tồn kho thấp";
             case OUT_OF_STOCK -> "Cảnh báo hết hàng trong kho";
             case WELCOME -> "Chào mừng bạn đến với AP Sports!";
-            case PRODUCT_RESTOCKED -> "Sản phẩm yêu thích đã có hàng!";
+            case PRODUCT_RESTOCKED -> "Sản phẩm chờ đặt đã có hàng!";
             case ORDER_PACKED -> "Đơn hàng đã được kiểm đếm đóng gói";
             case NEW_SUPPORT_REQUEST -> "Yêu cầu tư vấn trực tuyến mới";
             case SYSTEM_ALERT -> "Cảnh báo vi phạm & sự cố";
