@@ -33,7 +33,7 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Query("SELECT DISTINCT u FROM User u " +
            "LEFT JOIN RolePermission rp ON rp.role.id = u.role.id " +
            "LEFT JOIN rp.permission p " +
-           "WHERE (u.role.name = 'ADMIN' OR p.name = 'SUPPORT_LIVE_CHAT') " +
+           "WHERE (u.role.name = 'ADMIN' OR u.role.name = 'STAFF' OR p.name = 'SUPPORT_LIVE_CHAT') " +
            "AND u.status = com.web.ap_sports.enums.UserStatus.active")
     java.util.List<User> findActiveSupportLiveChatUsers();
 }

@@ -185,6 +185,7 @@ export function useWebSocket() {
               if (!shouldThrottlePopup(`support_${convId}`, 30000)) {
                 playNotificationSound('support');
                 toast.info(`🎧 Yêu Cầu Tư Vấn: ${customerName}`, {
+                  id: `support_request_${convId}`,
                   description: newNotification.message || 'Khách hàng đang chờ chuyên viên kết nối tư vấn trực tiếp.',
                   duration: 8000,
                   action: {
@@ -369,7 +370,13 @@ export function useWebSocket() {
     let cancelled = false;
 
     // Không gọi API thông báo và không kết nối WebSocket nếu chưa đăng nhập
-    if (!user) {
+    const hasAdminSession =
+      typeof window !== 'undefined' &&
+      (localStorage.getItem('apsports_admin_has_session') === 'true' ||
+        document.cookie.includes('accessToken'));
+    const hasActiveSession = Boolean(user) || hasAdminSession;
+
+    if (!hasActiveSession) {
       disconnect();
       setNotifications([]);
       setUnreadCount(0);
@@ -399,9 +406,12 @@ export function useWebSocket() {
 
     // Tự động ngắt kết nối và dọn sạch state khi đăng xuất
     const handleLogout = () => {
-      disconnect();
-      setNotifications([]);
-      setUnreadCount(0);
+      const stillHasAdmin = typeof window !== 'undefined' && (localStorage.getItem('apsports_admin_has_session') === 'true' || document.cookie.includes('accessToken'));
+      if (!user && !stillHasAdmin) {
+        disconnect();
+        setNotifications([]);
+        setUnreadCount(0);
+      }
     };
 
     // Kiểm tra và kết nối lại khi người dùng quay lại tab (nếu chưa kết nối)

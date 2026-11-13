@@ -53,7 +53,7 @@ public class SupportChatMediaController {
      * Cho phép tải tối đa 3 ảnh cùng lúc.
      */
     @PostMapping("/upload-report-evidence")
-    @PreAuthorize("hasAuthority('SUPPORT_LIVE_CHAT') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('SUPPORT_LIVE_CHAT') or hasAnyRole('ADMIN', 'STAFF') or hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
     public ResponseEntity<ApiResponse<List<String>>> uploadReportEvidence(@RequestParam("files") List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new AppException("Vui lòng đính kèm ít nhất 1 ảnh bằng chứng vi phạm", HttpStatus.BAD_REQUEST);

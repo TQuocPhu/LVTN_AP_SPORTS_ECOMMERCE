@@ -23,7 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/staff/support-chat")
 @RequiredArgsConstructor
-@PreAuthorize("hasAuthority('SUPPORT_LIVE_CHAT') or hasRole('ADMIN')")
+@PreAuthorize("hasAuthority('SUPPORT_LIVE_CHAT') or hasAnyRole('ADMIN', 'STAFF') or hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
 public class StaffSupportChatController {
 
     private final StaffSupportChatService staffSupportChatService;
