@@ -636,7 +636,7 @@ public class AdminProductServiceImpl implements AdminProductService {
                     .color(colorVal)
                     .attributes(attributesJson)
                     .price(vr.getPrice())
-                    .costPrice(vr.getCostPrice())
+                    .costPrice(vr.getCostPrice() != null ? vr.getCostPrice() : BigDecimal.ZERO)
                     .stockQuantity(vr.getStockQuantity() != null ? vr.getStockQuantity() : 0)
                     .status(vr.getStatus() != null ? vr.getStatus() : ProductVariantStatus.ACTIVE)
                     .build();

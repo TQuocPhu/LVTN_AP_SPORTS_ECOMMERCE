@@ -70,18 +70,49 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(401, ex.getMessage()));
     }
 
-    // Xử lý ngoại lệ vi phạm ràng buộc dữ liệu CSDL (Foreign Key Constraint)
+    // Xử lý ngoại lệ vi phạm ràng buộc dữ liệu CSDL (Khóa ngoại, Trùng lặp, Độ dài, Not Null)
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
-        String msg = ex.getMessage() != null ? ex.getMessage() : "";
-        if (msg.contains("shipping_addresses") || msg.contains("fkstjxbn0162q6csb4f7ejx3fwe") || msg.contains("orders")) {
+        Throwable root = ex.getMostSpecificCause();
+        String msg = root != null && root.getMessage() != null
+                ? root.getMessage()
+                : (ex.getMessage() != null ? ex.getMessage() : "");
+        String lowerMsg = msg.toLowerCase();
+
+        if (lowerMsg.contains("shipping_addresses") || lowerMsg.contains("fkstjxbn0162q6csb4f7ejx3fwe")
+                || (lowerMsg.contains("orders") && lowerMsg.contains("foreign key"))) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(400, "Địa chỉ này đã từng được sử dụng để đặt hàng nên không thể xóa."));
         }
+
+        if (lowerMsg.contains("duplicate entry")) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "Dữ liệu bị trùng lặp (mã SKU, barcode, slug hoặc thông tin định danh đã tồn tại trong hệ thống)."));
+        }
+
+        if (lowerMsg.contains("data too long") || lowerMsg.contains("data truncation")) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "Dữ liệu nhập vào vượt quá độ dài tối đa cho phép."));
+        }
+
+        if (lowerMsg.contains("cannot be null")) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "Thiếu thông tin bắt buộc khi lưu dữ liệu."));
+        }
+
+        if (lowerMsg.contains("foreign key constraint fails") || lowerMsg.contains("cannot delete or update a parent row")) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "Dữ liệu đang được tham chiếu bởi bản ghi khác trong hệ thống, không thể xóa."));
+        }
+
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(400, "Dữ liệu đang được tham chiếu bởi bản ghi khác trong hệ thống, không thể xóa."));
+                .body(ApiResponse.error(400, "Vi phạm ràng buộc dữ liệu trong hệ thống. Vui lòng kiểm tra lại thông tin nhập."));
     }
 
     // Xử lý ngoại lệ hệ thống mặc định

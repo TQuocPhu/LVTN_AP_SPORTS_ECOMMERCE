@@ -64,13 +64,30 @@ public class ProductVariant {
     protected void onCreate() {
         if (stockQuantity == null) stockQuantity = 0;
         if (barcode == null || barcode.trim().isEmpty()) {
-            barcode = sku;
+            barcode = buildSafeBarcodeFromSku(sku);
+        } else if (barcode.length() > 50) {
+            barcode = buildSafeBarcodeFromSku(barcode);
         }
         if (status == null) {
             status = ProductVariantStatus.ACTIVE;
         }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Đảm bảo barcode luôn vừa giới hạn VARCHAR(50) của DB và không bị trùng lặp nếu SKU dài > 50 ký tự.
+     */
+    private static String buildSafeBarcodeFromSku(String source) {
+        if (source == null) return null;
+        String trimmed = source.trim();
+        if (trimmed.length() <= 50) {
+            return trimmed;
+        }
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(trimmed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String hashHex = String.format("%08X", crc.getValue());
+        return trimmed.substring(0, 41) + "-" + hashHex;
     }
 
     @PreUpdate

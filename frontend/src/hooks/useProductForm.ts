@@ -7,6 +7,7 @@ import { Supplier } from '@/types/inventory';
 import { supplierController } from '@/controllers/supplier-controller';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { isApiError } from '@/services/api-client';
+import { removeVietnameseAccents } from '@/utils/barcodeGenerator';
 
 
 export interface SpecPair {
@@ -219,7 +220,7 @@ export function useProductForm(productId?: number) {
 
     const basePrice = typeof price === 'number' ? price : 0;
     const rawPrefix = (slug || 'PROD').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const baseSkuPrefix = rawPrefix.length > 35 ? rawPrefix.substring(0, 35) : rawPrefix;
+    const baseSkuPrefix = rawPrefix.length > 20 ? rawPrefix.substring(0, 20) : rawPrefix;
 
     const cartesian = (args: string[][]): string[][] => {
       const r: string[][] = [];
@@ -256,7 +257,12 @@ export function useProductForm(productId?: number) {
 
       const attributesJson = JSON.stringify(pairMap);
 
-      const skuParts = [baseSkuPrefix, ...comb.map((c) => c.toUpperCase().replace(/\s+/g, ''))];
+      const skuParts = [
+        baseSkuPrefix,
+        ...comb
+          .map((c) => removeVietnameseAccents(c).toUpperCase().replace(/[^A-Z0-9]/g, ''))
+          .filter(Boolean),
+      ];
       const sku = skuParts.join('-');
 
       const existing = variants.find((v) => v.sku === sku);
@@ -304,7 +310,8 @@ export function useProductForm(productId?: number) {
 
   const addVariantRow = () => {
     const basePrice = typeof price === 'number' ? price : 0;
-    const baseSkuPrefix = (slug || 'PROD').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const rawPrefix = (slug || 'PROD').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const baseSkuPrefix = rawPrefix.length > 20 ? rawPrefix.substring(0, 20) : rawPrefix;
     const uniqueId = Date.now().toString().slice(-4);
     setVariants((prev) => [
       ...prev,
