@@ -89,11 +89,27 @@ export function useHomeCategories() {
     fetchPrimaryCategories();
   }, [fetchPrimaryCategories]);
 
-  /**
-   * Chuẩn hóa danh sách danh mục gốc thành cấu trúc hiển thị cho thẻ giao diện Trang chủ.
-   */
+const PRIMARY_CATEGORY_ORDER: Record<string, number> = {
+  'bong-da': 1,
+  'cau-long': 2,
+  'bong-ro': 3,
+  'bong-chuyen': 4,
+  'gym-chay-bo': 5,
+  'vo-thuat': 6,
+};
+
+/**
+ * Chuẩn hóa danh sách danh mục gốc thành cấu trúc hiển thị cho thẻ giao diện Trang chủ.
+ */
   const categories: HomeCategoryCardItem[] = useMemo(() => {
-    return rawCategories.map((cat) => {
+    const sorted = [...rawCategories].sort((a, b) => {
+      const orderA = PRIMARY_CATEGORY_ORDER[a.slug] ?? 999;
+      const orderB = PRIMARY_CATEGORY_ORDER[b.slug] ?? 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.id - b.id;
+    });
+
+    return sorted.map((cat) => {
       const fallback = SPORT_VISUAL_FALLBACKS[cat.slug] || {
         image: '/images/banners/sub_football_banner.png',
         badge: 'CHÍNH HÃNG',

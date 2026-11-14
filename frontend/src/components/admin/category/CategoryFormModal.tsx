@@ -76,10 +76,10 @@ export function CategoryFormModal({
   const parentOptions = getParentOptions();
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
-      <div className="bg-white rounded-3xl max-w-xl w-full border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
+      <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
               <FolderPlus className="w-6 h-6" />
@@ -104,7 +104,7 @@ export function CategoryFormModal({
         </div>
 
         {/* Form Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
           {/* Category Type / Parent Select */}
           <div>
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
