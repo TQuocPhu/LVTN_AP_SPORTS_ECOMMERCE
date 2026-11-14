@@ -38,7 +38,7 @@ export function LowStockAlertsTable({ items, onOpenImportModal }: LowStockAlerts
             className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 self-start sm:self-auto"
             title="Tự động gắn tất cả mẫu hàng bị cảnh báo vào 1 phiếu nhập duy nhất"
           >
-            <Zap className="w-4 h-4 fill-current text-amber-300" />
+            {/* <Zap className="w-4 h-4 fill-current text-amber-300" /> */}
             <span>Lập Phiếu Nhập Hàng Loạt Khẩn Cấp ({items.length} SP)</span>
           </button>
         )}

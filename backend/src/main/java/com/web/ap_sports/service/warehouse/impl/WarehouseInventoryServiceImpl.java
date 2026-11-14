@@ -49,7 +49,13 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
                 .orElseThrow(() -> new AppException("Người dùng không tồn tại", HttpStatus.NOT_FOUND));
 
         Supplier supplier = null;
-        if (request.getSupplierId() != null) {
+        if (request.getType() == TransactionType.IMPORT) {
+            if (request.getSupplierId() == null) {
+                throw new AppException("Vui lòng chọn Nhà cung cấp cho phiếu nhập kho!", HttpStatus.BAD_REQUEST);
+            }
+            supplier = supplierRepository.findById(request.getSupplierId())
+                    .orElseThrow(() -> new AppException("Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND));
+        } else if (request.getSupplierId() != null) {
             supplier = supplierRepository.findById(request.getSupplierId())
                     .orElseThrow(() -> new AppException("Nhà cung cấp không tồn tại", HttpStatus.NOT_FOUND));
         }

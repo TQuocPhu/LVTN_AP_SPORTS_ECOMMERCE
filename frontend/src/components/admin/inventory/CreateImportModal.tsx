@@ -68,6 +68,7 @@ export function CreateImportModal({
   const [ticketItems, setTicketItems] = useState<ImportDraftItem[]>([]);
 
   const [supplierId, setSupplierId] = useState<number | undefined>(undefined);
+  const [supplierError, setSupplierError] = useState<string | null>(null);
   const [note, setNote] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
@@ -112,6 +113,7 @@ export function CreateImportModal({
       setItemUnitCost('');
       setTicketItems([]);
       setSupplierId(undefined);
+      setSupplierError(null);
       setNote('');
     }
   }, [isOpen, initialLowStockItems]);
@@ -222,6 +224,10 @@ export function CreateImportModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supplierId) {
+      setSupplierError('Vui lòng chọn Nhà cung cấp cho phiếu nhập kho');
+      return;
+    }
     if (ticketItems.length === 0) return;
 
     setSubmitting(true);
@@ -293,11 +299,20 @@ export function CreateImportModal({
               <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Building2 className="w-4 h-4 text-orange-500" />
                 <span>Nhà Cung Cấp Hàng</span>
+                <span className="text-rose-500">*</span>
               </label>
               <select
                 value={supplierId || ''}
-                onChange={(e) => setSupplierId(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-xs font-bold focus:outline-none focus:border-orange-500"
+                onChange={(e) => {
+                  const val = e.target.value ? Number(e.target.value) : undefined;
+                  setSupplierId(val);
+                  if (val) setSupplierError(null);
+                }}
+                className={`w-full px-4 py-2.5 rounded-xl border bg-white text-slate-900 text-xs font-bold focus:outline-none transition-colors ${
+                  supplierError
+                    ? 'border-rose-500 ring-2 ring-rose-500/20 focus:border-rose-500'
+                    : 'border-slate-300 focus:border-orange-500'
+                }`}
               >
                 <option value="">-- Chọn Nhà Cung Cấp --</option>
                 {suppliers.map((s) => (
@@ -306,6 +321,9 @@ export function CreateImportModal({
                   </option>
                 ))}
               </select>
+              {supplierError && (
+                <p className="text-xs font-semibold text-rose-500">{supplierError}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">

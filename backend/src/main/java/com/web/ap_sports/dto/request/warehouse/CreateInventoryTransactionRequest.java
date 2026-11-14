@@ -1,6 +1,7 @@
 package com.web.ap_sports.dto.request.warehouse;
 
 import com.web.ap_sports.entity.InventoryTransaction.TransactionType;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,4 +33,13 @@ public class CreateInventoryTransactionRequest {
     private String note;
 
     private List<TransactionItemRequest> items;
+
+    /**
+     * Chỉ bắt buộc chọn Nhà cung cấp khi loại giao dịch là IMPORT (Nhập kho).
+     * Các giao dịch EXPORT / ADJUSTMENT vẫn cho phép để trống supplierId.
+     */
+    @AssertTrue(message = "Vui lòng chọn Nhà cung cấp cho phiếu nhập kho")
+    public boolean isSupplierValidForImport() {
+        return type != TransactionType.IMPORT || supplierId != null;
+    }
 }
