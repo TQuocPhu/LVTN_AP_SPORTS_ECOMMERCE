@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { demoLogisticsAuthController } from "@/controllers/demo-logistics-auth-controller";
 import { AdminLoginRequest, ApiResponse, UserResponse } from "@/types/auth";
+import { isAuthRejectionError } from "@/services/api-client";
 
 interface DemoLogisticsAuthContextType {
   user: UserResponse | null;
@@ -68,10 +69,14 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
           localStorage.removeItem("apsports_logistics_has_session");
         }
       }
-    } catch {
-      setUser(null);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem("apsports_logistics_has_session");
+    } catch (err) {
+      if (isAuthRejectionError(err)) {
+        setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem("apsports_logistics_has_session");
+        }
+      } else {
+        setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
       }
     } finally {
       if (isInitial) setLoading(false);

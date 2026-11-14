@@ -45,6 +45,14 @@ export function isApiError(err: unknown): err is ApiError {
 }
 
 /**
+ * Kiểm tra lỗi có phải do máy chủ từ chối xác thực (401 Unauthorized hoặc 403 Forbidden) hay không.
+ * Dùng để phân biệt với lỗi mạng (Failed to fetch) hoặc lỗi máy chủ tạm thời (5xx).
+ */
+export function isAuthRejectionError(err: unknown): boolean {
+  return isApiError(err) && (err.status === 401 || err.status === 403);
+}
+
+/**
  * Cấu hình tùy chọn cho apiClient wrapper
  */
 export interface ApiClientOptions extends globalThis.RequestInit {

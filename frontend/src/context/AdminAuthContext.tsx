@@ -11,6 +11,7 @@ import React, {
 import { adminAuthController } from "@/controllers/admin-auth-controller";
 import { AdminLoginRequest, ApiResponse, UserResponse } from "@/types/auth";
 import { setCookie, eraseCookie } from "@/services/api/cookies";
+import { isAuthRejectionError } from "@/services/api-client";
 
 interface AdminAuthContextType {
   user: UserResponse | null;
@@ -71,11 +72,15 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
           eraseCookie("apsports_admin_has_session");
         }
       }
-    } catch {
-      setUser(null);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem("apsports_admin_has_session");
-        eraseCookie("apsports_admin_has_session");
+    } catch (err) {
+      if (isAuthRejectionError(err)) {
+        setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem("apsports_admin_has_session");
+          eraseCookie("apsports_admin_has_session");
+        }
+      } else {
+        setError("Không thể kết nối tới máy chủ. Vui lòng kiểm tra lại kết nối và thử lại.");
       }
     } finally {
       if (isInitial) setLoading(false);

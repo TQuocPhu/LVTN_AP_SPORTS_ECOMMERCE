@@ -12,13 +12,13 @@ import { useDemoLogisticsAuth } from "@/hooks/useDemoLogisticsAuth";
  */
 export function useLogisticsDashboard() {
   const router = useRouter();
-  const { user, loading, logout } = useDemoLogisticsAuth();
+  const { user, loading, error, logout } = useDemoLogisticsAuth();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !error) {
       router.replace(`/demo/login?callbackUrl=${encodeURIComponent("/demo")}`);
     }
-  }, [loading, user, router]);
+  }, [loading, user, error, router]);
 
   const handleLogout = async () => {
     await logout();

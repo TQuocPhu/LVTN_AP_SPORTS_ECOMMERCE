@@ -17,6 +17,7 @@ import {
   ApiResponse,
 } from "@/types/auth";
 import { getCookie, setCookie, eraseCookie } from "@/services/api/cookies";
+import { isAuthRejectionError } from "@/services/api-client";
 
 /**
  * Shape của Auth Context – chia sẻ toàn app qua Provider
@@ -142,9 +143,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         clearClientSessionFlags();
       }
-    } catch {
-      setUser(null);
-      clearClientSessionFlags();
+    } catch (err) {
+      if (isAuthRejectionError(err)) {
+        setUser(null);
+        clearClientSessionFlags();
+      } else {
+        setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+      }
     } finally {
       if (isInitial) setLoading(false);
     }

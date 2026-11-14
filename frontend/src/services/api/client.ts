@@ -24,6 +24,38 @@ export const BASE_URL =
  * @param {boolean} isRetry - Tránh lặp vô tận (Infinite loop) khi retry request
  * @returns {Promise<ApiResponse<T>>} Phản hồi chuẩn hóa từ server
  */
+function clearSessionAndRedirect(currentPath: string, endpoint: string) {
+  eraseCookie("accessToken");
+  eraseCookie("refreshToken");
+  if (typeof window !== "undefined") {
+    if (currentPath.startsWith("/demo")) {
+      localStorage.removeItem("apsports_logistics_has_session");
+    } else if (currentPath.startsWith("/admin")) {
+      localStorage.removeItem("apsports_admin_has_session");
+    } else {
+      localStorage.removeItem("apsports_has_session");
+    }
+  }
+  if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
+    if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
+      window.location.href = `/demo/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+    } else if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
+      window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+    } else {
+      const isProtectedRoute = [
+        "/profile",
+        "/account",
+        "/orders",
+        "/checkout",
+        "/notifications",
+      ].some((p) => currentPath.startsWith(p));
+      if (isProtectedRoute) {
+        window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
+      }
+    }
+  }
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: ApiClientOptions = {},
@@ -127,6 +159,7 @@ export async function apiClient<T>(
   ) {
     if (!getIsRefreshing()) {
       setIsRefreshing(true);
+      let refreshSucceeded = false;
       try {
         const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
         const isDemoRoute = currentPath.startsWith("/demo");
@@ -147,83 +180,36 @@ export async function apiClient<T>(
           },
         });
         if (refreshRes.ok) {
+          refreshSucceeded = true;
           onRefreshed(true);
-          // Retry request ban đầu với HttpOnly cookie mới tự động đính kèm qua credentials: 'include'
-          const latestXsrf = getCookie("XSRF-TOKEN");
-          response = await fetch(`${BASE_URL}${endpoint}`, {
-            ...config,
-            headers: {
-              ...headers,
-              ...(requiresCsrf && latestXsrf ? { "X-XSRF-TOKEN": latestXsrf } : {}),
-            },
-          });
         } else {
           onRefreshed(false);
-          eraseCookie("accessToken");
-          eraseCookie("refreshToken");
-          if (typeof window !== "undefined") {
-            if (currentPath.startsWith("/demo")) {
-              localStorage.removeItem("apsports_logistics_has_session");
-            } else if (currentPath.startsWith("/admin")) {
-              localStorage.removeItem("apsports_admin_has_session");
-            } else {
-              localStorage.removeItem("apsports_has_session");
-            }
-          }
-          if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
-            if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
-              window.location.href = `/demo/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
-            } else if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
-              window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
-            } else {
-              const isProtectedRoute = [
-                "/profile",
-                "/account",
-                "/orders",
-                "/checkout",
-                "/notifications",
-              ].some((p) => currentPath.startsWith(p));
-              if (isProtectedRoute) {
-                window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
-              }
-            }
+          // Chỉ xóa phiên & chuyển hướng Login khi máy chủ thực sự từ chối xác thực (401/403).
+          if (refreshRes.status === 401 || refreshRes.status === 403) {
+            clearSessionAndRedirect(currentPath, endpoint);
           }
         }
       } catch {
+        // Lỗi mạng (Failed to fetch / Timeout khi Backend restart): giữ nguyên cookie & session flag.
         onRefreshed(false);
-        eraseCookie("accessToken");
-        eraseCookie("refreshToken");
-        if (typeof window !== "undefined") {
-          const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
-          if (currentPath.startsWith("/demo")) {
-            localStorage.removeItem("apsports_logistics_has_session");
-          } else if (currentPath.startsWith("/admin")) {
-            localStorage.removeItem("apsports_admin_has_session");
-          } else {
-            localStorage.removeItem("apsports_has_session");
-          }
+        if (!options.suppressErrorToast && typeof window !== "undefined") {
+          toast.error("Không thể kết nối tới máy chủ để làm mới phiên. Vui lòng thử lại.");
         }
-        if (typeof window !== "undefined" && !endpoint.includes("/auth/me")) {
-          const currentPath = window.location.pathname;
-          if (currentPath.startsWith("/demo") && currentPath !== "/demo/login") {
-            window.location.href = `/demo/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
-          } else if (currentPath.startsWith("/admin") && currentPath !== "/admin/login") {
-            window.location.href = `/admin/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
-          } else {
-            const isProtectedRoute = [
-              "/profile",
-              "/account",
-              "/orders",
-              "/checkout",
-              "/notifications",
-            ].some((p) => currentPath.startsWith(p));
-            if (isProtectedRoute) {
-              window.location.href = `/login?reason=session_expired&callbackUrl=${encodeURIComponent(currentPath)}`;
-            }
-          }
-        }
+        throw new ApiError("Không thể kết nối tới máy chủ Backend.", 0);
       } finally {
         setIsRefreshing(false);
+      }
+
+      if (refreshSucceeded) {
+        // Retry request ban đầu nằm ngoài khối try/catch của refresh để lỗi mạng lúc retry không bị hiểu nhầm là hết phiên
+        const latestXsrf = getCookie("XSRF-TOKEN");
+        response = await fetch(`${BASE_URL}${endpoint}`, {
+          ...config,
+          headers: {
+            ...headers,
+            ...(requiresCsrf && latestXsrf ? { "X-XSRF-TOKEN": latestXsrf } : {}),
+          },
+        });
       }
     } else {
       // Đợi request refresh token đang diễn ra hoàn thành
