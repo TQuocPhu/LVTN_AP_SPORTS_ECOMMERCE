@@ -75,17 +75,17 @@ export function DashboardScorecards({
   // 1. GIAO DIỆN SCORECARDS DÀNH CHO ADMIN
   if (isAdmin && adminData) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_repeat(3,minmax(0,1fr))] gap-4">
         {/* Card 1: Tổng doanh thu hoàn thành */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-sky-300 transition-all flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:border-sky-300 transition-all flex flex-col justify-between min-w-0">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Doanh Thu Hoàn Tất</span>
-            <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
+            <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 shrink-0">
               <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums whitespace-nowrap">
               {formatCurrency(adminData.grossRevenue)}
             </div>
             {renderGrowthBadge(adminData.revenueGrowthPercent, 'Toàn bộ doanh thu tích lũy hệ thống')}

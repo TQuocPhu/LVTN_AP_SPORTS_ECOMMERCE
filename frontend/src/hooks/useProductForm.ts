@@ -456,6 +456,20 @@ export function useProductForm(productId?: number) {
           inboundAction,
         };
         const res = await adminProductController.createProduct(createData);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('inventory_updated'));
+          if (inboundAction === 'IMPORT_REQUEST') {
+            window.dispatchEvent(new CustomEvent('import_requests_updated'));
+          }
+          try {
+            const bc = new BroadcastChannel('apsports_inventory');
+            bc.postMessage({ type: 'INVENTORY_UPDATED' });
+            if (inboundAction === 'IMPORT_REQUEST') {
+              bc.postMessage({ type: 'IMPORT_REQUESTS_UPDATED' });
+            }
+            bc.close();
+          } catch {}
+        }
         return res;
       }
     } catch (err: any) {

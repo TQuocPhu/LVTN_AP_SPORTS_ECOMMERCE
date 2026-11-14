@@ -127,6 +127,8 @@ export function useAdminSidebar() {
       bc.onmessage = (event) => {
         if (event.data?.type === 'INVENTORY_UPDATED') {
           loadLowStockAlerts(true);
+        } else if (event.data?.type === 'IMPORT_REQUESTS_UPDATED') {
+          loadPendingImportCount(true);
         }
       };
     } catch {}
@@ -142,7 +144,7 @@ export function useAdminSidebar() {
         } catch {}
       }
     };
-  }, [user, loadWaitingSupportCount, loadPendingImportCount]);
+  }, [user, loadLowStockAlerts, loadWaitingSupportCount, loadPendingImportCount]);
 
   useEffect(() => {
     if (notifications && notifications.length > 0) {
@@ -152,16 +154,25 @@ export function useAdminSidebar() {
         latest.actionType === 'OUT_OF_STOCK' ||
         latest.actionType === 'ORDER_PLACED' ||
         latest.actionType === 'ORDER_CANCELLED_BY_CUSTOMER' ||
-        latest.actionType === 'ORDER_STATUS_CHANGED'
+        latest.actionType === 'ORDER_STATUS_CHANGED' ||
+        latest.actionType === 'IMPORT_REQUEST_APPROVED'
       ) {
         loadLowStockAlerts();
+      }
+
+      if (
+        latest.actionType === 'IMPORT_REQUEST_CREATED' ||
+        latest.actionType === 'IMPORT_REQUEST_APPROVED' ||
+        latest.actionType === 'IMPORT_REQUEST_REJECTED'
+      ) {
+        loadPendingImportCount();
       }
 
       if (latest.actionType === 'NEW_SUPPORT_REQUEST') {
         loadWaitingSupportCount();
       }
     }
-  }, [notifications, loadWaitingSupportCount]);
+  }, [notifications, loadLowStockAlerts, loadPendingImportCount, loadWaitingSupportCount]);
 
   // Mục đơn lập (Standalone)
   const dashboardItem: MenuItem = useMemo(

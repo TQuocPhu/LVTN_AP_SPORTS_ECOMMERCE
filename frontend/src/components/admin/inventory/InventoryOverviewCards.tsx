@@ -14,9 +14,9 @@ export function InventoryOverviewCards({ stats }: InventoryOverviewCardsProps) {
     : '0 ₫';
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_repeat(3,minmax(0,1fr))] gap-5">
       {/* 1. Total Inventory Value */}
-      <div className="border border-slate-200 rounded-2xl bg-white p-6 shadow-sm space-y-3.5 hover:border-orange-300 transition-colors">
+      <div className="border border-slate-200 rounded-2xl bg-white p-6 shadow-sm space-y-3.5 hover:border-orange-300 transition-colors min-w-0">
         <div className="flex items-center justify-between">
           <span className="text-sm font-extrabold text-slate-600 uppercase tracking-wide">
             Giá Trị Tồn Kho
@@ -25,7 +25,7 @@ export function InventoryOverviewCards({ stats }: InventoryOverviewCardsProps) {
             <DollarSign className="w-6 h-6 text-orange-500" />
           </div>
         </div>
-        <div className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
+        <div className="text-2xl sm:text-[28px] 2xl:text-3xl font-black text-slate-900 tracking-tight tabular-nums whitespace-nowrap">
           {formattedInventoryValue}
         </div>
         <div className="text-xs font-semibold text-slate-500">
@@ -47,7 +47,7 @@ export function InventoryOverviewCards({ stats }: InventoryOverviewCardsProps) {
           {stats?.totalInStockQuantity || 0} <span className="text-sm font-bold text-slate-400">SP</span>
         </div>
         <div className="text-xs font-semibold text-slate-500">
-          Dựa trên {stats?.totalVariantsCount || 0} mẫu biến thể
+          Dựa trên {stats?.totalVariantsCount || 0} mẫu biến thể ({stats?.totalProductsCount ?? 0} sản phẩm)
         </div>
       </div>
 

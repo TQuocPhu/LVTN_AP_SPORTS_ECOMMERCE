@@ -61,6 +61,7 @@ export interface InventoryTransaction {
 }
 
 export interface InventoryOverviewStats {
+  totalProductsCount?: number;
   totalVariantsCount: number;
   totalInStockQuantity: number;
   totalInventoryValue: number;

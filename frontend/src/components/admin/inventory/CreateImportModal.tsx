@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   ArrowDownLeft,
@@ -16,6 +16,7 @@ import {
   Trash2,
   AlertTriangle,
   ShoppingCart,
+  Loader2,
 } from 'lucide-react';
 import { Supplier, CreateInventoryTransactionRequest, LowStockItem } from '@/types/inventory';
 import { Product, ProductVariant } from '@/types/product';
@@ -71,6 +72,8 @@ export function CreateImportModal({
   const [supplierError, setSupplierError] = useState<string | null>(null);
   const [note, setNote] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  const supplierSelectRef = useRef<HTMLSelectElement>(null);
 
   // Load products when modal opens
   useEffect(() => {
@@ -226,6 +229,8 @@ export function CreateImportModal({
     e.preventDefault();
     if (!supplierId) {
       setSupplierError('Vui lòng chọn Nhà cung cấp cho phiếu nhập kho');
+      modalContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      supplierSelectRef.current?.focus({ preventScroll: true });
       return;
     }
     if (ticketItems.length === 0) return;
@@ -271,7 +276,10 @@ export function CreateImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-4xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden space-y-6 p-6 sm:p-8 max-h-[92vh] overflow-y-auto">
+      <div
+        ref={modalContentRef}
+        className="relative w-full max-w-4xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden space-y-6 p-6 sm:p-8 max-h-[92vh] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-5">
           <div className="space-y-0.5">
@@ -302,6 +310,7 @@ export function CreateImportModal({
                 <span className="text-rose-500">*</span>
               </label>
               <select
+                ref={supplierSelectRef}
                 value={supplierId || ''}
                 onChange={(e) => {
                   const val = e.target.value ? Number(e.target.value) : undefined;
@@ -626,7 +635,11 @@ export function CreateImportModal({
               disabled={submitting || ticketItems.length === 0}
               className="px-7 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 active:scale-95 disabled:opacity-50 text-white font-black text-sm uppercase tracking-wider shadow-lg shadow-orange-600/20 transition-all flex items-center gap-2"
             >
-              <ArrowDownLeft className="w-5 h-5 stroke-[3]" />
+              {submitting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ArrowDownLeft className="w-5 h-5 stroke-[3]" />
+              )}
               <span>{submitting ? 'Đang Lập Phiếu...' : `Xác Nhận Nhập Kho (${ticketItems.length} Mặt Hàng)`}</span>
             </button>
           </div>

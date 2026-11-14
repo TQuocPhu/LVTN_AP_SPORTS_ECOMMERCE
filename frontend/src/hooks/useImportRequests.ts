@@ -211,6 +211,7 @@ export function useImportRequests() {
         try {
           const bc = new BroadcastChannel('apsports_inventory');
           bc.postMessage({ type: 'INVENTORY_UPDATED' });
+          bc.postMessage({ type: 'IMPORT_REQUESTS_UPDATED' });
           bc.close();
         } catch {}
       }
@@ -252,6 +253,16 @@ export function useImportRequests() {
       handleCloseReject();
       if (detailModalOpen) handleCloseDetail();
       fetchRequests();
+
+      // Đồng bộ realtime số lượng chờ duyệt trên sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('import_requests_updated'));
+        try {
+          const bc = new BroadcastChannel('apsports_inventory');
+          bc.postMessage({ type: 'IMPORT_REQUESTS_UPDATED' });
+          bc.close();
+        } catch {}
+      }
     } catch (err: any) {
       console.error('Lỗi khi từ chối yêu cầu nhập kho:', err);
     } finally {

@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class InventoryOverviewStatsResponse {
+    private Long totalProductsCount;
     private Long totalVariantsCount;
     private Long totalInStockQuantity;
     private BigDecimal totalInventoryValue;

@@ -267,6 +267,11 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
     @Transactional(readOnly = true)
     public InventoryOverviewStatsResponse getOverviewStats() {
         List<ProductVariant> allVariants = variantRepository.findAll();
+        long totalProductsCount = allVariants.stream()
+                .filter(v -> v.getProduct() != null && v.getProduct().getId() != null)
+                .map(v -> v.getProduct().getId())
+                .distinct()
+                .count();
         long totalVariantsCount = allVariants.size();
         long totalInStockQuantity = allVariants.stream().mapToLong(ProductVariant::getStockQuantity).sum();
 
@@ -286,6 +291,7 @@ public class WarehouseInventoryServiceImpl implements WarehouseInventoryService 
         Long exportInPeriod = transactionRepository.sumQuantityByTypeInPeriod(TransactionType.EXPORT, startOfMonth, LocalDateTime.now());
 
         return InventoryOverviewStatsResponse.builder()
+                .totalProductsCount(totalProductsCount)
                 .totalVariantsCount(totalVariantsCount)
                 .totalInStockQuantity(totalInStockQuantity)
                 .totalInventoryValue(totalInventoryValue)

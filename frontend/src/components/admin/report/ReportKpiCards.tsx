@@ -40,18 +40,18 @@ export function ReportKpiCards({ data, loading }: ReportKpiCardsProps) {
   const discountAmount = data?.totalDiscountAmount ?? 0;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.25fr)_repeat(3,minmax(0,1fr))] gap-4">
       {/* 1. Doanh Thu Thực Nhận */}
-      <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs relative overflow-hidden group hover:border-orange-500/40 transition-all">
+      <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs relative overflow-hidden group hover:border-orange-500/40 transition-all min-w-0">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
             Doanh Thu Hoàn Tất
           </span>
-          <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shrink-0">
             <TrendingUp className="w-5 h-5" />
           </div>
         </div>
-        <div className="text-2xl font-black text-slate-900 tracking-tight">
+        <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums whitespace-nowrap">
           {formatCurrency(deliveredRevenue)}
         </div>
         <div className="mt-2 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2">
