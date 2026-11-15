@@ -137,6 +137,31 @@ export function CustomerOrderTrackingContentUI({
         )}
       </div>
 
+      {/* Pending VNPay Payment Banner with Retry Button (khi khách đóng tab giữa chừng trong 15 phút) */}
+      {order.status?.toLowerCase() === 'pending' &&
+        order.paymentMethod?.toUpperCase() === 'VNPAY' &&
+        order.paymentStatus?.toLowerCase() !== 'completed' && (
+          <div className="p-5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-black text-sm">Đơn hàng đang chờ thanh toán VNPay</h4>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                  Vui lòng hoàn tất thanh toán trong vòng 15 phút kể từ lúc đặt đơn. Nếu quá hạn chưa thanh toán, hệ thống sẽ tự động hoàn lại tồn kho.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleRetryVNPay}
+              disabled={retryingVNPay}
+              className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-md transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              {retryingVNPay ? 'Đang Khởi Tạo VNPay...' : 'Thanh Toán Lại Bằng VNPay'}
+            </button>
+          </div>
+        )}
+
       {/* Payment Failed Banner with Retry Button */}
       {order.status?.toLowerCase() === 'payment_failed' && (
         <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
@@ -198,7 +223,10 @@ export function CustomerOrderTrackingContentUI({
         </div>
       </div>
 
-      {/* Interactive Logistics Leaflet Map */}
+      {/* Interactive Logistics Leaflet Map (chỉ hiển thị từ lúc đã duyệt tới hoàn thành) */}
+      {['confirmed', 'processing', 'shipped', 'shipping', 'delivered', 'completed'].includes(
+        order.status?.toLowerCase() || ''
+      ) && (
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 font-black uppercase text-xs text-slate-900">
@@ -229,6 +257,7 @@ export function CustomerOrderTrackingContentUI({
           height="380px"
         />
       </div>
+      )}
 
       {/* Main Grid: Customer & Delivery Address + Financial Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

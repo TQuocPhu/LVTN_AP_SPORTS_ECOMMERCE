@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { customerOrderController } from '../controllers/customer-order-controller';
 import { Order } from '../types';
+import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
 
 export const useOrderDetail = (orderIdentifier: string) => {
   const [order, setOrder] = useState<Order | null>(null);
@@ -24,6 +25,24 @@ export const useOrderDetail = (orderIdentifier: string) => {
   useEffect(() => {
     fetchOrderDetail();
   }, [fetchOrderDetail]);
+
+  // Lắng nghe WebSocket /topic/orders để tự động cập nhật chi tiết đơn hàng trên Mobile App
+  useEffect(() => {
+    if (!orderIdentifier) return;
+    const unsubscribe = subscribeOrderRealtime((event) => {
+      if (!event.orderCode || event.orderCode === orderIdentifier) {
+        customerOrderController
+          .getOrderByCode(orderIdentifier)
+          .then((res) => {
+            setOrder(res.data);
+          })
+          .catch(() => {
+            // Bỏ qua lỗi cập nhật ngầm
+          });
+      }
+    });
+    return unsubscribe;
+  }, [orderIdentifier]);
 
   const handleCompleteOrder = useCallback(() => {
     if (!order) return;

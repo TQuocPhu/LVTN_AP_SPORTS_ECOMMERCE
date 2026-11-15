@@ -59,4 +59,17 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     );
 
     Page<Order> findByProcessedByStaffIdOrderByCreatedAtDesc(Long staffId, Pageable pageable);
+
+    /**
+     * Tìm ID các đơn hàng VNPay còn ở trạng thái pending quá thời hạn thanh toán (15 phút)
+     * để Scheduler tự động chuyển sang payment_failed và hoàn trả tồn kho.
+     */
+    @Query("SELECT DISTINCT o.id FROM Order o JOIN Payment p ON p.order.id = o.id " +
+           "WHERE o.status = com.web.ap_sports.enums.OrderStatus.pending " +
+           "AND p.paymentMethod = com.web.ap_sports.entity.Payment$PaymentMethod.vnpay " +
+           "AND p.status = com.web.ap_sports.entity.Payment$PaymentStatus.pending " +
+           "AND COALESCE(o.updatedAt, o.createdAt) < :cutoffTime")
+    List<Long> findExpiredPendingVNPayOrderIds(
+            @org.springframework.data.repository.query.Param("cutoffTime") java.time.LocalDateTime cutoffTime
+    );
 }

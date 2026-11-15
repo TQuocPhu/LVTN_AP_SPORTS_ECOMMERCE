@@ -341,6 +341,21 @@ export function useWebSocket() {
             window.dispatchEvent(new CustomEvent('support_queue_updated'));
           }
         });
+
+        // 3. Kênh phát sóng trạng thái đơn hàng thời gian thực cho Khách hàng, Admin và Cổng Logistics
+        stompClient.subscribe('/topic/orders', (frame: IMessage) => {
+          if (typeof window !== 'undefined') {
+            let detail: Record<string, unknown> | null = null;
+            try {
+              if (frame.body) {
+                detail = JSON.parse(frame.body);
+              }
+            } catch {
+              // Bỏ qua nếu payload không phải JSON hợp lệ
+            }
+            window.dispatchEvent(new CustomEvent('orders_updated', { detail }));
+          }
+        });
       },
       onStompError: (frame) => {
         const errMsg = frame.headers['message'] || '';
@@ -374,7 +389,10 @@ export function useWebSocket() {
       typeof window !== 'undefined' &&
       (localStorage.getItem('apsports_admin_has_session') === 'true' ||
         document.cookie.includes('accessToken'));
-    const hasActiveSession = Boolean(user) || hasAdminSession;
+    const hasLogisticsSession =
+      typeof window !== 'undefined' &&
+      localStorage.getItem('apsports_logistics_has_session') === 'true';
+    const hasActiveSession = Boolean(user) || hasAdminSession || hasLogisticsSession;
 
     if (!hasActiveSession) {
       disconnect();
@@ -385,6 +403,11 @@ export function useWebSocket() {
 
     const checkAndConnect = async () => {
       if (clientRef.current?.active) return;
+      // Portal Logistics (GHN) không cần tải chuông thông báo cá nhân, kết nối thẳng STOMP nhận /topic/orders
+      if (hasLogisticsSession && !user && !hasAdminSession) {
+        connect();
+        return;
+      }
       const hasSession = await fetchInitialData();
       if (cancelled) return;
       if (hasSession) {
@@ -407,7 +430,8 @@ export function useWebSocket() {
     // Tự động ngắt kết nối và dọn sạch state khi đăng xuất
     const handleLogout = () => {
       const stillHasAdmin = typeof window !== 'undefined' && (localStorage.getItem('apsports_admin_has_session') === 'true' || document.cookie.includes('accessToken'));
-      if (!user && !stillHasAdmin) {
+      const stillHasLogistics = typeof window !== 'undefined' && localStorage.getItem('apsports_logistics_has_session') === 'true';
+      if (!user && !stillHasAdmin && !stillHasLogistics) {
         disconnect();
         setNotifications([]);
         setUnreadCount(0);

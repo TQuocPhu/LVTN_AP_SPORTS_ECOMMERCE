@@ -30,10 +30,16 @@ export function AdminOrderUpdateStatusModal({
   if (!isOpen || !order) return null;
 
   const currentStat = order.status?.toLowerCase() || '';
+  const isUnpaidVnPay =
+    order.paymentMethod?.toUpperCase() === 'VNPAY' &&
+    order.paymentStatus?.toLowerCase() !== 'completed';
 
   const getValidNextStatusOptions = (curr: string) => {
     switch (curr) {
       case 'pending':
+        if (isUnpaidVnPay) {
+          return [{ value: 'cancelled', label: 'Hủy Đơn Hàng (Chưa thanh toán VNPay)' }];
+        }
         return [
           { value: 'confirmed', label: '1. Xác Nhận Đơn Hàng' },
           { value: 'cancelled', label: 'Hủy Đơn Hàng' },

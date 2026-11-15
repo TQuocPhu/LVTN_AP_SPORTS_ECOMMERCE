@@ -190,6 +190,33 @@ export function useAdminOrders(): UseAdminOrdersReturn {
     };
   }, [fetchOrders]);
 
+  // Lắng nghe sự kiện WebSocket /topic/orders để tự động cập nhật danh sách, thống kê và modal chi tiết
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOrdersUpdated = async (event: Event) => {
+      const detail = (event as CustomEvent<{ orderId?: number } | null>).detail;
+      fetchOrders();
+      fetchSummary();
+      if (
+        isDetailModalOpen &&
+        selectedOrder?.id &&
+        (!detail?.orderId || detail.orderId === selectedOrder.id)
+      ) {
+        try {
+          const res = await adminOrderController.getOrderById(selectedOrder.id);
+          if (res && res.data) {
+            setSelectedOrder(res.data);
+          }
+        } catch {
+          // Bỏ qua lỗi cập nhật ngầm
+        }
+      }
+    };
+
+    window.addEventListener('orders_updated', handleOrdersUpdated);
+    return () => window.removeEventListener('orders_updated', handleOrdersUpdated);
+  }, [fetchOrders, fetchSummary, isDetailModalOpen, selectedOrder?.id]);
+
   // Filter handlers
   const handleFilterChange = (key: keyof AdminOrderFilterParams, value: any) => {
     setFilters((prev) => ({

@@ -11,7 +11,10 @@ export const demoLogisticsAuthController = {
   },
 
   async refreshToken(): Promise<ApiResponse<void>> {
-    return apiClient.post<ApiResponse<void>>('/demo/logistics/auth/refresh', {});
+    return apiClient.post<ApiResponse<void>>('/demo/logistics/auth/refresh', {}, {
+      showSuccessToast: false,
+      suppressErrorToast: true,
+    });
   },
 
   async logout(): Promise<ApiResponse<void>> {

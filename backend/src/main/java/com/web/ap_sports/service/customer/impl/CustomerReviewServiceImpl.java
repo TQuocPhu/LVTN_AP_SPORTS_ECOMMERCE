@@ -40,6 +40,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
     private final CloudinaryService cloudinaryService;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.web.ap_sports.service.common.OrderRealtimePublisher orderRealtimePublisher;
 
     @Override
     @Transactional
@@ -146,6 +147,7 @@ public class CustomerReviewServiceImpl implements CustomerReviewService {
                 if (allReviewed) {
                     order.setStatus(com.web.ap_sports.enums.OrderStatus.completed);
                     orderRepository.save(order);
+                    orderRealtimePublisher.publishOrderChanged(order);
 
                     OrderStatusHistory history = OrderStatusHistory.builder()
                             .order(order)

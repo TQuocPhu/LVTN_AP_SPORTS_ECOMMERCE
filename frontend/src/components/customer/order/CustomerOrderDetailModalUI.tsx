@@ -26,11 +26,13 @@ import { OrderResponse, OrderItem } from '@/types/order';
 import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
 import { LogisticsMapWrapper } from '@/components/common/map/LogisticsMapWrapper';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
+import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 import { OrderItemToReview } from '@/hooks/useCustomerOrderReviewModal';
 
 interface CustomerOrderDetailModalUIProps {
   isOpen: boolean;
   order: OrderResponse | null;
+  progressPercentage?: number;
   onClose: () => void;
   onOpenActionModal: (type: 'cancel' | 'return' | 'complete', order: OrderResponse) => void;
   onOpenReviewModal?: (item: OrderItemToReview) => void;
@@ -41,6 +43,7 @@ interface CustomerOrderDetailModalUIProps {
 export function CustomerOrderDetailModalUI({
   isOpen,
   order,
+  progressPercentage,
   onClose,
   onOpenActionModal,
   onOpenReviewModal,
@@ -51,12 +54,15 @@ export function CustomerOrderDetailModalUI({
 
   const currentStatus = order.status?.toLowerCase() || '';
 
-  // Calculate simulation progress percentage for customer view based on real-world timestamp
-  const simProgress = calculateRealTimeProgress(
-    order.status,
-    order.updatedAt,
-    171.9
+  // Tính tiến trình di chuyển thực tế (ưu tiên giá trị tick mỗi 2 giây từ hook)
+  const distKm = calculateOrderDistanceKm(
+    order.gpsLatitude || order.shippingAddress?.latitude,
+    order.gpsLongitude || order.shippingAddress?.longitude
   );
+  const simProgress =
+    typeof progressPercentage === 'number'
+      ? progressPercentage
+      : calculateRealTimeProgress(order.status, order.updatedAt, distKm);
 
   // Stepper helper
   const getStepIdx = (status: string) => {
@@ -205,7 +211,10 @@ export function CustomerOrderDetailModalUI({
             </div>
           </div>
 
-          {/* Logistics OSRM Road Map */}
+          {/* Logistics OSRM Road Map (chỉ hiển thị từ lúc đã duyệt tới hoàn thành) */}
+          {['confirmed', 'processing', 'shipped', 'shipping', 'delivered', 'completed'].includes(
+            order.status?.toLowerCase() || ''
+          ) && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-black uppercase text-[11px] text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -238,6 +247,7 @@ export function CustomerOrderDetailModalUI({
               height="320px"
             />
           </div>
+          )}
 
           {/* Products List */}
           <div className="space-y-3">
@@ -401,7 +411,10 @@ export function CustomerOrderDetailModalUI({
                     </span>
                   </div>
                 )}
-                {order.shipperName && (
+                {order.shipperName &&
+                  ['shipped', 'shipping', 'delivered', 'completed'].includes(
+                    order.status?.toLowerCase() || ''
+                  ) && (
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-500">Tài xế giao hàng:</span>
                     <span className="font-bold text-slate-800 dark:text-slate-200">

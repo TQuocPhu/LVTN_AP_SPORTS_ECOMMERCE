@@ -13,7 +13,6 @@ import {
 import { useDemoLogistics } from '@/hooks/useDemoLogistics';
 import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
 import { LogisticsMapWrapper } from '@/components/common/map/LogisticsMapWrapper';
-import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 
 export function ShipperAppPortalContentUI() {
   const {
@@ -22,6 +21,7 @@ export function ShipperAppPortalContentUI() {
     updatingId,
     refetch,
     handleUpdateStatus,
+    getOrderProgress,
     formatCurrency,
     formatDate,
   } = useDemoLogistics('shipping');
@@ -95,11 +95,7 @@ export function ShipperAppPortalContentUI() {
         ) : (
           <div className="space-y-6">
             {orders.map((order) => {
-              const currentProgress = calculateRealTimeProgress(
-                order.status,
-                order.updatedAt,
-                171.9
-              );
+              const currentProgress = getOrderProgress(order);
 
               return (
                 <div

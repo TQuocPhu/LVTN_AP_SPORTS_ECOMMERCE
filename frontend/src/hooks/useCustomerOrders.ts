@@ -3,6 +3,8 @@ import { OrderResponse } from '@/types/order';
 import { customerOrderController } from '@/controllers/customer-order-controller';
 import { useCart } from '@/context/CartContext';
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
+import { calculateRealTimeProgress } from '@/utils/logistics-sync';
+import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 
 export type CustomerOrderStatusTab =
   | 'ALL'
@@ -29,6 +31,7 @@ export function useCustomerOrders() {
   const [page, setPage] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
+  const [selectedOrderProgress, setSelectedOrderProgress] = useState<number>(0);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [updatingCode, setUpdatingCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -39,6 +42,32 @@ export function useCustomerOrders() {
     order: OrderResponse | null;
     reason: string;
   }>({ type: null, order: null, reason: '' });
+
+  // Cập nhật tiến trình xe giao hàng mỗi 2 giây khi đang mở modal chi tiết đơn hàng
+  useEffect(() => {
+    if (!isDetailModalOpen || !selectedOrder) {
+      setSelectedOrderProgress(0);
+      return;
+    }
+
+    const updateProgress = () => {
+      const distKm = calculateOrderDistanceKm(
+        selectedOrder.gpsLatitude || selectedOrder.shippingAddress?.latitude,
+        selectedOrder.gpsLongitude || selectedOrder.shippingAddress?.longitude
+      );
+      setSelectedOrderProgress(
+        calculateRealTimeProgress(selectedOrder.status, selectedOrder.updatedAt, distKm)
+      );
+    };
+
+    updateProgress();
+    if (selectedOrder.status?.toLowerCase() !== 'shipping') {
+      return;
+    }
+
+    const interval = setInterval(updateProgress, 2000);
+    return () => clearInterval(interval);
+  }, [isDetailModalOpen, selectedOrder]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -67,6 +96,31 @@ export function useCustomerOrders() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Lắng nghe sự kiện WebSocket /topic/orders để tự động cập nhật danh sách và modal chi tiết đơn hàng
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOrdersUpdated = async (event: Event) => {
+      const detail = (event as CustomEvent<{ orderId?: number; orderCode?: string } | null>).detail;
+      fetchOrders();
+      if (
+        isDetailModalOpen &&
+        selectedOrder?.orderCode &&
+        (!detail?.orderCode || detail.orderCode === selectedOrder.orderCode)
+      ) {
+        try {
+          const res = await customerOrderController.getOrderByCode(selectedOrder.orderCode);
+          if (res && res.data) {
+            setSelectedOrder(res.data);
+          }
+        } catch {
+          // Bỏ qua lỗi cập nhật ngầm
+        }
+      }
+    };
+    window.addEventListener('orders_updated', handleOrdersUpdated);
+    return () => window.removeEventListener('orders_updated', handleOrdersUpdated);
+  }, [fetchOrders, isDetailModalOpen, selectedOrder?.orderCode]);
 
   const handleTabChange = useCallback((tab: CustomerOrderStatusTab) => {
     setActiveTab(tab);
@@ -186,6 +240,7 @@ export function useCustomerOrders() {
       setPage(0);
     },
     refetch: fetchOrders,
+    selectedOrderProgress,
     formatCurrency,
     formatDate,
   };

@@ -31,6 +31,9 @@ export const adminAuthController = {
    * Gọi API Xoay vòng Refresh Token (Rotation) cho Admin Portal.
    */
   async refreshToken(): Promise<ApiResponse<void>> {
-    return apiClient.post<ApiResponse<void>>('/admin/auth/refresh', {});
+    return apiClient.post<ApiResponse<void>>('/admin/auth/refresh', {}, {
+      showSuccessToast: false,
+      suppressErrorToast: true,
+    });
   },
 };

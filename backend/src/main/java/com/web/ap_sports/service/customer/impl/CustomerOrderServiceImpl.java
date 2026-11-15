@@ -73,6 +73,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final EmailService emailService;
     private final ShippingAddressService shippingAddressService;
     private final GeocodingCascadeService geocodingCascadeService;
+    private final com.web.ap_sports.service.common.OrderRealtimePublisher orderRealtimePublisher;
     private final ApplicationEventPublisher eventPublisher;
     private final InventoryAlertService inventoryAlertService;
     private final com.web.ap_sports.service.common.OrderInventoryService orderInventoryService;
@@ -314,6 +315,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // 9. Lưu danh sách OrderItem & Trừ tồn kho
         List<OrderItem> orderItems = new ArrayList<>();
@@ -551,6 +553,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
             lockedOrder.setStatus(OrderStatus.pending);
             orderRepository.save(lockedOrder);
+            orderRealtimePublisher.publishOrderChanged(lockedOrder);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(lockedOrder)
@@ -584,6 +587,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
             lockedOrder.setStatus(OrderStatus.payment_failed);
             orderRepository.save(lockedOrder);
+            orderRealtimePublisher.publishOrderChanged(lockedOrder);
             
             // Tiến hành Hoàn lại Tồn kho và Giỏ hàng thông qua InventoryService (có cờ tránh lặp)
             orderInventoryService.releaseOrderResources(lockedOrder, true);
@@ -720,6 +724,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
             lockedOrder.setStatus(OrderStatus.pending);
             orderRepository.save(lockedOrder);
+            orderRealtimePublisher.publishOrderChanged(lockedOrder);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(lockedOrder)
@@ -751,6 +756,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
             lockedOrder.setStatus(OrderStatus.payment_failed);
             orderRepository.save(lockedOrder);
+            orderRealtimePublisher.publishOrderChanged(lockedOrder);
 
             orderInventoryService.releaseOrderResources(lockedOrder, true);
 
@@ -799,6 +805,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             orderInventoryService.reDeductOrderStock(lockedOrder);
             lockedOrder.setStatus(OrderStatus.pending);
             orderRepository.save(lockedOrder);
+            orderRealtimePublisher.publishOrderChanged(lockedOrder);
         }
 
 
@@ -876,9 +883,12 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         Order lockedOrder = orderRepository.findByOrderCodeAndUserIdForUpdate(orderCode, user.getId())
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng #" + orderCode, HttpStatus.NOT_FOUND));
 
-        // Khách hàng chỉ được phép hủy đơn khi đơn CHƯA bàn giao bưu cục GHN (pending, confirmed, processing)
+        // Khách hàng chỉ được phép hủy đơn khi đơn CHƯA bàn giao bưu cục GHN (pending, confirmed, processing, payment_failed)
         if (lockedOrder.getStatus() == OrderStatus.shipped || lockedOrder.getStatus() == OrderStatus.shipping || lockedOrder.getStatus() == OrderStatus.delivered) {
             throw new AppException("Đơn hàng đã bàn giao bưu cục GHN / đang vận chuyển, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);
+        }
+        if (lockedOrder.getStatus() == OrderStatus.completed || lockedOrder.getStatus() == OrderStatus.returned) {
+            throw new AppException("Đơn hàng đã hoàn tất hoặc đã trả hàng, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);
         }
         if (lockedOrder.getStatus() == OrderStatus.cancelled) {
             throw new AppException("Đơn hàng này đã bị hủy từ trước.", HttpStatus.BAD_REQUEST);
@@ -886,6 +896,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         lockedOrder.setStatus(OrderStatus.cancelled);
         Order savedOrder = orderRepository.save(lockedOrder);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // Hoàn lại tồn kho sản phẩm (Không khôi phục giỏ hàng khi khách chủ động hủy)
         orderInventoryService.releaseOrderResources(savedOrder, false);
@@ -956,6 +967,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         order.setStatus(OrderStatus.returned);
         Order savedOrder = orderRepository.save(order);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // Ghi vết lịch sử
         String noteMsg = "Khách hàng gửi yêu cầu Trả Hàng / Hoàn Tiền. " + (reason != null && !reason.isBlank() ? "Lý do: " + reason : "");
@@ -1000,6 +1012,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
         lockedOrder.setStatus(OrderStatus.completed);
         Order savedOrder = orderRepository.save(lockedOrder);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // Ghi vết lịch sử chuyển đổi trạng thái
         OrderStatusHistory history = OrderStatusHistory.builder()
@@ -1031,6 +1044,42 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
 
 
+
+    @Override
+    @Transactional
+    public void expirePendingVNPayOrder(Long orderId) {
+        Order lockedOrder = orderRepository.findByIdForUpdate(orderId).orElse(null);
+        if (lockedOrder == null || lockedOrder.getStatus() != OrderStatus.pending) {
+            return;
+        }
+
+        Payment payment = paymentRepository.findByOrderId(lockedOrder.getId()).orElse(null);
+        if (payment == null
+                || payment.getPaymentMethod() != Payment.PaymentMethod.vnpay
+                || payment.getStatus() != Payment.PaymentStatus.pending) {
+            return;
+        }
+
+        lockedOrder.setStatus(OrderStatus.payment_failed);
+        orderRepository.save(lockedOrder);
+        orderRealtimePublisher.publishOrderChanged(lockedOrder);
+
+        payment.setStatus(Payment.PaymentStatus.failed);
+        paymentRepository.save(payment);
+
+        // Hoàn trả tồn kho đã tạm giữ khi khách tạo đơn nhưng quá 15 phút chưa thanh toán
+        orderInventoryService.releaseOrderResources(lockedOrder, false);
+
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .order(lockedOrder)
+                .status(OrderStatus.payment_failed.getValue())
+                .note("Đơn hàng VNPay quá hạn thanh toán (15 phút). Hệ thống tự động chuyển sang thanh toán thất bại và hoàn lại tồn kho.")
+                .changedBy(lockedOrder.getUser())
+                .build();
+        orderStatusHistoryRepository.save(history);
+
+        log.info("Đã tự động hết hạn đơn VNPay #{} sau 15 phút chờ thanh toán và hoàn trả tồn kho.", lockedOrder.getOrderCode());
+    }
 
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)

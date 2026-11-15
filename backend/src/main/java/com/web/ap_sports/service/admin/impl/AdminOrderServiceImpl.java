@@ -40,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.ApplicationEventPublisher;
 import com.web.ap_sports.event.OrderStatusChangedEvent;
 import com.web.ap_sports.service.common.InventoryAlertService;
+import com.web.ap_sports.service.common.OrderRealtimePublisher;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,9 +57,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AdminOrderServiceImpl implements AdminOrderService {
 
-    private static final String DEFAULT_SHIPPER_NAME = "Nguyễn Văn Nam (Shipper GHN Express)";
-    private static final String DEFAULT_SHIPPER_PHONE = "0988 776 655";
-
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
@@ -66,6 +64,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
     private final ProductImageRepository productImageRepository;
+    private final OrderRealtimePublisher orderRealtimePublisher;
     private final UserRepository userRepository;
     private final CouponRepository couponRepository;
     private final com.web.ap_sports.service.common.EmailService emailService;
@@ -150,10 +149,14 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             throw new AppException("Đơn hàng phải ở trạng thái [Chờ Duyệt - pending] mới có thể xác nhận đơn.", HttpStatus.BAD_REQUEST);
         }
 
+        // Chặn tuyệt đối việc duyệt đơn VNPay khi khách chưa hoàn tất thanh toán
+        validateVnPayPaidBeforeConfirm(order);
+
         // Chỉ cập nhật trạng thái ĐƠN HÀNG → confirmed.
         order.setStatus(OrderStatus.confirmed);
         order.setProcessedByStaff(staff);
         Order savedOrder = orderRepository.save(order);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         OrderStatusHistory history = OrderStatusHistory.builder()
                 .order(savedOrder)
@@ -187,6 +190,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
 
         // Kiểm tra ràng buộc chuyển trạng thái nghiêm ngặt (Strict State Machine)
+        if (newStatus == OrderStatus.confirmed) {
+            if (order.getStatus() != OrderStatus.pending) {
+                throw new AppException("Đơn hàng phải ở trạng thái [Chờ Duyệt - pending] mới có thể xác nhận đơn.", HttpStatus.BAD_REQUEST);
+            }
+            validateVnPayPaidBeforeConfirm(order);
+        }
         if (newStatus == OrderStatus.processing) {
             if (order.getStatus() != OrderStatus.confirmed) {
                 throw new AppException("Đơn hàng phải ở trạng thái [Đã Duyệt - confirmed] mới có thể xuất kho AP Sports!", HttpStatus.BAD_REQUEST);
@@ -218,6 +227,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
         order.setStatus(newStatus);
         Order savedOrder = orderRepository.save(order);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // Quy tắc cập nhật trạng thái THANH TOÁN:
         // - Chỉ cập nhật payment status khi đơn hàng đến trạng thái 'delivered' (đã giao thành công).
@@ -285,6 +295,7 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         // Bảo toàn nhân viên bán hàng đã phụ trách trước đó (nếu có), không ghi đè bởi người bấm hủy.
         // Người thực hiện thao tác hủy đã được ghi nhận đầy đủ vào OrderStatusHistory.changedBy
         Order savedOrder = orderRepository.save(lockedOrder);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // Hoàn trả tồn kho cho Product và Variant
         orderInventoryService.releaseOrderResources(savedOrder, false);
@@ -427,6 +438,22 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         }
     }
 
+    /**
+     * Kiểm tra điều kiện thanh toán trước khi cho phép Admin/Staff duyệt đơn:
+     * Nếu đơn sử dụng VNPay thì bắt buộc giao dịch thanh toán phải ở trạng thái completed.
+     */
+    private void validateVnPayPaidBeforeConfirm(Order order) {
+        paymentRepository.findByOrderId(order.getId()).ifPresent(payment -> {
+            if (payment.getPaymentMethod() == Payment.PaymentMethod.vnpay
+                    && payment.getStatus() != Payment.PaymentStatus.completed) {
+                throw new AppException(
+                        "Đơn hàng #" + order.getOrderCode() + " thanh toán qua VNPay chưa hoàn tất thanh toán, không thể xác nhận duyệt đơn.",
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+        });
+    }
+
     private User getUserByEmail(String email) {
         if (email == null || email.isBlank()) {
             throw new AppException("Email người thao tác không hợp lệ (null hoặc rỗng).", HttpStatus.BAD_REQUEST);
@@ -543,8 +570,8 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         Double shipperLng = stationLng + (destLng - stationLng) * 0.6;
 
         UserResponse assignedShipperResp = null;
-        String sName = DEFAULT_SHIPPER_NAME;
-        String sPhone = DEFAULT_SHIPPER_PHONE;
+        String sName = null;
+        String sPhone = null;
         if (order.getAssignedShipper() != null) {
             User ash = order.getAssignedShipper();
             sName = ash.getName();

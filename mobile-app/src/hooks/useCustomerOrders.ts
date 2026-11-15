@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { customerOrderController } from '../controllers/customer-order-controller';
 import { Order, OrderStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
 
 export interface StatusTab {
   key: string;
@@ -60,6 +61,15 @@ export const useCustomerOrders = () => {
       setLoading(false);
     }
   }, [fetchOrders, isAuthenticated]);
+
+  // Lắng nghe WebSocket /topic/orders để tự động cập nhật danh sách đơn hàng trên Mobile App
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const unsubscribe = subscribeOrderRealtime(() => {
+      fetchOrders();
+    });
+    return unsubscribe;
+  }, [isAuthenticated, fetchOrders]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

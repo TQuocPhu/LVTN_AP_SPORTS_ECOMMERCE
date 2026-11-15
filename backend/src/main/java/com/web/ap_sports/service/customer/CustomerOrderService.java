@@ -19,4 +19,10 @@ public interface CustomerOrderService {
     OrderResponse cancelMyOrder(String email, String orderCode, String reason);
     OrderResponse returnMyOrder(String email, String orderCode, String reason);
     OrderResponse completeMyOrder(String email, String orderCode);
+
+    /**
+     * Tự động xử lý đơn hàng VNPay quá hạn thanh toán (15 phút):
+     * chuyển sang payment_failed, đánh dấu payment failed và hoàn lại tồn kho.
+     */
+    void expirePendingVNPayOrder(Long orderId);
 }

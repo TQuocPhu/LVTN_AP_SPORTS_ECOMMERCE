@@ -217,9 +217,19 @@ export function AdminOrderTable({
               </tr>
             ) : (
               orders.map((order) => {
-                const isPending = order.status?.toLowerCase() === 'pending';
-                const isDelivered = order.status?.toLowerCase() === 'delivered';
-                const isCancelled = order.status?.toLowerCase() === 'cancelled';
+                const statusLower = order.status?.toLowerCase() || '';
+                const isPending = statusLower === 'pending';
+                const isDelivered = statusLower === 'delivered';
+                const isCancelled = statusLower === 'cancelled';
+                const isTerminal =
+                  isCancelled ||
+                  isDelivered ||
+                  statusLower === 'completed' ||
+                  statusLower === 'returned';
+                const isPaymentFailed = statusLower === 'payment_failed';
+                const isUnpaidVnPay =
+                  order.paymentMethod?.toUpperCase() === 'VNPAY' &&
+                  order.paymentStatus?.toLowerCase() !== 'completed';
 
                 return (
                   <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
@@ -288,15 +298,24 @@ export function AdminOrderTable({
                         {isPending && (
                           <button
                             type="button"
-                            onClick={() => onConfirmOrder(order.id)}
-                            title="Xác nhận đơn hàng (chỉ đổi trạng thái đơn, không đổi thanh toán)"
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                            disabled={isUnpaidVnPay}
+                            onClick={() => !isUnpaidVnPay && onConfirmOrder(order.id)}
+                            title={
+                              isUnpaidVnPay
+                                ? 'Đơn VNPay chưa hoàn tất thanh toán, chưa thể duyệt đơn'
+                                : 'Xác nhận đơn hàng (chỉ đổi trạng thái đơn, không đổi thanh toán)'
+                            }
+                            className={`p-1.5 rounded-lg transition-all ${
+                              isUnpaidVnPay
+                                ? 'text-slate-300 cursor-not-allowed'
+                                : 'text-emerald-600 hover:bg-emerald-50 cursor-pointer'
+                            }`}
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
                         )}
 
-                        {!isCancelled && !isDelivered && (
+                        {!isTerminal && !isPaymentFailed && !(isPending && isUnpaidVnPay) && (
                           <button
                             type="button"
                             onClick={() => onOpenUpdateStatus(order)}
@@ -307,7 +326,7 @@ export function AdminOrderTable({
                           </button>
                         )}
 
-                        {!isCancelled && !isDelivered && (
+                        {!isTerminal && (
                           <button
                             type="button"
                             onClick={() => onOpenCancel(order)}

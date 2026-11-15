@@ -45,6 +45,19 @@ export function useCustomerOrderTracking(orderCode: string) {
     fetchOrder();
   }, [fetchOrder]);
 
+  // Lắng nghe sự kiện WebSocket /topic/orders để tự động cập nhật trạng thái đơn hàng theo thời gian thực
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOrdersUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<{ orderCode?: string } | null>).detail;
+      if (!detail?.orderCode || detail.orderCode === orderCode) {
+        fetchOrder();
+      }
+    };
+    window.addEventListener('orders_updated', handleOrdersUpdated);
+    return () => window.removeEventListener('orders_updated', handleOrdersUpdated);
+  }, [orderCode, fetchOrder]);
+
   // Auto tick real-time progress every 2 seconds for smooth live map movement
   useEffect(() => {
     if (!order) return;

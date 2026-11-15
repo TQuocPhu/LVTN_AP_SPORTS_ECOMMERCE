@@ -251,7 +251,10 @@ export function AdminOrderDetailModal({
                 </div>
               </div>
 
-              {/* Interactive Logistics Leaflet Map */}
+              {/* Interactive Logistics Leaflet Map (chỉ hiển thị từ lúc đã duyệt tới hoàn thành) */}
+              {['confirmed', 'processing', 'shipped', 'shipping', 'delivered', 'completed'].includes(
+                currentOrder.status?.toLowerCase() || ''
+              ) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-black uppercase text-[11px] text-slate-900">
@@ -284,6 +287,7 @@ export function AdminOrderDetailModal({
                   height="340px"
                 />
               </div>
+              )}
 
               {/* Customer Account & Payment Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -317,17 +321,21 @@ export function AdminOrderDetailModal({
                         {currentOrder.processedByStaff?.name || 'Chưa phân công'}
                       </span>
                     </p>
-                    <p>
-                      Tài xế giao hàng (GHN):{' '}
-                      <span className="font-semibold text-slate-800">
-                        {currentOrder.assignedShipper?.name || currentOrder.shipperName || 'Đang điều phối'}
-                        {(currentOrder.assignedShipper?.phoneNumber || currentOrder.shipperPhone) && (
-                          <span className="text-slate-500 font-normal ml-1">
-                            ({currentOrder.assignedShipper?.phoneNumber || currentOrder.shipperPhone})
-                          </span>
-                        )}
-                      </span>
-                    </p>
+                    {['shipped', 'shipping', 'delivered', 'completed'].includes(
+                      currentOrder.status?.toLowerCase() || ''
+                    ) && (
+                      <p>
+                        Tài xế giao hàng (GHN):{' '}
+                        <span className="font-semibold text-slate-800">
+                          {currentOrder.assignedShipper?.name || currentOrder.shipperName || 'Đang điều phối'}
+                          {(currentOrder.assignedShipper?.phoneNumber || currentOrder.shipperPhone) && (
+                            <span className="text-slate-500 font-normal ml-1">
+                              ({currentOrder.assignedShipper?.phoneNumber || currentOrder.shipperPhone})
+                            </span>
+                          )}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -52,6 +52,7 @@ export function CustomerOrdersContentUI() {
     totalPages,
     setPage,
     selectedOrder,
+    selectedOrderProgress,
     isDetailModalOpen,
     updatingCode,
     toastMessage,
@@ -467,7 +468,7 @@ export function CustomerOrdersContentUI() {
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>Xem Chi Tiết & Định Vị Bản Đồ</span>
+                        <span>Xem Chi Tiết</span>
                       </button>
 
                       {isCancelable && (
@@ -542,6 +543,7 @@ export function CustomerOrdersContentUI() {
         <CustomerOrderDetailModalUI
           isOpen={isDetailModalOpen}
           order={selectedOrder}
+          progressPercentage={selectedOrderProgress}
           onClose={handleCloseDetailModal}
           onOpenActionModal={handleOpenActionModal}
           onOpenReviewModal={openReviewModal}

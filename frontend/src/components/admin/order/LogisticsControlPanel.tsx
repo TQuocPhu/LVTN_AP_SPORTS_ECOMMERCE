@@ -10,6 +10,7 @@ import {
   Scan,
   AlertCircle,
   Check,
+  Clock,
 } from 'lucide-react';
 import { OrderStatus } from '@/types/order';
 import { AdminOrderDetail } from '@/types/admin-order';
@@ -86,20 +87,33 @@ export function LogisticsControlPanel({
       {/* State Machine Action Buttons */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Action 1: Confirm Order (Only for pending) */}
-          {isPending && (
-            <button
-              type="button"
-              disabled={updating}
-              onClick={() =>
-                onUpdateStatus('confirmed', 'Nhân viên AP Sports đã xác nhận đơn hàng')
-              }
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{updating ? 'Đang Xử Lý...' : 'Xác Nhận Đơn Hàng'}</span>
-            </button>
-          )}
+          {/* Action 1: Confirm Order (Only for pending, chặn nếu là VNPay chưa thanh toán) */}
+          {isPending && (() => {
+            const isUnpaidVnPay =
+              order?.paymentMethod?.toUpperCase() === 'VNPAY' &&
+              order?.paymentStatus?.toLowerCase() !== 'completed';
+            if (isUnpaidVnPay) {
+              return (
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Chờ khách thanh toán VNPay (chưa thể duyệt)</span>
+                </div>
+              );
+            }
+            return (
+              <button
+                type="button"
+                disabled={updating}
+                onClick={() =>
+                  onUpdateStatus('confirmed', 'Nhân viên AP Sports đã xác nhận đơn hàng')
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{updating ? 'Đang Xử Lý...' : 'Xác Nhận Đơn Hàng'}</span>
+              </button>
+            );
+          })()}
 
           {/* Trạng thái đã đóng gói niêm phong */}
           {isPackVerified && (

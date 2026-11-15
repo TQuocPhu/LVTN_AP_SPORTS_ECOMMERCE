@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { demoLogisticsController } from '@/controllers/demo-logistics-controller';
 import { AdminOrderDetail } from '@/types/admin-order';
+import { calculateRealTimeProgress } from '@/utils/logistics-sync';
+import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 
 export function useDemoLogistics(targetStatus: string) {
   const [orders, setOrders] = useState<AdminOrderDetail[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bộ đếm tick mỗi 2 giây để đồng bộ tiến độ xe chạy theo thời gian thực trên Portal Giao Hàng
+  const [, setProgressTick] = useState<number>(0);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -67,6 +71,40 @@ export function useDemoLogistics(targetStatus: string) {
     });
   }, []);
 
+  // Tự động cập nhật tiến độ xe di chuyển mỗi 2 giây khi đang ở màn hình giao hàng (shipping)
+  useEffect(() => {
+    if (targetStatus !== 'shipping' || orders.length === 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setProgressTick((prev) => prev + 1);
+    }, 2000);
+
+    return () => clearInterval(timer);
+  }, [targetStatus, orders.length]);
+
+  // Lắng nghe sự kiện WebSocket /topic/orders để tự động đồng bộ danh sách đơn trên Cổng Logistics
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOrdersUpdated = () => {
+      fetchOrders();
+    };
+    window.addEventListener('orders_updated', handleOrdersUpdated);
+    return () => window.removeEventListener('orders_updated', handleOrdersUpdated);
+  }, [fetchOrders]);
+
+  /**
+   * Tính toán phần trăm tiến độ di chuyển thực tế của một đơn hàng dựa trên tọa độ thật
+   */
+  const getOrderProgress = useCallback((order: AdminOrderDetail): number => {
+    const distKm = calculateOrderDistanceKm(
+      order.gpsLatitude || order.shippingAddress?.latitude,
+      order.gpsLongitude || order.shippingAddress?.longitude
+    );
+    return calculateRealTimeProgress(order.status, order.updatedAt, distKm);
+  }, []);
+
   return {
     orders,
     loading,
@@ -74,6 +112,7 @@ export function useDemoLogistics(targetStatus: string) {
     error,
     refetch: fetchOrders,
     handleUpdateStatus,
+    getOrderProgress,
     formatCurrency,
     formatDate,
   };

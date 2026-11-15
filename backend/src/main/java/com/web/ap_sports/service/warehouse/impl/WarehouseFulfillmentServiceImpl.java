@@ -10,6 +10,7 @@ import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
 import com.web.ap_sports.service.admin.AdminOrderService;
 import com.web.ap_sports.service.common.NotificationService;
+import com.web.ap_sports.service.common.OrderRealtimePublisher;
 import com.web.ap_sports.service.warehouse.WarehouseFulfillmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class WarehouseFulfillmentServiceImpl implements WarehouseFulfillmentServ
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final OrderRealtimePublisher orderRealtimePublisher;
 
     @Override
     @Transactional
@@ -104,6 +106,7 @@ public class WarehouseFulfillmentServiceImpl implements WarehouseFulfillmentServ
         order.setPackedBy(staff);
         order.setPackedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
+        orderRealtimePublisher.publishOrderChanged(savedOrder);
 
         // Tự động ghi nhận phiếu xuất kho (Inventory Transaction EXPORT) vào Nhật ký giao dịch kho
         String exportTicketCode = "PXK-DH-" + savedOrder.getOrderCode();

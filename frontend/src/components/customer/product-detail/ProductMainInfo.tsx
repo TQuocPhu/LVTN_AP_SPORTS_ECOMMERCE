@@ -132,7 +132,7 @@ export function ProductMainInfo({
         </div>
         <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
           <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-          <span>Miễn phí giao hàng tại Việt Nam & Đổi trả trong 7 ngày</span>
+          <span>Đổi trả trong 7 ngày</span>
         </div>
       </div>
 
