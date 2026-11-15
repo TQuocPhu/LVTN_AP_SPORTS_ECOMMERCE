@@ -1,5 +1,5 @@
 import { apiClient, ApiResponse } from '@/services/api-client';
-import { AdminOrderDetail, UpdateOrderStatusPayload } from '@/types/admin-order';
+import { AdminOrderDetail, DemoShipperOption, UpdateOrderStatusPayload } from '@/types/admin-order';
 import { PageResponse } from '@/types/voucher';
 
 /**
@@ -26,6 +26,15 @@ export const demoLogisticsController = {
   async updateOrderStatus(id: number, payload: UpdateOrderStatusPayload): Promise<ApiResponse<AdminOrderDetail>> {
     return apiClient.put<ApiResponse<AdminOrderDetail>>(`/demo/logistics/orders/${id}/status`, payload, {
       showSuccessToast: true,
+    });
+  },
+
+  /**
+   * Lấy danh sách tài xế giao hàng (GHN_SHIPPER) đang hoạt động để phân công ở Portal 2
+   */
+  async getAvailableShippers(): Promise<ApiResponse<DemoShipperOption[]>> {
+    return apiClient.get<ApiResponse<DemoShipperOption[]>>('/demo/logistics/shippers', {
+      suppressErrorToast: true,
     });
   },
 };

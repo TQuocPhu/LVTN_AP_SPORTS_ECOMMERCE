@@ -304,10 +304,40 @@ export function useAdminOrders(): UseAdminOrdersReturn {
     }
   };
 
-  // Update Status modal handlers
+  // Update Status modal handlers — tự động chọn trạng thái kế tiếp hợp lệ đầu tiên để tránh gửi nhầm trạng thái cũ
   const handleOpenUpdateStatusModal = (order: AdminOrderDetail) => {
+    const curr = order.status?.toLowerCase() || '';
+    const isUnpaidVnPay =
+      order.paymentMethod?.toUpperCase() === 'VNPAY' &&
+      order.paymentStatus?.toLowerCase() !== 'completed';
+
+    let defaultNextStatus = 'confirmed';
+    switch (curr) {
+      case 'pending':
+        defaultNextStatus = isUnpaidVnPay ? 'cancelled' : 'confirmed';
+        break;
+      case 'confirmed':
+        defaultNextStatus = 'processing';
+        break;
+      case 'processing':
+        defaultNextStatus = 'shipped';
+        break;
+      case 'shipped':
+        defaultNextStatus = 'shipping';
+        break;
+      case 'shipping':
+        defaultNextStatus = 'delivered';
+        break;
+      case 'delivered':
+        defaultNextStatus = 'completed';
+        break;
+      default:
+        defaultNextStatus = '';
+        break;
+    }
+
     setOrderToUpdate(order);
-    setNewStatus(order.status || 'confirmed');
+    setNewStatus(defaultNextStatus);
     setStatusNote('');
     setIsUpdateStatusModalOpen(true);
   };

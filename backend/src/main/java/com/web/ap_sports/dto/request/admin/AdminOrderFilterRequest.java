@@ -19,6 +19,7 @@ public class AdminOrderFilterRequest {
     private BigDecimal maxPrice;
     private String startDate; // yyyy-MM-dd HH:mm:ss hoặc yyyy-MM-dd
     private String endDate;
+    private Long assignedShipperId;
     @Builder.Default
     private Integer page = 0;
     @Builder.Default

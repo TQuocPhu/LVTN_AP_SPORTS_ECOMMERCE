@@ -92,6 +92,14 @@ export interface AdminOrderDetail {
 export interface UpdateOrderStatusPayload {
   status: string;
   note?: string;
+  shipperId?: number;
+}
+
+export interface DemoShipperOption {
+  id: number;
+  name: string;
+  phoneNumber?: string;
+  email?: string;
 }
 
 export interface CancelOrderPayload {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { demoLogisticsController } from '@/controllers/demo-logistics-controller';
-import { AdminOrderDetail } from '@/types/admin-order';
+import { AdminOrderDetail, DemoShipperOption } from '@/types/admin-order';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 
@@ -11,6 +11,11 @@ export function useDemoLogistics(targetStatus: string) {
   const [error, setError] = useState<string | null>(null);
   // Bộ đếm tick mỗi 2 giây để đồng bộ tiến độ xe chạy theo thời gian thực trên Portal Giao Hàng
   const [, setProgressTick] = useState<number>(0);
+  // Danh sách shipper và modal phân công shipper ở Portal 2 (shipped -> shipping)
+  const [shippers, setShippers] = useState<DemoShipperOption[]>([]);
+  const [loadingShippers, setLoadingShippers] = useState<boolean>(false);
+  const [orderToAssign, setOrderToAssign] = useState<AdminOrderDetail | null>(null);
+  const [selectedShipperId, setSelectedShipperId] = useState<number | null>(null);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -35,25 +40,77 @@ export function useDemoLogistics(targetStatus: string) {
     fetchOrders();
   }, [fetchOrders]);
 
+  // Nạp danh sách tài xế giao hàng (GHN_SHIPPER) khi ở Portal 2 (shipped)
+  const fetchShippers = useCallback(async () => {
+    if (targetStatus !== 'shipped') return;
+    setLoadingShippers(true);
+    try {
+      const res = await demoLogisticsController.getAvailableShippers();
+      if (res && res.data) {
+        setShippers(res.data);
+      }
+    } catch (err) {
+      console.error('Lỗi khi nạp danh sách tài xế giao hàng:', err);
+    } finally {
+      setLoadingShippers(false);
+    }
+  }, [targetStatus]);
+
+  useEffect(() => {
+    fetchShippers();
+  }, [fetchShippers]);
+
   const handleUpdateStatus = useCallback(
-    async (orderId: number, nextStatus: string, note?: string) => {
+    async (orderId: number, nextStatus: string, note?: string, shipperId?: number) => {
       setUpdatingId(orderId);
       try {
         const res = await demoLogisticsController.updateOrderStatus(orderId, {
           status: nextStatus,
           note: note || `Cập nhật trạng thái từ Portal Logistics sang ${nextStatus.toUpperCase()}`,
+          shipperId,
         });
         if (res && res.data) {
           await fetchOrders();
+          return true;
         }
+        return false;
       } catch (err) {
         console.error('Lỗi khi cập nhật trạng thái đơn hàng logistics:', err);
+        return false;
       } finally {
         setUpdatingId(null);
       }
     },
     [fetchOrders]
   );
+
+  const handleOpenAssignModal = useCallback(
+    (order: AdminOrderDetail) => {
+      setOrderToAssign(order);
+      setSelectedShipperId((prev) => {
+        if (prev && shippers.some((s) => s.id === prev)) return prev;
+        return shippers[0]?.id ?? null;
+      });
+    },
+    [shippers]
+  );
+
+  const handleCloseAssignModal = useCallback(() => {
+    setOrderToAssign(null);
+    setSelectedShipperId(null);
+  }, []);
+
+  const handleConfirmAssignAndShip = useCallback(async () => {
+    if (!orderToAssign || !selectedShipperId) return;
+    const assigned = shippers.find((s) => s.id === selectedShipperId);
+    const note = assigned
+      ? `Xe tải vận chuyển GHN đã xuất kho bàn giao cho tài xế ${assigned.name}${assigned.phoneNumber ? ` (${assigned.phoneNumber})` : ''} đi phát hàng`
+      : 'Xe tải vận chuyển liên tỉnh GHN đã xuất kho bàn giao cho Shipper phát hàng';
+    const ok = await handleUpdateStatus(orderToAssign.id, 'shipping', note, selectedShipperId);
+    if (ok) {
+      handleCloseAssignModal();
+    }
+  }, [orderToAssign, selectedShipperId, shippers, handleUpdateStatus, handleCloseAssignModal]);
 
   const formatCurrency = useCallback((val?: number) => {
     if (val === undefined || val === null) return '0 ₫';
@@ -113,6 +170,14 @@ export function useDemoLogistics(targetStatus: string) {
     refetch: fetchOrders,
     handleUpdateStatus,
     getOrderProgress,
+    shippers,
+    loadingShippers,
+    orderToAssign,
+    selectedShipperId,
+    setSelectedShipperId,
+    handleOpenAssignModal,
+    handleCloseAssignModal,
+    handleConfirmAssignAndShip,
     formatCurrency,
     formatDate,
   };

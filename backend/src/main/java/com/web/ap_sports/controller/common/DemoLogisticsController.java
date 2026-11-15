@@ -5,7 +5,9 @@ import com.web.ap_sports.dto.request.admin.UpdateOrderStatusRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
 import com.web.ap_sports.dto.response.admin.AdminOrderDetailResponse;
 import com.web.ap_sports.dto.response.admin.OrderStatusHistoryResponse;
+import com.web.ap_sports.entity.User;
 import com.web.ap_sports.exception.AppException;
+import com.web.ap_sports.repository.UserRepository;
 import com.web.ap_sports.service.admin.AdminOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -48,6 +53,27 @@ public class DemoLogisticsController {
     private static final Set<String> VIEWABLE_STATUSES = Set.of("processing", "shipped", "shipping", "delivered");
 
     private final AdminOrderService adminOrderService;
+    private final UserRepository userRepository;
+
+    /**
+     * Lấy danh sách tài xế giao hàng (GHN_SHIPPER) đang hoạt động để điều phối ở Portal 2
+     */
+    @GetMapping("/shippers")
+    @PreAuthorize("hasRole('GHN_STATION')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAvailableShippers() {
+        List<Map<String, Object>> shippers = userRepository.findActiveUsersByRoles(List.of("GHN_SHIPPER"))
+                .stream()
+                .map(u -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", u.getId());
+                    item.put("name", u.getName());
+                    item.put("phoneNumber", u.getPhoneNumber());
+                    item.put("email", u.getEmail());
+                    return item;
+                })
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tài xế giao hàng thành công!", shippers));
+    }
 
     /**
      * Lấy danh sách đơn hàng mô phỏng theo trạng thái vận chuyển (processing, shipped, shipping, delivered)
@@ -85,6 +111,13 @@ public class DemoLogisticsController {
         filterRequest.setSize(Math.min(MAX_PAGE_SIZE, Math.max(1, size)));
         filterRequest.setSortBy("createdAt");
         filterRequest.setSortDir("DESC");
+
+        // Portal 3 (GHN_SHIPPER): Chỉ hiển thị các đơn hàng được phân công cho chính tài xế đang đăng nhập
+        if ("shipping".equals(normalizedStatus) && isShipper) {
+            User currentShipper = userRepository.findByEmail(authentication.getName())
+                    .orElseThrow(() -> new AppException("Không tìm thấy thông tin tài xế đang đăng nhập.", HttpStatus.UNAUTHORIZED));
+            filterRequest.setAssignedShipperId(currentShipper.getId());
+        }
 
         Page<AdminOrderDetailResponse> response = adminOrderService.getAdminOrders(filterRequest).map(this::maskSensitiveData);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng mô phỏng logistics thành công!", response));

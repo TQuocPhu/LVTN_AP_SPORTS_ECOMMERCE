@@ -111,6 +111,15 @@ export function ShipperAppPortalContentUI() {
                       <span className="block text-[10px] text-slate-400">
                         Thời gian nhận: {formatDate(order.createdAt)}
                       </span>
+                      {(order.assignedShipper?.name || order.shipperName) && (
+                        <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded bg-emerald-950/70 text-emerald-300 border border-emerald-800/70 text-[10px] font-bold">
+                          <Truck className="w-3 h-3" />
+                          Tài xế: {order.assignedShipper?.name || order.shipperName}
+                          {(order.assignedShipper?.phoneNumber || order.shipperPhone)
+                            ? ` (${order.assignedShipper?.phoneNumber || order.shipperPhone})`
+                            : ''}
+                        </span>
+                      )}
                     </div>
                     <span className="px-2.5 py-1 rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800/80 font-mono text-[11px] font-bold">
                       Vận đơn: {order.trackingCode || 'GHN-SHIPPED'}

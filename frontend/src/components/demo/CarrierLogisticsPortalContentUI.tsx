@@ -10,6 +10,9 @@ import {
   CheckCircle2,
   RefreshCw,
   Navigation,
+  UserCheck,
+  Phone,
+  X,
 } from "lucide-react";
 import { useDemoLogistics } from "@/hooks/useDemoLogistics";
 
@@ -19,7 +22,14 @@ export function CarrierLogisticsPortalContentUI() {
     loading,
     updatingId,
     refetch,
-    handleUpdateStatus,
+    shippers,
+    loadingShippers,
+    orderToAssign,
+    selectedShipperId,
+    setSelectedShipperId,
+    handleOpenAssignModal,
+    handleCloseAssignModal,
+    handleConfirmAssignAndShip,
     formatCurrency,
     formatDate,
   } = useDemoLogistics("shipped");
@@ -166,20 +176,14 @@ export function CarrierLogisticsPortalContentUI() {
                         <button
                           type="button"
                           disabled={updatingId === order.id}
-                          onClick={() =>
-                            handleUpdateStatus(
-                              order.id,
-                              "shipping",
-                              "Xe tải vận chuyển liên tỉnh GHN đã xuất kho bàn giao cho Shipper phát hàng",
-                            )
-                          }
+                          onClick={() => handleOpenAssignModal(order)}
                           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
                         >
                           <Navigation className="w-4 h-4" />
                           <span>
                             {updatingId === order.id
                               ? "Đang Điều Xe..."
-                              : "Xe Tải Xuất Phát Giao Hàng (Kích Hoạt Map Shipping)"}
+                              : "Chọn Tài Xế & Xuất Phát Giao Hàng"}
                           </span>
                         </button>
                       </td>
@@ -191,6 +195,139 @@ export function CarrierLogisticsPortalContentUI() {
           )}
         </div>
       </main>
+
+      {/* Modal Phân Công Tài Xế Giao Hàng (GHN_SHIPPER) */}
+      {orderToAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-700 to-indigo-700 text-white">
+              <div className="flex items-center gap-2.5">
+                <UserCheck className="w-5 h-5" />
+                <div>
+                  <h3 className="text-sm font-black tracking-tight">
+                    Phân Công Tài Xế Giao Hàng
+                  </h3>
+                  <p className="text-[11px] text-blue-100">
+                    Đơn #{orderToAssign.orderCode} •{" "}
+                    {orderToAssign.customerName}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseAssignModal}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors cursor-pointer"
+                aria-label="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
+                <p className="font-bold text-slate-800">
+                  Địa chỉ giao:{" "}
+                  <span className="font-normal text-slate-600">
+                    {orderToAssign.shippingAddress?.address},{" "}
+                    {orderToAssign.shippingAddress?.city}
+                  </span>
+                </p>
+                <p className="font-bold text-slate-800">
+                  Giá trị đơn:{" "}
+                  <span className="text-blue-700">
+                    {formatCurrency(orderToAssign.finalAmount)}
+                  </span>
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                  Chọn Tài Xế Phụ Trách (GHN_SHIPPER)
+                </label>
+
+                {loadingShippers ? (
+                  <div className="py-8 text-center text-xs text-slate-500">
+                    Đang tải danh sách tài xế giao hàng...
+                  </div>
+                ) : shippers.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-semibold">
+                    Chưa có tài khoản tài xế (GHN_SHIPPER) đang hoạt động trong
+                    hệ thống.
+                  </div>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                    {shippers.map((shipper) => {
+                      const isSelected = selectedShipperId === shipper.id;
+                      return (
+                        <button
+                          key={shipper.id}
+                          type="button"
+                          onClick={() => setSelectedShipperId(shipper.id)}
+                          className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                            isSelected
+                              ? "border-blue-600 bg-blue-50/80 ring-2 ring-blue-500/20"
+                              : "border-slate-200 hover:border-blue-300 bg-white"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-black text-slate-900">
+                              {shipper.name}
+                            </p>
+                            <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                              <span className="inline-flex items-center gap-1">
+                                <Phone className="w-3 h-3 text-blue-600" />
+                                {shipper.phoneNumber || "Chưa có SĐT"}
+                              </span>
+                              {shipper.email && <span>{shipper.email}</span>}
+                            </div>
+                          </div>
+                          <span
+                            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                              isSelected
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-slate-300"
+                            }`}
+                          >
+                            {isSelected && (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={handleCloseAssignModal}
+                disabled={updatingId === orderToAssign.id}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs cursor-pointer disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAssignAndShip}
+                disabled={
+                  !selectedShipperId || updatingId === orderToAssign.id
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Navigation className="w-4 h-4" />
+                <span>
+                  {updatingId === orderToAssign.id
+                    ? "Đang Xuất Bến..."
+                    : "Xác Nhận Giao Hàng & Xuất Bến"}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

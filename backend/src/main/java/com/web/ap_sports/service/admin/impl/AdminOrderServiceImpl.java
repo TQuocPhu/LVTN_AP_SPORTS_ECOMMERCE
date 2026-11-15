@@ -222,7 +222,37 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         if (order.getProcessedByStaff() == null && ("STAFF".equals(actorRole) || "ADMIN".equals(actorRole))) {
             order.setProcessedByStaff(staff);
         }
-        if ("GHN_SHIPPER".equals(actorRole)) {
+
+        // Phân công tài xế giao hàng khi chuyển sang trạng thái 'shipping'
+        if (newStatus == OrderStatus.shipping) {
+            if (request.getShipperId() != null) {
+                User assignedShipper = userRepository.findById(request.getShipperId())
+                        .orElseThrow(() -> new AppException("Không tìm thấy tài xế giao hàng ID #" + request.getShipperId(), HttpStatus.NOT_FOUND));
+                String shipperRole = assignedShipper.getRole() != null ? assignedShipper.getRole().getName() : "";
+                if (!"GHN_SHIPPER".equalsIgnoreCase(shipperRole)) {
+                    throw new AppException("Nhân viên được chọn không thuộc vai trò tài xế giao hàng (GHN_SHIPPER).", HttpStatus.BAD_REQUEST);
+                }
+                if (assignedShipper.getStatus() != com.web.ap_sports.enums.UserStatus.active) {
+                    throw new AppException("Tài xế [" + assignedShipper.getName() + "] hiện không ở trạng thái hoạt động.", HttpStatus.BAD_REQUEST);
+                }
+                order.setAssignedShipper(assignedShipper);
+            } else if ("GHN_STATION".equals(actorRole)) {
+                throw new AppException("Vui lòng chọn tài xế giao hàng (GHN_SHIPPER) trước khi xuất phát giao hàng!", HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        // Ràng buộc đúng tài xế được gán mới được xác nhận giao thành công
+        if (newStatus == OrderStatus.delivered && "GHN_SHIPPER".equals(actorRole)) {
+            if (order.getAssignedShipper() != null && !order.getAssignedShipper().getId().equals(staff.getId())) {
+                throw new AppException(
+                        "Đơn hàng này đã được phân công cho tài xế [" + order.getAssignedShipper().getName() + "]. Bạn không thể xác nhận giao thay!",
+                        HttpStatus.FORBIDDEN
+                );
+            }
+            if (order.getAssignedShipper() == null) {
+                order.setAssignedShipper(staff);
+            }
+        } else if ("GHN_SHIPPER".equals(actorRole) && order.getAssignedShipper() == null) {
             order.setAssignedShipper(staff);
         }
         order.setStatus(newStatus);
@@ -417,6 +447,11 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 if (end != null) {
                     predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), end));
                 }
+            }
+
+            // 5. Filter theo tài xế giao hàng được phân công
+            if (filter.getAssignedShipperId() != null) {
+                predicates.add(cb.equal(root.get("assignedShipper").get("id"), filter.getAssignedShipperId()));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
