@@ -18,6 +18,7 @@ public class ChatMessageResponse {
     private Long id;
     private String sender;
     private String message;
+    @com.fasterxml.jackson.annotation.JsonProperty("isRead")
     private boolean isRead;
 
     @com.fasterxml.jackson.annotation.JsonProperty("isViolation")

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   ShoppingBag,
   Search,
@@ -417,11 +418,20 @@ export function CustomerOrdersContentUI() {
                           {["delivered", "completed"].includes(
                             currentStatus,
                           ) && (
-                            item.isReviewed ? (
-                              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center gap-1 select-none">
-                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                <span>Đã đánh giá</span>
-                              </span>
+                            (item.isReviewed || (item as OrderItem & { reviewed?: boolean }).reviewed) ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold flex items-center gap-1 select-none">
+                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  <span>Đã đánh giá</span>
+                                </span>
+                                <Link
+                                  href={`/products/${item.productSlug || item.productId}`}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-[11px] font-bold flex items-center gap-1 transition-all"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Xem đánh giá</span>
+                                </Link>
+                              </div>
                             ) : (
                               <button
                                 type="button"

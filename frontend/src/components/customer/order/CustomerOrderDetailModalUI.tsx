@@ -1,8 +1,10 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   X,
+  Eye,
   ShoppingBag,
   Warehouse,
   MapPin,
@@ -338,11 +340,21 @@ export function CustomerOrderDetailModalUI({
                       </td>
                       {['delivered', 'completed'].includes(currentStatus) && (
                         <td className="py-3 px-4 text-center">
-                          {item.isReviewed ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold text-[11px] select-none">
-                              <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                              <span>Đã đánh giá</span>
-                            </span>
+                          {(item.isReviewed || (item as OrderItem & { reviewed?: boolean }).reviewed) ? (
+                            <div className="inline-flex items-center gap-1.5 flex-wrap justify-center">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-bold text-[11px] select-none">
+                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                <span>Đã đánh giá</span>
+                              </span>
+                              <Link
+                                href={`/products/${item.productSlug || item.productId}`}
+                                onClick={onClose}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-[11px] transition-all"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Xem đánh giá</span>
+                              </Link>
+                            </div>
                           ) : (
                             <button
                               type="button"

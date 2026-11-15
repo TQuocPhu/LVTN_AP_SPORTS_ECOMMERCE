@@ -1,5 +1,6 @@
 package com.web.ap_sports.dto.response.customer;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,5 +27,6 @@ public class OrderItemResponse {
     private Integer quantity;
     private BigDecimal price;
     private String image;
+    @JsonProperty("isReviewed")
     private boolean isReviewed;
 }

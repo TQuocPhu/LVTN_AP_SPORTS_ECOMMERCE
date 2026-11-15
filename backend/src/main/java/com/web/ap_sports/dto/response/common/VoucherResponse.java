@@ -1,5 +1,6 @@
 package com.web.ap_sports.dto.response.common;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.ap_sports.entity.Coupon;
 import lombok.*;
 
@@ -33,7 +34,9 @@ public class VoucherResponse {
     private LocalDateTime startsAt;
     private LocalDateTime expiresAt;
     private String status; // active, disabled, expired, scheduled
+    @JsonProperty("isActive")
     private boolean isActive;
+    @JsonProperty("isUsable")
     private boolean isUsable; // Đủ điều kiện hiển thị / sử dụng hay không
     private String displayStatus; // Trạng thái hiển thị tiếng Việt (Đang diễn ra, Sắp diễn ra, Hết hạn, Tạm dừng)
     private LocalDateTime createdAt;
