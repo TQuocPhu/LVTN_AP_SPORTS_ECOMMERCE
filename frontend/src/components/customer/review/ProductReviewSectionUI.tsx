@@ -59,7 +59,7 @@ export const ProductReviewSectionUI: React.FC<ProductReviewSectionUIProps> = ({
 
       {/* 0. AI Review Summary Card (Agent 4) */}
       <div className="pt-6">
-        <ReviewAiSummaryCard productId={productId} />
+        <ReviewAiSummaryCard productId={productId} totalReviews={total} />
       </div>
 
       {/* 1. Summary Score Card */}

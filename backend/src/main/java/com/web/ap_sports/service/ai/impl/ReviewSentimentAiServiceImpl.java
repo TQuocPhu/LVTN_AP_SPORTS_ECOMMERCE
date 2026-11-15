@@ -35,6 +35,7 @@ public class ReviewSentimentAiServiceImpl implements ReviewSentimentAiService {
     private static final long CACHE_TTL_MS = 6 * 60 * 60 * 1000L;
 
     private record CacheEntry(AiReviewSummaryResponse data, long timestamp) {}
+    private record ParsedSummaryResult(AiReviewSummaryResponse response, boolean fromAi) {}
 
     @Override
     public AiReviewSummaryResponse getReviewSummary(Long productId) {
@@ -100,12 +101,14 @@ public class ReviewSentimentAiServiceImpl implements ReviewSentimentAiService {
 
         String rawReply = geminiRestClient.generateContent(systemInstruction, userPrompt, 0.3, 1000);
 
-        AiReviewSummaryResponse response = parseReviewResponse(rawReply, productId, reviews.size(), roughRate);
+        ParsedSummaryResult parsed = parseReviewResponse(rawReply, productId, reviews.size(), roughRate);
 
-        // Lưu vào cache
-        REVIEW_CACHE.put(productId, new CacheEntry(response, System.currentTimeMillis()));
+        // Chỉ lưu vào cache khi AI trả về kết quả hợp lệ (tránh cache nhầm bản fallback khi bị 429/lỗi)
+        if (parsed.fromAi()) {
+            REVIEW_CACHE.put(productId, new CacheEntry(parsed.response(), System.currentTimeMillis()));
+        }
 
-        return response;
+        return parsed.response();
     }
 
     private AiReviewSummaryResponse buildEmptyResponse(Long productId, String msg) {
@@ -119,7 +122,7 @@ public class ReviewSentimentAiServiceImpl implements ReviewSentimentAiService {
                 .build();
     }
 
-    private AiReviewSummaryResponse parseReviewResponse(String rawReply, Long productId, int totalReviews, int fallbackRate) {
+    private ParsedSummaryResult parseReviewResponse(String rawReply, Long productId, int totalReviews, int fallbackRate) {
         try {
             String cleanedJson = rawReply.trim();
             if (cleanedJson.startsWith("```json")) {
@@ -149,7 +152,7 @@ public class ReviewSentimentAiServiceImpl implements ReviewSentimentAiService {
 
             String summary = node.path("summaryText").asText("Đa số khách hàng đều hài lòng với chất lượng và độ bền của sản phẩm.").replace("**", "").trim();
 
-            return AiReviewSummaryResponse.builder()
+            AiReviewSummaryResponse response = AiReviewSummaryResponse.builder()
                     .productId(productId)
                     .satisfactionRate(node.path("satisfactionRate").asInt(fallbackRate))
                     .totalReviewsAnalyzed(totalReviews)
@@ -157,9 +160,10 @@ public class ReviewSentimentAiServiceImpl implements ReviewSentimentAiService {
                     .negativeNotes(negList.isEmpty() ? List.of("Nên tham khảo kỹ bảng size trước khi chọn.") : negList)
                     .summaryText(summary)
                     .build();
+            return new ParsedSummaryResult(response, true);
         } catch (Exception ex) {
             log.warn("Không thể parse JSON từ phản hồi review của AI: {}", ex.getMessage());
-            return AiReviewSummaryResponse.builder()
+            AiReviewSummaryResponse fallback = AiReviewSummaryResponse.builder()
                     .productId(productId)
                     .satisfactionRate(fallbackRate)
                     .totalReviewsAnalyzed(totalReviews)
@@ -167,6 +171,7 @@ public class ReviewSentimentAiServiceImpl implements ReviewSentimentAiService {
                     .negativeNotes(List.of("Cần lưu ý chọn đúng cỡ chân."))
                     .summaryText("Sản phẩm nhận được phản hồi tích cực từ cộng đồng người mua.")
                     .build();
+            return new ParsedSummaryResult(fallback, false);
         }
     }
 }

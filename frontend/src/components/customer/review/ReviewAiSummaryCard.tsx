@@ -6,14 +6,50 @@ import { useReviewAiSummary } from '@/hooks/useReviewAiSummary';
 
 interface ReviewAiSummaryCardProps {
   productId?: number;
+  totalReviews?: number;
 }
 
 /**
  * UI Component: Thẻ Tóm tắt & Phân tích Cảm xúc Đánh giá Khách hàng bằng AI (Agent 4)
  * Tuân thủ nghiêm ngặt: Nhận dữ liệu từ hook useReviewAiSummary, không logic nội bộ.
  */
-export const ReviewAiSummaryCard: React.FC<ReviewAiSummaryCardProps> = ({ productId }) => {
-  const { summary, isLoading, error, refreshSummary } = useReviewAiSummary(productId);
+export const ReviewAiSummaryCard: React.FC<ReviewAiSummaryCardProps> = ({
+  productId,
+  totalReviews = 0,
+}) => {
+  const { summary, isLoading, error, hasRequested, refreshSummary } = useReviewAiSummary(productId);
+
+  if (totalReviews <= 0 && !summary) {
+    return null; // Không hiển thị khi sản phẩm chưa có đánh giá nào
+  }
+
+  if (!hasRequested && !summary && !isLoading) {
+    return (
+      <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-indigo-50/80 via-purple-50/40 to-slate-50 dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-slate-900 border border-indigo-200/70 dark:border-indigo-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <span className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </span>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Tóm Tắt Đánh Giá Bởi AI
+            </h4>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Tổng hợp nhanh điểm cộng &amp; lưu ý thực tế từ {totalReviews} đánh giá của khách hàng
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={refreshSummary}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold shadow-sm transition-all cursor-pointer shrink-0"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Xem Tóm Tắt AI</span>
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
