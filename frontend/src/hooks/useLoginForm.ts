@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { authController } from '@/controllers/auth-controller';
 
@@ -46,8 +46,9 @@ declare global {
  * - Loại bỏ hoàn toàn useState / useEffect trong Component LoginForm.
  */
 export function useLoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, loginWithGoogle } = useAuth();
+  const { user, loading, login, loginWithGoogle } = useAuth();
 
   // Nhận diện lý do chuyển hướng từ các luồng khác (ví dụ vừa đặt lại mật khẩu thành công)
   const reason = searchParams.get('reason');
@@ -97,7 +98,7 @@ export function useLoginForm() {
         setSuccessMessage(res.message || 'Đăng nhập bằng Google thành công!');
 
         setTimeout(() => {
-          window.location.href = callbackUrl;
+          window.location.replace(callbackUrl);
         }, 700);
       } catch (err: unknown) {
         const msg =
@@ -214,9 +215,9 @@ export function useLoginForm() {
       const res = await login(formData);
       setSuccessMessage(res.message || 'Đăng nhập thành công!');
 
-      // Chuyển hướng sau khi cập nhật AuthContext
+      // Chuyển hướng sau khi cập nhật AuthContext (replace để không quay lại /login khi bấm Back)
       setTimeout(() => {
-        window.location.href = callbackUrl;
+        window.location.replace(callbackUrl);
       }, 800);
     } catch (err: unknown) {
       const msg =
@@ -230,6 +231,13 @@ export function useLoginForm() {
   };
 
   const hasInput = Boolean(formData.email.trim() && formData.password.trim());
+
+  // Nếu đã đăng nhập rồi thì không cho ở lại /login (chặn cả khi bấm Back hoặc điều hướng client)
+  useEffect(() => {
+    if (!loading && user && !successMessage && !reason) {
+      router.replace(callbackUrl);
+    }
+  }, [loading, user, successMessage, reason, callbackUrl, router]);
 
   return {
     formData,

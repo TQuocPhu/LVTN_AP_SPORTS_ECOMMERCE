@@ -73,6 +73,7 @@ export async function proxy(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin');
   const isWarehouseRoute = pathname.startsWith('/warehouse');
   const isSaleRoute = pathname.startsWith('/staff');
+  const isDemoRoute = pathname.startsWith('/demo');
   const isGuestOnlyRoute = ['/login', '/register'].some((path) => pathname.startsWith(path));
 
   // 1. Trang bắt buộc đăng nhập (Customer Routes)
@@ -90,10 +91,21 @@ export async function proxy(request: NextRequest) {
     const hasAdminSessionFlag = request.cookies.get('apsports_admin_has_session')?.value === 'true';
     const hasReason = request.nextUrl.searchParams.has('reason');
 
-    // Chỉ chuyển hướng về dashboard nếu token còn hợp lệ, cờ client session đang bật VÀ không có query báo lỗi/hết phiên
-    if (isValidToken && hasAdminSessionFlag && !hasReason) {
-      const normalizedRole = userRole?.replace(/^ROLE_/, '');
-      if (normalizedRole && normalizedRole !== 'CUSTOMER') {
+    // Chuyển hướng về trang làm việc nếu cờ client session đang bật, không có query báo lỗi/hết phiên,
+    // và token còn hợp lệ (role khác CUSTOMER) HOẶC vẫn còn refreshToken để FE tự Silent Refresh
+    if (hasAdminSessionFlag && !hasReason) {
+      if (isValidToken) {
+        const normalizedRole = userRole?.replace(/^ROLE_/, '');
+        if (normalizedRole && normalizedRole !== 'CUSTOMER') {
+          const targetPath =
+            normalizedRole === 'STAFF'
+              ? '/admin/orders'
+              : normalizedRole === 'WAREHOUSE_MANAGER'
+                ? '/admin/inventory'
+                : '/admin/dashboard';
+          return NextResponse.redirect(new URL(targetPath, request.url), 307);
+        }
+      } else if (hasRefreshToken) {
         return NextResponse.redirect(new URL('/admin/dashboard', request.url), 307);
       }
     }
@@ -190,10 +202,13 @@ export async function proxy(request: NextRequest) {
 
   // 5. Trang dành riêng cho khách chưa đăng nhập (/login, /register)
   if (isGuestOnlyRoute) {
-    // Chỉ chuyển hướng về '/' khi cả AccessToken hợp lệ VÀ cờ phiên Client ('apsports_has_session') đang bật.
-    // Nếu người dùng đã bấm Đăng xuất ở Client (mất cờ 'apsports_has_session') nhưng HttpOnly Cookie cũ còn sót lại,
+    const hasReason = request.nextUrl.searchParams.has('reason');
+
+    // Chuyển hướng về '/' khi cờ phiên Client ('apsports_has_session') đang bật, không có query báo lỗi/hết phiên,
+    // và AccessToken còn hợp lệ HOẶC vẫn còn RefreshToken để FE tự Silent Refresh.
+    // Nếu người dùng đã bấm Đăng xuất ở Client (mất cờ 'apsports_has_session') hoặc phiên hết hạn hoàn toàn,
     // lập tức dọn sạch Cookie cũ để cho phép mở trang /login và /register bình thường.
-    if (isValidToken && hasClientSessionFlag) {
+    if (hasClientSessionFlag && !hasReason && (isValidToken || hasRefreshToken)) {
       return NextResponse.redirect(new URL('/', request.url), 307);
     }
     if (token || hasRefreshToken) {
@@ -201,6 +216,50 @@ export async function proxy(request: NextRequest) {
       res.cookies.set('accessToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
       res.cookies.set('refreshToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
       return res;
+    }
+  }
+
+  // 6. Cổng Mô phỏng Logistics (/demo/*)
+  if (pathname === '/demo/login') {
+    const hasLogisticsSessionFlag = request.cookies.get('apsports_logistics_has_session')?.value === 'true';
+    const hasReason = request.nextUrl.searchParams.has('reason');
+
+    if (hasLogisticsSessionFlag && !hasReason) {
+      if (isValidToken) {
+        const normalizedRole = userRole?.replace(/^ROLE_/, '');
+        if (normalizedRole === 'GHN_STATION') {
+          return NextResponse.redirect(new URL('/demo/ghn-station', request.url), 307);
+        }
+        if (normalizedRole === 'GHN_SHIPPER') {
+          return NextResponse.redirect(new URL('/demo/shipper-app', request.url), 307);
+        }
+      } else if (hasRefreshToken) {
+        return NextResponse.redirect(new URL('/demo', request.url), 307);
+      }
+    }
+
+    if (token || hasRefreshToken) {
+      const res = NextResponse.next();
+      res.cookies.set('accessToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+      res.cookies.set('refreshToken', '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 });
+      res.cookies.set('apsports_logistics_has_session', '', { path: '/', maxAge: 0 });
+      return res;
+    }
+
+    return NextResponse.next();
+  }
+
+  if (isDemoRoute) {
+    if (!isSessionActive) {
+      const demoLoginUrl = new URL('/demo/login', request.url);
+      demoLoginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(demoLoginUrl, 307);
+    }
+    if (isValidToken) {
+      const normalizedRole = userRole?.replace(/^ROLE_/, '');
+      if (normalizedRole !== 'GHN_STATION' && normalizedRole !== 'GHN_SHIPPER') {
+        return NextResponse.redirect(new URL('/demo/login', request.url), 307);
+      }
     }
   }
 
@@ -216,6 +275,7 @@ export const config = {
     '/admin/:path*',
     '/warehouse/:path*',
     '/sale/:path*',
+    '/demo/:path*',
     '/login',
     '/register',
   ],

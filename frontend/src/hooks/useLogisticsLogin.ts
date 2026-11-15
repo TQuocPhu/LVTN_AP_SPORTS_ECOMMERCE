@@ -1,10 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDemoLogisticsAuth } from '@/hooks/useDemoLogisticsAuth';
 
 export function useLogisticsLogin() {
   const router = useRouter();
-  const { login } = useDemoLogisticsAuth();
+  const { user, loading, login } = useDemoLogisticsAuth();
+
+  const getLogisticsTargetPath = useCallback((role?: string) => {
+    if (role === 'GHN_STATION') return '/demo/ghn-station';
+    if (role === 'GHN_SHIPPER') return '/demo/shipper-app';
+    return '/demo';
+  }, []);
+
+  useEffect(() => {
+    if (loading || !user) return;
+    const hasReason =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('reason');
+    if (!hasReason) {
+      router.replace(getLogisticsTargetPath(user.roleName));
+    }
+  }, [loading, user, router, getLogisticsTargetPath]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,14 +40,7 @@ export function useLogisticsLogin() {
 
       const res = await login({ email, password });
       if (res?.success || res?.data) {
-        const role = res.data.roleName;
-        if (role === 'GHN_STATION') {
-          router.push('/demo/ghn-station');
-        } else if (role === 'GHN_SHIPPER') {
-          router.push('/demo/shipper-app');
-        } else {
-          router.push('/demo');
-        }
+        router.replace(getLogisticsTargetPath(res.data.roleName));
       } else {
         setErrorMessage(res?.message || 'Đăng nhập không thành công.');
       }

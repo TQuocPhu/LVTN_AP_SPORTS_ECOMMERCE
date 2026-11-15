@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
@@ -8,7 +8,23 @@ import { Lock, Mail, Loader2, AlertCircle } from 'lucide-react';
 
 export default function AdminLoginForm() {
   const router = useRouter();
-  const { login } = useAdminAuth();
+  const { user, loading, login } = useAdminAuth();
+
+  const getAdminTargetPath = useCallback((roleName?: string) => {
+    if (roleName === 'STAFF') return '/admin/orders';
+    if (roleName === 'WAREHOUSE_MANAGER') return '/admin/inventory';
+    return '/admin/dashboard';
+  }, []);
+
+  useEffect(() => {
+    if (loading || !user || user.roleName === 'CUSTOMER') return;
+    const hasReason =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('reason');
+    if (!hasReason) {
+      router.replace(getAdminTargetPath(user.roleName));
+    }
+  }, [loading, user, router, getAdminTargetPath]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +44,7 @@ export default function AdminLoginForm() {
 
       const res = await login({ email, password });
       if (res?.success || res?.data) {
-        router.push('/admin/dashboard');
+        router.replace(getAdminTargetPath(res?.data?.roleName));
       } else {
         setErrorMessage(res?.message || 'Đăng nhập không thành công.');
       }

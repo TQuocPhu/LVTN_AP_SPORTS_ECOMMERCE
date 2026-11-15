@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
  */
 export function useRegisterForm() {
   const router = useRouter();
-  const { register, loading } = useAuth();
+  const { user, register, loading } = useAuth();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -24,6 +24,12 @@ export function useRegisterForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loading && user && !successMessage) {
+      router.replace('/');
+    }
+  }, [loading, user, successMessage, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));

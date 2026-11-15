@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { demoLogisticsAuthController } from "@/controllers/demo-logistics-auth-controller";
 import { AdminLoginRequest, ApiResponse, UserResponse } from "@/types/auth";
+import { setCookie, eraseCookie } from "@/services/api/cookies";
 import { isAuthRejectionError } from "@/services/api-client";
 
 interface DemoLogisticsAuthContextType {
@@ -62,11 +63,13 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
         setUser(res.data);
         if (typeof window !== 'undefined') {
           localStorage.setItem("apsports_logistics_has_session", "true");
+          setCookie("apsports_logistics_has_session", "true", 7);
         }
       } else {
         setUser(null);
         if (typeof window !== 'undefined') {
           localStorage.removeItem("apsports_logistics_has_session");
+          eraseCookie("apsports_logistics_has_session");
         }
       }
     } catch (err) {
@@ -74,6 +77,7 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
         setUser(null);
         if (typeof window !== 'undefined') {
           localStorage.removeItem("apsports_logistics_has_session");
+          eraseCookie("apsports_logistics_has_session");
         }
       } else {
         setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
@@ -123,6 +127,7 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
         setUser(res.data);
         if (typeof window !== "undefined") {
           localStorage.setItem("apsports_logistics_has_session", "true");
+          setCookie("apsports_logistics_has_session", "true", 7);
         }
       }
       return res;
@@ -144,6 +149,7 @@ export function DemoLogisticsAuthProvider({ children }: { children: React.ReactN
       setUser(null);
       if (typeof window !== "undefined") {
         localStorage.removeItem("apsports_logistics_has_session");
+        eraseCookie("apsports_logistics_has_session");
       }
     }
   };
