@@ -21,6 +21,7 @@ import {
   Bell,
   Headphones,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import MiniCartDrawer from "./MiniCartDrawer";
 import ConfirmLogoutModal from "@/components/ui/ConfirmLogoutModal";
@@ -79,6 +80,7 @@ export default function Navbar() {
     pathname,
     isHidden,
     user,
+    authLoading,
     theme,
     toggleTheme,
     wishlistCount,
@@ -271,7 +273,14 @@ export default function Navbar() {
               onMouseLeave={closeUserDropdown}
             >
               <button className="nav-icon-btn flex items-center space-x-2.5 p-1.5 pl-2.5 pr-3 rounded-xl border transition-colors cursor-pointer">
-                {user ? (
+                {authLoading ? (
+                  <div className="flex items-center space-x-2 py-0.5">
+                    <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                    <span className="text-xs font-semibold opacity-75">
+                      Đang tải...
+                    </span>
+                  </div>
+                ) : user ? (
                   <div className="flex items-center space-x-2">
                     {user.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -302,7 +311,7 @@ export default function Navbar() {
               </button>
 
               {/* Dropdown Menu User */}
-              {isUserDropdownOpen && (
+              {isUserDropdownOpen && !authLoading && (
                 <div className="absolute top-full right-0 pt-2 w-56 z-50 animate-fade-in">
                   <div className="nav-dropdown border rounded-2xl shadow-2xl p-2 space-y-1">
                     {user ? (
@@ -443,7 +452,14 @@ export default function Navbar() {
               borderColor: "var(--nav-border)",
             }}
           >
-            {user ? (
+            {authLoading ? (
+              <div className="flex items-center justify-center space-x-2 py-3">
+                <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                <span className="text-xs font-medium opacity-75" style={{ color: "var(--nav-text)" }}>
+                  Đang kiểm tra phiên...
+                </span>
+              </div>
+            ) : user ? (
               <div className="space-y-3">
                 <div
                   className="flex items-center space-x-3 pb-3 border-b"

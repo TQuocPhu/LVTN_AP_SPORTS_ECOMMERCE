@@ -15,7 +15,7 @@ import { useNotificationContext } from '@/context/NotificationContext';
 export function useNavbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { wishlistCount } = useWishlist();
   const { unreadCount } = useNotificationContext();
@@ -109,6 +109,7 @@ export function useNavbar() {
     pathname,
     isHidden,
     user,
+    authLoading,
     theme,
     toggleTheme,
     wishlistCount,
