@@ -186,17 +186,6 @@ public class NotificationEventListener {
                     adminTargetUrl,
                     payloadStr
             );
-
-            // 2. Gửi xác nhận đánh giá thành công cho chính Khách hàng
-            if (event.getCustomerId() != null) {
-                notificationService.sendToUser(
-                        event.getCustomerId(),
-                        null,
-                        NotificationActionType.NEW_REVIEW,
-                        "/products/" + event.getProductId(),
-                        payloadStr
-                );
-            }
         } catch (Exception e) {
             log.error("Lỗi gửi thông báo NewReviewEvent: {}", e.getMessage(), e);
         }
