@@ -47,6 +47,8 @@ export const UserFilterBar: React.FC<UserFilterBarProps> = ({
             <option value="ADMIN">Quản trị viên (Admin)</option>
             <option value="STAFF">Nhân viên bán hàng (Staff)</option>
             <option value="WAREHOUSE_MANAGER">Quản lý kho (Warehouse)</option>
+            <option value="GHN_STATION">Quản lý bưu cục</option>
+            <option value="GHN_SHIPPER">Shipper</option>
             <option value="CUSTOMER">Khách hàng (Customer)</option>
           </select>
         </div>

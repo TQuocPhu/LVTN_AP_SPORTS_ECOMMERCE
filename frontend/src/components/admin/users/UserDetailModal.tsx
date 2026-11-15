@@ -145,6 +145,16 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
                         Quản lý Kho
                       </span>
                     )}
+                    {user.role === 'GHN_STATION' && (
+                      <span className="px-2.5 py-0.5 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full border border-orange-200">
+                        Quản lý bưu cục
+                      </span>
+                    )}
+                    {user.role === 'GHN_SHIPPER' && (
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-full border border-emerald-200">
+                        Shipper
+                      </span>
+                    )}
                     {user.role === 'CUSTOMER' && (
                       <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-full border border-slate-200">
                         Khách hàng

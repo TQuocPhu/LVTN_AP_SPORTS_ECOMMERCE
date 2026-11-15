@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Shield, User as UserIcon, Calendar, Mail, Phone, Lock, CheckCircle2, AlertOctagon, Clock, Building2 } from 'lucide-react';
+import { Eye, Shield, User as UserIcon, Calendar, Mail, Phone, Lock, CheckCircle2, AlertOctagon, Clock, Building2, Truck, MapPin } from 'lucide-react';
 import { UserAccount, UserPageResponse, UserStatus } from '@/types/user-management';
 
 interface UserTableProps {
@@ -60,6 +60,10 @@ export const UserTable: React.FC<UserTableProps> = ({
             ? 'bg-gradient-to-tr from-blue-600 to-blue-400'
             : user.role === 'WAREHOUSE_MANAGER'
             ? 'bg-gradient-to-tr from-purple-600 to-purple-400'
+            : user.role === 'GHN_STATION'
+            ? 'bg-gradient-to-tr from-orange-600 to-orange-400'
+            : user.role === 'GHN_SHIPPER'
+            ? 'bg-gradient-to-tr from-emerald-600 to-emerald-400'
             : 'bg-gradient-to-tr from-slate-600 to-slate-400'
         }`}
       >
@@ -92,10 +96,30 @@ export const UserTable: React.FC<UserTableProps> = ({
             <span>Quản lý Kho</span>
           </span>
         );
-      default:
+      case 'GHN_STATION':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-200">
+            <MapPin className="w-3.5 h-3.5 text-orange-600" />
+            <span>Quản lý bưu cục</span>
+          </span>
+        );
+      case 'GHN_SHIPPER':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <Truck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Shipper</span>
+          </span>
+        );
+      case 'CUSTOMER':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
             <span>Khách hàng</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            <span>{role || 'Khách hàng'}</span>
           </span>
         );
     }
