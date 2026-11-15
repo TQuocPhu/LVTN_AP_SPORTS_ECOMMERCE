@@ -5,6 +5,7 @@ import PageHeaderBanner from '@/components/ui/PageHeaderBanner';
 import { useCustomerVouchers } from '@/hooks/useCustomerVouchers';
 import { VoucherHeroBanner } from './VoucherHeroBanner';
 import { VoucherCategoryTabs } from './VoucherCategoryTabs';
+import { VoucherFilterBar } from './VoucherFilterBar';
 import { ShopeeVoucherCard } from './ShopeeVoucherCard';
 import { VoucherGuideSection } from './VoucherGuideSection';
 import { Tag } from 'lucide-react';
@@ -17,12 +18,21 @@ export function CustomerVouchersContentUI() {
   const {
     selectedCategory,
     searchQuery,
+    selectedType,
+    selectedMinOrder,
+    onlyUsable,
+    sortBy,
     vouchers,
     totalCount,
     isLoading,
     copiedCode,
     handleCategoryTabChange,
     handleSearchQueryChange,
+    setSelectedType,
+    setSelectedMinOrder,
+    setOnlyUsable,
+    setSortBy,
+    handleResetFilters,
     handleCopyCode,
   } = useCustomerVouchers();
 
@@ -48,6 +58,21 @@ export function CustomerVouchersContentUI() {
         <VoucherCategoryTabs
           selectedCategory={selectedCategory}
           onSelectCategory={handleCategoryTabChange}
+        />
+
+        {/* Thanh Bộ Lọc & Sắp Xếp Voucher */}
+        <VoucherFilterBar
+          selectedType={selectedType}
+          onTypeChange={setSelectedType}
+          selectedMinOrder={selectedMinOrder}
+          onMinOrderChange={setSelectedMinOrder}
+          onlyUsable={onlyUsable}
+          onOnlyUsableChange={setOnlyUsable}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          filteredCount={vouchers.length}
+          totalCount={totalCount}
+          onResetFilters={handleResetFilters}
         />
 
         {/* Danh Sách Thẻ Voucher */}

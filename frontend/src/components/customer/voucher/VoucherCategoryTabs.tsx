@@ -7,7 +7,7 @@ interface VoucherCategoryTabsProps {
 }
 
 /**
- * Danh sách các Tab phân loại Voucher chính (Tất cả sản phẩm & Miễn phí vận chuyển)
+ * Danh sách các Tab phân loại phạm vi áp dụng Voucher (Tất cả & Miễn phí vận chuyển)
  */
 const TABS = [
   { id: 'ALL', label: 'Tất Cả Voucher', icon: Layers },
