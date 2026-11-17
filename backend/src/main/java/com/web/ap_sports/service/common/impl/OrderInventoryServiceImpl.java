@@ -153,31 +153,6 @@ public class OrderInventoryServiceImpl implements OrderInventoryService {
                 inventoryAlertService.checkAndAlert(lockedVariant, currentVariantStock, newVariantStock);
                 productVariantRepository.save(lockedVariant);
             }
-
-            // Trừ lại sản phẩm trong giỏ hàng để tạm giữ (khi thanh toán lại)
-            if (item.getVariant() != null) {
-                cartItemRepository.findByUserIdAndProductIdAndVariantId(order.getUser().getId(), item.getProduct().getId(), item.getVariant().getId())
-                        .ifPresent(existingItem -> {
-                            int remaining = existingItem.getQuantity() - item.getQuantity();
-                            if (remaining <= 0) {
-                                cartItemRepository.delete(existingItem);
-                            } else {
-                                existingItem.setQuantity(remaining);
-                                cartItemRepository.save(existingItem);
-                            }
-                        });
-            } else {
-                cartItemRepository.findByUserIdAndProductIdAndVariantIsNull(order.getUser().getId(), item.getProduct().getId())
-                        .ifPresent(existingItem -> {
-                            int remaining = existingItem.getQuantity() - item.getQuantity();
-                            if (remaining <= 0) {
-                                cartItemRepository.delete(existingItem);
-                            } else {
-                                existingItem.setQuantity(remaining);
-                                cartItemRepository.save(existingItem);
-                            }
-                        });
-            }
         }
         
         if (lockedOrder.getCoupon() != null) {

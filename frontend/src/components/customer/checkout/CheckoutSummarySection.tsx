@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckoutOrderSummary } from '@/types/checkout';
-import { ShoppingBag, Loader2, MessageSquare } from 'lucide-react';
+import { ShoppingBag, Loader2, MessageSquare, ShieldCheck } from 'lucide-react';
 
 interface CheckoutSummarySectionProps {
   summary: CheckoutOrderSummary;
@@ -34,19 +34,31 @@ export function CheckoutSummarySection({
           </span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
-            <span>Phí vận chuyển (GHN Express)</span>
-          </span>
-          <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-            {loadingShippingFee ? (
-              <span className="inline-flex items-center gap-1 text-[11px] text-orange-500 animate-pulse font-normal">
-                <Loader2 className="w-3 h-3 animate-spin" /> Đang tính...
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+              <span>Phí vận chuyển (GHN Express)</span>
+            </span>
+            <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+              {loadingShippingFee ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-orange-500 animate-pulse font-normal">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Đang tính...
+                </span>
+              ) : (
+                `${summary.shippingFee.toLocaleString('vi-VN')} đ`
+              )}
+            </span>
+          </div>
+
+          {!loadingShippingFee && summary.subtotal > 1000000 && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-start gap-1 leading-snug">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <span>
+                Đã bao gồm phí khai giá bảo hiểm hàng hóa GHN (~0,5% cho mức khai giá{' '}
+                {Math.min(summary.subtotal, 5000000).toLocaleString('vi-VN')} đ) để bảo vệ đơn hàng khi vận chuyển.
               </span>
-            ) : (
-              `${summary.shippingFee.toLocaleString('vi-VN')} đ`
-            )}
-          </span>
+            </p>
+          )}
         </div>
 
         {summary.discountAmount > 0 && (

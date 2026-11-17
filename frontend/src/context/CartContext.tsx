@@ -49,7 +49,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const SELECTED_CART_ITEMS_KEY = "ap_selected_cart_item_ids";
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [cartSummary, setCartSummary] = useState<CartSummary | null>(null);
@@ -96,8 +96,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // Refresh cart from backend
   const refreshCart = useCallback(async () => {
     if (!user) {
-      setCartSummary(null);
-      setSelectedItemIds(new Set());
+      if (!authLoading) {
+        setCartSummary(null);
+        setSelectedItemIds(new Set());
+      }
       return;
     }
 
@@ -119,7 +121,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     refreshCart();

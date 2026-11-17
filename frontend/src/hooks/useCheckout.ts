@@ -193,6 +193,16 @@ export function useCheckout(): UseCheckoutReturn {
     fetchAddresses();
   }, [fetchAddresses]);
 
+  // Reset trạng thái đang gửi đơn nếu người dùng bấm Back từ cổng thanh toán VNPay (BFCache)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePageShow = () => {
+      setIsSubmittingOrder(false);
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
   // Chọn địa chỉ từ Modal
   const setSelectedAddress = useCallback((addr: ShippingAddress) => {
     setSelectedAddressState(addr);
@@ -278,16 +288,14 @@ export function useCheckout(): UseCheckoutReturn {
       const res = await orderController.createOrder(payload);
 
       if (res.data) {
-        // Clear selected cart items session cache
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem("ap_selected_cart_item_ids");
-        }
-        // Cập nhật ngay lập tức state giỏ hàng trên UI
-        await refreshCart();
-
         if (paymentMethod === "VNPAY" && res.data.paymentUrl) {
+          // Giữ nguyên giỏ hàng khi chuyển sang VNPay; chỉ xóa khi thanh toán thành công
           window.location.href = res.data.paymentUrl;
         } else {
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("ap_selected_cart_item_ids");
+          }
+          await refreshCart();
           router.push(`/orders/success?code=${res.data.orderCode}`);
         }
       }

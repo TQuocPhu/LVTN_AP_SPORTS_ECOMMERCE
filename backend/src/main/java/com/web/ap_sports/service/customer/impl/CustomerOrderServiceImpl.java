@@ -374,8 +374,13 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             }
         }
 
-        // 9.5. Xóa sản phẩm đã được đặt khỏi giỏ hàng trong Database
-        cartItemRepository.deleteAll(cartItems);
+        boolean isVnPay = "VNPAY".equalsIgnoreCase(request.getPaymentMethod());
+
+        // 9.5. Chỉ xóa sản phẩm khỏi giỏ hàng ngay lúc tạo đơn đối với COD.
+        // Với VNPay, chỉ xóa các sản phẩm tương ứng sau khi thanh toán thành công (tránh mất giỏ hàng khi khách hủy/đóng trang VNPay).
+        if (!isVnPay) {
+            cartItemRepository.deleteAll(cartItems);
+        }
 
         // 9.6. Khóa lượt sử dụng Coupon ngay khi tạo đơn (để rollback đúng nếu thất bại)
         if (appliedCoupon != null) {
@@ -394,7 +399,6 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
         orderStatusHistoryRepository.save(history);
 
         // 11. Xử lý Phương thức Thanh Toán
-        boolean isVnPay = "VNPAY".equalsIgnoreCase(request.getPaymentMethod());
         Payment.PaymentMethod pMethod = isVnPay ? Payment.PaymentMethod.vnpay : Payment.PaymentMethod.cash;
 
         Payment payment = Payment.builder()
@@ -555,6 +559,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             orderRepository.save(lockedOrder);
             orderRealtimePublisher.publishOrderChanged(lockedOrder);
 
+            // Thanh toán VNPay thành công -> xóa các sản phẩm đã đặt khỏi giỏ hàng của khách
+            removePurchasedItemsFromCart(lockedOrder);
+
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(lockedOrder)
                     .status(OrderStatus.pending.getValue())
@@ -589,8 +596,8 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             orderRepository.save(lockedOrder);
             orderRealtimePublisher.publishOrderChanged(lockedOrder);
             
-            // Tiến hành Hoàn lại Tồn kho và Giỏ hàng thông qua InventoryService (có cờ tránh lặp)
-            orderInventoryService.releaseOrderResources(lockedOrder, true);
+            // Hoàn lại tồn kho và coupon (không khôi phục giỏ hàng vì giỏ hàng VNPay chưa từng bị xóa lúc tạo đơn)
+            orderInventoryService.releaseOrderResources(lockedOrder, false);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(lockedOrder)
@@ -726,6 +733,9 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             orderRepository.save(lockedOrder);
             orderRealtimePublisher.publishOrderChanged(lockedOrder);
 
+            // Thanh toán VNPay thành công qua IPN -> xóa các sản phẩm đã đặt khỏi giỏ hàng
+            removePurchasedItemsFromCart(lockedOrder);
+
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(lockedOrder)
                     .status(OrderStatus.pending.getValue())
@@ -758,7 +768,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             orderRepository.save(lockedOrder);
             orderRealtimePublisher.publishOrderChanged(lockedOrder);
 
-            orderInventoryService.releaseOrderResources(lockedOrder, true);
+            orderInventoryService.releaseOrderResources(lockedOrder, false);
 
             OrderStatusHistory history = OrderStatusHistory.builder()
                     .order(lockedOrder)
@@ -1033,6 +1043,31 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
 
 
 
+
+    /**
+     * Xóa các sản phẩm đã đặt trong đơn VNPay khỏi giỏ hàng của khách sau khi thanh toán thành công.
+     */
+    private void removePurchasedItemsFromCart(Order order) {
+        if (order == null || order.getUser() == null) return;
+        Long userId = order.getUser().getId();
+        List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+        for (OrderItem item : items) {
+            if (item.getProduct() == null) continue;
+            Optional<CartItem> existingOpt = item.getVariant() != null
+                    ? cartItemRepository.findByUserIdAndProductIdAndVariantId(userId, item.getProduct().getId(), item.getVariant().getId())
+                    : cartItemRepository.findByUserIdAndProductIdAndVariantIsNull(userId, item.getProduct().getId());
+            existingOpt.ifPresent(existingItem -> {
+                int remaining = (existingItem.getQuantity() != null ? existingItem.getQuantity() : 0)
+                        - (item.getQuantity() != null ? item.getQuantity() : 0);
+                if (remaining <= 0) {
+                    cartItemRepository.delete(existingItem);
+                } else {
+                    existingItem.setQuantity(remaining);
+                    cartItemRepository.save(existingItem);
+                }
+            });
+        }
+    }
 
     /**
      * Tính phí giao hàng GHN từ Kho AP Sports ĐHCT (Ninh Kiều, Cần Thơ - districtId=1442, wardCode="21211")
