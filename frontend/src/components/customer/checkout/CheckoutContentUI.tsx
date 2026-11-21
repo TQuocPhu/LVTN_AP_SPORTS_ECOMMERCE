@@ -8,6 +8,7 @@ import { AddressSelectModal } from './AddressSelectModal';
 import { CheckoutItemsSection } from './CheckoutItemsSection';
 import { CheckoutPaymentMethodSection } from './CheckoutPaymentMethodSection';
 import { CheckoutVoucherSection } from './CheckoutVoucherSection';
+import { CheckoutVoucherModal } from './CheckoutVoucherModal';
 import { CheckoutSummarySection } from './CheckoutSummarySection';
 import { CheckoutSEOTrustBadges } from './CheckoutSEOTrustBadges';
 import AddressModal from '../profile/AddressModal';
@@ -34,6 +35,19 @@ export default function CheckoutContentUI() {
     voucherError,
     handleApplyVoucher,
     handleRemoveVoucher,
+    isVoucherModalOpen,
+    loadingVouchers,
+    voucherSearchQuery,
+    setVoucherSearchQuery,
+    voucherTabFilter,
+    setVoucherTabFilter,
+    voucherModalError,
+    eligibleVouchers,
+    ineligibleVouchers,
+    handleOpenVoucherModal,
+    handleCloseVoucherModal,
+    handleRefreshVouchers,
+    handleSelectVoucherFromModal,
     note,
     setNote,
     summary,
@@ -92,8 +106,9 @@ export default function CheckoutContentUI() {
               appliedVoucher={appliedVoucher}
               applying={applyingVoucher}
               error={voucherError}
-              onApply={handleApplyVoucher}
+              onApply={() => handleApplyVoucher()}
               onRemove={handleRemoveVoucher}
+              onOpenModal={handleOpenVoucherModal}
             />
 
             {/* 2. Tổng Quan Đơn Hàng & Ghi Chú */}
@@ -141,6 +156,26 @@ export default function CheckoutContentUI() {
         onClose={() => setIsAddAddressModalOpen(false)}
         addressToEdit={null}
         onSave={handleSaveNewAddress}
+      />
+
+      {/* Modal 3: Chọn Mã Khuyến Mãi / Voucher */}
+      <CheckoutVoucherModal
+        isOpen={isVoucherModalOpen}
+        onClose={handleCloseVoucherModal}
+        loading={loadingVouchers}
+        applying={applyingVoucher}
+        searchQuery={voucherSearchQuery}
+        onSearchChange={setVoucherSearchQuery}
+        tabFilter={voucherTabFilter}
+        onTabChange={setVoucherTabFilter}
+        subtotal={summary.subtotal}
+        shippingFee={summary.shippingFee}
+        appliedCode={appliedVoucher?.couponCode || appliedVoucher?.voucher?.code}
+        modalError={voucherModalError}
+        eligibleVouchers={eligibleVouchers}
+        ineligibleVouchers={ineligibleVouchers}
+        onRefresh={handleRefreshVouchers}
+        onSelectVoucher={handleSelectVoucherFromModal}
       />
     </div>
   );

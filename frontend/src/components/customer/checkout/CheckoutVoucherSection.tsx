@@ -12,6 +12,7 @@ interface CheckoutVoucherSectionProps {
   error: string | null;
   onApply: () => void;
   onRemove: () => void;
+  onOpenModal?: () => void;
 }
 
 export function CheckoutVoucherSection({
@@ -22,22 +23,35 @@ export function CheckoutVoucherSection({
   error,
   onApply,
   onRemove,
+  onOpenModal,
 }: CheckoutVoucherSectionProps) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 transition-colors">
       {/* Header */}
-      <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3.5">
-        <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
-          <Ticket className="w-5 h-5" />
+      <div className="flex items-center justify-between gap-2.5 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center shrink-0">
+            <Ticket className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              Mã Khuyến Mãi / Voucher AP Sports
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Nhập mã hoặc chọn nhanh ưu đãi phù hợp với đơn hàng.
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
-            Mã Khuyến Mãi / Voucher AP Sports
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Nhập mã khuyến mãi để nhận ưu đãi giảm tiền hàng hoặc miễn phí vận chuyển.
-          </p>
-        </div>
+
+        {onOpenModal && (
+          <button
+            type="button"
+            onClick={onOpenModal}
+            className="px-3 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20 text-xs font-extrabold transition-all shrink-0 cursor-pointer"
+          >
+            Chọn Voucher
+          </button>
+        )}
       </div>
 
       {/* Applied Voucher Card OR Input Form */}

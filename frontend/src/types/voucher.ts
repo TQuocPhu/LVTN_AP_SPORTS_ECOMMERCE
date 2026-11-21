@@ -44,6 +44,8 @@ export interface Voucher {
   usageLimit?: number;
   userUsageLimit?: number;
   usedCount: number;
+  userUsedCount?: number;
+  remainingUserUses?: number;
   usagePercentage: number; // Tỷ lệ % đã sử dụng (VD: 85.5)
   categoryScope: CategoryScope;
   startsAt?: string;
@@ -56,6 +58,21 @@ export interface Voucher {
   displayStatus: string; // Chuỗi trạng thái tiếng Việt (VD: "Đang diễn ra", "Đã hết lượt")
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type CheckoutVoucherTab = 'ALL' | 'DISCOUNT' | 'FREESHIP';
+
+export interface CheckoutEligibleVoucher {
+  voucher: Voucher;
+  estimatedDiscount: number;
+  isBestChoice: boolean;
+}
+
+export interface CheckoutIneligibleVoucher {
+  voucher: Voucher;
+  reason: string;
+  missingAmount: number;
+  progressPercent: number;
 }
 
 /**

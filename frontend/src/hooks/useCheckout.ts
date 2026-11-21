@@ -2,13 +2,20 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { checkoutController } from '@/controllers/checkout-controller';
+import { voucherController } from '@/controllers/voucher-controller';
 import { locationController } from '@/controllers/location-controller';
 import { orderController } from '@/controllers/order-controller';
 import { ShippingAddress, ShippingAddressRequest, GhnProvince, GhnDistrict, GhnWard } from '@/types/address';
 import { addressController } from '@/controllers/address-controller';
 import { CartItem } from '@/types/cart';
 import { PaymentMethod, CheckoutOrderSummary } from '@/types/checkout';
-import { VoucherApplyResult } from '@/types/voucher';
+import {
+  Voucher,
+  VoucherApplyResult,
+  CheckoutVoucherTab,
+  CheckoutEligibleVoucher,
+  CheckoutIneligibleVoucher,
+} from '@/types/voucher';
 
 export interface UseCheckoutReturn {
   // Address State
@@ -37,8 +44,23 @@ export interface UseCheckoutReturn {
   appliedVoucher: VoucherApplyResult | null;
   applyingVoucher: boolean;
   voucherError: string | null;
-  handleApplyVoucher: () => Promise<void>;
+  handleApplyVoucher: (overrideCode?: string) => Promise<boolean>;
   handleRemoveVoucher: () => void;
+
+  // Voucher Modal State
+  isVoucherModalOpen: boolean;
+  loadingVouchers: boolean;
+  voucherSearchQuery: string;
+  setVoucherSearchQuery: (q: string) => void;
+  voucherTabFilter: CheckoutVoucherTab;
+  setVoucherTabFilter: (tab: CheckoutVoucherTab) => void;
+  voucherModalError: string | null;
+  eligibleVouchers: CheckoutEligibleVoucher[];
+  ineligibleVouchers: CheckoutIneligibleVoucher[];
+  handleOpenVoucherModal: () => void;
+  handleCloseVoucherModal: () => void;
+  handleRefreshVouchers: () => void;
+  handleSelectVoucherFromModal: (code: string) => Promise<void>;
 
   // Note State
   note: string;
@@ -83,11 +105,18 @@ export function useCheckout(): UseCheckoutReturn {
   // 3. State Phương Thức Thanh Toán (Mặc định COD)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
 
-  // 4. State Voucher
+  // 4. State Voucher & Modal chọn Voucher
   const [voucherCode, setVoucherCode] = useState<string>('');
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherApplyResult | null>(null);
   const [applyingVoucher, setApplyingVoucher] = useState<boolean>(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState<boolean>(false);
+  const [availableVouchers, setAvailableVouchers] = useState<Voucher[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState<boolean>(false);
+  const [hasLoadedVouchers, setHasLoadedVouchers] = useState<boolean>(false);
+  const [voucherSearchQuery, setVoucherSearchQuery] = useState<string>('');
+  const [voucherTabFilter, setVoucherTabFilter] = useState<CheckoutVoucherTab>('ALL');
+  const [voucherModalError, setVoucherModalError] = useState<string | null>(null);
 
   // 5. State Ghi Chú & Submitting
   const [note, setNote] = useState<string>('');
@@ -209,37 +238,221 @@ export function useCheckout(): UseCheckoutReturn {
     setIsAddressSelectModalOpen(false);
   }, []);
 
-  // Áp dụng Voucher
-  const handleApplyVoucher = useCallback(async () => {
-    if (!voucherCode.trim()) {
-      setVoucherError('Vui lòng nhập mã giảm giá.');
-      return;
-    }
-    setApplyingVoucher(true);
-    setVoucherError(null);
+  // Tải danh sách Voucher công khai kèm lượt dùng cá nhân (Lazy-load khi mở Modal)
+  const loadAvailableVouchers = useCallback(async (force = false) => {
+    if (!force && hasLoadedVouchers) return;
+    setLoadingVouchers(true);
+    setVoucherModalError(null);
     try {
-      const res = await checkoutController.applyVoucher({
-        code: voucherCode.trim().toUpperCase(),
+      const res = await voucherController.getPublicVouchers('ALL');
+      if (res && Array.isArray(res.data)) {
+        setAvailableVouchers(res.data);
+        setHasLoadedVouchers(true);
+      } else {
+        setAvailableVouchers([]);
+      }
+    } catch {
+      setVoucherModalError('Không thể tải danh sách mã khuyến mãi. Vui lòng thử lại.');
+    } finally {
+      setLoadingVouchers(false);
+    }
+  }, [hasLoadedVouchers]);
+
+  const handleOpenVoucherModal = useCallback(() => {
+    setVoucherModalError(null);
+    setIsVoucherModalOpen(true);
+    loadAvailableVouchers(false);
+  }, [loadAvailableVouchers]);
+
+  const handleCloseVoucherModal = useCallback(() => {
+    setIsVoucherModalOpen(false);
+    setVoucherModalError(null);
+  }, []);
+
+  const handleRefreshVouchers = useCallback(() => {
+    loadAvailableVouchers(true);
+  }, [loadAvailableVouchers]);
+
+  // Phân loại và sắp xếp Voucher thành 2 nhóm: Đủ điều kiện vs Chưa đủ điều kiện
+  const { eligibleVouchers, ineligibleVouchers } = useMemo(() => {
+    const eligible: CheckoutEligibleVoucher[] = [];
+    const ineligible: CheckoutIneligibleVoucher[] = [];
+    const nowMs = Date.now();
+    const q = voucherSearchQuery.trim().toLowerCase();
+
+    for (const v of availableVouchers) {
+      if (q) {
+        const match =
+          v.code.toLowerCase().includes(q) ||
+          v.name.toLowerCase().includes(q) ||
+          (v.description && v.description.toLowerCase().includes(q));
+        if (!match) continue;
+      }
+
+      const vType = (v.type || '').toUpperCase();
+      if (voucherTabFilter === 'FREESHIP' && vType !== 'FREESHIP') continue;
+      if (voucherTabFilter === 'DISCOUNT' && vType === 'FREESHIP') continue;
+
+      const minOrder = Number(v.minOrderValue || 0);
+      const startsAtMs = v.startsAt ? new Date(v.startsAt).getTime() : null;
+      const expiresAtMs = v.expiresAt ? new Date(v.expiresAt).getTime() : null;
+      const activeFlag = v.isActive ?? v.active ?? true;
+      const outOfSystemQuota = v.usageLimit != null && v.usedCount >= v.usageLimit;
+      const outOfUserQuota = v.remainingUserUses != null && v.remainingUserUses <= 0;
+
+      let reason: string | null = null;
+      let missingAmount = 0;
+      let progressPercent = 100;
+
+      if (!activeFlag) {
+        reason = 'Mã khuyến mãi đang tạm dừng';
+      } else if (startsAtMs && !Number.isNaN(startsAtMs) && nowMs < startsAtMs) {
+        const startLabel = new Date(startsAtMs).toLocaleString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+        });
+        reason = `Chưa đến giờ mở (từ ${startLabel})`;
+      } else if (expiresAtMs && !Number.isNaN(expiresAtMs) && nowMs > expiresAtMs) {
+        reason = 'Mã khuyến mãi đã hết hạn sử dụng';
+      } else if (outOfSystemQuota) {
+        reason = 'Mã đã hết lượt sử dụng trên toàn hệ thống';
+      } else if (outOfUserQuota) {
+        reason = `Bạn đã dùng hết ${v.userUsageLimit ?? v.userUsedCount ?? 1} lượt cho mã này`;
+      } else if (subtotal < minOrder) {
+        missingAmount = Math.max(0, minOrder - subtotal);
+        progressPercent = minOrder > 0 ? Math.min(99, Math.round((subtotal / minOrder) * 100)) : 0;
+        reason = `Mua thêm ${missingAmount.toLocaleString('vi-VN')} đ để áp dụng`;
+      }
+
+      if (reason) {
+        ineligible.push({
+          voucher: v,
+          reason,
+          missingAmount,
+          progressPercent,
+        });
+      } else {
+        // Ước tính số tiền được giảm để sắp xếp mã lợi nhất lên đầu
+        let estimatedDiscount = 0;
+        if (vType === 'FIXED') {
+          estimatedDiscount = Math.min(subtotal, Number(v.value || 0));
+        } else if (vType === 'PERCENT') {
+          const raw = Math.round((subtotal * Number(v.value || 0)) / 100);
+          const maxCap = Number(v.maxDiscountAmount || 0);
+          estimatedDiscount = maxCap > 0 ? Math.min(raw, maxCap, subtotal) : Math.min(raw, subtotal);
+        } else if (vType === 'FREESHIP') {
+          const cap = Number(v.maxDiscountAmount || v.value || 0);
+          estimatedDiscount = cap > 0 ? Math.min(shippingFee, cap) : shippingFee;
+        }
+        eligible.push({
+          voucher: v,
+          estimatedDiscount,
+          isBestChoice: false,
+        });
+      }
+    }
+
+    eligible.sort((a, b) => b.estimatedDiscount - a.estimatedDiscount);
+    if (eligible.length > 0 && eligible[0].estimatedDiscount > 0) {
+      eligible[0].isBestChoice = true;
+    }
+
+    // Đưa mã sắp đủ điều kiện (progressPercent cao) lên đầu nhóm chưa đủ điều kiện
+    ineligible.sort((a, b) => b.progressPercent - a.progressPercent);
+
+    return { eligibleVouchers: eligible, ineligibleVouchers: ineligible };
+  }, [availableVouchers, voucherSearchQuery, voucherTabFilter, subtotal, shippingFee]);
+
+  // Áp dụng Voucher (hỗ trợ nhập tay hoặc chọn trực tiếp từ Modal)
+  const handleApplyVoucher = useCallback(
+    async (overrideCode?: string): Promise<boolean> => {
+      const targetCode = (typeof overrideCode === 'string' ? overrideCode : voucherCode).trim().toUpperCase();
+      if (!targetCode) {
+        setVoucherError('Vui lòng nhập mã giảm giá.');
+        return false;
+      }
+      if (typeof overrideCode === 'string') {
+        setVoucherCode(targetCode);
+      }
+      setApplyingVoucher(true);
+      setVoucherError(null);
+      setVoucherModalError(null);
+      try {
+        const res = await checkoutController.applyVoucher({
+          code: targetCode,
+          orderAmount: subtotal,
+          shippingFee: shippingFee,
+        });
+        if (res.data) {
+          if (res.data.valid) {
+            setAppliedVoucher(res.data);
+            setVoucherError(null);
+            return true;
+          } else {
+            const errMsg = res.data.message || 'Mã giảm giá không hợp lệ.';
+            setVoucherError(errMsg);
+            setVoucherModalError(errMsg);
+            setAppliedVoucher(null);
+            return false;
+          }
+        }
+        return false;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Không thể áp dụng mã giảm giá này.';
+        setVoucherError(msg);
+        setVoucherModalError(msg);
+        setAppliedVoucher(null);
+        return false;
+      } finally {
+        setApplyingVoucher(false);
+      }
+    },
+    [voucherCode, subtotal, shippingFee]
+  );
+
+  // Chọn 1 click từ Modal Voucher -> gọi Backend xác thực & đóng modal nếu hợp lệ
+  const handleSelectVoucherFromModal = useCallback(
+    async (code: string) => {
+      const ok = await handleApplyVoucher(code);
+      if (ok) {
+        setIsVoucherModalOpen(false);
+      }
+    },
+    [handleApplyVoucher]
+  );
+
+  // Tự động đồng bộ lại mức giảm voucher (đặc biệt FREESHIP) khi shippingFee hoặc subtotal thay đổi
+  useEffect(() => {
+    const activeCode = appliedVoucher?.couponCode || appliedVoucher?.voucher?.code;
+    if (!activeCode) return;
+
+    let cancelled = false;
+    checkoutController
+      .applyVoucher({
+        code: activeCode,
         orderAmount: subtotal,
         shippingFee: shippingFee,
-      });
-      if (res.data) {
-        if (res.data.valid) {
+      })
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.data?.valid) {
           setAppliedVoucher(res.data);
           setVoucherError(null);
         } else {
-          setVoucherError(res.data.message || 'Mã giảm giá không hợp lệ.');
           setAppliedVoucher(null);
+          setVoucherError(res?.data?.message || 'Mã giảm giá không còn phù hợp với đơn hàng hiện tại.');
         }
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể áp dụng mã giảm giá này.';
-      setVoucherError(msg);
-      setAppliedVoucher(null);
-    } finally {
-      setApplyingVoucher(false);
-    }
-  }, [voucherCode, subtotal, shippingFee]);
+      })
+      .catch(() => {
+        // Giữ nguyên nếu lỗi mạng tạm thời
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [shippingFee, subtotal]);
 
   // Gỡ bỏ Voucher
   const handleRemoveVoucher = useCallback(() => {
@@ -347,6 +560,19 @@ export function useCheckout(): UseCheckoutReturn {
     voucherError,
     handleApplyVoucher,
     handleRemoveVoucher,
+    isVoucherModalOpen,
+    loadingVouchers,
+    voucherSearchQuery,
+    setVoucherSearchQuery,
+    voucherTabFilter,
+    setVoucherTabFilter,
+    voucherModalError,
+    eligibleVouchers,
+    ineligibleVouchers,
+    handleOpenVoucherModal,
+    handleCloseVoucherModal,
+    handleRefreshVouchers,
+    handleSelectVoucherFromModal,
     note,
     setNote,
     summary,
