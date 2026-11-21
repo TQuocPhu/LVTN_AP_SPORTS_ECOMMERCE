@@ -51,12 +51,14 @@ export function AdminOrderDetailModal({
     toastMessage,
     setToastMessage,
     updatingStatus,
+    refunding,
     simProgress,
     setSimProgress,
     isScannerActive,
     setIsScannerActive,
     handleSendEinvoice,
     handleUpdateStatus,
+    handleMarkRefunded,
     formatCurrency,
     formatDate,
   } = useAdminOrderDetailModal({
@@ -390,6 +392,22 @@ export function AdminOrderDetailModal({
                       }
                     })()}
                   </div>
+                  {['cancelled', 'returned'].includes(currentOrder.status?.toLowerCase() || '') &&
+                    currentOrder.paymentStatus?.toLowerCase() === 'completed' && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleMarkRefunded}
+                          disabled={refunding}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${refunding ? 'animate-spin' : ''}`} />
+                          <span>
+                            {refunding ? 'Đang Xác Nhận Hoàn Tiền...' : 'Xác Nhận Đã Hoàn Tiền (Đối Soát)'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   {currentOrder.note && (
                     <div className="pt-2 border-t border-slate-200 text-slate-500 italic">
                       &quot;{currentOrder.note}&quot;

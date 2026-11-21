@@ -86,6 +86,16 @@ public class AdminOrderController {
         return ResponseEntity.ok(ApiResponse.success("Hủy đơn hàng thành công!", response));
     }
 
+    @PutMapping("/{id}/refund")
+    public ResponseEntity<ApiResponse<AdminOrderDetailResponse>> markOrderRefunded(
+            @PathVariable Long id,
+            Authentication authentication) {
+        String staffEmail = authentication.getName();
+        log.info("Nhân viên [{}] xác nhận hoàn tiền thủ công cho đơn hàng ID #{}", staffEmail, id);
+        AdminOrderDetailResponse response = adminOrderService.markOrderRefunded(id, staffEmail);
+        return ResponseEntity.ok(ApiResponse.success("Đã xác nhận hoàn tiền thành công!", response));
+    }
+
     @PostMapping("/{id}/send-einvoice")
     public ResponseEntity<ApiResponse<Void>> sendEInvoice(@PathVariable Long id) {
         log.info("REST request gửi Hóa đơn điện tử E-Invoice cho đơn hàng ID #{}", id);

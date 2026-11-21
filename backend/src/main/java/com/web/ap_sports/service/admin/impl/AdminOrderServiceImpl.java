@@ -397,6 +397,43 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     }
 
     @Override
+    @Transactional
+    public AdminOrderDetailResponse markOrderRefunded(Long id, String staffEmail) {
+        User staff = getUserByEmail(staffEmail);
+        Order lockedOrder = orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng ID #" + id, HttpStatus.NOT_FOUND));
+
+        if (lockedOrder.getStatus() != OrderStatus.cancelled && lockedOrder.getStatus() != OrderStatus.returned) {
+            throw new AppException("Chỉ có thể xác nhận hoàn tiền thủ công cho đơn hàng đã hủy hoặc đã trả hàng.", HttpStatus.BAD_REQUEST);
+        }
+
+        Payment payment = paymentRepository.findByOrderId(lockedOrder.getId())
+                .orElseThrow(() -> new AppException("Không tìm thấy thông tin giao dịch thanh toán của đơn hàng #" + lockedOrder.getOrderCode(), HttpStatus.NOT_FOUND));
+
+        if (payment.getStatus() == Payment.PaymentStatus.refunded) {
+            throw new AppException("Giao dịch thanh toán của đơn hàng này đã được đánh dấu hoàn tiền trước đó.", HttpStatus.BAD_REQUEST);
+        }
+        if (payment.getStatus() != Payment.PaymentStatus.completed) {
+            throw new AppException("Chỉ có thể hoàn tiền cho giao dịch đã thanh toán thành công (completed).", HttpStatus.BAD_REQUEST);
+        }
+
+        payment.setStatus(Payment.PaymentStatus.refunded);
+        paymentRepository.save(payment);
+
+        OrderStatusHistory history = OrderStatusHistory.builder()
+                .order(lockedOrder)
+                .status(lockedOrder.getStatus().getValue())
+                .note("Nhân viên [" + staff.getName() + "] đã xác nhận hoàn tiền thủ công (Đối soát xong).")
+                .changedBy(staff)
+                .build();
+        orderStatusHistoryRepository.save(history);
+
+        orderRealtimePublisher.publishOrderChanged(lockedOrder);
+        log.info("Nhân viên [{}] đã xác nhận hoàn tiền thủ công cho đơn hàng #{}", staff.getEmail(), lockedOrder.getOrderCode());
+        return mapToAdminOrderDetailResponse(lockedOrder);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public void sendEInvoice(Long id) {
         AdminOrderDetailResponse detail = getAdminOrderById(id);

@@ -86,6 +86,15 @@ export const adminOrderController = {
   },
 
   /**
+   * Xác nhận hoàn tiền thủ công (đối soát cho đơn đã hủy/trả hàng)
+   */
+  async markOrderRefunded(id: number): Promise<ApiResponse<AdminOrderDetail>> {
+    return apiClient.put<ApiResponse<AdminOrderDetail>>(`/admin/orders/${id}/refund`, {}, {
+      showSuccessToast: true,
+    });
+  },
+
+  /**
    * Phát hành và gửi Hóa đơn điện tử E-Invoice dạng HTML qua Email
    */
   async sendEInvoice(id: number): Promise<ApiResponse<void>> {

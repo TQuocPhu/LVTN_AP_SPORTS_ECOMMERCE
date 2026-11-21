@@ -18,6 +18,7 @@ export function useAdminOrderDetailModal({
   const [einvoiceSent, setEinvoiceSent] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+  const [refunding, setRefunding] = useState<boolean>(false);
   const [localOrder, setLocalOrder] = useState<AdminOrderDetail | null>(order);
   const [simProgress, setSimProgress] = useState<number>(0);
   const [isScannerActive, setIsScannerActive] = useState<boolean>(false);
@@ -112,6 +113,29 @@ export function useAdminOrderDetailModal({
     [currentOrder, onStatusUpdated]
   );
 
+  /**
+   * Xác nhận đã hoàn tiền thủ công (đối soát cho đơn đã hủy/trả hàng có paymentStatus = completed)
+   */
+  const handleMarkRefunded = useCallback(async () => {
+    if (!currentOrder?.id || refunding) return;
+    try {
+      setRefunding(true);
+      const res = await adminOrderController.markOrderRefunded(currentOrder.id);
+      if (res && res.data) {
+        setLocalOrder(res.data);
+        setToastMessage('Đã xác nhận hoàn tiền (REFUNDED) thành công!');
+        setTimeout(() => setToastMessage(null), 3000);
+        onStatusUpdated?.();
+      }
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'Không thể xác nhận hoàn tiền!';
+      setToastMessage(errMsg);
+      setTimeout(() => setToastMessage(null), 4000);
+    } finally {
+      setRefunding(false);
+    }
+  }, [currentOrder?.id, refunding, onStatusUpdated]);
+
   const formatCurrency = useCallback((val?: number) => {
     if (val === undefined || val === null) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
@@ -139,12 +163,14 @@ export function useAdminOrderDetailModal({
     toastMessage,
     setToastMessage,
     updatingStatus,
+    refunding,
     simProgress,
     setSimProgress,
     isScannerActive,
     setIsScannerActive,
     handleSendEinvoice,
     handleUpdateStatus,
+    handleMarkRefunded,
     formatCurrency,
     formatDate,
   };

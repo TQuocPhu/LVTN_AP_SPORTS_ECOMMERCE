@@ -15,5 +15,6 @@ public interface AdminOrderService {
     AdminOrderDetailResponse confirmOrder(Long id, String staffEmail);
     AdminOrderDetailResponse updateOrderStatus(Long id, UpdateOrderStatusRequest request, String staffEmail);
     AdminOrderDetailResponse cancelOrder(Long id, CancelOrderRequest request, String staffEmail);
+    AdminOrderDetailResponse markOrderRefunded(Long id, String staffEmail);
     void sendEInvoice(Long id);
 }
