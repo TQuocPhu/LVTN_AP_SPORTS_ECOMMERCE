@@ -29,6 +29,8 @@ public class VoucherResponse {
     private Integer usageLimit;
     private Integer userUsageLimit;
     private Integer usedCount;
+    private Integer userUsedCount; // Số lượt user hiện tại đã sử dụng (chỉ có khi đã đăng nhập)
+    private Integer remainingUserUses; // Số lượt user hiện tại còn được dùng (chỉ có khi đã đăng nhập)
     private Double usagePercentage; // e.g., 75.5% đã được sử dụng
     private String categoryScope; // ALL, FREESHIP, FASHION, APPAREL, SHOES
     private LocalDateTime startsAt;

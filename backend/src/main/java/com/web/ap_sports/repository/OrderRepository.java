@@ -36,6 +36,11 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     Page<Order> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
     Page<Order> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, OrderStatus status, Pageable pageable);
     long countByUserIdAndCouponIdAndStatusNotIn(Long userId, Long couponId, List<OrderStatus> excludedStatuses);
+
+    @Query("SELECT o.coupon.id, COUNT(o) FROM Order o WHERE o.user.id = :userId AND o.coupon IS NOT NULL AND o.status NOT IN :excludedStatuses GROUP BY o.coupon.id")
+    List<Object[]> findCouponUsageCountsByUserId(
+            @org.springframework.data.repository.query.Param("userId") Long userId,
+            @org.springframework.data.repository.query.Param("excludedStatuses") List<OrderStatus> excludedStatuses);
     long countByUserIdAndStatusIn(Long userId, List<OrderStatus> statuses);
     List<Order> findByUserIdAndStatusIn(Long userId, List<OrderStatus> statuses);
 

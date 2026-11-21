@@ -17,6 +17,8 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -51,6 +53,12 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
     @Override
     @Transactional(readOnly = true)
     public List<VoucherResponse> getPublicVouchers(String categoryScope) {
+        return getPublicVouchers(categoryScope, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VoucherResponse> getPublicVouchers(String categoryScope, String userEmail) {
         log.info("Khách hàng truy vấn danh sách kho voucher công khai với categoryScope: {}", categoryScope);
         
         List<Coupon> coupons;
@@ -60,11 +68,37 @@ public class CustomerVoucherServiceImpl implements CustomerVoucherService {
             coupons = couponRepository.findByIsActiveTrueAndCategoryScope(categoryScope.trim().toUpperCase());
         }
 
+        // Nếu đã đăng nhập, gom nhóm số lượt đã sử dụng từng coupon của user trong 1 query duy nhất (tránh N+1)
+        Map<Long, Integer> userUsageMap = new HashMap<>();
+        if (userEmail != null && !userEmail.isBlank()) {
+            userRepository.findByEmail(userEmail).ifPresent(user -> {
+                List<Object[]> rows = orderRepository.findCouponUsageCountsByUserId(
+                        user.getId(),
+                        List.of(OrderStatus.cancelled, OrderStatus.payment_failed)
+                );
+                for (Object[] row : rows) {
+                    if (row[0] instanceof Long cId && row[1] instanceof Number cnt) {
+                        userUsageMap.put(cId, cnt.intValue());
+                    }
+                }
+            });
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         return coupons.stream()
                 .filter(c -> c.getExpiresAt() == null || c.getExpiresAt().isAfter(now))
-                .map(VoucherResponse::fromEntity)
+                .map(c -> {
+                    VoucherResponse resp = VoucherResponse.fromEntity(c);
+                    if (userEmail != null && !userEmail.isBlank()) {
+                        int usedByUser = userUsageMap.getOrDefault(c.getId(), 0);
+                        resp.setUserUsedCount(usedByUser);
+                        if (c.getUserUsageLimit() != null) {
+                            resp.setRemainingUserUses(Math.max(0, c.getUserUsageLimit() - usedByUser));
+                        }
+                    }
+                    return resp;
+                })
                 .collect(Collectors.toList());
     }
 

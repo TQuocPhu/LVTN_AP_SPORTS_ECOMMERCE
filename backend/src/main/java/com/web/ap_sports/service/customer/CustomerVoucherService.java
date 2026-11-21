@@ -21,6 +21,11 @@ public interface CustomerVoucherService {
     List<VoucherResponse> getPublicVouchers(String categoryScope);
 
     /**
+     * Lấy danh sách voucher công khai kèm thông tin số lượt đã dùng của khách hàng hiện tại (nếu đã đăng nhập).
+     */
+    List<VoucherResponse> getPublicVouchers(String categoryScope, String userEmail);
+
+    /**
      * Kiểm tra tính hợp lệ của mã giảm giá và tính toán số tiền được giảm giá theo tổng đơn hàng.
      *
      * @param request DTO chứa thông tin mã voucher, tổng tiền đơn hàng và phí vận chuyển

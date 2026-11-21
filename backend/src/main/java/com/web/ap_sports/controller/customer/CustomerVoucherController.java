@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,9 +35,14 @@ public class CustomerVoucherController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<VoucherResponse>>> getPublicVouchers(
-            @RequestParam(required = false, defaultValue = "ALL") String categoryScope) {
+            @RequestParam(required = false, defaultValue = "ALL") String categoryScope,
+            Authentication authentication) {
+        String userEmail = (authentication != null && authentication.isAuthenticated()
+                && !"anonymousUser".equals(authentication.getPrincipal()))
+                ? authentication.getName()
+                : null;
         log.info("Khách hàng truy vấn danh sách voucher công khai categoryScope: {}", categoryScope);
-        List<VoucherResponse> vouchers = customerVoucherService.getPublicVouchers(categoryScope);
+        List<VoucherResponse> vouchers = customerVoucherService.getPublicVouchers(categoryScope, userEmail);
         return ResponseEntity.ok(ApiResponse.success("Lấy kho voucher công khai thành công", vouchers));
     }
 
