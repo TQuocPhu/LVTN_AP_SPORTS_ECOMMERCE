@@ -99,9 +99,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         long pendingOrders = orderRepository.countByStatus(OrderStatus.pending);
         long confirmedOrders = orderRepository.countByStatus(OrderStatus.confirmed);
         long processingOrders = orderRepository.countByStatus(OrderStatus.processing);
+        long shippedOrders = orderRepository.countByStatus(OrderStatus.shipped);
         long shippingOrders = orderRepository.countByStatus(OrderStatus.shipping);
         long deliveredOrders = orderRepository.countByStatus(OrderStatus.delivered);
+        long completedOrders = orderRepository.countByStatus(OrderStatus.completed);
         long cancelledOrders = orderRepository.countByStatus(OrderStatus.cancelled);
+        long returnedOrders = orderRepository.countByStatus(OrderStatus.returned);
         long paymentFailedOrders = orderRepository.countByStatus(OrderStatus.payment_failed);
 
         BigDecimal totalRevenue = orderRepository.sumDeliveredRevenue();
@@ -114,9 +117,12 @@ public class AdminOrderServiceImpl implements AdminOrderService {
                 .pendingOrders(pendingOrders)
                 .confirmedOrders(confirmedOrders)
                 .processingOrders(processingOrders)
+                .shippedOrders(shippedOrders)
                 .shippingOrders(shippingOrders)
                 .deliveredOrders(deliveredOrders)
+                .completedOrders(completedOrders)
                 .cancelledOrders(cancelledOrders)
+                .returnedOrders(returnedOrders)
                 .paymentFailedOrders(paymentFailedOrders)
                 .totalRevenue(totalRevenue)
                 .build();

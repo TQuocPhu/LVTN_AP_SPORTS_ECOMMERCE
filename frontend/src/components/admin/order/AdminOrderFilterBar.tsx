@@ -3,6 +3,7 @@
 import React from 'react';
 import { Search, Filter, RotateCcw, Calendar, DollarSign, ArrowUpDown } from 'lucide-react';
 import { AdminOrderFilterParams } from '@/types/admin-order';
+import { ADMIN_ORDER_STATUS_OPTIONS } from '@/constants/admin-order-status';
 
 interface AdminOrderFilterBarProps {
   filters: AdminOrderFilterParams;
@@ -67,20 +68,18 @@ export function AdminOrderFilterBar({
           <span>Lọc:</span>
         </div>
 
-        {/* Filter Trạng Thái */}
+        {/* Filter Trạng Thái (đầy đủ 10 trạng thái từ OrderStatus) */}
         <select
           value={filters.status || 'ALL'}
           onChange={(e) => onFilterChange('status', e.target.value)}
           className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm font-medium"
         >
           <option value="ALL">Tất cả trạng thái</option>
-          <option value="PENDING">Chờ xác nhận (pending)</option>
-          <option value="CONFIRMED">Đã xác nhận (confirmed)</option>
-          <option value="PROCESSING">Đang đóng gói (processing)</option>
-          <option value="SHIPPING">Đang vận chuyển (shipping)</option>
-          <option value="DELIVERED">Đã hoàn thành (delivered)</option>
-          <option value="CANCELLED">Đã hủy (cancelled)</option>
-          <option value="PAYMENT_FAILED">Thanh toán thất bại</option>
+          {ADMIN_ORDER_STATUS_OPTIONS.map((opt) => (
+            <option key={opt.filterValue} value={opt.filterValue}>
+              {opt.filterLabel}
+            </option>
+          ))}
         </select>
 
         {/* Filter Phương thức thanh toán */}

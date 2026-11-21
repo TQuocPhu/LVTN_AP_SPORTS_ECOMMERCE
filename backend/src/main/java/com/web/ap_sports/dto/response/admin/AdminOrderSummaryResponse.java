@@ -16,9 +16,12 @@ public class AdminOrderSummaryResponse {
     private long pendingOrders;
     private long confirmedOrders;
     private long processingOrders;
+    private long shippedOrders;
     private long shippingOrders;
     private long deliveredOrders;
+    private long completedOrders;
     private long cancelledOrders;
+    private long returnedOrders;
     private long paymentFailedOrders;
     private BigDecimal totalRevenue;
 }

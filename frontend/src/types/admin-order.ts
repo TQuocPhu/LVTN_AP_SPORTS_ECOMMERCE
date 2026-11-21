@@ -4,7 +4,7 @@ import { UserResponse } from './user';
 
 export interface AdminOrderFilterParams {
   keyword?: string;
-  status?: string; // ALL, pending, confirmed, processing, shipping, delivered, cancelled, payment_failed
+  status?: string; // ALL, pending, confirmed, processing, shipped, shipping, delivered, completed, cancelled, returned, payment_failed
   paymentMethod?: string; // ALL, COD, VNPAY
   minPrice?: number;
   maxPrice?: number;
@@ -21,9 +21,12 @@ export interface AdminOrderSummary {
   pendingOrders: number;
   confirmedOrders: number;
   processingOrders: number;
+  shippedOrders?: number;
   shippingOrders: number;
   deliveredOrders: number;
+  completedOrders?: number;
   cancelledOrders: number;
+  returnedOrders?: number;
   paymentFailedOrders: number;
   totalRevenue: number;
 }

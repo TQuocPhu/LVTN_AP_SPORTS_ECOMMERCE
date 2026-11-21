@@ -45,14 +45,14 @@ export function AdminOrderSummaryCards({
     },
     {
       title: 'Đang Vận Chuyển',
-      value: summary?.shippingOrders ?? 0,
+      value: (summary?.shippingOrders ?? 0) + (summary?.shippedOrders ?? 0),
       icon: Truck,
       color: 'bg-cyan-50 text-cyan-600 border-cyan-200',
       textColor: 'text-cyan-600',
     },
     {
-      title: 'Đã Giao Thành Công',
-      value: summary?.deliveredOrders ?? 0,
+      title: 'Đã Giao / Hoàn Tất',
+      value: (summary?.deliveredOrders ?? 0) + (summary?.completedOrders ?? 0),
       icon: CheckCircle2,
       color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
       textColor: 'text-emerald-600',

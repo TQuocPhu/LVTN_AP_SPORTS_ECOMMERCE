@@ -16,8 +16,11 @@ import {
   AlertCircle,
   RefreshCw,
   CircleCheck,
+  ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { AdminOrderDetail } from '@/types/admin-order';
+import { ADMIN_ORDER_STATUS_MAP } from '@/constants/admin-order-status';
 
 interface AdminOrderTableProps {
   orders: AdminOrderDetail[];
@@ -62,65 +65,40 @@ export function AdminOrderTable({
     });
   };
 
-  // ── Trạng thái ĐƠN HÀNG ──────────────────────────────────────────────────────
+  // ── Trạng thái ĐƠN HÀNG (đầy đủ 10 trạng thái khớp OrderStatus.java) ──────────
   const renderOrderStatusBadge = (status?: string) => {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Chờ xác nhận</span>
-          </span>
-        );
-      case 'confirmed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-            <CheckCircle className="w-3.5 h-3.5" />
-            <span>Đã xác nhận</span>
-          </span>
-        );
-      case 'processing':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
-            <PackageCheck className="w-3.5 h-3.5" />
-            <span>Đang đóng gói</span>
-          </span>
-        );
-      case 'shipping':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-700 border border-cyan-200">
-            <Truck className="w-3.5 h-3.5" />
-            <span>Đang vận chuyển</span>
-          </span>
-        );
-      case 'delivered':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-            <CircleCheck className="w-3.5 h-3.5" />
-            <span>Đã hoàn thành</span>
-          </span>
-        );
-      case 'cancelled':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 border border-rose-200">
-            <XCircle className="w-3.5 h-3.5" />
-            <span>Đã hủy</span>
-          </span>
-        );
-      case 'payment_failed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>TT thất bại</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            {status || '---'}
-          </span>
-        );
+    const key = status?.toLowerCase() || '';
+    const meta = ADMIN_ORDER_STATUS_MAP[key];
+
+    const iconMap: Record<string, React.ReactNode> = {
+      pending: <Clock className="w-3.5 h-3.5" />,
+      confirmed: <CheckCircle className="w-3.5 h-3.5" />,
+      processing: <PackageCheck className="w-3.5 h-3.5" />,
+      shipped: <Building className="w-3.5 h-3.5" />,
+      shipping: <Truck className="w-3.5 h-3.5" />,
+      delivered: <CircleCheck className="w-3.5 h-3.5" />,
+      completed: <ShieldCheck className="w-3.5 h-3.5" />,
+      cancelled: <XCircle className="w-3.5 h-3.5" />,
+      returned: <RotateCcw className="w-3.5 h-3.5" />,
+      payment_failed: <AlertCircle className="w-3.5 h-3.5" />,
+    };
+
+    if (!meta) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+          {status || '---'}
+        </span>
+      );
     }
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${meta.badgeClass}`}
+      >
+        {iconMap[key]}
+        <span>{meta.label}</span>
+      </span>
+    );
   };
 
   // ── Phương thức & Trạng thái THANH TOÁN (hoàn toàn độc lập với trạng thái đơn) ─
