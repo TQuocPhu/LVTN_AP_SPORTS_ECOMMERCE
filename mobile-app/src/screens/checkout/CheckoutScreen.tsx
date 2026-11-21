@@ -20,6 +20,7 @@ import { OrderItemsSummary } from '../../components/checkout/OrderItemsSummary';
 import { PaymentMethodSection } from '../../components/checkout/PaymentMethodSection';
 import { OrderPriceBreakdown } from '../../components/checkout/OrderPriceBreakdown';
 import { NewAddressModal } from '../../components/checkout/NewAddressModal';
+import { CheckoutVoucherModal } from '../../components/checkout/CheckoutVoucherModal';
 import { useTheme } from '../../context/ThemeContext';
 
 export const CheckoutScreen: React.FC = () => {
@@ -31,12 +32,31 @@ export const CheckoutScreen: React.FC = () => {
     items,
     totalAmount,
     shippingFee,
+    discountAmount,
     finalTotal,
     selectedAddress,
     paymentMethod,
     setPaymentMethod,
     couponCode,
     setCouponCode,
+    appliedVoucher,
+    applyingVoucher,
+    voucherError,
+    isVoucherModalVisible,
+    loadingVouchers,
+    voucherSearchQuery,
+    setVoucherSearchQuery,
+    voucherTabFilter,
+    setVoucherTabFilter,
+    voucherModalError,
+    eligibleVouchers,
+    ineligibleVouchers,
+    handleOpenVoucherModal,
+    handleCloseVoucherModal,
+    handleRefreshVouchers,
+    handleApplyVoucher,
+    handleRemoveVoucher,
+    handleSelectVoucherFromModal,
     note,
     setNote,
     isSubmitting,
@@ -82,9 +102,16 @@ export const CheckoutScreen: React.FC = () => {
           itemCount={items.length}
           totalAmount={totalAmount}
           shippingFee={shippingFee}
+          discountAmount={discountAmount}
           finalTotal={finalTotal}
           couponCode={couponCode}
           onChangeCouponCode={setCouponCode}
+          appliedVoucher={appliedVoucher}
+          applyingVoucher={applyingVoucher}
+          voucherError={voucherError}
+          onApplyVoucher={() => handleApplyVoucher()}
+          onRemoveVoucher={handleRemoveVoucher}
+          onOpenVoucherModal={handleOpenVoucherModal}
           note={note}
           onChangeNote={setNote}
         />
@@ -136,6 +163,26 @@ export const CheckoutScreen: React.FC = () => {
         onChangeCity={setNewCity}
         isAdding={isAddingAddress}
         onSubmit={handleCreateNewAddress}
+      />
+
+      {/* Modal Chọn Voucher */}
+      <CheckoutVoucherModal
+        visible={isVoucherModalVisible}
+        onClose={handleCloseVoucherModal}
+        loading={loadingVouchers}
+        applying={applyingVoucher}
+        searchQuery={voucherSearchQuery}
+        onChangeSearch={setVoucherSearchQuery}
+        tabFilter={voucherTabFilter}
+        onChangeTab={setVoucherTabFilter}
+        totalAmount={totalAmount}
+        shippingFee={shippingFee}
+        appliedCode={appliedVoucher?.couponCode || appliedVoucher?.voucher?.code}
+        modalError={voucherModalError}
+        eligibleVouchers={eligibleVouchers}
+        ineligibleVouchers={ineligibleVouchers}
+        onRefresh={handleRefreshVouchers}
+        onSelectVoucher={handleSelectVoucherFromModal}
       />
     </View>
   );

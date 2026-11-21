@@ -181,4 +181,64 @@ export interface UserSession {
   currentDevice?: boolean;
 }
 
+export type VoucherType = 'FIXED' | 'PERCENT' | 'FREESHIP';
+
+export type VoucherStatus = 'active' | 'scheduled' | 'expired' | 'disabled';
+
+export type CategoryScope = 'ALL' | 'FREESHIP' | 'FASHION' | 'APPAREL' | 'SHOES' | string;
+
+export interface Voucher {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  type: VoucherType;
+  value: number;
+  maxDiscountAmount?: number;
+  minOrderValue?: number;
+  usageLimit?: number;
+  userUsageLimit?: number;
+  usedCount: number;
+  userUsedCount?: number;
+  remainingUserUses?: number;
+  usagePercentage?: number;
+  categoryScope: CategoryScope;
+  startsAt?: string;
+  expiresAt?: string;
+  status: VoucherStatus;
+  isActive?: boolean;
+  active?: boolean;
+  isUsable?: boolean;
+  usable?: boolean;
+  displayStatus: string;
+}
+
+export interface VoucherApplyResult {
+  valid: boolean;
+  message: string;
+  couponCode?: string;
+  couponName?: string;
+  discountType?: VoucherType;
+  discountValue?: number;
+  discountAmount: number;
+  freeShippingDiscount?: number;
+  finalAmount: number;
+  voucher?: Voucher;
+}
+
+export type CheckoutVoucherTab = 'ALL' | 'DISCOUNT' | 'FREESHIP';
+
+export interface CheckoutEligibleVoucher {
+  voucher: Voucher;
+  estimatedDiscount: number;
+  isBestChoice: boolean;
+}
+
+export interface CheckoutIneligibleVoucher {
+  voucher: Voucher;
+  reason: string;
+  missingAmount: number;
+  progressPercent: number;
+}
+
 
