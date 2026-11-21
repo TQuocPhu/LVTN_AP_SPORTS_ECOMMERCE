@@ -23,6 +23,7 @@ public class OrderResponse {
     private String status; // pending, confirmed, processing, shipping, delivered, canceled, returned, payment_failed
     private String paymentMethod; // COD, VNPAY
     private String paymentStatus; // pending, completed, failed
+    private LocalDateTime paymentCreatedAt; // Thời điểm khởi tạo giao dịch thanh toán (bảng payments.created_at)
     private String paymentUrl; // Dành riêng cho VNPay khi cần thanh toán / thanh toán lại
     private String couponCode;
     private String couponName;

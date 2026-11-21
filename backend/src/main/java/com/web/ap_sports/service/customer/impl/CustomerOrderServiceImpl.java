@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 public class CustomerOrderServiceImpl implements CustomerOrderService {
 
     private static final String DEFAULT_CLIENT_IP = "127.0.0.1";
+    private static final long VNPAY_RETRY_WINDOW_HOURS = 24;
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
@@ -810,6 +811,15 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             throw new AppException("Đơn hàng này đã được thanh toán hoặc hoàn tiền.", HttpStatus.BAD_REQUEST);
         }
 
+        // Giới hạn thời gian thanh toán lại VNPay trong vòng 24 giờ kể từ payments.created_at
+        LocalDateTime retryAnchor = payment.getCreatedAt() != null ? payment.getCreatedAt() : lockedOrder.getCreatedAt();
+        if (retryAnchor != null && retryAnchor.plusHours(VNPAY_RETRY_WINDOW_HOURS).isBefore(LocalDateTime.now())) {
+            throw new AppException(
+                    "Đơn hàng đã quá thời hạn thanh toán lại (24 giờ kể từ lúc tạo giao dịch). Vui lòng đặt đơn hàng mới!",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
         // Nếu đơn hàng đang bị payment_failed, tiến hành Trừ lại Tồn kho và chuyển về pending
         if (lockedOrder.getStatus() == OrderStatus.payment_failed) {
             orderInventoryService.reDeductOrderStock(lockedOrder);
@@ -1211,6 +1221,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .status(order.getStatus() != null ? order.getStatus().getValue() : OrderStatus.pending.getValue())
                 .paymentMethod(pMethod)
                 .paymentStatus(pStatus)
+                .paymentCreatedAt(payment != null && payment.getCreatedAt() != null ? payment.getCreatedAt() : order.getCreatedAt())
                 .couponCode(order.getCoupon() != null ? order.getCoupon().getCode() : null)
                 .couponName(order.getCoupon() != null ? order.getCoupon().getName() : null)
                 .paymentUrl(paymentUrl)

@@ -23,6 +23,7 @@ import {
 import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
 import { LogisticsMapWrapper } from '@/components/common/map/LogisticsMapWrapper';
 import { useCustomerOrderTracking } from '@/hooks/useCustomerOrderTracking';
+import { canRetryVNPayOrder } from '@/utils/vnpay-retry';
 
 interface CustomerOrderTrackingContentUIProps {
   orderCode: string;
@@ -151,14 +152,16 @@ export function CustomerOrderTrackingContentUI({
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleRetryVNPay}
-              disabled={retryingVNPay}
-              className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-md transition-all cursor-pointer shrink-0 disabled:opacity-50"
-            >
-              {retryingVNPay ? 'Đang Khởi Tạo VNPay...' : 'Thanh Toán Lại Bằng VNPay'}
-            </button>
+            {canRetryVNPayOrder(order) && (
+              <button
+                type="button"
+                onClick={handleRetryVNPay}
+                disabled={retryingVNPay}
+                className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-md transition-all cursor-pointer shrink-0 disabled:opacity-50"
+              >
+                {retryingVNPay ? 'Đang Khởi Tạo VNPay...' : 'Thanh Toán Lại Bằng VNPay'}
+              </button>
+            )}
           </div>
         )}
 
@@ -170,18 +173,22 @@ export function CustomerOrderTrackingContentUI({
             <div>
               <h4 className="font-black text-sm">Giao dịch thanh toán VNPay chưa hoàn tất</h4>
               <p className="text-xs text-rose-700 mt-1">
-                Đơn hàng của bạn hiện ở trạng thái chờ thanh toán lại. Tồn kho đã được tạm thời khôi phục an toàn.
+                {canRetryVNPayOrder(order)
+                  ? 'Đơn hàng hỗ trợ thanh toán lại trong 24 giờ kể từ lúc tạo giao dịch. Tồn kho đã được tạm thời khôi phục an toàn.'
+                  : 'Đơn hàng đã quá thời hạn thanh toán lại (24 giờ). Vui lòng đặt đơn hàng mới nếu bạn vẫn muốn mua.'}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleRetryVNPay}
-            disabled={retryingVNPay}
-            className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-md transition-all cursor-pointer shrink-0 disabled:opacity-50"
-          >
-            {retryingVNPay ? 'Đang Khởi Tạo VNPay...' : 'Thanh Toán Lại Bằng VNPay Sandbox'}
-          </button>
+          {canRetryVNPayOrder(order) && (
+            <button
+              type="button"
+              onClick={handleRetryVNPay}
+              disabled={retryingVNPay}
+              className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-black text-xs shadow-md transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              {retryingVNPay ? 'Đang Khởi Tạo VNPay...' : 'Thanh Toán Lại Bằng VNPay Sandbox'}
+            </button>
+          )}
         </div>
       )}
 

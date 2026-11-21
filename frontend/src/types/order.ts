@@ -51,6 +51,7 @@ export interface OrderResponse {
   status: OrderStatus | string;
   paymentMethod: 'COD' | 'VNPAY' | string;
   paymentStatus: PaymentStatus | string;
+  paymentCreatedAt?: string;
   paymentUrl?: string;
   couponCode?: string;
   couponName?: string;

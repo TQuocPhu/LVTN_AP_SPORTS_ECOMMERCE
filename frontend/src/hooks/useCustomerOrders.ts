@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { OrderResponse } from '@/types/order';
 import { customerOrderController } from '@/controllers/customer-order-controller';
+import { orderController } from '@/controllers/order-controller';
 import { useCart } from '@/context/CartContext';
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
+import { canRetryVNPayOrder } from '@/utils/vnpay-retry';
 
 export type CustomerOrderStatusTab =
   | 'ALL'
@@ -34,6 +36,8 @@ export function useCustomerOrders() {
   const [selectedOrderProgress, setSelectedOrderProgress] = useState<number>(0);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [updatingCode, setUpdatingCode] = useState<string | null>(null);
+  // Mã đơn hàng đang khởi tạo lại liên kết thanh toán VNPay (chống bấm trùng)
+  const [retryingCode, setRetryingCode] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal xác nhận hủy / trả hàng / hoàn tất đơn
@@ -185,6 +189,44 @@ export function useCustomerOrders() {
     }
   }, [actionModal, selectedOrder, handleCloseActionModal, fetchOrders, refreshCart]);
 
+  /**
+   * Kiểm tra đơn hàng có đủ điều kiện hiển thị nút "Thanh Toán Lại VNPay" hay không
+   * (Dùng chung helper canRetryVNPayOrder đồng bộ với Backend: đúng VNPAY, chưa paid, trong hạn 24h từ payments.created_at)
+   */
+  const canRetryVNPay = useCallback((order: OrderResponse): boolean => {
+    return canRetryVNPayOrder(order);
+  }, []);
+
+  /**
+   * Khởi tạo lại liên kết thanh toán VNPay cho đơn hàng chưa thanh toán thành công
+   */
+  const handleRetryVNPay = useCallback(
+    async (orderCode: string) => {
+      if (!orderCode || retryingCode) return;
+      try {
+        setRetryingCode(orderCode);
+        const res = await orderController.retryVNPayPayment(orderCode);
+        if (res?.data?.paymentUrl && typeof window !== 'undefined') {
+          window.location.href = res.data.paymentUrl;
+          return;
+        }
+        setToastMessage('Không thể khởi tạo liên kết thanh toán VNPay. Vui lòng thử lại.');
+        setTimeout(() => setToastMessage(null), 4000);
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          'Không thể khởi tạo lại thanh toán VNPay cho đơn hàng này.';
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(null), 4000);
+        fetchOrders();
+      } finally {
+        setRetryingCode(null);
+      }
+    },
+    [retryingCode, fetchOrders]
+  );
+
   const formatCurrency = useCallback((val?: number) => {
     if (val === undefined || val === null) return '0 ₫';
     return new Intl.NumberFormat('vi-VN', {
@@ -220,6 +262,7 @@ export function useCustomerOrders() {
     selectedOrder,
     isDetailModalOpen,
     updatingCode,
+    retryingCode,
     toastMessage,
     setToastMessage,
     actionModal,
@@ -230,6 +273,8 @@ export function useCustomerOrders() {
     handleOpenActionModal,
     handleCloseActionModal,
     handleConfirmAction,
+    canRetryVNPay,
+    handleRetryVNPay,
     startDate,
     setStartDate,
     endDate,

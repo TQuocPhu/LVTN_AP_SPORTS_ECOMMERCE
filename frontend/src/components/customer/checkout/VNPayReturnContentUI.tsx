@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useVNPayReturn } from '@/hooks/useVNPayReturn';
 import { CheckCircle2, XCircle, RefreshCw, ShoppingBag, MapPin, Truck } from 'lucide-react';
+import { canRetryVNPayOrder } from '@/utils/vnpay-retry';
 
 export default function VNPayReturnContentUI() {
   const {
@@ -105,7 +106,7 @@ export default function VNPayReturnContentUI() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              {!isSuccess && (
+              {!isSuccess && (!order || canRetryVNPayOrder(order)) && (
                 <button
                   type="button"
                   onClick={onRetryClick}

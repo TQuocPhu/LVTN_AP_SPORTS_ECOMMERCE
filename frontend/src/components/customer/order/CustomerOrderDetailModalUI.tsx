@@ -35,6 +35,9 @@ interface CustomerOrderDetailModalUIProps {
   isOpen: boolean;
   order: OrderResponse | null;
   progressPercentage?: number;
+  canRetryVNPay?: boolean;
+  retryingVNPay?: boolean;
+  onRetryVNPay?: (orderCode: string) => void;
   onClose: () => void;
   onOpenActionModal: (type: 'cancel' | 'return' | 'complete', order: OrderResponse) => void;
   onOpenReviewModal?: (item: OrderItemToReview) => void;
@@ -46,6 +49,9 @@ export function CustomerOrderDetailModalUI({
   isOpen,
   order,
   progressPercentage,
+  canRetryVNPay = false,
+  retryingVNPay = false,
+  onRetryVNPay,
   onClose,
   onOpenActionModal,
   onOpenReviewModal,
@@ -469,8 +475,22 @@ export function CustomerOrderDetailModalUI({
           </div>
 
           {/* Action Buttons inside Modal */}
-          {(isCancelable || isReturnable) && (
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+          {(isCancelable || isReturnable || currentStatus === 'delivered' || canRetryVNPay) && (
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap justify-end gap-2">
+              {canRetryVNPay && onRetryVNPay && (
+                <button
+                  type="button"
+                  disabled={retryingVNPay}
+                  onClick={() => onRetryVNPay(order.orderCode)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>
+                    {retryingVNPay ? 'Đang Khởi Tạo VNPay...' : 'Thanh Toán Lại Bằng VNPay'}
+                  </span>
+                </button>
+              )}
+
               {isCancelable && (
                 <button
                   type="button"
