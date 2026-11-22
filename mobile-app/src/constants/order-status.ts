@@ -58,3 +58,17 @@ export function getMobilePaymentMethodLabel(method?: string): string {
   if (method?.toUpperCase() === 'VNPAY') return 'VNPay Sandbox';
   return 'COD (Thanh toán khi nhận hàng)';
 }
+
+export const MOBILE_PAYMENT_METHOD_FILTERS: { key: string; label: string }[] = [
+  { key: 'ALL', label: 'Tất cả PT' },
+  { key: 'COD', label: 'COD' },
+  { key: 'VNPAY', label: 'VNPay' },
+];
+
+export const MOBILE_PAYMENT_STATUS_FILTERS: { key: string; label: string }[] = [
+  { key: 'ALL', label: 'Tất cả TT' },
+  { key: 'pending', label: 'Chờ TT' },
+  { key: 'completed', label: 'Đã TT' },
+  { key: 'refunded', label: 'Hoàn tiền' },
+  { key: 'failed', label: 'TT thất bại' },
+];

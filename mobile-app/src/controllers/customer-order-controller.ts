@@ -3,11 +3,24 @@ import { ApiResponse, CartItem, Order } from '../types';
 
 export const customerOrderController = {
   /**
-   * Lấy danh sách đơn hàng của khách hàng theo trạng thái
+   * Lấy danh sách đơn hàng của khách hàng theo trạng thái, phương thức & trạng thái thanh toán
    */
-  async getMyOrders(status: string = 'ALL', page: number = 0, size: number = 50): Promise<ApiResponse<any>> {
+  async getMyOrders(
+    status: string = 'ALL',
+    page: number = 0,
+    size: number = 50,
+    paymentMethod: string = 'ALL',
+    paymentStatus: string = 'ALL'
+  ): Promise<ApiResponse<any>> {
+    const params: Record<string, string | number> = { status, page, size };
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      params.paymentMethod = paymentMethod;
+    }
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      params.paymentStatus = paymentStatus;
+    }
     const res = await apiClient.get<ApiResponse<any>>('/customer/orders/my-orders', {
-      params: { status, page, size },
+      params,
     });
     return res.data;
   },

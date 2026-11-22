@@ -29,6 +29,12 @@ export const OrderListScreen: React.FC = () => {
   const {
     activeTab,
     setActiveTab,
+    paymentMethod,
+    setPaymentMethod,
+    paymentStatus,
+    setPaymentStatus,
+    paymentMethodFilters,
+    paymentStatusFilters,
     filteredOrders,
     loading,
     refreshing,
@@ -63,6 +69,18 @@ export const OrderListScreen: React.FC = () => {
         tabs={STATUS_TABS}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+      />
+
+      {/* Payment Method & Payment Status Filter Tabs */}
+      <OrderListTabs
+        tabs={paymentMethodFilters}
+        activeTab={paymentMethod}
+        onSelectTab={setPaymentMethod}
+      />
+      <OrderListTabs
+        tabs={paymentStatusFilters}
+        activeTab={paymentStatus}
+        onSelectTab={setPaymentStatus}
       />
 
       {/* Orders List */}

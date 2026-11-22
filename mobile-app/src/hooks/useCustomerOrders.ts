@@ -3,7 +3,11 @@ import { customerOrderController } from '../controllers/customer-order-controlle
 import { Order, OrderStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
-import { getMobileOrderStatusBadge } from '../constants/order-status';
+import {
+  getMobileOrderStatusBadge,
+  MOBILE_PAYMENT_METHOD_FILTERS,
+  MOBILE_PAYMENT_STATUS_FILTERS,
+} from '../constants/order-status';
 
 export interface StatusTab {
   key: string;
@@ -22,6 +26,8 @@ export const STATUS_TABS: StatusTab[] = [
 export const useCustomerOrders = () => {
   const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('ALL');
+  const [paymentMethod, setPaymentMethod] = useState<string>('ALL');
+  const [paymentStatus, setPaymentStatus] = useState<string>('ALL');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(isAuthenticated);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -35,7 +41,13 @@ export const useCustomerOrders = () => {
     }
 
     try {
-      const res = await customerOrderController.getMyOrders(activeTab);
+      const res = await customerOrderController.getMyOrders(
+        activeTab,
+        0,
+        50,
+        paymentMethod,
+        paymentStatus
+      );
       const data = res.data;
       if (Array.isArray(data)) {
         setOrders(data);
@@ -51,7 +63,7 @@ export const useCustomerOrders = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab, isAuthenticated]);
+  }, [activeTab, paymentMethod, paymentStatus, isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -78,9 +90,23 @@ export const useCustomerOrders = () => {
   }, [fetchOrders]);
 
   const filteredOrders = useMemo(() => {
-    if (activeTab === 'ALL') return orders;
-    return orders.filter((o) => o.status === activeTab);
-  }, [orders, activeTab]);
+    return orders.filter((o) => {
+      if (activeTab !== 'ALL' && o.status !== activeTab) return false;
+      if (
+        paymentMethod !== 'ALL' &&
+        (o.paymentMethod || 'COD').toUpperCase() !== paymentMethod
+      ) {
+        return false;
+      }
+      if (
+        paymentStatus !== 'ALL' &&
+        (o.paymentStatus || 'pending').toLowerCase() !== paymentStatus
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [orders, activeTab, paymentMethod, paymentStatus]);
 
   const getStatusBadge = useCallback((status: OrderStatus | string) => {
     return getMobileOrderStatusBadge(status);
@@ -89,6 +115,12 @@ export const useCustomerOrders = () => {
   return {
     activeTab,
     setActiveTab,
+    paymentMethod,
+    setPaymentMethod,
+    paymentStatus,
+    setPaymentStatus,
+    paymentMethodFilters: MOBILE_PAYMENT_METHOD_FILTERS,
+    paymentStatusFilters: MOBILE_PAYMENT_STATUS_FILTERS,
     orders,
     filteredOrders,
     loading,
