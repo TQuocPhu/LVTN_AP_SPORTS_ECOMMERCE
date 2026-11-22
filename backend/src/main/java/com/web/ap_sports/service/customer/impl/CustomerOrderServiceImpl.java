@@ -15,6 +15,7 @@ import com.web.ap_sports.event.OrderPlacedEvent;
 import com.web.ap_sports.event.OrderCancelledByCustomerEvent;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
+import com.web.ap_sports.repository.specification.OrderPaymentSpecificationHelper;
 import com.web.ap_sports.service.common.EmailService;
 import com.web.ap_sports.service.common.InventoryAlertService;
 import com.web.ap_sports.service.common.VNPayService;
@@ -853,6 +854,12 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     @Override
     @Transactional(readOnly = true)
     public Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        return getMyOrders(email, status, null, null, keyword, sortBy, sortDir, startDate, endDate, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<OrderResponse> getMyOrders(String email, String status, String paymentMethod, String paymentStatus, String keyword, String sortBy, String sortDir, LocalDate startDate, LocalDate endDate, Pageable pageable) {
         User user = getUserByEmail(email);
 
         Specification<Order> spec = (root, query, cb) -> {
@@ -865,6 +872,15 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                     predicates.add(cb.equal(root.get("status"), orderStatus));
                 }
             }
+
+            // Lọc theo phương thức thanh toán & trạng thái thanh toán (Subquery bảng payments)
+            OrderPaymentSpecificationHelper.buildPaymentPredicate(
+                    root,
+                    query,
+                    cb,
+                    paymentMethod,
+                    paymentStatus
+            ).ifPresent(predicates::add);
 
             if (keyword != null && !keyword.isBlank()) {
                 String kw = "%" + keyword.trim().toLowerCase() + "%";

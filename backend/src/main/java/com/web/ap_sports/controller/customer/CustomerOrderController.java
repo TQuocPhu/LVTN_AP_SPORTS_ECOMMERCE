@@ -86,6 +86,8 @@ public class CustomerOrderController {
     public ResponseEntity<ApiResponse<Page<OrderResponse>>> getMyOrders(
             Authentication authentication,
             @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) String paymentStatus,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
             @RequestParam(required = false, defaultValue = "DESC") String sortDir,
@@ -93,7 +95,9 @@ public class CustomerOrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @PageableDefault(size = 10) Pageable pageable) {
         User user = getAuthenticatedUser(authentication);
-        Page<OrderResponse> orders = orderService.getMyOrders(user.getEmail(), status, keyword, sortBy, sortDir, startDate, endDate, pageable);
+        Page<OrderResponse> orders = orderService.getMyOrders(
+                user.getEmail(), status, paymentMethod, paymentStatus, keyword, sortBy, sortDir, startDate, endDate, pageable
+        );
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng thành công", orders));
     }
 

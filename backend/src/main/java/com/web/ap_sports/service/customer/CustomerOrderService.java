@@ -16,6 +16,7 @@ public interface CustomerOrderService {
     OrderResponse retryVNPayPayment(String email, String orderCode, String clientIp);
     OrderResponse getOrderByCode(String email, String orderCode);
     Page<OrderResponse> getMyOrders(String email, String status, String keyword, String sortBy, String sortDir, LocalDate startDate, LocalDate endDate, Pageable pageable);
+    Page<OrderResponse> getMyOrders(String email, String status, String paymentMethod, String paymentStatus, String keyword, String sortBy, String sortDir, LocalDate startDate, LocalDate endDate, Pageable pageable);
     OrderResponse cancelMyOrder(String email, String orderCode, String reason);
     OrderResponse returnMyOrder(String email, String orderCode, String reason);
     OrderResponse completeMyOrder(String email, String orderCode);

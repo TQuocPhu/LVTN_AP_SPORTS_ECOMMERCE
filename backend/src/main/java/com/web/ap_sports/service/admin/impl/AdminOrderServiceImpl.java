@@ -20,6 +20,7 @@ import com.web.ap_sports.enums.OrderStatus;
 import com.web.ap_sports.enums.PaymentStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.*;
+import com.web.ap_sports.repository.specification.OrderPaymentSpecificationHelper;
 import com.web.ap_sports.service.admin.AdminOrderService;
 
 import jakarta.persistence.criteria.Join;
@@ -496,6 +497,15 @@ public class AdminOrderServiceImpl implements AdminOrderService {
             if (filter.getAssignedShipperId() != null) {
                 predicates.add(cb.equal(root.get("assignedShipper").get("id"), filter.getAssignedShipperId()));
             }
+
+            // 6. Filter theo phương thức thanh toán & trạng thái thanh toán (Subquery bảng payments)
+            OrderPaymentSpecificationHelper.buildPaymentPredicate(
+                    root,
+                    query,
+                    cb,
+                    filter.getPaymentMethod(),
+                    filter.getPaymentStatus()
+            ).ifPresent(predicates::add);
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };

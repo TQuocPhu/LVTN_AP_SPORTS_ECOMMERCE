@@ -15,6 +15,7 @@ public class AdminOrderFilterRequest {
     private String keyword;
     private String status; // ALL, pending, confirmed, processing, shipping, delivered, cancelled, payment_failed
     private String paymentMethod; // ALL, COD, VNPAY
+    private String paymentStatus; // ALL, pending, completed, failed, refunded
     private BigDecimal minPrice;
     private BigDecimal maxPrice;
     private String startDate; // yyyy-MM-dd HH:mm:ss hoặc yyyy-MM-dd
