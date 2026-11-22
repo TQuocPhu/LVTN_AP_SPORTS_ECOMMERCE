@@ -20,6 +20,7 @@ export const adminOrderController = {
     if (params.keyword) queryParams.append('keyword', params.keyword);
     if (params.status && params.status !== 'ALL') queryParams.append('status', params.status);
     if (params.paymentMethod && params.paymentMethod !== 'ALL') queryParams.append('paymentMethod', params.paymentMethod);
+    if (params.paymentStatus && params.paymentStatus !== 'ALL') queryParams.append('paymentStatus', params.paymentStatus);
     if (params.minPrice !== undefined && params.minPrice !== null) queryParams.append('minPrice', params.minPrice.toString());
     if (params.maxPrice !== undefined && params.maxPrice !== null) queryParams.append('maxPrice', params.maxPrice.toString());
     if (params.startDate) queryParams.append('startDate', params.startDate);

@@ -102,6 +102,15 @@ export interface CustomerPaymentMethodMeta {
   badgeClass: string;
 }
 
+export const CUSTOMER_PAYMENT_STATUS_OPTIONS: CustomerPaymentStatusMeta[] = Object.values(
+  CUSTOMER_PAYMENT_STATUS_MAP
+);
+
+export const CUSTOMER_PAYMENT_METHOD_OPTIONS: { value: string; label: string }[] = [
+  { value: 'COD', label: 'Thanh toán COD' },
+  { value: 'VNPAY', label: 'Chuyển khoản VNPay' },
+];
+
 export function getCustomerPaymentStatusMeta(status?: string): CustomerPaymentStatusMeta {
   const key = status?.toLowerCase() || 'pending';
   return CUSTOMER_PAYMENT_STATUS_MAP[key] || CUSTOMER_PAYMENT_STATUS_MAP.pending;

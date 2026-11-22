@@ -44,6 +44,12 @@ export function CustomerOrdersContentUI() {
     orders,
     loading,
     activeTab,
+    paymentMethod,
+    paymentStatus,
+    paymentMethodOptions,
+    paymentStatusOptions,
+    handlePaymentMethodChange,
+    handlePaymentStatusChange,
     keyword,
     setKeyword,
     sortBy,
@@ -239,26 +245,56 @@ export function CustomerOrdersContentUI() {
         </div>
 
         {/* Search, Date Filter & Sort Bar */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 transition-colors">
-          {/* Keyword Search - Kéo dài rộng ra */}
-          <div className="relative flex-1 min-w-[260px] max-w-xl">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => {
-                setKeyword(e.target.value);
-                setPage(0);
-              }}
-              placeholder="Tìm theo mã đơn hàng hoặc mã vận đơn GHN..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-            />
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3 transition-colors">
+          {/* Hàng 1: Ô tìm kiếm + Sắp xếp */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => {
+                  setKeyword(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Tìm theo mã đơn hàng hoặc mã vận đơn GHN..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+              />
+            </div>
+
+            {/* Sort Selection Dropdown */}
+            <div className="flex items-center gap-2 shrink-0">
+              <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
+                Sắp xếp:
+              </span>
+              <select
+                value={`${sortBy}-${sortDir}`}
+                onChange={(e) => {
+                  const [sb, sd] = e.target.value.split("-");
+                  setSortBy(sb);
+                  setSortDir(sd);
+                  setPage(0);
+                }}
+                className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
+              >
+                <option value="createdAt-DESC">Mới nhất (Mặc định)</option>
+                <option value="createdAt-ASC">Cũ nhất</option>
+                <option value="finalAmount-DESC">Giá trị đơn: Cao nhất</option>
+                <option value="finalAmount-ASC">Giá trị đơn: Thấp nhất</option>
+              </select>
+            </div>
           </div>
 
-          {/* Controls: Date Range Filter & Sort Dropdown */}
-          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3 shrink-0">
+          {/* Hàng 2: Bộ lọc ngày, Phương thức & Trạng thái thanh toán */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-bold">
+              <Filter className="w-3.5 h-3.5 shrink-0" />
+              <span>Lọc:</span>
+            </div>
+
             {/* Bộ lọc đơn hàng theo thời gian cụ thể */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
                 <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Từ:</span>
@@ -302,26 +338,34 @@ export function CustomerOrdersContentUI() {
               )}
             </div>
 
-            {/* Sort Selection Dropdown */}
-            <div className="flex items-center gap-2 shrink-0">
-              <ArrowUpDown className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
-                Sắp xếp:
-              </span>
+            {/* Bộ lọc Phương thức & Trạng thái thanh toán */}
+            <div className="flex flex-wrap items-center gap-2">
               <select
-                value={`${sortBy}-${sortDir}`}
-                onChange={(e) => {
-                  const [sb, sd] = e.target.value.split("-");
-                  setSortBy(sb);
-                  setSortDir(sd);
-                  setPage(0);
-                }}
+                value={paymentMethod}
+                onChange={(e) => handlePaymentMethodChange(e.target.value)}
                 className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
+                title="Lọc theo phương thức thanh toán"
               >
-                <option value="createdAt-DESC">Mới nhất (Mặc định)</option>
-                <option value="createdAt-ASC">Cũ nhất</option>
-                <option value="finalAmount-DESC">Giá trị đơn: Cao nhất</option>
-                <option value="finalAmount-ASC">Giá trị đơn: Thấp nhất</option>
+                <option value="ALL">Phương thức: Tất cả</option>
+                {paymentMethodOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={paymentStatus}
+                onChange={(e) => handlePaymentStatusChange(e.target.value)}
+                className="p-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all cursor-pointer"
+                title="Lọc theo trạng thái thanh toán"
+              >
+                <option value="ALL">Thanh toán: Tất cả</option>
+                {paymentStatusOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

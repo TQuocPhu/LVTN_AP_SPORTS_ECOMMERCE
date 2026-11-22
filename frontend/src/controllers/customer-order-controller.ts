@@ -24,11 +24,19 @@ export const customerOrderController = {
     page: number = 0,
     size: number = 10,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    paymentMethod?: string,
+    paymentStatus?: string
   ): Promise<ApiResponse<PaginatedOrdersResponse>> {
     let url = `/customer/orders/my-orders?status=${encodeURIComponent(
       status
     )}&page=${page}&size=${size}`;
+    if (paymentMethod && paymentMethod !== 'ALL') {
+      url += `&paymentMethod=${encodeURIComponent(paymentMethod)}`;
+    }
+    if (paymentStatus && paymentStatus !== 'ALL') {
+      url += `&paymentStatus=${encodeURIComponent(paymentStatus)}`;
+    }
     if (keyword && keyword.trim()) {
       url += `&keyword=${encodeURIComponent(keyword.trim())}`;
     }

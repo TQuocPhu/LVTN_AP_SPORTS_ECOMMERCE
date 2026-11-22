@@ -3,7 +3,10 @@
 import React from 'react';
 import { Search, Filter, RotateCcw, Calendar, DollarSign, ArrowUpDown } from 'lucide-react';
 import { AdminOrderFilterParams } from '@/types/admin-order';
-import { ADMIN_ORDER_STATUS_OPTIONS } from '@/constants/admin-order-status';
+import {
+  ADMIN_ORDER_STATUS_OPTIONS,
+  ADMIN_PAYMENT_STATUS_OPTIONS,
+} from '@/constants/admin-order-status';
 
 interface AdminOrderFilterBarProps {
   filters: AdminOrderFilterParams;
@@ -61,9 +64,9 @@ export function AdminOrderFilterBar({
         </div>
       </div>
 
-      {/* Hàng 2: Bộ lọc Trạng thái, Phương thức, Ngày đặt & Giá */}
-      <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs sm:text-sm">
-        <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+      {/* Hàng 2: Bộ lọc Trạng thái, Phương thức, Ngày đặt & Sắp xếp */}
+      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+        <div className="flex items-center gap-1 text-slate-500 font-medium">
           <Filter className="w-3.5 h-3.5 text-slate-400" />
           <span>Lọc:</span>
         </div>
@@ -72,9 +75,9 @@ export function AdminOrderFilterBar({
         <select
           value={filters.status || 'ALL'}
           onChange={(e) => onFilterChange('status', e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm font-medium"
+          className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
         >
-          <option value="ALL">Tất cả trạng thái</option>
+          <option value="ALL">Trạng thái: Tất cả</option>
           {ADMIN_ORDER_STATUS_OPTIONS.map((opt) => (
             <option key={opt.filterValue} value={opt.filterValue}>
               {opt.filterLabel}
@@ -86,15 +89,29 @@ export function AdminOrderFilterBar({
         <select
           value={filters.paymentMethod || 'ALL'}
           onChange={(e) => onFilterChange('paymentMethod', e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm font-medium"
+          className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
         >
-          <option value="ALL">Tất cả phương thức</option>
+          <option value="ALL">Phương thức: Tất cả</option>
           <option value="COD">Thanh toán COD</option>
           <option value="VNPAY">Chuyển khoản VNPay</option>
         </select>
 
+        {/* Filter Trạng thái thanh toán */}
+        <select
+          value={filters.paymentStatus || 'ALL'}
+          onChange={(e) => onFilterChange('paymentStatus', e.target.value)}
+          className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
+        >
+          <option value="ALL">Thanh toán: Tất cả</option>
+          {ADMIN_PAYMENT_STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
         {/* Start Date */}
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700">
+        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700">
           <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className="text-xs text-slate-400">Từ:</span>
           <input
@@ -106,7 +123,7 @@ export function AdminOrderFilterBar({
         </div>
 
         {/* End Date */}
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700">
+        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700">
           <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className="text-xs text-slate-400">Đến:</span>
           <input
@@ -118,8 +135,8 @@ export function AdminOrderFilterBar({
         </div>
 
         {/* Sắp xếp */}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+        <div className="flex items-center gap-1.5 xl:ml-auto">
+          <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <select
             value={`${filters.sortBy || 'createdAt'}_${filters.sortDir || 'DESC'}`}
             onChange={(e) => {
@@ -127,7 +144,7 @@ export function AdminOrderFilterBar({
               onFilterChange('sortBy', sortBy);
               onFilterChange('sortDir', sortDir);
             }}
-            className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs sm:text-sm font-medium"
+            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs font-medium"
           >
             <option value="createdAt_DESC">Mới nhất (Mặc định)</option>
             <option value="createdAt_ASC">Cũ nhất (Đặt sớm nhất)</option>

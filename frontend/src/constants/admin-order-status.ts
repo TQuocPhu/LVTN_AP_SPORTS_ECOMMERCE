@@ -138,6 +138,8 @@ export const ADMIN_PAYMENT_STATUS_MAP: Record<AdminPaymentStatusKey, AdminPaymen
   },
 };
 
+export const ADMIN_PAYMENT_STATUS_OPTIONS: AdminPaymentStatusMeta[] = Object.values(ADMIN_PAYMENT_STATUS_MAP);
+
 /**
  * Lấy metadata hiển thị chuẩn cho trạng thái thanh toán ở trang quản trị.
  */

@@ -8,6 +8,8 @@ import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 import { canRetryVNPayOrder } from '@/utils/vnpay-retry';
 import {
+  CUSTOMER_PAYMENT_METHOD_OPTIONS,
+  CUSTOMER_PAYMENT_STATUS_OPTIONS,
   getCustomerPaymentMethodMeta,
   getCustomerPaymentStatusMeta,
 } from '@/constants/customer-order-status';
@@ -29,6 +31,8 @@ export function useCustomerOrders() {
   const [orders, setOrders] = useState<OrderResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<CustomerOrderStatusTab>('ALL');
+  const [paymentMethod, setPaymentMethod] = useState<string>('ALL');
+  const [paymentStatus, setPaymentStatus] = useState<string>('ALL');
   const { keyword, debouncedKeyword, setKeyword } = useDebouncedSearch('', 400);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -88,7 +92,9 @@ export function useCustomerOrders() {
         page,
         10,
         startDate,
-        endDate
+        endDate,
+        paymentMethod,
+        paymentStatus
       );
       if (res && res.data) {
         setOrders(res.data.content || []);
@@ -99,7 +105,7 @@ export function useCustomerOrders() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedKeyword, sortBy, sortDir, page, startDate, endDate]);
+  }, [activeTab, debouncedKeyword, sortBy, sortDir, page, startDate, endDate, paymentMethod, paymentStatus]);
 
   useEffect(() => {
     fetchOrders();
@@ -250,6 +256,16 @@ export function useCustomerOrders() {
     });
   }, []);
 
+  const handlePaymentMethodChange = useCallback((value: string) => {
+    setPaymentMethod(value);
+    setPage(0);
+  }, []);
+
+  const handlePaymentStatusChange = useCallback((value: string) => {
+    setPaymentStatus(value);
+    setPage(0);
+  }, []);
+
   const getPaymentDisplayInfo = useCallback(
     (paymentMethod?: string, paymentStatus?: string) => ({
       methodMeta: getCustomerPaymentMethodMeta(paymentMethod),
@@ -262,6 +278,12 @@ export function useCustomerOrders() {
     orders,
     loading,
     activeTab,
+    paymentMethod,
+    paymentStatus,
+    paymentMethodOptions: CUSTOMER_PAYMENT_METHOD_OPTIONS,
+    paymentStatusOptions: CUSTOMER_PAYMENT_STATUS_OPTIONS,
+    handlePaymentMethodChange,
+    handlePaymentStatusChange,
     keyword,
     setKeyword,
     sortBy,

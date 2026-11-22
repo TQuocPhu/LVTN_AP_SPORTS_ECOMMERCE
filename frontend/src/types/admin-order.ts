@@ -6,6 +6,7 @@ export interface AdminOrderFilterParams {
   keyword?: string;
   status?: string; // ALL, pending, confirmed, processing, shipped, shipping, delivered, completed, cancelled, returned, payment_failed
   paymentMethod?: string; // ALL, COD, VNPAY
+  paymentStatus?: string; // ALL, pending, completed, failed, refunded
   minPrice?: number;
   maxPrice?: number;
   startDate?: string;
