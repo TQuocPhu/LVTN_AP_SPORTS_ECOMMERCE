@@ -39,6 +39,9 @@ export const aiService = {
         question,
         activeProductSlug,
         guestToken,
+      },
+      {
+        timeout: 30000, // Tăng timeout riêng cho AI Advisor lên 30s (vượt mức 15s mặc định)
       }
     );
     return res.data.data;

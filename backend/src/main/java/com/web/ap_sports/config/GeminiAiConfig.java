@@ -30,18 +30,30 @@ public class GeminiAiConfig {
     @Value("${app.gemini.fallback-model:gemini-3.5-flash-lite}")
     private String fallbackModel;
 
-    @Value("${app.gemini.timeout-seconds:30}")
+    @Value("${app.gemini.timeout-seconds:15}")
     private int timeoutSeconds;
 
     /**
-     * Khởi tạo RestTemplate chuyên dụng gọi Google Gemini API với thiết lập Timeout an toàn,
-     * tránh việc server bị treo khi mạng quốc tế chập chờn hoặc API bên thứ 3 chậm trễ.
+     * Khởi tạo RestTemplate chuyên dụng gọi Google Gemini API cho luồng trả lời chính
+     * với thiết lập Timeout an toàn (kết nối 8s, đọc tối thiểu 10s / mặc định 15s).
      */
     @Bean(name = "geminiRestTemplate")
     public RestTemplate geminiRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout((int) Duration.ofSeconds(10).toMillis());
-        factory.setReadTimeout((int) Duration.ofSeconds(Math.max(15, timeoutSeconds)).toMillis());
+        factory.setConnectTimeout((int) Duration.ofSeconds(8).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(Math.max(10, timeoutSeconds)).toMillis());
+        return new RestTemplate(factory);
+    }
+
+    /**
+     * RestTemplate timeout ngắn (kết nối 3s, đọc 4s) dành riêng cho các tác vụ phụ trợ nhẹ
+     * như bóc tách Search Intent và kiểm duyệt ngữ nghĩa bằng model flash-lite.
+     */
+    @Bean(name = "fastGeminiRestTemplate")
+    public RestTemplate fastGeminiRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofSeconds(3).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(4).toMillis());
         return new RestTemplate(factory);
     }
 

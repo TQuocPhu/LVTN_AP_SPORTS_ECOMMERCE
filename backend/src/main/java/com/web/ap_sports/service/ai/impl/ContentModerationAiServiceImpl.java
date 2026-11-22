@@ -79,14 +79,10 @@ public class ContentModerationAiServiceImpl implements ContentModerationAiServic
             return ModerationResult.clean();
         }
 
-        // 2. Lớp 2: Phân tích ngữ nghĩa chuyên sâu qua Google Gemini Flash API (bọc Timeout cứng 2.5s để không bao giờ treo chat)
-        CompletableFuture<String> aiFuture = CompletableFuture.supplyAsync(() -> {
-            String prompt = "Phân tích tin nhắn sau:\n\"" + cleanText + "\"";
-            return geminiRestClient.generateContent(MODERATION_SYSTEM_INSTRUCTION, prompt, 0.1, 256);
-        });
-
+        // 2. Lớp 2: Phân tích ngữ nghĩa chuyên sâu qua Google Gemini Flash Lite (timeout ngắn 4s, không retry ngầm)
         try {
-            String rawJson = aiFuture.get(2500, TimeUnit.MILLISECONDS);
+            String prompt = "Phân tích tin nhắn sau:\n\"" + cleanText + "\"";
+            String rawJson = geminiRestClient.generateFastContent(MODERATION_SYSTEM_INSTRUCTION, prompt, 0.1, 256);
 
             if (rawJson != null && !rawJson.isBlank() && rawJson.contains("{")) {
                 String sanitizedJson = rawJson.replace("```json", "").replace("```", "").trim();
@@ -100,9 +96,6 @@ public class ContentModerationAiServiceImpl implements ContentModerationAiServic
                     return ModerationResult.violation(category, reason);
                 }
             }
-        } catch (TimeoutException te) {
-            aiFuture.cancel(true);
-            log.warn("[Content Moderation] Quá thời gian chờ Gemini (2.5s), bỏ qua để gửi tin nhắn tức thì.");
         } catch (Exception e) {
             log.warn("[Content Moderation] Lỗi khi gọi Gemini kiểm duyệt (chuyển sang fail-safe an toàn): {}", e.getMessage());
         }

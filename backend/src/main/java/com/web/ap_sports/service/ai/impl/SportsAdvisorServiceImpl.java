@@ -23,9 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -49,11 +51,18 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
     private final ObjectMapper objectMapper;
     private final ContentModerationAiService contentModerationAiService;
     private final HybridSearchEngineService hybridSearchEngineService;
+    private final TransactionTemplate transactionTemplate;
 
     private static final Locale VI_LOCALE = new Locale("vi", "VN");
 
+    private record AdvisorDbContext(
+            List<ChatMessage> recentMessages,
+            List<Product> allInStockProducts,
+            Optional<Product> directProduct,
+            Map<Long, List<ProductVariant>> variantMap
+    ) {}
+
     @Override
-    @Transactional
     public AiSportsAdvisorResponse advise(AiSportsAdvisorRequest request, User currentUser) {
         // 1. Làm sạch prompt đầu vào, chống injection và che giấu PII
         String cleanQuestion = promptSanitizer.sanitizeUserPrompt(request.getQuestion(), 400);
@@ -64,32 +73,75 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                     .build();
         }
 
-        // 1.1 Kiểm duyệt nội dung bằng AI Guardrails L1 + L2
-        ContentModerationAiService.ModerationResult modResult = contentModerationAiService.moderate(cleanQuestion);
+        boolean hasActiveSlug = request.getActiveProductSlug() != null && !request.getActiveProductSlug().isBlank();
+
+        // 1.1 Chạy song song Kiểm duyệt nội dung & Bóc tách ý định tìm kiếm bằng model flash-lite (timeout ngắn 4s)
+        CompletableFuture<ContentModerationAiService.ModerationResult> modFuture =
+                CompletableFuture.supplyAsync(() -> contentModerationAiService.moderate(cleanQuestion));
+        CompletableFuture<SearchIntent> intentFuture = hasActiveSlug
+                ? CompletableFuture.completedFuture(new SearchIntent(null, ""))
+                : CompletableFuture.supplyAsync(() -> analyzeSearchIntent(cleanQuestion));
+
+        ContentModerationAiService.ModerationResult modResult = modFuture.join();
         if (modResult.isViolation()) {
             String warningReply = "Dạ AP Sports xin phép từ chối phản hồi do câu hỏi có chứa nội dung vi phạm tiêu chuẩn cộng đồng ("
                     + modResult.reason() + "). Vui lòng sử dụng ngôn từ lịch sự để được trợ lý hỗ trợ tốt nhất ạ!";
-            saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null,
-                    true, modResult.reason(), modResult.maskedContent());
-            saveChatMessage(warningReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(),
-                    Collections.emptyList(), false, null, null);
+            transactionTemplate.executeWithoutResult(status -> {
+                saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null,
+                        true, modResult.reason(), modResult.maskedContent());
+                saveChatMessage(warningReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(),
+                        Collections.emptyList(), false, null, null);
+            });
             return AiSportsAdvisorResponse.builder()
                     .reply(warningReply)
                     .suggestedProducts(Collections.emptyList())
                     .build();
         }
 
-        // 2. Lấy lịch sử hội thoại gần nhất (cửa sổ trượt 6 tin nhắn gần nhất)
-        List<ChatMessage> recentDbMessages;
-        if (currentUser != null) {
-            recentDbMessages = chatMessageRepository.findRecentMessagesByUserId(currentUser.getId(),
-                    PageRequest.of(0, 6));
-        } else if (request.getGuestToken() != null && !request.getGuestToken().isBlank()) {
-            recentDbMessages = chatMessageRepository.findRecentMessagesByGuestToken(request.getGuestToken().trim(),
-                    PageRequest.of(0, 6));
-        } else {
-            recentDbMessages = Collections.emptyList();
-        }
+        // 2. Pha đọc DB ngắn (Transaction Read-Only) để nạp lịch sử, sản phẩm (kèm categories) và biến thể,
+        //    sau đó giải phóng ngay DB Connection trước khi gọi HTTP ra Gemini API (tránh HikariCP Connection Leak)
+        AdvisorDbContext dbContext = transactionTemplate.execute(status -> {
+            status.setRollbackOnly();
+            List<ChatMessage> recentDbMessages;
+            if (currentUser != null) {
+                recentDbMessages = chatMessageRepository.findRecentMessagesByUserId(currentUser.getId(),
+                        PageRequest.of(0, 6));
+            } else if (request.getGuestToken() != null && !request.getGuestToken().isBlank()) {
+                recentDbMessages = chatMessageRepository.findRecentMessagesByGuestToken(request.getGuestToken().trim(),
+                        PageRequest.of(0, 6));
+            } else {
+                recentDbMessages = Collections.emptyList();
+            }
+
+            List<Product> allInStock = productRepository.findAllInStockProductsWithCategories();
+            Optional<Product> directProd = hasActiveSlug
+                    ? productRepository.findBySlug(request.getActiveProductSlug().trim())
+                    : Optional.empty();
+
+            List<Long> productIds = new ArrayList<>();
+            if (allInStock != null) {
+                allInStock.stream().map(Product::getId).filter(Objects::nonNull).forEach(productIds::add);
+            }
+            directProd.map(Product::getId).filter(id -> !productIds.contains(id)).ifPresent(productIds::add);
+
+            Map<Long, List<ProductVariant>> variantsByProduct = Collections.emptyMap();
+            if (!productIds.isEmpty()) {
+                List<ProductVariant> allVariants = productVariantRepository.findByProductIdIn(productIds);
+                if (allVariants != null) {
+                    variantsByProduct = allVariants.stream()
+                            .filter(v -> v.getProduct() != null && v.getProduct().getId() != null)
+                            .collect(Collectors.groupingBy(v -> v.getProduct().getId()));
+                }
+            }
+
+            return new AdvisorDbContext(recentDbMessages, allInStock, directProd, variantsByProduct);
+        });
+
+        List<ChatMessage> recentDbMessages = dbContext != null ? dbContext.recentMessages() : Collections.emptyList();
+        List<Product> allInStockProducts = dbContext != null && dbContext.allInStockProducts() != null
+                ? dbContext.allInStockProducts() : Collections.emptyList();
+        Optional<Product> directProduct = dbContext != null ? dbContext.directProduct() : Optional.empty();
+        Map<Long, List<ProductVariant>> variantMap = dbContext != null ? dbContext.variantMap() : Collections.emptyMap();
 
         // Đảo ngược lại theo thứ tự thời gian tăng dần để gửi lên Gemini
         List<ChatMessage> chronologicalMessages = new ArrayList<>(recentDbMessages);
@@ -104,36 +156,35 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
         // Thêm câu hỏi hiện tại vào danh sách hội thoại
         geminiMessages.add(new GeminiRestClient.GeminiMessage("user", cleanQuestion));
 
-        // 3. Pre-filtering dữ liệu sản phẩm để nén context siêu nhẹ và chuẩn xác
-        List<Product> allInStockProducts = productRepository.findAllInStockProductsWithCategories();
-        List<Product> relevantProducts = preFilterProducts(cleanQuestion, request.getActiveProductSlug(),
-                allInStockProducts);
-        String productContextJson = buildCompactProductContext(relevantProducts);
+        // 3. Pre-filtering dữ liệu sản phẩm trên bộ nhớ (0 truy vấn DB bổ sung)
+        SearchIntent intent = intentFuture.join();
+        List<Product> relevantProducts = preFilterProducts(cleanQuestion, directProduct, intent,
+                allInStockProducts, variantMap);
+        String productContextJson = buildCompactProductContext(relevantProducts, variantMap);
 
         // 4. Xây dựng System Prompt với ranh giới an toàn nghiêm ngặt
         String systemInstruction = buildSystemInstruction(productContextJson);
 
-        // 5. Gọi Gemini Flash API (nhiệt độ 0.4 để câu trả lời sinh động nhưng chuẩn
-        // xác)
+        // 5. Gọi Gemini Flash API ngoài Transaction (nhiệt độ 0.4 để câu trả lời sinh động nhưng chuẩn xác)
         String rawReply = geminiRestClient.generateChatContent(systemInstruction, geminiMessages, 0.4, 2048);
 
-        // Loại bỏ hoàn toàn ký tự ** (in đậm markdown) và chuyển đổi [Tên](/link) thành
-        // Tên thuần để tránh rối mắt
+        // Loại bỏ hoàn toàn ký tự ** (in đậm markdown) và chuyển đổi [Tên](/link) thành Tên thuần để tránh rối mắt
         String cleanReply = (rawReply != null) ? rawReply : "";
         cleanReply = cleanReply.replaceAll("\\[([^\\]]+)\\]\\([^\\)]+\\)", "$1");
         cleanReply = cleanReply.replace("**", "").trim();
 
-        // 6. Tạo danh sách SuggestedProduct để Client render thẻ sản phẩm trực quan bên
-        // dưới
+        // 6. Tạo danh sách SuggestedProduct để Client render thẻ sản phẩm trực quan bên dưới
         List<AiSportsAdvisorResponse.SuggestedProduct> suggestedProducts = extractSuggestedProducts(relevantProducts,
                 allInStockProducts, cleanReply, cleanQuestion);
 
-        // 7. Lưu tin nhắn sạch vào cơ sở dữ liệu chat_messages kèm sản phẩm gợi ý của
-        // bot
-        saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null, false,
-                null, null);
-        saveChatMessage(cleanReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(), suggestedProducts,
-                false, null, null);
+        // 7. Pha ghi DB ngắn (Atomic Transaction) lưu cặp tin nhắn user + bot vào chat_messages
+        final String finalReply = cleanReply;
+        transactionTemplate.executeWithoutResult(status -> {
+            saveChatMessage(cleanQuestion, ChatMessage.ChatSender.user, currentUser, request.getGuestToken(), null, false,
+                    null, null);
+            saveChatMessage(finalReply, ChatMessage.ChatSender.bot, currentUser, request.getGuestToken(), suggestedProducts,
+                    false, null, null);
+        });
 
         return AiSportsAdvisorResponse.builder()
                 .reply(cleanReply)
@@ -208,40 +259,33 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
      * 4. Kiểm tra tính nhất quán ĐỘNG (Dynamic Item Type Check):
      *    Nếu khách hỏi GIÀY mà shop chỉ có BÓNG -> Tự động loại bỏ, trả về rỗng [] để AI thành thật báo chưa có hàng.
      */
-    private List<Product> preFilterProducts(String question, String activeProductSlug, List<Product> allInStock) {
-        if (activeProductSlug != null && !activeProductSlug.isBlank()) {
-            Optional<Product> directProduct = productRepository.findBySlug(activeProductSlug.trim());
-            if (directProduct.isPresent()) {
-                return List.of(directProduct.get());
-            }
+    private List<Product> preFilterProducts(
+            String question,
+            Optional<Product> directProduct,
+            SearchIntent intent,
+            List<Product> allInStock,
+            Map<Long, List<ProductVariant>> variantMap
+    ) {
+        if (directProduct != null && directProduct.isPresent()) {
+            return List.of(directProduct.get());
         }
 
         if (allInStock == null || allInStock.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // Bước 1: Phân tích ý định tìm kiếm ĐỘNG bằng AI (Intent Extraction: itemType & keywords)
-        SearchIntent intent = analyzeSearchIntent(question);
-        String searchInput = (intent.searchKeywords() != null && !intent.searchKeywords().isBlank())
+        // Bước 1: Mở rộng từ khóa từ kết quả phân tích ý định (đã chạy song song trước đó)
+        String searchInput = (intent != null && intent.searchKeywords() != null && !intent.searchKeywords().isBlank())
                 ? (question + " " + intent.searchKeywords()).trim()
                 : question;
 
-        // Bước 2: Nạp trước danh sách biến thể để phục vụ Hybrid Search Engine
-        List<Long> productIds = allInStock.stream().map(Product::getId).filter(Objects::nonNull).toList();
-        List<ProductVariant> allVariants = productVariantRepository.findByProductIdIn(productIds);
-        Map<Long, List<ProductVariant>> variantMap = allVariants != null
-                ? allVariants.stream()
-                        .filter(v -> v.getProduct() != null && v.getProduct().getId() != null)
-                        .collect(Collectors.groupingBy(v -> v.getProduct().getId()))
-                : Collections.emptyMap();
-
-        // Bước 3: Tìm kiếm và xếp hạng bằng Hybrid Search Engine (TF-IDF + Attribute Scoring)
+        // Bước 2: Tìm kiếm và xếp hạng bằng Hybrid Search Engine (TF-IDF + Attribute Scoring)
         List<Product> rankedProducts = hybridSearchEngineService.rankProducts(searchInput, allInStock, variantMap);
 
-        // Bước 4: Kiểm tra tính nhất quán ĐỘNG theo loại mặt hàng (Dynamic Item Type Check)
+        // Bước 3: Kiểm tra tính nhất quán ĐỘNG theo loại mặt hàng (Dynamic Item Type Check)
         // Nếu khách hỏi GIÀY (itemType = "giày") mà trong rankedProducts không có sản phẩm nào thuộc loại "giày":
         // -> strictlyFiltered sẽ RỖNG [] -> Trả về danh sách rỗng để AI thành thật báo chưa có hàng!
-        if (intent.itemType() != null && !intent.itemType().isBlank()) {
+        if (intent != null && intent.itemType() != null && !intent.itemType().isBlank()) {
             List<Product> strictlyFiltered = filterByDynamicItemType(rankedProducts, intent.itemType());
             return strictlyFiltered.stream().limit(4).toList(); // Trả về rỗng nếu shop không có đúng loại hàng khách tìm
         }
@@ -333,7 +377,7 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                 """.formatted(userQuestion);
 
         try {
-            String rawJson = geminiRestClient.generateContent(null, prompt, 0.1, 100);
+            String rawJson = geminiRestClient.generateFastContent(null, prompt, 0.1, 100);
             if (rawJson != null && !rawJson.isBlank() && !rawJson.startsWith("Hệ thống") && !rawJson.startsWith("Tính năng")) {
                 String cleanJson = rawJson.replaceAll("```json", "").replaceAll("```", "").trim();
                 JsonNode root = objectMapper.readTree(cleanJson);
@@ -359,7 +403,7 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
      * Nén danh sách sản phẩm thành định dạng JSON Micro Context siêu gọn (~150-250
      * tokens)
      */
-    private String buildCompactProductContext(List<Product> products) {
+    private String buildCompactProductContext(List<Product> products, Map<Long, List<ProductVariant>> variantMap) {
         if (products.isEmpty()) {
             return "[]";
         }
@@ -374,9 +418,9 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
             map.put("price", currencyFormat.format(p.getPrice()));
             map.put("link", "/products/" + p.getSlug());
 
-            // Thu thập các size có sẵn từ bảng product_variants
+            // Tái sử dụng variantMap đã nạp sẵn để loại bỏ hoàn toàn N+1 query
             Set<String> sizes = new LinkedHashSet<>();
-            List<ProductVariant> variants = productVariantRepository.findByProductId(p.getId());
+            List<ProductVariant> variants = variantMap != null ? variantMap.get(p.getId()) : null;
             if (variants != null) {
                 for (ProductVariant v : variants) {
                     if (v.getStockQuantity() != null && v.getStockQuantity() > 0 && v.getSize() != null) {

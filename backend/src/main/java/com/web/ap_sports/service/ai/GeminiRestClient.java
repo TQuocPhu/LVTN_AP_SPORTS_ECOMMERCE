@@ -3,7 +3,6 @@ package com.web.ap_sports.service.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.web.ap_sports.config.GeminiAiConfig;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.*;
@@ -20,26 +19,90 @@ import java.util.concurrent.atomic.AtomicLong;
  * 1. Trường system_instruction chuẩn hóa của Google Gemini.
  * 2. Chuẩn hóa lịch sử hội thoại (luân phiên user/model nghiêm ngặt, loại bỏ tin nhắn rỗng) tránh lỗi 400 INVALID_ARGUMENT.
  * 3. Tự động gỡ bỏ thinkingConfig khi gọi dòng model Lite (gemini-3.5-flash-lite) vì model Lite không nhận thinkingBudget=0.
- * 4. Cơ chế Auto-Retry & Cooldown thông minh khi model chính bị 503 High Demand Spikes hoặc 429 Rate Limit.
+ * 4. Cơ chế Auto-Retry & Cooldown thông minh khi model chính bị 503, 429 hoặc Timeout.
+ * 5. Kênh gọi nhanh generateFastContent dành riêng cho tác vụ phụ trợ (Intent / Moderation) dùng flash-lite timeout ngắn.
  */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class GeminiRestClient {
 
     private final GeminiAiConfig geminiAiConfig;
     private final ObjectMapper objectMapper;
-
-    @Qualifier("geminiRestTemplate")
     private final RestTemplate restTemplate;
+    private final RestTemplate fastRestTemplate;
+
+    public GeminiRestClient(
+            GeminiAiConfig geminiAiConfig,
+            ObjectMapper objectMapper,
+            @Qualifier("geminiRestTemplate") RestTemplate restTemplate,
+            @Qualifier("fastGeminiRestTemplate") RestTemplate fastRestTemplate
+    ) {
+        this.geminiAiConfig = geminiAiConfig;
+        this.objectMapper = objectMapper;
+        this.restTemplate = restTemplate;
+        this.fastRestTemplate = fastRestTemplate;
+    }
 
     /**
-     * Đánh dấu thời điểm hết hạn cooldown của model chính (gemini-3.5-flash) khi gặp 503 quá tải,
+     * Đánh dấu thời điểm hết hạn cooldown của model chính (gemini-3.5-flash) khi gặp 503/429/Timeout,
      * giúp các tin nhắn tiếp theo chuyển thẳng sang gemini-3.5-flash-lite phản hồi tức thì (~350ms).
      */
     private final AtomicLong primaryModelCooldownUntil = new AtomicLong(0L);
 
     public record GeminiMessage(String role, String text) {}
+
+    /**
+     * Gọi nhanh Gemini Flash Lite cho các tác vụ phụ trợ nhẹ (bóc tách Intent, kiểm duyệt nội dung).
+     * Dùng fastRestTemplate (timeout đọc 4s, không retry) để không làm chậm luồng chính hay ngốn quota API Key.
+     * Trả về chuỗi rỗng "" nếu lỗi hoặc timeout để caller dùng fallback cục bộ.
+     */
+    public String generateFastContent(String systemInstruction, String userPrompt, double temperature, int maxOutputTokens) {
+        String apiKey = geminiAiConfig.getApiKey();
+        if (apiKey == null || apiKey.isBlank() || userPrompt == null || userPrompt.isBlank()) {
+            return "";
+        }
+
+        String fallbackUrl = normalizeFallbackGeminiUrl(geminiAiConfig.getFallbackApiUrl());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-goog-api-key", apiKey);
+
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        if (systemInstruction != null && !systemInstruction.isBlank()) {
+            requestBody.put("system_instruction", Map.of(
+                    "parts", List.of(Map.of("text", systemInstruction.trim()))
+            ));
+        }
+        requestBody.put("contents", List.of(Map.of(
+                "role", "user",
+                "parts", List.of(Map.of("text", userPrompt.trim()))
+        )));
+
+        Map<String, Object> generationConfig = new LinkedHashMap<>();
+        generationConfig.put("temperature", Math.max(0.0, Math.min(1.0, temperature)));
+        generationConfig.put("maxOutputTokens", Math.max(32, Math.min(1024, maxOutputTokens)));
+        requestBody.put("generationConfig", generationConfig);
+
+        try {
+            long startTime = System.currentTimeMillis();
+            ResponseEntity<String> response = fastRestTemplate.exchange(
+                    fallbackUrl,
+                    HttpMethod.POST,
+                    new HttpEntity<>(requestBody, headers),
+                    String.class
+            );
+            long duration = System.currentTimeMillis() - startTime;
+            log.debug("Gemini Fast AI phản hồi trong {} ms (URL: {})", duration, fallbackUrl);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                String extracted = extractTextFromResponse(response.getBody());
+                return extracted != null ? extracted : "";
+            }
+        } catch (Exception ex) {
+            log.warn("Gemini Fast AI lỗi/timeout (bỏ qua sang fallback cục bộ): {}", ex.getMessage());
+        }
+        return "";
+    }
 
     /**
      * Gọi Gemini Flash với một câu hỏi đơn lẻ (Single-turn).
@@ -71,7 +134,7 @@ public class GeminiRestClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-goog-api-key", apiKey);
 
-        int maxRetries = 3;
+        int maxRetries = 2;
         long now = System.currentTimeMillis();
         boolean primaryInCooldown = now < primaryModelCooldownUntil.get();
 
@@ -136,8 +199,8 @@ public class GeminiRestClient {
                 int status = ex.getStatusCode().value();
                 String errorBody = ex.getResponseBodyAsString();
 
-                // Nếu model chính gặp 503 (Service Unavailable), đặt cooldown 2 phút để các câu sau gọi thẳng sang flash-lite
-                if (status == 503 && currentUrl.equals(primaryUrl)) {
+                // Nếu model chính gặp 503 (Service Unavailable) hoặc 429 (Rate Limit), đặt cooldown 2 phút để các câu sau gọi thẳng sang flash-lite
+                if ((status == 503 || status == 429) && currentUrl.equals(primaryUrl)) {
                     primaryModelCooldownUntil.set(System.currentTimeMillis() + 120_000L);
                 }
 
@@ -149,16 +212,8 @@ public class GeminiRestClient {
 
                 if ((status == 503 || status == 429 || status == 404 || status == 400) && attempt < maxRetries) {
                     // Khi chuyển từ model chính sang model dự phòng khác endpoint thì gọi ngay lập tức (0ms delay)
-                    long backoffMs = (attempt == 1 || status == 400 || status == 404) ? 0L : 500L;
-                    log.warn("Google Gemini phản hồi HTTP {} tại lần {} (URL: {}). Tự động chuyển sang cấu hình dự phòng an toàn (lần {})...",
+                    log.warn("Google Gemini phản hồi HTTP {} tại lần {} (URL: {}). Tự động chuyển ngay sang model dự phòng (lần {})...",
                             status, attempt, currentUrl, attempt + 1);
-                    if (backoffMs > 0) {
-                        try {
-                            Thread.sleep(backoffMs);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }
                     continue;
                 }
 
@@ -167,8 +222,12 @@ public class GeminiRestClient {
                 return "Hệ thống AI đang tạm thời gián đoạn kết nối. Vui lòng thử lại sau ít phút.";
 
             } catch (org.springframework.web.client.ResourceAccessException ex) {
+                if (currentUrl.equals(primaryUrl)) {
+                    primaryModelCooldownUntil.set(System.currentTimeMillis() + 120_000L);
+                }
                 log.warn("Google Gemini bị timeout/I/O error tại lần {} (URL: {}): {}", attempt, currentUrl, ex.getMessage());
                 if (attempt < maxRetries) {
+                    log.info("Chuyển ngay sang model dự phòng (lần {}) sau khi model chính timeout...", attempt + 1);
                     continue;
                 }
                 log.error("Hết số lần thử kết nối Google Gemini do Timeout.");

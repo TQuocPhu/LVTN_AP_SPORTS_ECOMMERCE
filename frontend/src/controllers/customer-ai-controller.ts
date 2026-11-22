@@ -17,6 +17,7 @@ export const customerAiController = {
     return apiClient.post<ApiResponse<AiSportsAdvisorResponse>>('/customer/ai/advisor', data, {
       suppressErrorToast: true,
       showSuccessToast: false,
+      timeoutMs: 30000, // Đồng bộ thời gian chờ tối đa 30s với backend AI
     });
   },
 

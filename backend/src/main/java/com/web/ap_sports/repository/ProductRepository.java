@@ -53,7 +53,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
      * Truy vấn tất cả sản phẩm đang kinh doanh (in_stock) kèm danh mục để đưa vào tập dữ liệu (Corpus)
      * cho thuật toán tìm kiếm TF-IDF & Attribute Scoring trên bộ nhớ Java
      */
-    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category WHERE p.status = 'in_stock'")
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category LEFT JOIN FETCH p.categories WHERE p.status = 'in_stock'")
     List<Product> findAllInStockProductsWithCategories();
 
     @Query(
