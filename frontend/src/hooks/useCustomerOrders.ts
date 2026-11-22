@@ -7,6 +7,10 @@ import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 import { canRetryVNPayOrder } from '@/utils/vnpay-retry';
+import {
+  getCustomerPaymentMethodMeta,
+  getCustomerPaymentStatusMeta,
+} from '@/constants/customer-order-status';
 
 export type CustomerOrderStatusTab =
   | 'ALL'
@@ -246,6 +250,14 @@ export function useCustomerOrders() {
     });
   }, []);
 
+  const getPaymentDisplayInfo = useCallback(
+    (paymentMethod?: string, paymentStatus?: string) => ({
+      methodMeta: getCustomerPaymentMethodMeta(paymentMethod),
+      statusMeta: getCustomerPaymentStatusMeta(paymentStatus),
+    }),
+    []
+  );
+
   return {
     orders,
     loading,
@@ -288,5 +300,6 @@ export function useCustomerOrders() {
     selectedOrderProgress,
     formatCurrency,
     formatDate,
+    getPaymentDisplayInfo,
   };
 }

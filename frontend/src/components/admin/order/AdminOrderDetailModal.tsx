@@ -56,6 +56,9 @@ export function AdminOrderDetailModal({
     setSimProgress,
     isScannerActive,
     setIsScannerActive,
+    orderStatusMeta,
+    paymentStatusMeta,
+    statusHistoriesWithMeta,
     handleSendEinvoice,
     handleUpdateStatus,
     handleMarkRefunded,
@@ -126,8 +129,8 @@ export function AdminOrderDetailModal({
                 <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
                   Đơn Hàng #{currentOrder?.orderCode}
                 </h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-orange-50 text-orange-600 border border-orange-200">
-                  {currentOrder?.status}
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${orderStatusMeta.badgeClass}`}>
+                  {orderStatusMeta.label}
                 </span>
               </div>
               <p className="text-xs text-slate-500">
@@ -363,34 +366,13 @@ export function AdminOrderDetailModal({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Trạng thái TT:</span>
-                    {(() => {
-                      switch (currentOrder.paymentStatus?.toLowerCase()) {
-                        case 'completed':
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                              <CircleCheck className="w-3 h-3" /> Đã thanh toán
-                            </span>
-                          );
-                        case 'refunded':
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-700 border border-cyan-200">
-                              <RefreshCw className="w-3 h-3" /> Đã hoàn tiền
-                            </span>
-                          );
-                        case 'failed':
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                              <XCircle className="w-3 h-3" /> Thất bại
-                            </span>
-                          );
-                        default:
-                          return (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
-                              <Clock className="w-3 h-3" /> Chờ thanh toán
-                            </span>
-                          );
-                      }
-                    })()}
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${paymentStatusMeta.badgeClass}`}>
+                      {paymentStatusMeta.value === 'completed' && <CircleCheck className="w-3 h-3" />}
+                      {paymentStatusMeta.value === 'refunded' && <RefreshCw className="w-3 h-3" />}
+                      {paymentStatusMeta.value === 'failed' && <XCircle className="w-3 h-3" />}
+                      {paymentStatusMeta.value === 'pending' && <Clock className="w-3 h-3" />}
+                      {paymentStatusMeta.label}
+                    </span>
                   </div>
                   {['cancelled', 'returned'].includes(currentOrder.status?.toLowerCase() || '') &&
                     currentOrder.paymentStatus?.toLowerCase() === 'completed' && (
@@ -564,7 +546,7 @@ export function AdminOrderDetailModal({
               </div>
 
               {/* Status History Timeline */}
-              {currentOrder.statusHistories && currentOrder.statusHistories.length > 0 && (
+              {statusHistoriesWithMeta.length > 0 && (
                 <div className="space-y-3 pt-3 border-t border-slate-100">
                   <div className="flex items-center gap-2 font-bold uppercase text-[11px] text-slate-900">
                     <History className="w-4 h-4 text-orange-500" />
@@ -572,14 +554,17 @@ export function AdminOrderDetailModal({
                   </div>
 
                   <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                    {currentOrder.statusHistories.map((h, i) => (
+                    {statusHistoriesWithMeta.map((h, i) => (
                       <div key={i} className="relative flex items-start justify-between">
                         <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-orange-500 ring-4 ring-white" />
                         <div>
-                          <p className="font-bold text-slate-900">
-                            Trạng thái: <span className="uppercase text-orange-600">{h.status}</span>
-                          </p>
-                          {h.note && <p className="text-slate-500 italic">&quot;{h.note}&quot;</p>}
+                          <div className="flex items-center gap-2 font-bold text-slate-900">
+                            <span>Trạng thái:</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${h.statusMeta.badgeClass}`}>
+                              {h.statusMeta.label}
+                            </span>
+                          </div>
+                          {h.note && <p className="text-slate-500 italic mt-0.5">&quot;{h.note}&quot;</p>}
                           <p className="text-[10px] text-slate-400">
                             Thực hiện bởi: {h.changedByName || 'Hệ thống'}
                           </p>

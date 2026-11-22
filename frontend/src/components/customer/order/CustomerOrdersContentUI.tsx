@@ -21,6 +21,7 @@ import {
   AlertCircle,
   X,
   CreditCard,
+  Banknote,
   Building2,
   Truck,
   Warehouse,
@@ -71,6 +72,7 @@ export function CustomerOrdersContentUI() {
     refetch,
     formatCurrency,
     formatDate,
+    getPaymentDisplayInfo,
     startDate,
     setStartDate,
     endDate,
@@ -355,6 +357,11 @@ export function CustomerOrdersContentUI() {
               ].includes(currentStatus);
               const isReturnable = currentStatus === "delivered";
 
+              const paymentInfo = getPaymentDisplayInfo(
+                order.paymentMethod,
+                order.paymentStatus
+              );
+
               return (
                 <div
                   key={order.id}
@@ -373,33 +380,27 @@ export function CustomerOrdersContentUI() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {/* Badge Phương Thức & Trạng Thái Thanh Toán */}
-                      {(() => {
-                        const isVnPay = order.paymentMethod?.toUpperCase() === "VNPAY";
-                        const payStatus = order.paymentStatus?.toLowerCase();
-                        const payStatusLabel =
-                          payStatus === "completed"
-                            ? "Đã TT"
-                            : payStatus === "refunded"
-                            ? "Đã hoàn tiền"
-                            : payStatus === "failed"
-                            ? "TT thất bại"
-                            : "Chờ TT";
-                        return (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                              isVnPay
-                                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
-                            }`}
-                          >
-                            <CreditCard className="w-3 h-3" />
-                            <span>
-                              {isVnPay ? "VNPay" : "COD"} • {payStatusLabel}
-                            </span>
-                          </span>
-                        );
-                      })()}
+                      {/* Badge Phương Thức Thanh Toán (VNPay / COD) */}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${paymentInfo.methodMeta.badgeClass}`}
+                      >
+                        {paymentInfo.methodMeta.isVnPay ? (
+                          <CreditCard className="w-3 h-3" />
+                        ) : (
+                          <Banknote className="w-3 h-3" />
+                        )}
+                        <span>{paymentInfo.methodMeta.label}</span>
+                      </span>
+
+                      {/* Badge Trạng Thái Thanh Toán (màu riêng biệt theo từng trạng thái) */}
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${paymentInfo.statusMeta.badgeClass}`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${paymentInfo.statusMeta.dotClass}`}
+                        />
+                        <span>{paymentInfo.statusMeta.label}</span>
+                      </span>
 
                       {order.trackingCode && (
                         <span className="font-mono text-[10px] font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">

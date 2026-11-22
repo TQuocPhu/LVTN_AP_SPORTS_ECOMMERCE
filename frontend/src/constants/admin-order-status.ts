@@ -84,3 +84,64 @@ export const ADMIN_ORDER_STATUS_MAP: Record<string, AdminOrderStatusMeta> = {
 };
 
 export const ADMIN_ORDER_STATUS_OPTIONS: AdminOrderStatusMeta[] = Object.values(ADMIN_ORDER_STATUS_MAP);
+
+/**
+ * Lấy metadata hiển thị chuẩn cho trạng thái đơn hàng ở trang quản trị.
+ */
+export function getAdminOrderStatusMeta(status?: string): AdminOrderStatusMeta {
+  const key = status?.toLowerCase() || '';
+  return (
+    ADMIN_ORDER_STATUS_MAP[key] || {
+      value: key,
+      filterValue: key.toUpperCase(),
+      label: status || '---',
+      filterLabel: status || '---',
+      badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+    }
+  );
+}
+
+/**
+ * Cấu hình chuẩn 4 trạng thái thanh toán khớp 100% với enum PaymentStatus ở Backend (giao diện Light-only).
+ */
+export type AdminPaymentStatusKey = 'pending' | 'completed' | 'failed' | 'refunded';
+
+export interface AdminPaymentStatusMeta {
+  value: AdminPaymentStatusKey;
+  label: string;
+  badgeClass: string;
+  dotClass?: string;
+}
+
+export const ADMIN_PAYMENT_STATUS_MAP: Record<AdminPaymentStatusKey, AdminPaymentStatusMeta> = {
+  completed: {
+    value: 'completed',
+    label: 'Đã thanh toán',
+    badgeClass: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    dotClass: 'bg-emerald-500',
+  },
+  refunded: {
+    value: 'refunded',
+    label: 'Đã hoàn tiền',
+    badgeClass: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  },
+  failed: {
+    value: 'failed',
+    label: 'Thất bại',
+    badgeClass: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
+  pending: {
+    value: 'pending',
+    label: 'Chờ thanh toán',
+    badgeClass: 'bg-amber-100 text-amber-700 border-amber-200',
+    dotClass: 'bg-amber-500 animate-pulse',
+  },
+};
+
+/**
+ * Lấy metadata hiển thị chuẩn cho trạng thái thanh toán ở trang quản trị.
+ */
+export function getAdminPaymentStatusMeta(status?: string): AdminPaymentStatusMeta {
+  const key = (status?.toLowerCase() || 'pending') as AdminPaymentStatusKey;
+  return ADMIN_PAYMENT_STATUS_MAP[key] || ADMIN_PAYMENT_STATUS_MAP.pending;
+}

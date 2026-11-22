@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { OrderStatus } from '@/types/order';
 import { adminOrderController } from '@/controllers/admin-order-controller';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
+import { getAdminOrderStatusMeta, getAdminPaymentStatusMeta } from '@/constants/admin-order-status';
 
 
 interface UseAdminOrderDetailModalParams {
@@ -156,6 +157,25 @@ export function useAdminOrderDetailModal({
     });
   }, []);
 
+  const orderStatusMeta = useMemo(
+    () => getAdminOrderStatusMeta(currentOrder?.status),
+    [currentOrder?.status]
+  );
+
+  const paymentStatusMeta = useMemo(
+    () => getAdminPaymentStatusMeta(currentOrder?.paymentStatus),
+    [currentOrder?.paymentStatus]
+  );
+
+  const statusHistoriesWithMeta = useMemo(
+    () =>
+      (currentOrder?.statusHistories || []).map((h) => ({
+        ...h,
+        statusMeta: getAdminOrderStatusMeta(h.status),
+      })),
+    [currentOrder?.statusHistories]
+  );
+
   return {
     currentOrder,
     setLocalOrder,
@@ -168,6 +188,9 @@ export function useAdminOrderDetailModal({
     setSimProgress,
     isScannerActive,
     setIsScannerActive,
+    orderStatusMeta,
+    paymentStatusMeta,
+    statusHistoriesWithMeta,
     handleSendEinvoice,
     handleUpdateStatus,
     handleMarkRefunded,

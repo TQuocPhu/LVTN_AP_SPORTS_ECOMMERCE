@@ -3,6 +3,11 @@ import { Alert } from 'react-native';
 import { customerOrderController } from '../controllers/customer-order-controller';
 import { Order } from '../types';
 import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
+import {
+  getMobileOrderStatusBadge,
+  getMobilePaymentMethodLabel,
+  getMobilePaymentStatusBadge,
+} from '../constants/order-status';
 
 export const useOrderDetail = (orderIdentifier: string) => {
   const [order, setOrder] = useState<Order | null>(null);
@@ -103,6 +108,9 @@ export const useOrderDetail = (orderIdentifier: string) => {
   const canReview = !!(order && (order.status === 'delivered' || order.status === 'completed'));
   const canComplete = !!(order && order.status === 'delivered');
   const canCancel = !!(order && (order.status === 'pending' || order.status === 'confirmed'));
+  const orderStatusBadge = getMobileOrderStatusBadge(order?.status);
+  const paymentStatusBadge = getMobilePaymentStatusBadge(order?.paymentStatus);
+  const paymentMethodLabel = getMobilePaymentMethodLabel(order?.paymentMethod);
 
   return {
     order,
@@ -111,6 +119,9 @@ export const useOrderDetail = (orderIdentifier: string) => {
     canReview,
     canComplete,
     canCancel,
+    orderStatusBadge,
+    paymentStatusBadge,
+    paymentMethodLabel,
     fetchOrderDetail,
     handleCompleteOrder,
     handleCancelOrder,

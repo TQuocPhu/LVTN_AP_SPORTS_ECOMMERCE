@@ -3,6 +3,7 @@ import { customerOrderController } from '../controllers/customer-order-controlle
 import { Order, OrderStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
+import { getMobileOrderStatusBadge } from '../constants/order-status';
 
 export interface StatusTab {
   key: string;
@@ -82,24 +83,7 @@ export const useCustomerOrders = () => {
   }, [orders, activeTab]);
 
   const getStatusBadge = useCallback((status: OrderStatus | string) => {
-    switch (status) {
-      case 'pending':
-        return { label: 'Chờ xử lý', bg: '#fef3c7', text: '#d97706' };
-      case 'confirmed':
-        return { label: 'Đã xác nhận', bg: '#e0f2fe', text: '#0284c7' };
-      case 'processing':
-        return { label: 'Đang đóng gói', bg: '#f3e8ff', text: '#7c3aed' };
-      case 'shipping':
-        return { label: 'Đang giao hàng', bg: '#e0e7ff', text: '#4338ca' };
-      case 'delivered':
-        return { label: 'Giao thành công', bg: '#dcfce7', text: '#15803d' };
-      case 'completed':
-        return { label: 'Hoàn tất', bg: '#dcfce7', text: '#166534' };
-      case 'cancelled':
-        return { label: 'Đã hủy', bg: '#fee2e2', text: '#b91c1c' };
-      default:
-        return { label: status, bg: '#f1f5f9', text: '#475569' };
-    }
+    return getMobileOrderStatusBadge(status);
   }, []);
 
   return {

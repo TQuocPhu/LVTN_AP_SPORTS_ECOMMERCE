@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
+import { getAdminOrderStatusMeta } from '@/constants/admin-order-status';
 import {
   RecentOrderWidget,
   TopProductWidget,
@@ -51,24 +52,14 @@ export function DashboardQuickWidgets({
     );
   }
 
-  // Helper render badge trạng thái đơn hàng
+  // Helper render badge chuẩn hóa theo 10 trạng thái đơn hàng từ Backend
   const getOrderStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed':
-      case 'delivered':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800">Hoàn tất</span>;
-      case 'shipping':
-      case 'shipped':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-100 text-sky-800">Đang giao</span>;
-      case 'confirmed':
-      case 'processing':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800">Đã xác nhận</span>;
-      case 'cancelled':
-      case 'returned':
-        return <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-800">Đã hủy</span>;
-      default:
-        return <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-slate-100 text-slate-700">Chờ duyệt</span>;
-    }
+    const meta = getAdminOrderStatusMeta(status);
+    return (
+      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${meta.badgeClass}`}>
+        {meta.label}
+      </span>
+    );
   };
 
   return (

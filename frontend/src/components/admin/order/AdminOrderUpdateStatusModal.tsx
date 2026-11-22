@@ -71,6 +71,7 @@ export function AdminOrderUpdateStatusModal({
   const paymentNote: Record<string, { text: string; color: string }> = {
     confirmed:  { text: 'Trạng thái đơn → Đã xác nhận. Thanh toán không thay đổi.', color: 'text-blue-700 bg-blue-50 border-blue-200' },
     processing: { text: 'Trạng thái đơn → Đang đóng gói. Thanh toán không thay đổi.', color: 'text-purple-700 bg-purple-50 border-purple-200' },
+    shipped:    { text: 'Trạng thái đơn → Đã bàn giao GHN. Thanh toán không thay đổi.', color: 'text-indigo-700 bg-indigo-50 border-indigo-200' },
     shipping:   { text: 'Trạng thái đơn → Đang vận chuyển. Thanh toán không thay đổi.', color: 'text-cyan-700 bg-cyan-50 border-cyan-200' },
     delivered:  { text: 'Trạng thái đơn → Đã giao hàng. Đơn COD sẽ tự động đánh dấu Đã thanh toán. Đơn VNPay giữ nguyên.', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
     completed:  { text: 'Trạng thái đơn → Hoàn Tất Đơn Hàng. Đơn hàng chính thức đóng và kết thúc vòng đời.', color: 'text-emerald-800 bg-emerald-100 border-emerald-300' },

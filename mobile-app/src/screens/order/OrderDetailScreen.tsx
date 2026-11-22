@@ -34,6 +34,9 @@ export const OrderDetailScreen: React.FC = () => {
     canReview,
     canComplete,
     canCancel,
+    orderStatusBadge,
+    paymentStatusBadge,
+    paymentMethodLabel,
     handleCompleteOrder,
     handleCancelOrder,
   } = useOrderDetail(orderIdentifier);
@@ -65,7 +68,13 @@ export const OrderDetailScreen: React.FC = () => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.statusCode, { color: colors.text }]}>#{order.orderCode}</Text>
-                <Text style={[styles.statusLabel, { color: colors.textMuted }]}>Trạng thái: {order.status.toUpperCase()}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <View style={{ backgroundColor: orderStatusBadge.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                    <Text style={{ color: orderStatusBadge.text, fontSize: 12, fontWeight: '700' }}>
+                      {orderStatusBadge.label}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
             {order.packVerified && (
@@ -119,7 +128,15 @@ export const OrderDetailScreen: React.FC = () => {
             <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>CHI TIẾT THANH TOÁN</Text>
             <View style={styles.feeRow}>
               <Text style={[styles.feeLabel, { color: colors.textMuted }]}>Phương thức thanh toán:</Text>
-              <Text style={[styles.feeVal, { color: colors.text }]}>{order.paymentMethod || 'COD'}</Text>
+              <Text style={[styles.feeVal, { color: colors.text }]}>{paymentMethodLabel}</Text>
+            </View>
+            <View style={styles.feeRow}>
+              <Text style={[styles.feeLabel, { color: colors.textMuted }]}>Trạng thái thanh toán:</Text>
+              <View style={{ backgroundColor: paymentStatusBadge.bg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: paymentStatusBadge.text, fontSize: 12, fontWeight: '700' }}>
+                  {paymentStatusBadge.label}
+                </Text>
+              </View>
             </View>
             <View style={styles.feeRow}>
               <Text style={[styles.feeLabel, { color: colors.textMuted }]}>Tiền hàng:</Text>

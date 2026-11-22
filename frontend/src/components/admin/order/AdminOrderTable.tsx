@@ -20,7 +20,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { AdminOrderDetail } from '@/types/admin-order';
-import { ADMIN_ORDER_STATUS_MAP } from '@/constants/admin-order-status';
+import { ADMIN_ORDER_STATUS_MAP, getAdminPaymentStatusMeta } from '@/constants/admin-order-status';
 
 interface AdminOrderTableProps {
   orders: AdminOrderDetail[];
@@ -105,42 +105,20 @@ export function AdminOrderTable({
   const renderPaymentColumn = (method?: string, payStatus?: string) => {
     const methodLabel = method?.toUpperCase() === 'VNPAY' ? 'VNPay' : 'COD';
     const isVnPay = method?.toUpperCase() === 'VNPAY';
+    const payMeta = getAdminPaymentStatusMeta(payStatus);
 
-    let statusBadge: React.ReactNode;
-    switch (payStatus?.toLowerCase()) {
-      case 'completed':
-        statusBadge = (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Đã thanh toán
-          </span>
-        );
-        break;
-      case 'refunded':
-        statusBadge = (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-700 border border-cyan-200">
-            <RefreshCw className="w-3 h-3" />
-            Đã hoàn tiền
-          </span>
-        );
-        break;
-      case 'failed':
-        statusBadge = (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
-            <XCircle className="w-3 h-3" />
-            Thất bại
-          </span>
-        );
-        break;
-      case 'pending':
-      default:
-        statusBadge = (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            Chờ thanh toán
-          </span>
-        );
-    }
+    const statusBadge = (
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${payMeta.badgeClass}`}>
+        {payMeta.value === 'refunded' ? (
+          <RefreshCw className="w-3 h-3" />
+        ) : payMeta.value === 'failed' ? (
+          <XCircle className="w-3 h-3" />
+        ) : (
+          <span className={`w-1.5 h-1.5 rounded-full ${payMeta.dotClass || 'bg-current'}`} />
+        )}
+        {payMeta.label}
+      </span>
+    );
 
     return (
       <div className="flex flex-col gap-1.5">
