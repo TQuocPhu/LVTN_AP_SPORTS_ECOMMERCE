@@ -71,11 +71,11 @@ export const productController = {
   },
 
   /**
-   * Lấy danh sách sản phẩm nổi bật cho trang chủ
+   * Lấy danh sách sản phẩm nổi bật cho trang chủ (nhiều đơn hàng + đánh giá tốt, bù mới nhất nếu chưa đủ)
    */
   async getFeaturedProducts(limit = 8): Promise<ApiResponse<Product[]>> {
-    const res = await apiClient.get<ApiResponse<any>>('/products', {
-      params: { size: limit, page: 0 },
+    const res = await apiClient.get<ApiResponse<any>>('/products/featured', {
+      params: { limit },
     });
     const items = res.data?.data?.content || res.data?.data || [];
     const normalized = items.map((p: any) => ({
