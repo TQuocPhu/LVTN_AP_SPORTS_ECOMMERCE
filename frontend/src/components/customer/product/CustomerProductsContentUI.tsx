@@ -41,6 +41,7 @@ export function CustomerProductsContentUI() {
           <div className="hidden lg:block w-64 xl:w-72 shrink-0 sticky top-24">
             <ProductFilterSidebar
               categoryTree={categoryTree}
+              topRatedProducts={store.topRatedProducts}
               selectedCategoryId={store.selectedCategoryId}
               selectedCategoryName={store.selectedCategoryName}
               minPrice={store.minPrice}
@@ -144,6 +145,7 @@ export function CustomerProductsContentUI() {
 
             <ProductFilterSidebar
               categoryTree={categoryTree}
+              topRatedProducts={store.topRatedProducts}
               selectedCategoryId={store.selectedCategoryId}
               selectedCategoryName={store.selectedCategoryName}
               minPrice={store.minPrice}

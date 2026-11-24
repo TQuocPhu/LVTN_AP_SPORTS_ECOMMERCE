@@ -33,6 +33,7 @@ export function useCustomerProducts(
 ) {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
+  const [topRatedProducts, setTopRatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -185,6 +186,24 @@ export function useCustomerProducts(
     setPage(0);
   };
 
+  // Nạp danh sách 2 sản phẩm được đánh giá cao nhất cho khối Sản Phẩm Đánh Giá Cao ở Sidebar
+  useEffect(() => {
+    let isMounted = true;
+    productController
+      .getTopRatedProducts(2)
+      .then((res) => {
+        if (isMounted && Array.isArray(res.data)) {
+          setTopRatedProducts(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Lỗi khi nạp sản phẩm đánh giá cao:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const hasActiveFilters =
     Boolean(keyword) ||
     selectedCategoryId !== null ||
@@ -193,8 +212,9 @@ export function useCustomerProducts(
     selectedSizes.length > 0 ||
     selectedRating !== null;
 
-  return {
+    return {
     products,
+    topRatedProducts,
     loading,
     page,
     pageSize,

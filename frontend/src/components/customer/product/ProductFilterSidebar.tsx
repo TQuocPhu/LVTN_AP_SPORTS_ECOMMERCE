@@ -1,7 +1,10 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { CategoryResponse } from '@/types/category';
+import { Product } from '@/types/product';
+import { formatCurrency } from '@/utils/formatters';
 import { CategoryDirectoryTree } from './CategoryDirectoryTree';
 import { useProductFilterSidebar } from '@/hooks/useProductFilterSidebar';
 import {
@@ -15,6 +18,7 @@ import {
 
 interface ProductFilterSidebarProps {
   categoryTree: CategoryResponse[];
+  topRatedProducts?: Product[];
   selectedCategoryId: number | null;
   selectedCategoryName: string | null;
   minPrice: number | null;
@@ -46,6 +50,7 @@ const PRICE_PRESETS = [
  */
 export function ProductFilterSidebar({
   categoryTree,
+  topRatedProducts = [],
   selectedCategoryId,
   selectedCategoryName,
   minPrice,
@@ -276,7 +281,7 @@ export function ProductFilterSidebar({
         </div>
       </div>
 
-      {/* Khối 5: Sản phẩm đánh giá cao tiêu biểu */}
+      {/* Khối 5: Sản phẩm đánh giá cao tiêu biểu (Dữ liệu thật từ Backend) */}
       <div className="bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent dark:from-orange-950/40 dark:via-amber-950/20 dark:to-transparent p-4 rounded-2xl border border-orange-200/60 dark:border-orange-900/40 space-y-3">
         <div className="flex items-center gap-2">
           <Trophy className="w-4 h-4 text-amber-500" />
@@ -286,47 +291,46 @@ export function ProductFilterSidebar({
         </div>
 
         <div className="space-y-3">
-          <div className="p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div className="w-12 h-12 rounded-lg bg-orange-100 dark:bg-slate-800 shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-xs text-orange-600">
-              <Sparkles className="w-5 h-5 text-orange-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
-                Vợt Cầu Lông AP Pro Power
-              </h5>
-              <div className="flex items-center gap-1 text-[11px] text-amber-500 mt-0.5">
-                <Star className="w-3 h-3 fill-current" />
-                <span className="font-bold">5.0</span>
-                <span className="text-slate-400 dark:text-slate-500 text-[10px]">
-                  (128 đánh giá)
-                </span>
-              </div>
-              <span className="font-extrabold text-xs text-orange-600 dark:text-orange-400 block mt-0.5">
-                1.450.000₫
-              </span>
-            </div>
-          </div>
-
-          <div className="p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 flex items-center gap-3 shadow-sm">
-            <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-slate-800 shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-xs text-amber-600">
-              <Sparkles className="w-5 h-5 text-amber-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
-                Giày Đá Bóng AP Speed X
-              </h5>
-              <div className="flex items-center gap-1 text-[11px] text-amber-500 mt-0.5">
-                <Star className="w-3 h-3 fill-current" />
-                <span className="font-bold">4.9</span>
-                <span className="text-slate-400 dark:text-slate-500 text-[10px]">
-                  (96 đánh giá)
-                </span>
-              </div>
-              <span className="font-extrabold text-xs text-orange-600 dark:text-orange-400 block mt-0.5">
-                980.000₫
-              </span>
-            </div>
-          </div>
+          {topRatedProducts.length > 0 ? (
+            topRatedProducts.slice(0, 2).map((prod) => (
+              <Link
+                key={prod.id}
+                href={`/products/${prod.slug}`}
+                className="p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 hover:border-orange-400 dark:hover:border-orange-500 flex items-center gap-3 shadow-sm transition-all group"
+              >
+                <div className="w-12 h-12 rounded-lg bg-orange-100 dark:bg-slate-800 shrink-0 overflow-hidden relative flex items-center justify-center font-bold text-xs text-orange-600">
+                  {prod.mainImage ? (
+                    <img
+                      src={prod.mainImage}
+                      alt={prod.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <Sparkles className="w-5 h-5 text-orange-500" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate transition-colors">
+                    {prod.name}
+                  </h5>
+                  <div className="flex items-center gap-1 text-[11px] text-amber-500 mt-0.5">
+                    <Star className="w-3 h-3 fill-current" />
+                    <span className="font-bold">{(prod.rating ?? 0).toFixed(1)}</span>
+                    <span className="text-slate-400 dark:text-slate-500 text-[10px]">
+                      ({prod.reviewsCount ?? 0} đánh giá)
+                    </span>
+                  </div>
+                  <span className="font-extrabold text-xs text-orange-600 dark:text-orange-400 block mt-0.5">
+                    {formatCurrency(prod.price)}
+                  </span>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-slate-400 italic py-2">
+              Đang cập nhật sản phẩm nổi bật...
+            </p>
+          )}
         </div>
       </div>
     </aside>

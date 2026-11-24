@@ -13,14 +13,9 @@ export function useFeaturedProducts(limit = 8) {
     async function fetchFeatured() {
       try {
         setLoading(true);
-        const res = await productController.getPublicProducts({
-          page: 0,
-          size: limit,
-          sortBy: "createdAt",
-          sortDir: "DESC",
-        });
-        if (isMounted && res.data?.content) {
-          setProducts(res.data.content);
+        const res = await productController.getFeaturedProducts(limit);
+        if (isMounted && Array.isArray(res.data)) {
+          setProducts(res.data);
         }
       } catch (error) {
         console.error("Lỗi khi tải sản phẩm nổi bật:", error);

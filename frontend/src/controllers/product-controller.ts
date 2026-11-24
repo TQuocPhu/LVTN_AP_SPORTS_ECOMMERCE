@@ -32,6 +32,26 @@ export const productController = {
   },
 
   /**
+   * Lấy danh sách sản phẩm được đánh giá cao nhất (dành cho khối Sản Phẩm Đánh Giá Cao)
+   */
+  async getTopRatedProducts(limit = 2, options?: ApiClientOptions): Promise<ApiResponse<Product[]>> {
+    return apiClient.get<ApiResponse<Product[]>>(`/products/top-rated?limit=${limit}`, {
+      suppressErrorToast: true,
+      ...options,
+    });
+  },
+
+  /**
+   * Lấy danh sách trang thiết bị nổi bật (nhiều đơn hàng + đánh giá tốt, bù mới nhất nếu chưa đủ)
+   */
+  async getFeaturedProducts(limit = 8, options?: ApiClientOptions): Promise<ApiResponse<Product[]>> {
+    return apiClient.get<ApiResponse<Product[]>>(`/products/featured?limit=${limit}`, {
+      suppressErrorToast: true,
+      ...options,
+    });
+  },
+
+  /**
    * Lấy chi tiết sản phẩm theo Slug (dành cho người dùng)
    */
   async getProductBySlug(slug: string): Promise<ApiResponse<ProductDetail>> {

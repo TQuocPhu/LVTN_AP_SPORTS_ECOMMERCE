@@ -1,73 +1,24 @@
 'use client';
 
-import Link from 'next/link';
-import { CustomerProductCard } from '@/components/customer/product/CustomerProductCard';
 import { useFeaturedProducts } from '@/hooks/useFeaturedProducts';
-import { PackageX } from 'lucide-react';
+import { ProductShowcaseSection } from '@/components/customer/home/ProductShowcaseSection';
 
+/**
+ * Khối hiển thị 8 sản phẩm nổi bật trên Trang chủ (TRANG THIẾT BỊ NỔI BẬT).
+ * Lấy theo tiêu chí đơn hàng thành công + đánh giá tốt (tự động bù sản phẩm mới nhất nếu chưa đủ 8).
+ */
 export default function FeaturedProducts() {
   const { products, loading } = useFeaturedProducts(8);
 
   return (
-    <section className="py-16 border-t border-b transition-colors duration-300" style={{ backgroundColor: 'var(--bg-page)', borderColor: 'var(--bg-border)' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 pb-4 border-b" style={{ borderColor: 'var(--bg-border)' }}>
-          <div>
-            <div className="flex items-center space-x-2 text-orange-500 font-bold text-xs uppercase tracking-widest mb-1">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
-              </span>
-              <span>SẢN PHẨM BÁN CHẠY NHẤT</span>
-            </div>
-            <h2 className="text-2xl sm:text-4xl font-black uppercase tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              TRANG THIẾT BỊ NỔI BẬT
-            </h2>
-          </div>
-          <Link
-            href="/products"
-            className="group mt-4 sm:mt-0 text-sm font-bold text-orange-400 hover:text-orange-500 transition-all uppercase tracking-wider flex items-center gap-1.5"
-          >
-            <span>XEM TOÀN BỘ CỬA HÀNG</span>
-            <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
-          </Link>
-        </div>
-
-        {/* Loading Skeleton */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl p-4 animate-pulse h-[380px] flex flex-col justify-between border"
-                style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-              >
-                <div className="w-full h-48 rounded-xl mb-4" style={{ backgroundColor: 'var(--card-image-bg)' }} />
-                <div className="h-4 rounded w-1/3 mb-2" style={{ backgroundColor: 'var(--bg-border)' }} />
-                <div className="h-6 rounded w-3/4 mb-4" style={{ backgroundColor: 'var(--bg-border)' }} />
-                <div className="flex justify-between items-center mt-auto">
-                  <div className="h-6 rounded w-1/2" style={{ backgroundColor: 'var(--bg-border)' }} />
-                  <div className="h-8 rounded-lg w-1/3" style={{ backgroundColor: 'var(--bg-border)' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : products.length > 0 ? (
-          /* Product Cards Grid */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((prod) => (
-              <CustomerProductCard key={prod.id} product={prod} />
-            ))}
-          </div>
-        ) : (
-          /* Empty State */
-          <div className="text-center py-12 rounded-2xl border" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-            <PackageX className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>Chưa có sản phẩm nổi bật nào được cập nhật.</p>
-          </div>
-        )}
-      </div>
-    </section>
+    <ProductShowcaseSection
+      subtitle="SẢN PHẨM BÁN CHẠY & ĐÁNH GIÁ TỐT"
+      title="TRANG THIẾT BỊ NỔI BẬT"
+      viewAllHref="/products"
+      emptyText="Chưa có sản phẩm nổi bật nào được cập nhật."
+      products={products}
+      loading={loading}
+      accentColor="orange"
+    />
   );
 }
