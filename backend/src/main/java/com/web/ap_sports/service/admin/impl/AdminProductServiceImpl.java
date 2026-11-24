@@ -240,17 +240,6 @@ public class AdminProductServiceImpl implements AdminProductService {
 
         Product savedProduct = productRepository.save(product);
 
-        // Save Main Image if provided
-        if (StringUtils.hasText(request.getMainImage())) {
-            String uploadedUrl = cloudinaryService.uploadBase64OrUrl(request.getMainImage().trim(), PRODUCT_FOLDER);
-            ProductImage mainImg = ProductImage.builder()
-                    .product(savedProduct)
-                    .imagePath(uploadedUrl)
-                    .isPrimary(true)
-                    .build();
-            imageRepository.save(mainImg);
-        }
-
         // Quyết định số lượng lưu thực tế vào ProductVariant
         List<VariantRequest> variantsToSave = new ArrayList<>();
         for (VariantRequest vr : request.getVariants()) {
@@ -273,8 +262,27 @@ public class AdminProductServiceImpl implements AdminProductService {
             variantsToSave.add(copy);
         }
 
-        // Save Variants and Variant Images
-        List<ProductVariant> savedVariants = saveVariantsAndImages(savedProduct, variantsToSave, true);
+        // Lọc trùng & upload song song toàn bộ ảnh (ảnh chính + ảnh các biến thể) chỉ 1 lần lên Cloudinary
+        Map<String, String> uploadedUrlMap = new HashMap<>();
+        uploadProductImagesParallel(request.getMainImage(), variantsToSave, uploadedUrlMap::putAll);
+
+        // Save Main Image if provided
+        if (StringUtils.hasText(request.getMainImage())) {
+            String trimmedMain = request.getMainImage().trim();
+            String uploadedUrl = uploadedUrlMap.getOrDefault(
+                    trimmedMain,
+                    cloudinaryService.uploadBase64OrUrl(trimmedMain, PRODUCT_FOLDER)
+            );
+            ProductImage mainImg = ProductImage.builder()
+                    .product(savedProduct)
+                    .imagePath(uploadedUrl)
+                    .isPrimary(true)
+                    .build();
+            imageRepository.save(mainImg);
+        }
+
+        // Save Variants and Variant Images (dùng lại URL đã lọc trùng từ uploadedUrlMap)
+        List<ProductVariant> savedVariants = saveVariantsAndImages(savedProduct, variantsToSave, true, uploadedUrlMap);
 
         // 1. NHÁNH DIRECT_IMPORT (ADMIN LẬP PHIẾU NHẬP KHO NHANH)
         String ticketCode = null;
@@ -456,6 +464,10 @@ public class AdminProductServiceImpl implements AdminProductService {
         }
         product.setSpecifications(serializeSpecifications(request.getSpecifications()));
 
+        // Lọc trùng & upload song song toàn bộ ảnh mới (ảnh chính + ảnh các biến thể) trước khi lưu DB
+        Map<String, String> uploadedUrlMap = new HashMap<>();
+        uploadProductImagesParallel(request.getMainImage(), request.getVariants(), uploadedUrlMap::putAll);
+
         // Update Main Image
         if (StringUtils.hasText(request.getMainImage())) {
             List<ProductImage> existingImages = imageRepository.findByProductId(id);
@@ -464,7 +476,11 @@ public class AdminProductServiceImpl implements AdminProductService {
                     imageRepository.delete(img);
                 }
             }
-            String uploadedUrl = cloudinaryService.uploadBase64OrUrl(request.getMainImage().trim(), PRODUCT_FOLDER);
+            String trimmedMain = request.getMainImage().trim();
+            String uploadedUrl = uploadedUrlMap.getOrDefault(
+                    trimmedMain,
+                    cloudinaryService.uploadBase64OrUrl(trimmedMain, PRODUCT_FOLDER)
+            );
             ProductImage newMainImg = ProductImage.builder()
                     .product(product)
                     .imagePath(uploadedUrl)
@@ -515,7 +531,11 @@ public class AdminProductServiceImpl implements AdminProductService {
 
                 for (String imgPath : vr.getImages()) {
                     if (StringUtils.hasText(imgPath)) {
-                        String uploadedVUrl = cloudinaryService.uploadBase64OrUrl(imgPath.trim(), PRODUCT_FOLDER);
+                        String trimmedImg = imgPath.trim();
+                        String uploadedVUrl = uploadedUrlMap.getOrDefault(
+                                trimmedImg,
+                                cloudinaryService.uploadBase64OrUrl(trimmedImg, PRODUCT_FOLDER)
+                        );
                         ProductImage vImg = ProductImage.builder()
                                 .product(product)
                                 .variant(savedVariant)
@@ -622,7 +642,12 @@ public class AdminProductServiceImpl implements AdminProductService {
         productRepository.delete(product);
     }
 
-    private List<ProductVariant> saveVariantsAndImages(Product product, List<VariantRequest> variantRequests, boolean isCreate) {
+    private List<ProductVariant> saveVariantsAndImages(
+            Product product,
+            List<VariantRequest> variantRequests,
+            boolean isCreate,
+            Map<String, String> uploadedUrlMap
+    ) {
         List<ProductVariant> savedList = new ArrayList<>();
         for (VariantRequest vr : variantRequests) {
             String colorVal = StringUtils.hasText(vr.getColor()) ? vr.getColor().trim() : null;
@@ -647,7 +672,11 @@ public class AdminProductServiceImpl implements AdminProductService {
             if (vr.getImages() != null) {
                 for (String imgPath : vr.getImages()) {
                     if (StringUtils.hasText(imgPath)) {
-                        String uploadedVUrl = cloudinaryService.uploadBase64OrUrl(imgPath.trim(), PRODUCT_FOLDER);
+                        String trimmedImg = imgPath.trim();
+                        String uploadedVUrl = uploadedUrlMap.getOrDefault(
+                                trimmedImg,
+                                cloudinaryService.uploadBase64OrUrl(trimmedImg, PRODUCT_FOLDER)
+                        );
                         ProductImage vImg = ProductImage.builder()
                                 .product(product)
                                 .variant(savedVariant)

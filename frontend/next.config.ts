@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     CUSTOMER_ID: process.env.CUSTOMER_ID || "",
   },
   images: {
+    // Ảnh trên Cloudinary đã được nén & phân phối qua CDN sẵn; tắt nén lại lần 2 ở Next.js để giữ nguyên độ nét
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
