@@ -311,43 +311,62 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
             return products;
         }
 
-        String normalizedType = VietnameseTokenizer.normalizeText(itemType).trim();
-        if (normalizedType.isBlank()) {
+        // Hỗ trợ trường hợp AI trả về nhiều loại mặt hàng ngăn cách bởi dấu phẩy / gạch chéo (vd: "thảm tập, bao cát, bảo hộ")
+        List<String> candidateTypes = Arrays.stream(itemType.split("[,/|]"))
+                .map(s -> VietnameseTokenizer.normalizeText(s).trim())
+                .filter(s -> !s.isBlank())
+                .toList();
+        if (candidateTypes.isEmpty()) {
+            return products;
+        }
+
+        // Nếu chỉ là cụm danh từ nhóm chung chung ("trang thiet bi ...", "dung cu ...", "do tap ...", "trang phuc ...", v.v.)
+        // thì không lọc cứng để giữ nguyên Top kết quả từ Hybrid Search
+        List<String> genericGroupPrefixes = List.of(
+                "trang thiet bi", "thiet bi", "dung cu", "do tap", "do the thao",
+                "do dung", "trang phuc", "phu kien", "san pham", "mat hang",
+                "combo", "bo do", "bo dung cu", "bo trang bi"
+        );
+        boolean isGenericGroupPhrase = candidateTypes.size() == 1
+                && genericGroupPrefixes.stream().anyMatch(candidateTypes.get(0)::startsWith);
+        if (isGenericGroupPhrase) {
             return products;
         }
 
         return products.stream()
-                .filter(p -> {
-                    String pName = VietnameseTokenizer.normalizeText(p.getName());
-                    if (pName.contains(normalizedType)) {
+                .filter(p -> candidateTypes.stream().anyMatch(type -> matchesProductType(p, type)))
+                .toList();
+    }
+
+    private boolean matchesProductType(Product p, String normalizedType) {
+        String pName = VietnameseTokenizer.normalizeText(p.getName());
+        if (pName.contains(normalizedType)) {
+            return true;
+        }
+        if (p.getCategory() != null && p.getCategory().getName() != null) {
+            String cName = VietnameseTokenizer.normalizeText(p.getCategory().getName());
+            if (cName.contains(normalizedType)) {
+                return true;
+            }
+        }
+        if (p.getCategories() != null) {
+            for (com.web.ap_sports.entity.Category c : p.getCategories()) {
+                if (c.getName() != null) {
+                    String cName = VietnameseTokenizer.normalizeText(c.getName());
+                    if (cName.contains(normalizedType)) {
                         return true;
                     }
-                    if (p.getCategory() != null && p.getCategory().getName() != null) {
-                        String cName = VietnameseTokenizer.normalizeText(p.getCategory().getName());
-                        if (cName.contains(normalizedType)) {
-                            return true;
-                        }
-                    }
-                    if (p.getCategories() != null) {
-                        for (com.web.ap_sports.entity.Category c : p.getCategories()) {
-                            if (c.getName() != null) {
-                                String cName = VietnameseTokenizer.normalizeText(c.getName());
-                                if (cName.contains(normalizedType)) {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    return false;
-                })
-                .toList();
+                }
+            }
+        }
+        return false;
     }
 
     /**
      * Mở rộng ngữ nghĩa và bóc tách loại mặt hàng ĐỘNG bằng Gemini siêu nhẹ (~100-150ms).
      * Trả về JSON: {"item_type": "...", "search_keywords": "..."}
      * - item_type: loại trang bị cụ thể mà khách hỏi (ví dụ: "giày", "áo", "quần", "vợt", "bóng", "bình nước", "thảm", "balo"...).
-     *   Nếu khách không hỏi đích danh loại mặt hàng (hỏi chung chung), item_type sẽ là null.
+     *   Nếu khách không hỏi đích danh loại mặt hàng (hỏi chung chung hoặc hỏi nhiều món theo môn thể thao), item_type sẽ là null.
      * - search_keywords: các từ khóa mở rộng về môn thể thao, CLB, ĐTQG, cầu thủ.
      */
     private SearchIntent analyzeSearchIntent(String userQuestion) {
@@ -357,8 +376,8 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
         String prompt = """
                 Bạn là bộ máy phân tích ý định tìm kiếm sản phẩm thể thao (Sports Search Intent Engine).
                 Nhiệm vụ: Phân tích câu hỏi của khách hàng và trích xuất đúng một JSON duy nhất có 2 trường:
-                1. "item_type": Loại mặt hàng/trang bị cụ thể mà khách hàng đang muốn tìm (ví dụ: "giày", "áo", "quần", "vợt", "bóng", "bình nước", "thảm", "balo", "găng tay", "vớ", "bó gối"...).
-                   Nếu câu hỏi chung chung, không chỉ đích danh một loại mặt hàng nào (ví dụ: "tư vấn đồ tập cho người mới", "shop có gì hot"), hãy để giá trị null.
+                1. "item_type": Loại mặt hàng/trang bị cụ thể duy nhất (1-2 từ) mà khách hàng đang muốn tìm (ví dụ: "giày", "áo", "quần", "vợt", "bóng", "bình nước", "thảm", "balo", "găng tay", "vớ", "bó gối"...).
+                   Nếu khách hỏi chung chung hoặc liệt kê NHIỀU loại đồ cho một môn thể thao (ví dụ: "tư vấn đồ tập cho người mới", "trang thiết bị võ thuật như thảm, bao cát, đích đấm, bảo hộ"), hãy để giá trị null.
                 2. "search_keywords": Chuỗi từ khóa mở rộng chuẩn xác nhất để tìm kiếm sản phẩm trong kho (bao gồm môn thể thao, tên đội tuyển, CLB, cầu thủ, đặc tính).
                    Nếu câu hỏi nhắc đến cầu thủ, hãy suy luận đúng Đội tuyển quốc gia và CLB họ từng thi đấu.
 
@@ -371,6 +390,7 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
                 - "in tên Ronaldinho" -> {"item_type": "áo", "search_keywords": "áo bóng đá đội tuyển brazil barcelona ac milan psg ronaldinho"}
                 - "có bình nước tập gym không" -> {"item_type": "bình nước", "search_keywords": "bình nước tập gym thể thao"}
                 - "bóng đá đạt chuẩn thi đấu da êm" -> {"item_type": "bóng", "search_keywords": "quả bóng đá đạt chuẩn thi đấu giữ hơi"}
+                - "tư vấn trang thiết bị võ thuật như thảm tập, bao cát, đích đấm đá, đồ bảo hộ" -> {"item_type": null, "search_keywords": "võ thuật thảm tập bao cát đích đấm đá găng tay bảo hộ"}
                 - "tư vấn cho người mới tập" -> {"item_type": null, "search_keywords": "đồ tập thể thao tập luyện"}
 
                 Câu hỏi của khách: "%s"
