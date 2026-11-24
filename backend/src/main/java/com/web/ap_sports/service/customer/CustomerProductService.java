@@ -5,6 +5,8 @@ import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
 import org.springframework.data.domain.Page;
 
+import java.util.List;
+
 public interface CustomerProductService {
 
     Page<ProductResponse> getPublicProducts(ProductFilterRequest filterRequest);
@@ -12,4 +14,8 @@ public interface CustomerProductService {
     ProductDetailResponse getProductBySlugOrId(String slugOrId);
 
     Page<ProductResponse> searchProductsByRelevance(String keyword, int page, int size);
+
+    List<ProductResponse> getTopRatedProducts(int limit);
+
+    List<ProductResponse> getFeaturedProducts(int limit);
 }

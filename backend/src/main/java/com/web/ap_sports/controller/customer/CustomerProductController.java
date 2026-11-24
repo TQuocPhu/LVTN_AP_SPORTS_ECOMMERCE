@@ -10,6 +10,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/products")
 @RequiredArgsConstructor
@@ -22,6 +24,26 @@ public class CustomerProductController {
             @ModelAttribute ProductFilterRequest filterRequest) {
         Page<ProductResponse> page = customerProductService.getPublicProducts(filterRequest);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm công khai thành công.", page));
+    }
+
+    /**
+     * Lấy danh sách sản phẩm được đánh giá cao nhất (mặc định 2 sản phẩm)
+     */
+    @GetMapping("/top-rated")
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> getTopRatedProducts(
+            @RequestParam(value = "limit", defaultValue = "2") int limit) {
+        List<ProductResponse> products = customerProductService.getTopRatedProducts(limit);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm đánh giá cao thành công.", products));
+    }
+
+    /**
+     * Lấy danh sách trang thiết bị nổi bật (nhiều đơn hàng + đánh giá tốt, bù mới nhất nếu chưa đủ)
+     */
+    @GetMapping("/featured")
+    public ResponseEntity<ApiResponse<List<ProductResponse>>> getFeaturedProducts(
+            @RequestParam(value = "limit", defaultValue = "8") int limit) {
+        List<ProductResponse> products = customerProductService.getFeaturedProducts(limit);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách trang thiết bị nổi bật thành công.", products));
     }
 
     @GetMapping("/{slug}")

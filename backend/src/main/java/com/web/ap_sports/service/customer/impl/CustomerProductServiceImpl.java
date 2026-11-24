@@ -18,6 +18,7 @@ import com.web.ap_sports.repository.ProductVariantRepository;
 import com.web.ap_sports.repository.ReviewRepository;
 import com.web.ap_sports.search.HybridSearchEngineService;
 import com.web.ap_sports.service.common.CategoryCacheService;
+import com.web.ap_sports.service.common.ProductRankingCacheService;
 import com.web.ap_sports.service.customer.CustomerProductService;
 import com.web.ap_sports.specification.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +52,9 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
     @Autowired(required = false)
     private CategoryCacheService categoryCacheService;
+
+    @Autowired(required = false)
+    private ProductRankingCacheService productRankingCacheService;
 
     @Override
     @Transactional(readOnly = true)
@@ -144,6 +148,79 @@ public class CustomerProductServiceImpl implements CustomerProductService {
 
         Pageable pageable = PageRequest.of(validPage, validSize);
         return new PageImpl<>(responses, pageable, totalElements);
+    }
+
+    /**
+     * Lấy danh sách sản phẩm được đánh giá cao nhất (làm dữ liệu thật cho khối Sản Phẩm Đánh Giá Cao).
+     * Ưu tiên đọc danh sách ID từ Redis Cache (TTL ~5 phút) và fallback về Database nếu Redis gặp sự cố.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getTopRatedProducts(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        List<Long> orderedIds = null;
+        if (productRankingCacheService != null) {
+            try {
+                orderedIds = productRankingCacheService.getCachedTopRatedProductIds(safeLimit);
+            } catch (Exception ignored) {
+                // Fallback trực tiếp về Database nếu Redis chưa sẵn sàng hoặc lỗi deserialize
+            }
+        }
+        if (orderedIds == null) {
+            orderedIds = productRepository.findTopRatedProductIds(PageRequest.of(0, safeLimit));
+        }
+        return getOrderedProductsByIds(orderedIds);
+    }
+
+    /**
+     * Lấy danh sách trang thiết bị nổi bật (nhiều đơn hàng + đánh giá tốt, bù sản phẩm mới nhất nếu chưa đủ).
+     * Ưu tiên đọc danh sách ID từ Redis Cache (TTL ~5 phút) và fallback về Database nếu Redis gặp sự cố.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getFeaturedProducts(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 24));
+        List<Long> orderedIds = null;
+        if (productRankingCacheService != null) {
+            try {
+                orderedIds = productRankingCacheService.getCachedFeaturedProductIds(safeLimit);
+            } catch (Exception ignored) {
+                // Fallback trực tiếp về Database nếu Redis chưa sẵn sàng hoặc lỗi deserialize
+            }
+        }
+        if (orderedIds == null) {
+            orderedIds = productRepository.findFeaturedProductIds(PageRequest.of(0, safeLimit));
+        }
+        return getOrderedProductsByIds(orderedIds);
+    }
+
+    /**
+     * Nạp danh sách sản phẩm theo đúng thứ tự ID đã xếp hạng và map batch chống N+1 query.
+     * - Chuẩn hóa Number -> Long để tránh lỗi lệch kiểu Integer/Long khi đọc lại từ JSON Redis.
+     * - Lọc lại `in_stock` để đảm bảo nếu sản phẩm vừa hết hàng/ẩn trong lúc cache còn hạn thì không hiển thị sai.
+     */
+    private List<ProductResponse> getOrderedProductsByIds(List<? extends Number> rawOrderedIds) {
+        if (rawOrderedIds == null || rawOrderedIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> orderedIds = rawOrderedIds.stream()
+                .filter(Objects::nonNull)
+                .map(Number::longValue)
+                .toList();
+
+        // Gom thành Map để tra cứu O(1) khi sắp xếp lại theo thứ tự xếp hạng
+        Map<Long, Product> productMap = productRepository.findAllById(orderedIds).stream()
+                .filter(p -> p.getId() != null && "in_stock".equals(p.getStatus()))
+                .collect(Collectors.toMap(Product::getId, p -> p, (a, b) -> a));
+
+        // Khôi phục chính xác thứ tự ID đã được Repository xếp hạng
+        List<Product> orderedProducts = orderedIds.stream()
+                .map(productMap::get)
+                .filter(Objects::nonNull)
+                .toList();
+
+        // Map sang ProductResponse bằng batch query (ảnh, danh mục, thống kê đánh giá) để tránh N+1
+        return mapToProductResponseList(orderedProducts, null);
     }
 
     private List<ProductResponse> mapToProductResponseList(List<Product> products, Map<Long, List<ProductVariant>> preloadedVariantMap) {

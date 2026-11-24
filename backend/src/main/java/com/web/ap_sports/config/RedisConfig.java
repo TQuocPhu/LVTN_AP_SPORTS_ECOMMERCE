@@ -75,8 +75,15 @@ public class RedisConfig implements CachingConfigurer {
                 // Tắt prefix mặc định của Spring để key trên Redis hiển thị đúng chuẩn 'lvtn:dev:catalog:category:*'
                 .computePrefixWith(cacheName -> "");
 
+        // Vùng nhớ 'product_ranking_ids': Cache danh sách ID xếp hạng Top Rated & Featured trong 5 phút + Jitter 10-30s
+        long rankingJitterSeconds = ThreadLocalRandom.current().nextLong(10, 31);
+        RedisCacheConfiguration productRankingCacheConfig = defaultConfig
+                .entryTtl(Duration.ofMinutes(5).plusSeconds(rankingJitterSeconds))
+                .computePrefixWith(cacheName -> "");
+
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
         cacheConfigurations.put("categories", categoriesCacheConfig);
+        cacheConfigurations.put("product_ranking_ids", productRankingCacheConfig);
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

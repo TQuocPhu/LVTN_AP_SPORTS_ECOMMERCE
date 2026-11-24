@@ -95,5 +95,59 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
      * Lấy Top sản phẩm mới nhất đang kinh doanh khi người dùng hỏi chung chung
      */
     List<Product> findTop6ByStatusOrderByIdDesc(String status);
+
+    /**
+     * Lấy danh sách ID sản phẩm đang kinh doanh (in_stock) xếp hạng theo điểm đánh giá cao nhất.
+     * - Dùng LEFT JOIN với reviews (status = 'approved') để vẫn giữ sản phẩm chưa có đánh giá làm nguồn bù nếu chưa đủ limit.
+     * - COALESCE(AVG(r.rating), 0.0) chuyển NULL thành 0.0 để sản phẩm chưa có review luôn xếp sau khi ORDER BY DESC.
+     * - Thứ tự ưu tiên: Điểm sao trung bình giảm dần -> Số lượt đánh giá giảm dần -> Ngày tạo mới nhất.
+     */
+    @Query(
+        "SELECT p.id FROM Product p " +
+        "LEFT JOIN Review r ON r.product.id = p.id AND r.status = 'approved' " +
+        "WHERE p.status = 'in_stock' " +
+        "GROUP BY p.id, p.createdAt " +
+        "ORDER BY COALESCE(AVG(r.rating), 0.0) DESC, COUNT(r.id) DESC, p.createdAt DESC"
+    )
+    List<Long> findTopRatedProductIds(org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Lấy danh sách ID sản phẩm nổi bật (in_stock) theo 3 tầng ưu tiên:
+     * - Mức 2: Vừa có đơn hàng thành công (delivered/completed) vừa có đánh giá tốt (>= 4.0 sao).
+     * - Mức 1: Có đơn hàng thành công hoặc có đánh giá đã duyệt.
+     * - Mức 0: Chưa có đơn hàng và chưa có đánh giá (tự động bù theo sản phẩm mới nhất created_at DESC nếu chưa đủ limit).
+     * Lưu ý kỹ thuật: Tách 2 subquery tổng hợp sẵn `sales` và `rev` theo product_id trước khi LEFT JOIN
+     * để tránh tích Đề-các (Cartesian product) làm nhân sai số lượng bán SUM(oi.quantity) và lượt đánh giá COUNT(r.id).
+     */
+    @Query(
+        value = "SELECT p.id " +
+                "FROM products p " +
+                "LEFT JOIN (" +
+                // Subquery 1: Tổng hợp số lượng đã bán thực tế từ các đơn đã giao / hoàn tất
+                "  SELECT oi.product_id, COALESCE(SUM(oi.quantity), 0) AS sold_qty " +
+                "  FROM order_items oi " +
+                "  JOIN orders o ON oi.order_id = o.id " +
+                "  WHERE o.status IN ('delivered', 'completed') " +
+                "  GROUP BY oi.product_id" +
+                ") sales ON sales.product_id = p.id " +
+                "LEFT JOIN (" +
+                // Subquery 2: Tổng hợp điểm sao trung bình và số lượt đánh giá đã duyệt
+                "  SELECT r.product_id, COALESCE(AVG(r.rating), 0) AS avg_rating, COUNT(r.id) AS review_cnt " +
+                "  FROM reviews r " +
+                "  WHERE r.status = 'approved' " +
+                "  GROUP BY r.product_id" +
+                ") rev ON rev.product_id = p.id " +
+                "WHERE p.status = 'in_stock' " +
+                "ORDER BY " +
+                "  CASE WHEN COALESCE(sales.sold_qty, 0) > 0 AND COALESCE(rev.avg_rating, 0) >= 4.0 THEN 2 " +
+                "       WHEN COALESCE(sales.sold_qty, 0) > 0 OR COALESCE(rev.review_cnt, 0) > 0 THEN 1 " +
+                "       ELSE 0 END DESC, " +
+                "  COALESCE(sales.sold_qty, 0) DESC, " +
+                "  COALESCE(rev.avg_rating, 0) DESC, " +
+                "  COALESCE(rev.review_cnt, 0) DESC, " +
+                "  p.created_at DESC",
+        nativeQuery = true
+    )
+    List<Long> findFeaturedProductIds(org.springframework.data.domain.Pageable pageable);
 }
 
