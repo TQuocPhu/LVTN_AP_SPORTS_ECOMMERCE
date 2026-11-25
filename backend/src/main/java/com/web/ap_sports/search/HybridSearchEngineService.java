@@ -223,6 +223,14 @@ public class HybridSearchEngineService {
                         break;
                     }
                 }
+                // Khớp thuộc tính động trong JSON attributes của biến thể (Ví dụ: "4U", "10oz", "2cm"...)
+                if (v.getAttributes() != null && !v.getAttributes().isBlank()) {
+                    String normAttrs = VietnameseTokenizer.normalizeText(v.getAttributes());
+                    if (normAttrs.contains(normalizedQuery) || queryTokens.stream().anyMatch(normAttrs::contains)) {
+                        variantMatched = true;
+                        break;
+                    }
+                }
             }
             if (variantMatched) {
                 totalMatchedWeight += 30.0;
@@ -277,12 +285,13 @@ public class HybridSearchEngineService {
             }
         }
 
-        // Thông tin biến thể (SKU, Color, Size) -> Nhân trọng số x1.5
+        // Thông tin biến thể (SKU, Color, Size, Attributes JSON) -> Trọng số x1
         if (variants != null) {
             for (ProductVariant v : variants) {
                 if (v.getSku() != null) tokens.addAll(VietnameseTokenizer.tokenize(v.getSku()));
                 if (v.getColor() != null) tokens.addAll(VietnameseTokenizer.tokenize(v.getColor()));
                 if (v.getSize() != null) tokens.addAll(VietnameseTokenizer.tokenize(v.getSize()));
+                if (v.getAttributes() != null) tokens.addAll(VietnameseTokenizer.tokenize(v.getAttributes()));
             }
         }
 

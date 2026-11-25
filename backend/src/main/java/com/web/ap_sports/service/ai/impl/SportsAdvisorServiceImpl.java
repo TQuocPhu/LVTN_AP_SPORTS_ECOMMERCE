@@ -438,18 +438,27 @@ public class SportsAdvisorServiceImpl implements SportsAdvisorService {
             map.put("price", currencyFormat.format(p.getPrice()));
             map.put("link", "/products/" + p.getSlug());
 
-            // Tái sử dụng variantMap đã nạp sẵn để loại bỏ hoàn toàn N+1 query
+            // Tái sử dụng variantMap đã nạp sẵn để loại bỏ hoàn toàn N+1 query (bao gồm cả size và attributes động)
             Set<String> sizes = new LinkedHashSet<>();
+            Set<String> variantAttributes = new LinkedHashSet<>();
             List<ProductVariant> variants = variantMap != null ? variantMap.get(p.getId()) : null;
             if (variants != null) {
                 for (ProductVariant v : variants) {
-                    if (v.getStockQuantity() != null && v.getStockQuantity() > 0 && v.getSize() != null) {
-                        sizes.add(v.getSize());
+                    if (v.getStockQuantity() != null && v.getStockQuantity() > 0) {
+                        if (v.getSize() != null && !v.getSize().isBlank()) {
+                            sizes.add(v.getSize());
+                        }
+                        if (v.getAttributes() != null && !v.getAttributes().isBlank()) {
+                            variantAttributes.add(v.getAttributes().trim());
+                        }
                     }
                 }
             }
             if (!sizes.isEmpty()) {
                 map.put("available_sizes", sizes);
+            }
+            if (!variantAttributes.isEmpty()) {
+                map.put("available_variants", variantAttributes);
             }
             compactList.add(map);
         }
