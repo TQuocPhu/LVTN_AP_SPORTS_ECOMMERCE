@@ -2,10 +2,14 @@ package com.web.ap_sports.service.admin.impl;
 
 import com.web.ap_sports.dto.request.admin.VoucherFilterRequest;
 import com.web.ap_sports.dto.request.admin.VoucherRequest;
+import com.web.ap_sports.dto.response.admin.AdminVoucherDetailResponse;
 import com.web.ap_sports.dto.response.common.VoucherResponse;
 import com.web.ap_sports.entity.Coupon;
+import com.web.ap_sports.entity.Order;
+import com.web.ap_sports.enums.OrderStatus;
 import com.web.ap_sports.exception.AppException;
 import com.web.ap_sports.repository.CouponRepository;
+import com.web.ap_sports.repository.OrderRepository;
 import com.web.ap_sports.service.admin.AdminVoucherService;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +42,7 @@ public class AdminVoucherServiceImpl implements AdminVoucherService {
 
 
     private final CouponRepository couponRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -67,6 +72,65 @@ public class AdminVoucherServiceImpl implements AdminVoucherService {
         Coupon coupon = couponRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy mã giảm giá với ID: " + id, HttpStatus.NOT_FOUND));
         return mapToVoucherResponse(coupon);
+    }
+
+    /**
+     * Lấy chi tiết toàn diện một mã giảm giá (thông tin cấu hình + thống kê lượt dùng hợp lệ + danh sách 15 đơn hàng gần nhất).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public AdminVoucherDetailResponse getVoucherDetailById(Long id) {
+        Coupon coupon = couponRepository.findById(id)
+                .orElseThrow(() -> new AppException("Không tìm thấy mã giảm giá với ID: " + id, HttpStatus.NOT_FOUND));
+
+        VoucherResponse baseVoucher = mapToVoucherResponse(coupon);
+
+        List<OrderStatus> excludedStatuses = List.of(OrderStatus.cancelled, OrderStatus.returned, OrderStatus.payment_failed);
+        List<OrderStatus> completedStatuses = List.of(OrderStatus.delivered, OrderStatus.completed);
+
+        long validCount = orderRepository.countValidOrdersByCouponId(id, excludedStatuses);
+        long completedCount = orderRepository.countCompletedOrdersByCouponId(id, completedStatuses);
+        BigDecimal totalDiscountGranted = orderRepository.sumDiscountByCouponId(id, excludedStatuses);
+        BigDecimal totalRevenueGenerated = orderRepository.sumCompletedRevenueByCouponId(id, completedStatuses);
+
+        Integer remainingUses = null;
+        if (coupon.getUsageLimit() != null) {
+            int used = coupon.getUsedCount() != null ? coupon.getUsedCount() : 0;
+            remainingUses = Math.max(0, coupon.getUsageLimit() - used);
+        }
+
+        List<Order> recentOrders = orderRepository.findOrdersByCouponIdWithCustomer(id, PageRequest.of(0, 15));
+        List<AdminVoucherDetailResponse.VoucherAppliedOrderItem> orderItems = recentOrders.stream()
+                .map(o -> {
+                    String custName = o.getShippingAddress() != null && StringUtils.hasText(o.getShippingAddress().getFullName())
+                            ? o.getShippingAddress().getFullName()
+                            : (o.getUser() != null ? o.getUser().getName() : "Khách hàng");
+                    String custPhone = o.getShippingAddress() != null && StringUtils.hasText(o.getShippingAddress().getPhone())
+                            ? o.getShippingAddress().getPhone()
+                            : (o.getUser() != null ? o.getUser().getPhoneNumber() : "");
+                    return AdminVoucherDetailResponse.VoucherAppliedOrderItem.builder()
+                            .orderId(o.getId())
+                            .orderCode(o.getOrderCode())
+                            .customerName(custName)
+                            .customerPhone(custPhone)
+                            .totalPrice(o.getTotalPrice() != null ? o.getTotalPrice() : BigDecimal.ZERO)
+                            .discountAmount(o.getDiscountAmount() != null ? o.getDiscountAmount() : BigDecimal.ZERO)
+                            .finalAmount(o.getFinalAmount() != null ? o.getFinalAmount() : BigDecimal.ZERO)
+                            .status(o.getStatus() != null ? o.getStatus().getValue() : "pending")
+                            .createdAt(o.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return AdminVoucherDetailResponse.builder()
+                .voucher(baseVoucher)
+                .validAppliedOrdersCount(validCount)
+                .completedAppliedOrdersCount(completedCount)
+                .totalDiscountGranted(totalDiscountGranted != null ? totalDiscountGranted : BigDecimal.ZERO)
+                .totalOrderRevenueGenerated(totalRevenueGenerated != null ? totalRevenueGenerated : BigDecimal.ZERO)
+                .remainingGlobalUses(remainingUses)
+                .recentAppliedOrders(orderItems)
+                .build();
     }
 
     @Override

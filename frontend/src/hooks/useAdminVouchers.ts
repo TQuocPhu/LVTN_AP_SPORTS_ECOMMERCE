@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { voucherController } from "@/controllers/voucher-controller";
 import {
   Voucher,
+  AdminVoucherDetail,
   VoucherFilterParams,
   VoucherFormData,
   PageResponse,
@@ -54,8 +55,12 @@ export function useAdminVouchers() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState<boolean>(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [deletingVoucher, setDeletingVoucher] = useState<Voucher | null>(null);
+  const [viewingVoucher, setViewingVoucher] = useState<Voucher | null>(null);
+  const [voucherDetail, setVoucherDetail] = useState<AdminVoucherDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   /**
@@ -168,9 +173,30 @@ export function useAdminVouchers() {
   };
 
   /**
-   * Mở modal chỉnh sửa voucher.
+   * Mở modal xem chi tiết toàn diện mã giảm giá và lịch sử đơn hàng áp dụng.
+   */
+  const handleOpenDetailModal = async (voucher: Voucher) => {
+    setViewingVoucher(voucher);
+    setVoucherDetail(null);
+    setIsDetailModalOpen(true);
+    setIsLoadingDetail(true);
+    try {
+      const res = await voucherController.getAdminVoucherDetail(voucher.id);
+      if (res && res.data) {
+        setVoucherDetail(res.data);
+      }
+    } catch (error) {
+      console.error("Lỗi khi tải chi tiết voucher:", error);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  /**
+   * Mở modal chỉnh sửa voucher (Đóng modal xem chi tiết nếu đang mở).
    */
   const handleOpenEditModal = (voucher: Voucher) => {
+    setIsDetailModalOpen(false);
     setEditingVoucher(voucher);
     setIsFormModalOpen(true);
   };
@@ -189,8 +215,11 @@ export function useAdminVouchers() {
   const handleCloseModals = () => {
     setIsFormModalOpen(false);
     setIsDeleteModalOpen(false);
+    setIsDetailModalOpen(false);
     setEditingVoucher(null);
     setDeletingVoucher(null);
+    setViewingVoucher(null);
+    setVoucherDetail(null);
   };
 
   /**
@@ -250,8 +279,12 @@ export function useAdminVouchers() {
     isLoading,
     isFormModalOpen,
     isDeleteModalOpen,
+    isDetailModalOpen,
     editingVoucher,
     deletingVoucher,
+    viewingVoucher,
+    voucherDetail,
+    isLoadingDetail,
     isSubmitting,
     handleKeywordChange,
     handleTypeChange,
@@ -260,6 +293,7 @@ export function useAdminVouchers() {
     handleSortChange,
     handlePageChange,
     handleOpenCreateModal,
+    handleOpenDetailModal,
     handleOpenEditModal,
     handleOpenDeleteModal,
     handleCloseModals,

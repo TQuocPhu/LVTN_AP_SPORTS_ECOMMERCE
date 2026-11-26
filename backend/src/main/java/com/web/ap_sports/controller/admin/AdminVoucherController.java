@@ -3,6 +3,7 @@ package com.web.ap_sports.controller.admin;
 import com.web.ap_sports.dto.request.admin.VoucherFilterRequest;
 import com.web.ap_sports.dto.request.admin.VoucherRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
+import com.web.ap_sports.dto.response.admin.AdminVoucherDetailResponse;
 import com.web.ap_sports.dto.response.common.VoucherResponse;
 import com.web.ap_sports.service.admin.AdminVoucherService;
 import jakarta.validation.Valid;
@@ -52,6 +53,16 @@ public class AdminVoucherController {
         log.info("Admin xem chi tiết voucher ID: {}", id);
         VoucherResponse response = adminVoucherService.getVoucherById(id);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết mã giảm giá thành công", response));
+    }
+
+    /**
+     * API xem chi tiết toàn diện Voucher kèm thống kê tiền giảm thực tế và danh sách các đơn hàng đã áp mã.
+     */
+    @GetMapping("/{id}/detail")
+    public ResponseEntity<ApiResponse<AdminVoucherDetailResponse>> getVoucherDetailById(@PathVariable Long id) {
+        log.info("Admin xem báo cáo chi tiết voucher ID: {}", id);
+        AdminVoucherDetailResponse response = adminVoucherService.getVoucherDetailById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết mã giảm giá và lịch sử áp dụng thành công", response));
     }
 
     /**

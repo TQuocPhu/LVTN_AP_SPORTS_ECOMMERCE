@@ -123,6 +123,34 @@ export interface PageResponse<T> {
 }
 
 /**
+ * Dữ liệu một đơn hàng đã áp dụng mã giảm giá hiển thị trong Modal Xem Chi Tiết Voucher của Admin.
+ */
+export interface VoucherAppliedOrderItem {
+  orderId: number;
+  orderCode: string;
+  customerName: string;
+  customerPhone?: string;
+  totalPrice: number;
+  discountAmount: number;
+  finalAmount: number;
+  status: string;
+  createdAt: string;
+}
+
+/**
+ * DTO phản hồi chi tiết toàn diện của một Mã Giảm Giá dành cho Admin.
+ */
+export interface AdminVoucherDetail {
+  voucher: Voucher;
+  validAppliedOrdersCount: number;
+  completedAppliedOrdersCount: number;
+  totalDiscountGranted: number;
+  totalOrderRevenueGenerated: number;
+  remainingGlobalUses?: number | null;
+  recentAppliedOrders: VoucherAppliedOrderItem[];
+}
+
+/**
  * Interface gửi từ Khách hàng khi kiểm tra tính mã voucher cho Giỏ hàng / Thanh toán.
  */
 export interface ApplyVoucherParams {

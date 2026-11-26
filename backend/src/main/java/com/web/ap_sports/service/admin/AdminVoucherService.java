@@ -2,6 +2,7 @@ package com.web.ap_sports.service.admin;
 
 import com.web.ap_sports.dto.request.admin.VoucherFilterRequest;
 import com.web.ap_sports.dto.request.admin.VoucherRequest;
+import com.web.ap_sports.dto.response.admin.AdminVoucherDetailResponse;
 import com.web.ap_sports.dto.response.common.VoucherResponse;
 import org.springframework.data.domain.Page;
 
@@ -25,6 +26,14 @@ public interface AdminVoucherService {
      * @return VoucherResponse thông tin chi tiết
      */
     VoucherResponse getVoucherById(Long id);
+
+    /**
+     * Xem chi tiết toàn diện một Voucher kèm thống kê tiền giảm thực tế và lịch sử đơn hàng đã áp mã.
+     *
+     * @param id ID của voucher
+     * @return AdminVoucherDetailResponse dữ liệu chi tiết đầy đủ cho Modal Admin
+     */
+    AdminVoucherDetailResponse getVoucherDetailById(Long id);
 
     /**
      * Tạo mới một Mã giảm giá / Voucher.

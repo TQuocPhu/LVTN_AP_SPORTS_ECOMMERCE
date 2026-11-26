@@ -5,6 +5,7 @@ import { VoucherFilterBar } from './VoucherFilterBar';
 import { VoucherTable } from './VoucherTable';
 import { VoucherFormModal } from './VoucherFormModal';
 import { VoucherDeleteModal } from './VoucherDeleteModal';
+import { VoucherDetailModal } from './VoucherDetailModal';
 
 /**
  * Component AdminVouchersContentUI: Giao diện quản lý Voucher phía Admin (Giao diện chuẩn Admin cố định).
@@ -17,8 +18,12 @@ export const AdminVouchersContentUI: React.FC = () => {
     isLoading,
     isFormModalOpen,
     isDeleteModalOpen,
+    isDetailModalOpen,
     editingVoucher,
     deletingVoucher,
+    viewingVoucher,
+    voucherDetail,
+    isLoadingDetail,
     isSubmitting,
     handleKeywordChange,
     handleTypeChange,
@@ -27,6 +32,7 @@ export const AdminVouchersContentUI: React.FC = () => {
     handleSortChange,
     handlePageChange,
     handleOpenCreateModal,
+    handleOpenDetailModal,
     handleOpenEditModal,
     handleOpenDeleteModal,
     handleCloseModals,
@@ -81,10 +87,21 @@ export const AdminVouchersContentUI: React.FC = () => {
       <VoucherTable
         pageData={pageData}
         isLoading={isLoading}
+        onViewDetail={handleOpenDetailModal}
         onEdit={handleOpenEditModal}
         onDelete={handleOpenDeleteModal}
         onToggleStatus={handleToggleStatus}
         onPageChange={handlePageChange}
+      />
+
+      {/* Modal Xem Chi Tiết Voucher & Đơn Áp Dụng */}
+      <VoucherDetailModal
+        isOpen={isDetailModalOpen}
+        viewingVoucher={viewingVoucher}
+        voucherDetail={voucherDetail}
+        isLoading={isLoadingDetail}
+        onClose={handleCloseModals}
+        onEdit={handleOpenEditModal}
       />
 
       {/* Modal Thêm mới / Chỉnh sửa */}

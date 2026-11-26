@@ -1,6 +1,7 @@
 import { apiClient, ApiResponse, ApiClientOptions } from '@/services/api-client';
 import {
   Voucher,
+  AdminVoucherDetail,
   VoucherFormData,
   VoucherFilterParams,
   PageResponse,
@@ -53,6 +54,13 @@ export const voucherController = {
    */
   async getAdminVoucherById(id: number): Promise<ApiResponse<Voucher>> {
     return apiClient.get<ApiResponse<Voucher>>(`/admin/vouchers/${id}`);
+  },
+
+  /**
+   * Xem chi tiết toàn diện voucher kèm thống kê tổng tiền đã giảm và danh sách đơn hàng đã áp dụng.
+   */
+  async getAdminVoucherDetail(id: number): Promise<ApiResponse<AdminVoucherDetail>> {
+    return apiClient.get<ApiResponse<AdminVoucherDetail>>(`/admin/vouchers/${id}/detail`);
   },
 
   /**

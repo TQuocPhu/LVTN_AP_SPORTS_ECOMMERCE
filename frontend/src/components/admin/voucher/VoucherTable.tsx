@@ -1,10 +1,11 @@
 import React from 'react';
-import { Edit3, Trash2, Power, Tag, Truck, Calendar, Percent as PercentIcon } from 'lucide-react';
+import { Eye, Edit3, Trash2, Tag, Truck, Calendar, Percent as PercentIcon } from 'lucide-react';
 import { Voucher, PageResponse } from '@/types/voucher';
 
 interface VoucherTableProps {
   pageData: PageResponse<Voucher>;
   isLoading: boolean;
+  onViewDetail: (voucher: Voucher) => void;
   onEdit: (voucher: Voucher) => void;
   onDelete: (voucher: Voucher) => void;
   onToggleStatus: (voucher: Voucher) => void;
@@ -17,6 +18,7 @@ interface VoucherTableProps {
 export const VoucherTable: React.FC<VoucherTableProps> = ({
   pageData,
   isLoading,
+  onViewDetail,
   onEdit,
   onDelete,
   onToggleStatus,
@@ -146,9 +148,14 @@ export const VoucherTable: React.FC<VoucherTableProps> = ({
                 >
                   <td className="px-4 py-3.5">
                     <div className="font-bold text-slate-900 flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-800 font-mono text-xs rounded border border-amber-300">
+                      <button
+                        type="button"
+                        onClick={() => onViewDetail(voucher)}
+                        title="Nhấp để xem chi tiết mã giảm giá"
+                        className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 font-mono text-xs rounded border border-amber-300 transition-colors cursor-pointer"
+                      >
                         {voucher.code}
-                      </span>
+                      </button>
                     </div>
                     <div className="text-xs text-slate-500 mt-1 line-clamp-1">
                       {voucher.name}
@@ -217,6 +224,15 @@ export const VoucherTable: React.FC<VoucherTableProps> = ({
                             active ? 'translate-x-4' : 'translate-x-0'
                           }`}
                         />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onViewDetail(voucher)}
+                        title="Xem chi tiết mã giảm giá"
+                        className="p-1.5 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-all cursor-pointer"
+                      >
+                        <Eye className="w-4 h-4" />
                       </button>
 
                       <button

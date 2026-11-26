@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { X, Tag, AlertCircle, Info } from 'lucide-react';
 import { Voucher, VoucherFormData, VoucherType } from '@/types/voucher';
-import { formatToLocalDatetimeInput } from '@/utils/formatters';
+import { useVoucherFormModal } from '@/hooks/useVoucherFormModal';
+import { VietnameseDateInput } from '@/components/common/VietnameseDateInput';
 
 interface VoucherFormModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface VoucherFormModalProps {
 
 /**
  * Component VoucherFormModal: Modal Thêm mới hoặc Chỉnh sửa thông tin Mã Giảm Giá cho Admin.
- * Tự động đồng bộ Phạm vi áp dụng theo Loại Mã Giảm Giá (FREESHIP -> Phí Vận Chuyển, PERCENT/FIXED -> Tất Cả Sản Phẩm).
+ * Tuân thủ kiến trúc 7 tầng: Toàn bộ state/effect được xử lý trong useVoucherFormModal.
  */
 export const VoucherFormModal: React.FC<VoucherFormModalProps> = ({
   isOpen,
@@ -22,139 +23,19 @@ export const VoucherFormModal: React.FC<VoucherFormModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const [formData, setFormData] = useState<VoucherFormData>({
-    code: '',
-    name: '',
-    description: '',
-    type: 'FIXED',
-    value: '' as any,
-    maxDiscountAmount: '' as any,
-    minOrderValue: '' as any,
-    usageLimit: 100,
-    userUsageLimit: 1,
-    categoryScope: 'ALL',
-    startsAt: '',
-    expiresAt: '',
-    isActive: true,
+  const {
+    formData,
+    setFormData,
+    validationError,
+    handleTypeSelect,
+    handleSubmit,
+  } = useVoucherFormModal({
+    isOpen,
+    editingVoucher,
+    onSubmit,
   });
 
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (editingVoucher) {
-      const autoScope = editingVoucher.type === 'FREESHIP' ? 'FREESHIP' : 'ALL';
-      const activeVal = editingVoucher.isActive ?? editingVoucher.active ?? (editingVoucher.status !== 'disabled');
-      setFormData({
-        code: editingVoucher.code || '',
-        name: editingVoucher.name || '',
-        description: editingVoucher.description || '',
-        type: editingVoucher.type || 'FIXED',
-        value: editingVoucher.value !== undefined && editingVoucher.value !== null ? editingVoucher.value : ('' as any),
-        maxDiscountAmount: editingVoucher.maxDiscountAmount !== undefined && editingVoucher.maxDiscountAmount !== null ? editingVoucher.maxDiscountAmount : ('' as any),
-        minOrderValue: editingVoucher.minOrderValue !== undefined && editingVoucher.minOrderValue !== null ? editingVoucher.minOrderValue : ('' as any),
-        usageLimit: editingVoucher.usageLimit ?? 100,
-        userUsageLimit: editingVoucher.userUsageLimit ?? 1,
-        categoryScope: autoScope,
-        startsAt: formatToLocalDatetimeInput(editingVoucher.startsAt),
-        expiresAt: formatToLocalDatetimeInput(editingVoucher.expiresAt),
-        isActive: activeVal,
-      });
-    } else {
-      setFormData({
-        code: '',
-        name: '',
-        description: '',
-        type: 'FIXED',
-        value: '' as any,
-        maxDiscountAmount: '' as any,
-        minOrderValue: '' as any,
-        usageLimit: 100,
-        userUsageLimit: 1,
-        categoryScope: 'ALL',
-        startsAt: formatToLocalDatetimeInput(new Date()),
-        expiresAt: '',
-        isActive: true,
-      });
-    }
-    setValidationError(null);
-  }, [editingVoucher, isOpen]);
-
   if (!isOpen) return null;
-
-  /**
-   * Thay đổi loại mã giảm giá (FIXED, PERCENT, FREESHIP).
-   * Tự động đặt categoryScope phù hợp:
-   * - FREESHIP => 'FREESHIP' (Miễn phí vận chuyển)
-   * - FIXED / PERCENT => 'ALL' (Tất cả sản phẩm)
-   */
-  const handleTypeSelect = (selectedType: VoucherType) => {
-    const autoScope = selectedType === 'FREESHIP' ? 'FREESHIP' : 'ALL';
-    const autoMaxDiscount = selectedType === 'PERCENT' ? formData.maxDiscountAmount : ('' as any);
-
-    setFormData((prev) => ({
-      ...prev,
-      type: selectedType,
-      categoryScope: autoScope,
-      maxDiscountAmount: autoMaxDiscount,
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setValidationError(null);
-
-    if (!formData.code.trim()) {
-      setValidationError('Vui lòng nhập Mã giảm giá (VD: APSSUMMER50).');
-      return;
-    }
-
-    if (!formData.name.trim()) {
-      setValidationError('Vui lòng nhập Tên hiển thị voucher.');
-      return;
-    }
-
-    const numValue = Number(formData.value);
-    if (isNaN(numValue) || numValue <= 0) {
-      setValidationError('Giá trị giảm phải là một số lớn hơn 0.');
-      return;
-    }
-
-    if (formData.type === 'PERCENT' && numValue > 100) {
-      setValidationError('Tỷ lệ giảm theo phần trăm không được vượt quá 100%.');
-      return;
-    }
-
-    if (formData.startsAt && formData.expiresAt) {
-      const start = new Date(formData.startsAt);
-      const end = new Date(formData.expiresAt);
-      if (start >= end) {
-        setValidationError('Thời gian bắt đầu hiệu lực phải nhỏ hơn thời gian hết hạn.');
-        return;
-      }
-    }
-
-    if (
-      formData.usageLimit &&
-      formData.userUsageLimit &&
-      Number(formData.userUsageLimit) > Number(formData.usageLimit)
-    ) {
-      setValidationError('Số lượt dùng tối đa / 1 tài khoản không được vượt quá Tổng số lượt phát hành toàn sàn.');
-      return;
-    }
-
-    const finalScope = formData.type === 'FREESHIP' ? 'FREESHIP' : 'ALL';
-
-    onSubmit({
-      ...formData,
-      code: formData.code.trim().toUpperCase(),
-      name: formData.name.trim(),
-      type: formData.type,
-      categoryScope: finalScope,
-      value: numValue,
-      maxDiscountAmount: formData.type !== 'FIXED' && formData.maxDiscountAmount ? Number(formData.maxDiscountAmount) : undefined,
-      minOrderValue: formData.minOrderValue ? Number(formData.minOrderValue) : undefined,
-    });
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
@@ -424,17 +305,18 @@ export const VoucherFormModal: React.FC<VoucherFormModalProps> = ({
             </label>
           </div>
 
-          {/* Nhóm 5: Thời gian Bắt đầu & Hết hạn */}
+          {/* Nhóm 5: Thời gian Bắt đầu & Hết hạn chuẩn Việt Nam (dd/mm/yyyy HH:mm) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Thời gian Bắt đầu có hiệu lực
+                Thời gian Bắt đầu có hiệu lực (dd/mm/yyyy HH:mm)
               </label>
-              <input
-                type="datetime-local"
+              <VietnameseDateInput
                 value={formData.startsAt ?? ''}
-                onChange={(e) => setFormData({ ...formData, startsAt: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                onChange={(val) => setFormData({ ...formData, startsAt: val })}
+                enableTime
+                themeVariant="admin"
+                sizeVariant="form"
               />
             </div>
 
@@ -442,11 +324,12 @@ export const VoucherFormModal: React.FC<VoucherFormModalProps> = ({
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Thời gian Hết hạn sử dụng (Để trống nếu Vĩnh viễn)
               </label>
-              <input
-                type="datetime-local"
+              <VietnameseDateInput
                 value={formData.expiresAt ?? ''}
-                onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                onChange={(val) => setFormData({ ...formData, expiresAt: val })}
+                enableTime
+                themeVariant="admin"
+                sizeVariant="form"
               />
             </div>
           </div>

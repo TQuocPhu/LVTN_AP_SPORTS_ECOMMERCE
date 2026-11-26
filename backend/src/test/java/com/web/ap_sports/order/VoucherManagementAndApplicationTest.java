@@ -67,7 +67,7 @@ class VoucherManagementAndApplicationTest {
                 orderRepository,
                 userRepository
         );
-        adminVoucherService = new AdminVoucherServiceImpl(couponRepository);
+        adminVoucherService = new AdminVoucherServiceImpl(couponRepository, orderRepository);
 
         customerUser = User.builder()
                 .id(100L)
