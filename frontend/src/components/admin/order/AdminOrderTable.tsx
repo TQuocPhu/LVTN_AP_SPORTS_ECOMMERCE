@@ -18,6 +18,8 @@ import {
   CircleCheck,
   ShieldCheck,
   RotateCcw,
+  Lock,
+  UserCheck,
 } from 'lucide-react';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { ADMIN_ORDER_STATUS_MAP, getAdminPaymentStatusMeta } from '@/constants/admin-order-status';
@@ -25,6 +27,8 @@ import { ADMIN_ORDER_STATUS_MAP, getAdminPaymentStatusMeta } from '@/constants/a
 interface AdminOrderTableProps {
   orders: AdminOrderDetail[];
   loading: boolean;
+  currentUserId?: number;
+  currentUserRole?: string;
   currentPage: number;
   totalPages: number;
   totalElements: number;
@@ -39,6 +43,8 @@ interface AdminOrderTableProps {
 export function AdminOrderTable({
   orders,
   loading,
+  currentUserId,
+  currentUserRole,
   currentPage,
   totalPages,
   totalElements,
@@ -186,10 +192,18 @@ export function AdminOrderTable({
                 const isUnpaidVnPay =
                   order.paymentMethod?.toUpperCase() === 'VNPAY' &&
                   order.paymentStatus?.toLowerCase() !== 'completed';
+                const assignedStaffId = order.processedByStaff?.id;
+                const assignedStaffName =
+                  order.processedByStaff?.name || order.processedByStaff?.email;
+                const isLockedByOtherStaff =
+                  currentUserRole?.toUpperCase() === 'STAFF' &&
+                  assignedStaffId !== undefined &&
+                  assignedStaffId !== null &&
+                  assignedStaffId !== currentUserId;
 
                 return (
                   <tr key={order.id} className="hover:bg-slate-50/80 transition-colors">
-                    {/* Mã Đơn & Ngày */}
+                    {/* Mã Đơn & Ngày + Nhân viên xác nhận */}
                     <td className="px-4 py-3.5">
                       <div className="font-bold text-slate-900 font-mono text-xs">
                         #{order.orderCode}
@@ -197,6 +211,14 @@ export function AdminOrderTable({
                       <div className="text-[11px] text-slate-400 mt-0.5">
                         {formatDate(order.createdAt)}
                       </div>
+                      {assignedStaffName && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                            <UserCheck className="w-3 h-3 text-sky-600" />
+                            <span>NV: {assignedStaffName}</span>
+                          </span>
+                        </div>
+                      )}
                       {order.packVerified && (
                         <div className="mt-1">
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs">
@@ -271,26 +293,38 @@ export function AdminOrderTable({
                           </button>
                         )}
 
-                        {!isTerminal && !isPaymentFailed && !(isPending && isUnpaidVnPay) && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenUpdateStatus(order)}
-                            title="Cập nhật trạng thái đơn hàng"
-                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
+                        {isLockedByOtherStaff ? (
+                          <span
+                            title={`Đơn hàng đã do nhân viên [${assignedStaffName}] xác nhận và phụ trách. Bạn không thể đổi trạng thái hoặc hủy đơn của nhân viên khác.`}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-bold cursor-not-allowed"
                           >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                        )}
+                            <Lock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Khác NV duyệt</span>
+                          </span>
+                        ) : (
+                          <>
+                            {!isTerminal && !isPaymentFailed && !(isPending && isUnpaidVnPay) && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenUpdateStatus(order)}
+                                title="Cập nhật trạng thái đơn hàng"
+                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-all cursor-pointer"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                            )}
 
-                        {!isTerminal && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenCancel(order)}
-                            title="Hủy đơn hàng"
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                            {!isTerminal && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenCancel(order)}
+                                title="Hủy đơn hàng"
+                                className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

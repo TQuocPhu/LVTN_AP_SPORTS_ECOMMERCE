@@ -60,14 +60,19 @@ public class StaffReportController {
 
     @GetMapping("/my-orders")
     public ResponseEntity<ApiResponse<Page<AdminOrderDetailResponse>>> getMyOrders(
+            @RequestParam(required = false, defaultValue = "ALL") String statusGroup,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size,
             Authentication authentication) {
 
         String email = authentication.getName();
-        log.info("Nhân viên [{}] truy vấn danh sách đơn hàng phụ trách", email);
+        log.info("Nhân viên [{}] truy vấn danh sách đơn hàng phụ trách: statusGroup={}", email, statusGroup);
 
-        Page<AdminOrderDetailResponse> res = staffReportService.getMyOrders(email, PageRequest.of(Math.max(0, page), Math.max(1, size)));
+        Page<AdminOrderDetailResponse> res = staffReportService.getMyOrders(
+                email,
+                statusGroup,
+                PageRequest.of(Math.max(0, page), Math.max(1, size))
+        );
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng phụ trách thành công!", res));
     }
 }

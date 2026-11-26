@@ -149,11 +149,18 @@ public class AdminOrderServiceImpl implements AdminOrderService {
     @Transactional
     public AdminOrderDetailResponse confirmOrder(Long id, String staffEmail) {
         User staff = getUserByEmail(staffEmail);
-        Order order = orderRepository.findById(id)
+        // Sử dụng khóa bi quan PESSIMISTIC_WRITE để chống 2 nhân viên bấm xác nhận cùng 1 đơn tại cùng thời điểm
+        Order order = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng ID #" + id, HttpStatus.NOT_FOUND));
 
+        // Nếu đơn đã được một nhân viên khác xác nhận trước đó thì chặn rõ ràng
+        validateStaffOrderOwnership(order, staff);
+
         if (order.getStatus() != OrderStatus.pending) {
-            throw new AppException("Đơn hàng phải ở trạng thái [Chờ Duyệt - pending] mới có thể xác nhận đơn.", HttpStatus.BAD_REQUEST);
+            String confirmedByInfo = order.getProcessedByStaff() != null
+                    ? " (đã do nhân viên [" + order.getProcessedByStaff().getName() + "] tiếp nhận)"
+                    : "";
+            throw new AppException("Đơn hàng phải ở trạng thái [Chờ Duyệt - pending] mới có thể xác nhận đơn" + confirmedByInfo + ".", HttpStatus.BAD_REQUEST);
         }
 
         // Chặn tuyệt đối việc duyệt đơn VNPay khi khách chưa hoàn tất thanh toán
@@ -177,12 +184,41 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         return mapToAdminOrderDetailResponse(savedOrder);
     }
 
+    /**
+     * Kiểm tra quyền sở hữu đơn hàng đối với vai trò Nhân viên bán hàng (STAFF):
+     * - Khi một đơn hàng đã có nhân viên xác nhận phụ trách (processedByStaff != null),
+     *   một tài khoản STAFF khác tuyệt đối không được phép thay đổi trạng thái hoặc hủy đơn đó.
+     * - Vai trò ADMIN vẫn giữ toàn quyền điều phối khi cần hỗ trợ; các vai trò kho vận (WAREHOUSE_MANAGER,
+     *   GHN_STATION, GHN_SHIPPER) thực hiện bước nghiệp vụ kho/giao hàng riêng mà không chạm vào processedByStaff.
+     */
+    private void validateStaffOrderOwnership(Order order, User actor) {
+        if (order == null || actor == null || actor.getRole() == null) {
+            return;
+        }
+        String actorRole = actor.getRole().getName();
+        if ("STAFF".equalsIgnoreCase(actorRole)
+                && order.getProcessedByStaff() != null
+                && order.getProcessedByStaff().getId() != null
+                && !order.getProcessedByStaff().getId().equals(actor.getId())) {
+            String ownerName = order.getProcessedByStaff().getName() != null
+                    ? order.getProcessedByStaff().getName()
+                    : order.getProcessedByStaff().getEmail();
+            throw new AppException(
+                    "Đơn hàng #" + order.getOrderCode() + " đã do nhân viên [" + ownerName + "] xác nhận và phụ trách. Bạn không có quyền thay đổi trạng thái hoặc hủy đơn của nhân viên khác!",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+    }
+
     @Override
     @Transactional
     public AdminOrderDetailResponse updateOrderStatus(Long id, UpdateOrderStatusRequest request, String staffEmail) {
         User staff = getUserByEmail(staffEmail);
-        Order order = orderRepository.findById(id)
+        Order order = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng ID #" + id, HttpStatus.NOT_FOUND));
+
+        // Chặn tuyệt đối nhân viên bán hàng (STAFF) thay đổi trạng thái của đơn hàng đã do nhân viên khác xác nhận phụ trách
+        validateStaffOrderOwnership(order, staff);
 
         String newStatusStr = request.getStatus().trim().toLowerCase();
         OrderStatus newStatus = OrderStatus.fromString(newStatusStr);
@@ -226,7 +262,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
 
         String oldStatusStr = order.getStatus().getValue();
         String actorRole = staff.getRole() != null ? staff.getRole().getName() : "";
-        if (order.getProcessedByStaff() == null && ("STAFF".equals(actorRole) || "ADMIN".equals(actorRole))) {
+        // Chỉ gán nhân viên phụ trách đơn (processedByStaff) khi xác nhận đơn mới chưa có người nhận;
+        // bảo toàn 100% processedByStaff khi Thủ kho đóng gói/xuất kho, Bưu cục GHN, Tài xế hoặc Admin chuyển trạng thái vận hành.
+        if (order.getProcessedByStaff() == null && newStatus == OrderStatus.confirmed && ("STAFF".equals(actorRole) || "ADMIN".equals(actorRole))) {
             order.setProcessedByStaff(staff);
         }
 
@@ -316,6 +354,9 @@ public class AdminOrderServiceImpl implements AdminOrderService {
         User staff = getUserByEmail(staffEmail);
         Order lockedOrder = orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy đơn hàng ID #" + id, HttpStatus.NOT_FOUND));
+
+        // Chặn nhân viên bán hàng (STAFF) tự ý hủy đơn hàng đã do nhân viên khác xác nhận và quản lý
+        validateStaffOrderOwnership(lockedOrder, staff);
 
         if (lockedOrder.getStatus() == OrderStatus.shipped || lockedOrder.getStatus() == OrderStatus.shipping || lockedOrder.getStatus() == OrderStatus.delivered) {
             throw new AppException("Đơn hàng đã bàn giao bưu cục GHN / đang vận chuyển, không thể hủy bỏ!", HttpStatus.BAD_REQUEST);

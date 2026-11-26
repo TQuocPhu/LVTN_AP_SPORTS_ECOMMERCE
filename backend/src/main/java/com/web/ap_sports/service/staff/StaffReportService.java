@@ -13,5 +13,5 @@ public interface StaffReportService {
 
     RevenueOverviewReportResponse getMyRevenueOverview(String staffEmail, LocalDateTime fromDate, LocalDateTime toDate);
 
-    Page<AdminOrderDetailResponse> getMyOrders(String staffEmail, Pageable pageable);
+    Page<AdminOrderDetailResponse> getMyOrders(String staffEmail, String statusGroup, Pageable pageable);
 }

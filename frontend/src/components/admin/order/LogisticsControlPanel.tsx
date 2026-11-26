@@ -11,12 +11,13 @@ import {
   AlertCircle,
   Check,
   Clock,
+  Lock,
 } from 'lucide-react';
 import { OrderStatus } from '@/types/order';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { useOrderPackingScanner } from '@/hooks/useOrderPackingScanner';
 import { OrderPackingScannerModal } from './OrderPackingScannerModal';
-import { useAuth } from '@/hooks/useAuth';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 
 interface LogisticsControlPanelProps {
   currentStatus: string;
@@ -38,9 +39,14 @@ export function LogisticsControlPanel({
   updating = false,
   onScannerOpenChange,
 }: LogisticsControlPanelProps) {
-  const { user } = useAuth();
-  const isStaff = user?.roleName === 'STAFF';
+  const { user } = useAdminAuth();
+  const isStaff = user?.roleName?.toUpperCase() === 'STAFF';
   const canPackOrVerify = !isStaff;
+  const isLockedByOtherStaff =
+    isStaff &&
+    order?.processedByStaff?.id !== undefined &&
+    order?.processedByStaff?.id !== null &&
+    order.processedByStaff.id !== user?.id;
 
   const status = currentStatus?.toLowerCase() || '';
 
@@ -84,7 +90,17 @@ export function LogisticsControlPanel({
         </div>
       </div>
 
-      {/* State Machine Action Buttons */}
+      {/* State Machine Action Buttons (Chặn STAFF khác thay đổi trạng thái đơn đã có người xác nhận) */}
+      {isLockedByOtherStaff ? (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-2.5 text-xs font-semibold">
+          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            Đơn hàng này đã do nhân viên{' '}
+            <strong>{order?.processedByStaff?.name || order?.processedByStaff?.email}</strong> xác nhận và phụ trách.
+            Tài khoản của bạn chỉ có quyền xem thông tin chi tiết, không thể thay đổi trạng thái đơn hàng.
+          </span>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Action 1: Confirm Order (Only for pending, chặn nếu là VNPay chưa thanh toán) */}
@@ -187,6 +203,7 @@ export function LogisticsControlPanel({
           )}
         </div>
       </div>
+      )}
 
       {/* Guidance Banner */}
       <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-1">

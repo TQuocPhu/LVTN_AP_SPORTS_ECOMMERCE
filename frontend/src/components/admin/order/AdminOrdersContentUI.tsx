@@ -129,6 +129,8 @@ export const AdminOrdersContentUI: React.FC = () => {
       <AdminOrderTable
         orders={orders}
         loading={loadingOrders}
+        currentUserId={user?.id}
+        currentUserRole={user?.roleName}
         currentPage={filters.page || 0}
         totalPages={totalPages}
         totalElements={totalElements}
