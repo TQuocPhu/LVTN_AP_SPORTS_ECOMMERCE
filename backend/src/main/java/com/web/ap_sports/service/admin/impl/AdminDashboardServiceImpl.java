@@ -948,7 +948,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         final long finalTotalFootballRev = totalFootballRevenue;
         final long finalTotalFootballQty = totalFootballQuantity;
         List<FootballTopProductDto> top10Football = footballCandidates.stream()
-                .limit(10)
+                .limit(5)
                 .peek(item -> {
                     double revShare = finalTotalFootballRev > 0
                             ? BigDecimal.valueOf((item.getRevenue() * 100.0) / finalTotalFootballRev).setScale(1, RoundingMode.HALF_UP).doubleValue()
@@ -1046,7 +1046,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         });
 
         // Lấy Top 20 biến thể tiêu biểu cần chú ý nhất
-        List<InventoryRunoutAnalysisDto> topRunout = runoutList.stream().limit(20).collect(java.util.stream.Collectors.toList());
+        List<InventoryRunoutAnalysisDto> topRunout = runoutList.stream().limit(10).collect(java.util.stream.Collectors.toList());
         responseBuilder.inventoryRunoutMatrix(topRunout);
     }
 

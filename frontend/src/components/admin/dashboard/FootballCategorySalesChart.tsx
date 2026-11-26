@@ -48,7 +48,7 @@ export function FootballCategorySalesChart({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              Top 10 Mặt Hàng Bóng Đá Bán Chạy & Tỷ Trọng Thị Phần
+              Top 5 Mặt Hàng Bóng Đá Bán Chạy & Tỷ Trọng Thị Phần
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
                 Football BI
               </span>
@@ -136,7 +136,7 @@ export function FootballCategorySalesChart({
         </div>
       </div>
 
-      {/* 3. Danh sách Top 10 kèm Biểu đồ Thanh Kép Tỷ Trọng */}
+      {/* 3. Danh sách Top 5 kèm Biểu đồ Thanh Kép Tỷ Trọng */}
       {safeProducts.length === 0 ? (
         <div className="py-12 text-center text-slate-400 text-xs">
           <Layers className="w-8 h-8 mx-auto mb-2 text-slate-300" />
@@ -144,7 +144,7 @@ export function FootballCategorySalesChart({
         </div>
       ) : (
         <div className="space-y-3.5 mt-4">
-          {safeProducts.map((prod, index) => {
+          {safeProducts.slice(0, 5).map((prod, index) => {
             const rank = index + 1;
             const isHovered = hoveredProductId === prod.productId;
             const revPercent = prod.revenueSharePercent || 0;
