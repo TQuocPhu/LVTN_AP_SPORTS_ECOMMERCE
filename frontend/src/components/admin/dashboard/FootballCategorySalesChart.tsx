@@ -11,13 +11,18 @@ import { useFootballSalesBI } from '@/hooks/useFootballSalesBI';
 interface FootballCategorySalesChartProps {
   products?: FootballTopProduct[];
   loading?: boolean;
+  onSelectProduct?: (productId: number, productName: string) => void;
 }
 
 /**
  * Component BI: Thống kê Top 10 mặt hàng Bóng Đá bán chạy & Phân tích Tỷ trọng Doanh thu / Sản lượng
  * Thiết kế giao diện trực quan, sang trọng, hỗ trợ xem so sánh kép (Revenue Share vs Volume Share).
  */
-export function FootballCategorySalesChart({ products, loading }: FootballCategorySalesChartProps) {
+export function FootballCategorySalesChart({
+  products,
+  loading,
+  onSelectProduct,
+}: FootballCategorySalesChartProps) {
   const {
     products: safeProducts,
     metricMode,
@@ -176,9 +181,11 @@ export function FootballCategorySalesChart({ products, loading }: FootballCatego
                 key={prod.productId}
                 onMouseEnter={() => setHoveredProductId(prod.productId)}
                 onMouseLeave={() => setHoveredProductId(null)}
-                className={`p-3 rounded-xl border transition-all ${
+                onClick={() => onSelectProduct?.(prod.productId, prod.productName)}
+                title="Nhấp để xem bảng chi tiết đơn hàng đã mua mặt hàng này"
+                className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   isHovered
-                    ? 'bg-slate-50/80 border-slate-300 shadow-xs'
+                    ? 'bg-emerald-50/50 border-emerald-300 shadow-xs'
                     : 'bg-white border-slate-150 hover:border-slate-250'
                 }`}
               >
@@ -207,6 +214,7 @@ export function FootballCategorySalesChart({ products, loading }: FootballCatego
                     <Link
                       href={`/products/${prod.slug}`}
                       target="_blank"
+                      onClick={(e) => e.stopPropagation()}
                       className="text-xs font-semibold text-slate-800 hover:text-emerald-700 truncate block transition-colors"
                       title={prod.productName}
                     >

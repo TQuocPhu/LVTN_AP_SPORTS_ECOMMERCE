@@ -115,3 +115,91 @@ export interface WarehouseReportResponse {
 }
 
 export type ReportTabType = 'overview' | 'staff' | 'warehouse' | 'merchandise';
+
+// =========================================================================
+// KIỂU DỮ LIỆU CHO MODAL BẢNG THỐNG KÊ CHI TIẾT KHI CLICK BIỂU ĐỒ (DRILL-DOWN)
+// =========================================================================
+
+export interface DrilldownOrderItem {
+  productId?: number;
+  productName: string;
+  sku?: string;
+  variantLabel: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  matchedFilter?: boolean;
+}
+
+export interface ReportDrilldownOrder {
+  orderId: number;
+  orderCode: string;
+  createdAt: string;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  totalPrice: number;
+  shippingFee: number;
+  discountAmount: number;
+  finalAmount: number;
+  processedByStaffName?: string | null;
+  totalQuantity: number;
+  items: DrilldownOrderItem[];
+}
+
+export interface WarehouseDrilldownStock {
+  variantId: number;
+  productId?: number;
+  productName: string;
+  categoryName: string;
+  sku: string;
+  barcode?: string;
+  variantLabel: string;
+  costPrice: number;
+  price: number;
+  stockQuantity: number;
+  inventoryValue: number;
+  stockStatus: 'SAFE' | 'LOW' | 'OUT' | string;
+}
+
+export interface WarehouseDrilldownTransaction {
+  transactionId: number;
+  ticketCode: string;
+  transactionType: 'IMPORT' | 'EXPORT' | string;
+  productName: string;
+  sku?: string;
+  variantLabel: string;
+  quantity: number;
+  unitCost: number;
+  totalAmount: number;
+  supplierName?: string | null;
+  createdByName?: string;
+  note?: string;
+  createdAt: string;
+}
+
+export type ChartDrilldownMode = 'ORDERS' | 'STOCKS' | 'TRANSACTIONS';
+
+export interface ChartDrilldownRequest {
+  mode: ChartDrilldownMode;
+  title: string;
+  subtitle?: string;
+  // Bộ lọc cho ORDERS & TRANSACTIONS
+  timeRange?: TimeRangePreset;
+  startDate?: string;
+  endDate?: string;
+  specificDate?: string;
+  // Bộ lọc chuyên biệt cho ORDERS
+  statusGroup?: string;
+  paymentMethod?: string;
+  productId?: number;
+  categoryId?: number;
+  // Bộ lọc chuyên biệt cho STOCKS
+  stockFilter?: 'ALL' | 'SAFE' | 'LOW' | 'LOW_ALL' | 'OUT' | string;
+  useAdminStocksEndpoint?: boolean;
+  // Bộ lọc chuyên biệt cho TRANSACTIONS
+  txFilter?: 'ALL' | 'IMPORT' | 'EXPORT' | 'ORDER_EXPORT' | 'MANUAL_EXPORT' | string;
+}

@@ -73,6 +73,8 @@ public class AdminUserManagementAndReportServiceTest {
     @Mock
     private InventoryTransactionRepository inventoryTransactionRepository;
     @Mock
+    private CategoryRepository categoryRepository;
+    @Mock
     private AdminOrderService adminOrderService;
 
     private AdminUserServiceImpl adminUserService;
@@ -141,13 +143,16 @@ public class AdminUserManagementAndReportServiceTest {
                 productVariantRepository,
                 productImageRepository,
                 inventoryTransactionRepository,
+                categoryRepository,
                 userRepository,
-                paymentRepository
+                paymentRepository,
+                new com.fasterxml.jackson.databind.ObjectMapper()
         );
 
         staffReportService = new StaffReportServiceImpl(
                 adminReportService,
                 adminOrderService,
+                orderRepository,
                 userRepository
         );
     }

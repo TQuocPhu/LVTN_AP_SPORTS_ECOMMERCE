@@ -20,9 +20,19 @@ import Link from 'next/link';
 interface WarehouseStockReportViewProps {
   data: WarehouseReportResponse | null;
   loading?: boolean;
+  onSelectStockStatus?: (stockFilter: 'SAFE' | 'LOW' | 'OUT', label: string) => void;
+  onSelectTransactionFlow?: (
+    txFilter: 'IMPORT' | 'EXPORT' | 'ORDER_EXPORT' | 'MANUAL_EXPORT',
+    label: string
+  ) => void;
 }
 
-export function WarehouseStockReportView({ data, loading }: WarehouseStockReportViewProps) {
+export function WarehouseStockReportView({
+  data,
+  loading,
+  onSelectStockStatus,
+  onSelectTransactionFlow,
+}: WarehouseStockReportViewProps) {
   if (loading && !data) {
     return (
       <div className="space-y-6">
@@ -187,7 +197,8 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
                   strokeWidth="18"
                   strokeDasharray={`${safeDash} ${circumference}`}
                   strokeDashoffset="0"
-                  className="transition-all duration-700"
+                  onClick={() => onSelectStockStatus?.('SAFE', 'Tồn Kho An Toàn (> 5)')}
+                  className="transition-all duration-700 cursor-pointer hover:opacity-85"
                 />
                 <circle
                   cx="70"
@@ -198,7 +209,8 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
                   strokeWidth="18"
                   strokeDasharray={`${lowDash} ${circumference}`}
                   strokeDashoffset={`-${safeDash}`}
-                  className="transition-all duration-700"
+                  onClick={() => onSelectStockStatus?.('LOW', 'Biến Thể Sắp Hết Hàng (1 - 5)')}
+                  className="transition-all duration-700 cursor-pointer hover:opacity-85"
                 />
                 <circle
                   cx="70"
@@ -209,10 +221,11 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
                   strokeWidth="18"
                   strokeDasharray={`${outDash} ${circumference}`}
                   strokeDashoffset={`-${safeDash + lowDash}`}
-                  className="transition-all duration-700"
+                  onClick={() => onSelectStockStatus?.('OUT', 'Biến Thể Đã Hết Hàng (0)')}
+                  className="transition-all duration-700 cursor-pointer hover:opacity-85"
                 />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
                 <span className="text-[10px] uppercase font-bold text-slate-400">An Toàn</span>
                 <span className="text-sm font-black text-emerald-600">
                   {Math.round(safePct)}%
@@ -222,21 +235,30 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
 
             {/* Legend */}
             <div className="space-y-2.5 w-full sm:w-auto">
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+              <div
+                onClick={() => onSelectStockStatus?.('SAFE', 'Tồn Kho An Toàn (> 5)')}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-300 flex items-center justify-between gap-4 transition-all cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-emerald-500 shrink-0" />
                   <span className="text-xs font-bold text-slate-800">Tồn An Toàn (&gt; 5)</span>
                 </div>
                 <span className="font-extrabold text-xs text-emerald-600">{safeStockCount} SKU</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+              <div
+                onClick={() => onSelectStockStatus?.('LOW', 'Biến Thể Sắp Hết Hàng (1 - 5)')}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50/70 border border-slate-200 hover:border-amber-300 flex items-center justify-between gap-4 transition-all cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-amber-500 shrink-0" />
                   <span className="text-xs font-bold text-slate-800">Sắp Hết Hàng (&le; 5)</span>
                 </div>
                 <span className="font-extrabold text-xs text-amber-600">{lowStockCount} SKU</span>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+              <div
+                onClick={() => onSelectStockStatus?.('OUT', 'Biến Thể Đã Hết Hàng (0)')}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50/70 border border-slate-200 hover:border-rose-300 flex items-center justify-between gap-4 transition-all cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-rose-500 shrink-0" />
                   <span className="text-xs font-bold text-slate-800">Đã Hết Hàng (0)</span>
@@ -263,7 +285,11 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
 
           <div className="space-y-3.5 my-auto">
             {/* Inbound Bar */}
-            <div className="space-y-1.5">
+            <div
+              onClick={() => onSelectTransactionFlow?.('IMPORT', 'Phiếu Nhập Kho Bổ Sung (PNK)')}
+              title="Nhấp để xem bảng chi tiết các phiếu nhập kho"
+              className="space-y-1.5 p-2 rounded-xl hover:bg-emerald-50/50 transition-colors cursor-pointer"
+            >
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-slate-700 flex items-center gap-1.5">
                   <ArrowDownRight className="w-4 h-4 text-emerald-600" /> Nhập kho bổ sung (PNK):
@@ -285,7 +311,11 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
             </div>
 
             {/* Outbound Bar */}
-            <div className="space-y-1.5">
+            <div
+              onClick={() => onSelectTransactionFlow?.('EXPORT', 'Tổng Phiếu Xuất Khỏi Kho')}
+              title="Nhấp để xem bảng chi tiết các phiếu xuất kho"
+              className="space-y-1.5 p-2 rounded-xl hover:bg-orange-50/50 transition-colors cursor-pointer"
+            >
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-slate-700 flex items-center gap-1.5">
                   <ArrowUpRight className="w-4 h-4 text-orange-600" /> Tổng xuất khỏi kho:
@@ -306,8 +336,24 @@ export function WarehouseStockReportView({ data, loading }: WarehouseStockReport
               </div>
               {/* Detailed Breakdown */}
               <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 pt-0.5">
-                <span>• Xuất bán đơn GHN: <strong className="text-slate-700">-{orderOutboundQty}</strong> sp</span>
-                <span>• Xuất kho thủ công (PXK): <strong className="text-slate-700">-{manualOutboundQty}</strong> sp</span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectTransactionFlow?.('ORDER_EXPORT', 'Phiếu Xuất Kho Đóng Gói Đơn GHN');
+                  }}
+                  className="hover:text-orange-700 hover:underline cursor-pointer"
+                >
+                  • Xuất bán đơn GHN: <strong className="text-slate-700">-{orderOutboundQty}</strong> sp
+                </span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectTransactionFlow?.('MANUAL_EXPORT', 'Phiếu Xuất Kho Thủ Công (PXK)');
+                  }}
+                  className="hover:text-orange-700 hover:underline cursor-pointer"
+                >
+                  • Xuất kho thủ công (PXK): <strong className="text-slate-700">-{manualOutboundQty}</strong> sp
+                </span>
               </div>
             </div>
 

@@ -7,9 +7,14 @@ import { formatCurrency } from '@/utils/formatters';
 interface PaymentMethodPieChartProps {
   cashRevenue: number;
   vnpayRevenue: number;
+  onSelectPaymentMethod?: (method: 'CASH' | 'VNPAY', label: string) => void;
 }
 
-export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMethodPieChartProps) {
+export function PaymentMethodPieChart({
+  cashRevenue,
+  vnpayRevenue,
+  onSelectPaymentMethod,
+}: PaymentMethodPieChartProps) {
   const total = cashRevenue + vnpayRevenue;
   const cashPct = total > 0 ? Math.round((cashRevenue / total) * 100) : 50;
   const vnpayPct = total > 0 ? 100 - cashPct : 50;
@@ -30,7 +35,7 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
           </span>
         </div>
         <p className="text-xs text-slate-400 mt-0.5">
-          Tỷ trọng giữa tiền mặt COD và cổng thanh toán trực tuyến VNPay
+          Tỷ trọng giữa tiền mặt COD và cổng VNPay (Nhấp vào phần biểu đồ / thẻ để xem bảng đơn hàng)
         </p>
       </div>
 
@@ -58,7 +63,8 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
               strokeDasharray={`${cashStrokeDash} ${circumference}`}
               strokeDashoffset="0"
               strokeLinecap="round"
-              className="transition-all duration-700"
+              onClick={() => onSelectPaymentMethod?.('CASH', 'Thanh toán Tiền mặt (COD)')}
+              className="transition-all duration-700 cursor-pointer hover:opacity-85"
             />
             {/* VNPay segment (Blue) */}
             <circle
@@ -71,12 +77,13 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
               strokeDasharray={`${vnpayStrokeDash} ${circumference}`}
               strokeDashoffset={`-${cashStrokeDash}`}
               strokeLinecap="round"
-              className="transition-all duration-700"
+              onClick={() => onSelectPaymentMethod?.('VNPAY', 'Thanh toán Cổng VNPay')}
+              className="transition-all duration-700 cursor-pointer hover:opacity-85"
             />
           </svg>
 
           {/* Inner Text */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
             <span className="text-[10px] uppercase font-bold text-slate-400">Tổng Thu</span>
             <span className="text-xs font-black text-slate-800">
               {formatCurrency(total)}
@@ -87,7 +94,10 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
         {/* Legend & Numbers */}
         <div className="space-y-3 w-full sm:w-auto">
           {/* COD Cash */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+          <div
+            onClick={() => onSelectPaymentMethod?.('CASH', 'Thanh toán Tiền mặt (COD)')}
+            className="p-3 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-300 flex items-center justify-between gap-4 transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-2">
               <div className="w-3.5 h-3.5 rounded-full bg-emerald-500 shrink-0" />
               <div>
@@ -95,7 +105,7 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
                   <Banknote className="w-3.5 h-3.5 text-emerald-600" />
                   COD (Tiền mặt)
                 </div>
-                <div className="text-[10px] text-slate-400">{cashPct}% tỷ trọng</div>
+                <div className="text-[10px] text-slate-400">{cashPct}% tỷ trọng • Xem bảng đơn</div>
               </div>
             </div>
             <div className="text-right">
@@ -106,7 +116,10 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
           </div>
 
           {/* VNPay */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
+          <div
+            onClick={() => onSelectPaymentMethod?.('VNPAY', 'Thanh toán Cổng VNPay')}
+            className="p-3 rounded-xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 flex items-center justify-between gap-4 transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-2">
               <div className="w-3.5 h-3.5 rounded-full bg-blue-500 shrink-0" />
               <div>
@@ -114,7 +127,7 @@ export function PaymentMethodPieChart({ cashRevenue, vnpayRevenue }: PaymentMeth
                   <CreditCard className="w-3.5 h-3.5 text-blue-500" />
                   Cổng VNPay
                 </div>
-                <div className="text-[10px] text-slate-400">{vnpayPct}% tỷ trọng</div>
+                <div className="text-[10px] text-slate-400">{vnpayPct}% tỷ trọng • Xem bảng đơn</div>
               </div>
             </div>
             <div className="text-right">

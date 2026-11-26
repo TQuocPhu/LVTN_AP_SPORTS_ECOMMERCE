@@ -1,18 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   BarChart3,
   PieChart,
   Boxes,
-  PackagePlus,
-  PackageMinus,
   Sparkles,
-  Layers,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingUp,
-  Calendar,
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
 import {
@@ -22,6 +17,7 @@ import {
   WarehouseActivityTrend,
   StaffOrderStatusShare,
 } from '@/types/dashboard';
+import { useDashboardSystemAnalytics } from '@/hooks/useDashboardSystemAnalytics';
 
 interface DashboardSystemAnalyticsProps {
   isAdmin: boolean;
@@ -33,6 +29,15 @@ interface DashboardSystemAnalyticsProps {
   warehouseActivityTrend?: WarehouseActivityTrend[];
   staffOrderStatusShare?: StaffOrderStatusShare[];
   loading: boolean;
+  onSelectWeeklyBar?: (
+    monthKey: string | undefined,
+    weekIndex: number,
+    monthLabel: string,
+    periodName: string
+  ) => void;
+  onSelectCategorySlice?: (categoryId: number, categoryName: string) => void;
+  onSelectWarehouseDayBar?: (dateLabel: string, txFilter: 'IMPORT' | 'EXPORT') => void;
+  onSelectStaffStatusSlice?: (statusName: string) => void;
 }
 
 // Helper tính tọa độ SVG Donut Arc
@@ -79,20 +84,20 @@ export function DashboardSystemAnalytics({
   warehouseActivityTrend = [],
   staffOrderStatusShare = [],
   loading,
+  onSelectWeeklyBar,
+  onSelectCategorySlice,
+  onSelectWarehouseDayBar,
+  onSelectStaffStatusSlice,
 }: DashboardSystemAnalyticsProps) {
-  // State tương tác di chuột (Hover) cho biểu đồ tròn danh mục
-  const [hoveredCategory, setHoveredCategory] = useState<CategoryShare | null>(null);
-
-  // State tương tác di chuột cho biểu đồ tròn trạng thái nhân viên
-  const [hoveredStaffStatus, setHoveredStaffStatus] = useState<StaffOrderStatusShare | null>(null);
-
-  // Danh sách các tháng có thể chọn để so sánh (bỏ tháng đầu tiên là tháng hiện tại)
-  const compareOptions = monthlyWeeklyRevenues.length > 1 ? monthlyWeeklyRevenues.slice(1) : [];
-
-  // State lưu tháng được chọn để so sánh (Mặc định là tháng liền trước, ví dụ: "2026-09")
-  const [selectedCompareMonthKey, setSelectedCompareMonthKey] = useState<string>(
-    compareOptions[0]?.monthKey || '2026-09'
-  );
+  const {
+    hoveredCategory,
+    setHoveredCategory,
+    hoveredStaffStatus,
+    setHoveredStaffStatus,
+    compareOptions,
+    selectedCompareMonthKey,
+    setSelectedCompareMonthKey,
+  } = useDashboardSystemAnalytics(monthlyWeeklyRevenues);
 
   if (loading) {
     return (
@@ -252,10 +257,18 @@ export function DashboardSystemAnalytics({
                     x={xCurrent}
                     y={yCurrent}
                     width={barWidth}
-                    height={Math.max(hCurrent, 0)}
+                    height={Math.max(hCurrent, 4)}
                     rx="4"
                     fill="#0284c7"
-                    className="transition-all hover:opacity-85"
+                    onClick={() =>
+                      onSelectWeeklyBar?.(
+                        currentMonthData?.monthKey,
+                        idx,
+                        currentMonthData?.monthLabel || 'Tháng này',
+                        item.periodName
+                      )
+                    }
+                    className="transition-all hover:opacity-85 cursor-pointer"
                   />
                   {item.currentMonthRevenue > 0 && (
                     <text
@@ -275,10 +288,18 @@ export function DashboardSystemAnalytics({
                     x={xCompare}
                     y={yCompare}
                     width={barWidth}
-                    height={Math.max(hCompare, 0)}
+                    height={Math.max(hCompare, 4)}
                     rx="4"
                     fill="#94a3b8"
-                    className="transition-all hover:opacity-85"
+                    onClick={() =>
+                      onSelectWeeklyBar?.(
+                        compareMonthData?.monthKey,
+                        idx,
+                        compareMonthData?.monthLabel || 'Tháng so sánh',
+                        item.periodName
+                      )
+                    }
+                    className="transition-all hover:opacity-85 cursor-pointer"
                   />
                   {item.compareMonthRevenue > 0 && (
                     <text
@@ -385,6 +406,7 @@ export function DashboardSystemAnalytics({
                       }}
                       onMouseEnter={() => setHoveredCategory(slice)}
                       onMouseLeave={() => setHoveredCategory(null)}
+                      onClick={() => onSelectCategorySlice?.(slice.categoryId, slice.categoryName)}
                     />
                   );
                 })}
@@ -431,6 +453,7 @@ export function DashboardSystemAnalytics({
                   }`}
                   onMouseEnter={() => setHoveredCategory(item)}
                   onMouseLeave={() => setHoveredCategory(null)}
+                  onClick={() => onSelectCategorySlice?.(item.categoryId, item.categoryName)}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span
@@ -542,14 +565,32 @@ export function DashboardSystemAnalytics({
 
               return (
                 <g key={idx}>
-                  <rect x={xIn} y={yIn} width={barWidth} height={Math.max(hIn, 0)} rx="3" fill="#10b981" />
+                  <rect
+                    x={xIn}
+                    y={yIn}
+                    width={barWidth}
+                    height={Math.max(hIn, 4)}
+                    rx="3"
+                    fill="#10b981"
+                    onClick={() => onSelectWarehouseDayBar?.(item.date, 'IMPORT')}
+                    className="cursor-pointer hover:opacity-85"
+                  />
                   {item.inboundQuantity > 0 && (
                     <text x={xIn + barWidth / 2} y={Math.max(yIn - 4, padding.top + 8)} textAnchor="middle" fontSize="8.5" fontWeight="bold" fill="#047857">
                       +{item.inboundQuantity}
                     </text>
                   )}
 
-                  <rect x={xOut} y={yOut} width={barWidth} height={Math.max(hOut, 0)} rx="3" fill="#f59e0b" />
+                  <rect
+                    x={xOut}
+                    y={yOut}
+                    width={barWidth}
+                    height={Math.max(hOut, 4)}
+                    rx="3"
+                    fill="#f59e0b"
+                    onClick={() => onSelectWarehouseDayBar?.(item.date, 'EXPORT')}
+                    className="cursor-pointer hover:opacity-85"
+                  />
                   {item.outboundQuantity > 0 && (
                     <text x={xOut + barWidth / 2} y={Math.max(yOut - 4, padding.top + 8)} textAnchor="middle" fontSize="8.5" fontWeight="bold" fill="#b45309">
                       -{item.outboundQuantity}
@@ -632,6 +673,7 @@ export function DashboardSystemAnalytics({
                       className="transition-all duration-200 cursor-pointer"
                       onMouseEnter={() => setHoveredStaffStatus(slice)}
                       onMouseLeave={() => setHoveredStaffStatus(null)}
+                      onClick={() => onSelectStaffStatusSlice?.(slice.statusName)}
                     />
                   );
                 })}
@@ -673,6 +715,7 @@ export function DashboardSystemAnalytics({
                   }`}
                   onMouseEnter={() => setHoveredStaffStatus(item)}
                   onMouseLeave={() => setHoveredStaffStatus(null)}
+                  onClick={() => onSelectStaffStatusSlice?.(item.statusName)}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-3.5 h-3.5 rounded-md shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />

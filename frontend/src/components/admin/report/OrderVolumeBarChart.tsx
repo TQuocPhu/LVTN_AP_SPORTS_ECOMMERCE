@@ -9,6 +9,7 @@ interface OrderVolumeBarChartProps {
   loading?: boolean;
   hoveredPoint: TimeSeriesPointResponse | null;
   onHoverPoint: (point: TimeSeriesPointResponse | null) => void;
+  onSelectBar?: (point: TimeSeriesPointResponse, statusGroup: 'ALL' | 'COMPLETED' | 'CANCELLED') => void;
 }
 
 export function OrderVolumeBarChart({
@@ -16,6 +17,7 @@ export function OrderVolumeBarChart({
   loading,
   hoveredPoint,
   onHoverPoint,
+  onSelectBar,
 }: OrderVolumeBarChartProps) {
   const points = useMemo(() => {
     return data && data.length > 0 ? data : [];
@@ -112,7 +114,7 @@ export function OrderVolumeBarChart({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              So sánh tổng số đơn tiếp nhận, giao thành công và đơn bị hủy
+              So sánh tổng đơn, giao thành công & đơn hủy (Nhấp vào cột để xem bảng đơn hàng)
             </p>
           </div>
 
@@ -187,6 +189,7 @@ export function OrderVolumeBarChart({
                       height="215"
                       fill="#f8fafc"
                       rx="8"
+                      onClick={() => onSelectBar?.(g.point, 'ALL')}
                     />
                   )}
 
@@ -199,6 +202,10 @@ export function OrderVolumeBarChart({
                     fill={isHovered ? '#2563eb' : '#3b82f6'}
                     rx="2"
                     className="transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectBar?.(g.point, 'ALL');
+                    }}
                   />
 
                   {/* Completed Bar (Emerald) */}
@@ -210,6 +217,10 @@ export function OrderVolumeBarChart({
                     fill={isHovered ? '#059669' : '#10b981'}
                     rx="2"
                     className="transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectBar?.(g.point, 'COMPLETED');
+                    }}
                   />
 
                   {/* Cancelled Bar (Rose) */}
@@ -221,6 +232,10 @@ export function OrderVolumeBarChart({
                     fill={isHovered ? '#e11d48' : '#f43f5e'}
                     rx="2"
                     className="transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectBar?.(g.point, 'CANCELLED');
+                    }}
                   />
 
                   {/* X axis labels */}

@@ -7,11 +7,16 @@ import { CheckCircle2, Truck, XCircle, RotateCcw, Activity } from 'lucide-react'
 interface OrderStatusDistributionChartProps {
   data: RevenueOverviewReportResponse | null;
   loading?: boolean;
+  onSelectStatusGroup?: (
+    statusGroup: 'COMPLETED' | 'DELIVERING' | 'CANCELLED' | 'RETURNED',
+    label: string
+  ) => void;
 }
 
 export function OrderStatusDistributionChart({
   data,
   loading,
+  onSelectStatusGroup,
 }: OrderStatusDistributionChartProps) {
   const total = data?.totalOrders || 0;
   const completed = data?.completedOrders || 0;
@@ -56,7 +61,7 @@ export function OrderStatusDistributionChart({
           </span>
         </div>
         <p className="text-xs text-slate-400 mt-0.5">
-          Tỷ lệ đơn hàng theo trạng thái xử lý và tỷ lệ chuyển đổi thành công
+          Tỷ lệ đơn theo trạng thái xử lý (Nhấp vào phần biểu đồ / thẻ để xem bảng đơn hàng)
         </p>
       </div>
 
@@ -85,7 +90,8 @@ export function OrderStatusDistributionChart({
                 strokeWidth="20"
                 strokeDasharray={`${compDash} ${circumference}`}
                 strokeDashoffset="0"
-                className="transition-all duration-700"
+                onClick={() => onSelectStatusGroup?.('COMPLETED', 'Đơn Hàng Giao Thành Công / Hoàn Tất')}
+                className="transition-all duration-700 cursor-pointer hover:opacity-85"
               />
             )}
 
@@ -100,7 +106,8 @@ export function OrderStatusDistributionChart({
                 strokeWidth="20"
                 strokeDasharray={`${deliDash} ${circumference}`}
                 strokeDashoffset={deliOffset}
-                className="transition-all duration-700"
+                onClick={() => onSelectStatusGroup?.('DELIVERING', 'Đơn Hàng Đang Đóng Gói / Vận Chuyển')}
+                className="transition-all duration-700 cursor-pointer hover:opacity-85"
               />
             )}
 
@@ -115,7 +122,8 @@ export function OrderStatusDistributionChart({
                 strokeWidth="20"
                 strokeDasharray={`${cancDash} ${circumference}`}
                 strokeDashoffset={cancOffset}
-                className="transition-all duration-700"
+                onClick={() => onSelectStatusGroup?.('CANCELLED', 'Đơn Hàng Đã Hủy')}
+                className="transition-all duration-700 cursor-pointer hover:opacity-85"
               />
             )}
 
@@ -130,13 +138,14 @@ export function OrderStatusDistributionChart({
                 strokeWidth="20"
                 strokeDasharray={`${retuDash} ${circumference}`}
                 strokeDashoffset={retuOffset}
-                className="transition-all duration-700"
+                onClick={() => onSelectStatusGroup?.('RETURNED', 'Đơn Hàng Hoàn Trả')}
+                className="transition-all duration-700 cursor-pointer hover:opacity-85"
               />
             )}
           </svg>
 
           {/* Inner Text with Success Rate */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
             <span className="text-[10px] uppercase font-bold text-slate-400">Tỷ Lệ Đạt</span>
             <span className="text-base font-black text-emerald-600">
               {successRate}%
@@ -147,7 +156,10 @@ export function OrderStatusDistributionChart({
         {/* Legend Grid */}
         <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto">
           {/* Completed */}
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 min-w-[120px]">
+          <div
+            onClick={() => onSelectStatusGroup?.('COMPLETED', 'Đơn Hàng Giao Thành Công / Hoàn Tất')}
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50/70 border border-slate-200 hover:border-emerald-300 min-w-[120px] transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 mb-0.5">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Giao Xong</span>
@@ -161,7 +173,10 @@ export function OrderStatusDistributionChart({
           </div>
 
           {/* Delivering */}
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 min-w-[120px]">
+          <div
+            onClick={() => onSelectStatusGroup?.('DELIVERING', 'Đơn Hàng Đang Đóng Gói / Vận Chuyển')}
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 min-w-[120px] transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 mb-0.5">
               <Truck className="w-3.5 h-3.5" />
               <span>Đang Giao</span>
@@ -175,7 +190,10 @@ export function OrderStatusDistributionChart({
           </div>
 
           {/* Cancelled */}
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 min-w-[120px]">
+          <div
+            onClick={() => onSelectStatusGroup?.('CANCELLED', 'Đơn Hàng Đã Hủy')}
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50/70 border border-slate-200 hover:border-rose-300 min-w-[120px] transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 mb-0.5">
               <XCircle className="w-3.5 h-3.5" />
               <span>Đã Hủy</span>
@@ -189,7 +207,10 @@ export function OrderStatusDistributionChart({
           </div>
 
           {/* Returned */}
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 min-w-[120px]">
+          <div
+            onClick={() => onSelectStatusGroup?.('RETURNED', 'Đơn Hàng Hoàn Trả')}
+            className="p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50/70 border border-slate-200 hover:border-amber-300 min-w-[120px] transition-all cursor-pointer"
+          >
             <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 mb-0.5">
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Hoàn Trả</span>

@@ -6,15 +6,11 @@ import {
   ReportFilterParams,
   ReportTabType,
   RevenueOverviewReportResponse,
-  StaffPerformanceReportResponse,
   TimeRangePreset,
   TimeSeriesPointResponse,
-  TopMerchandiseReportResponse,
-  WarehouseReportResponse,
 } from '@/types/report';
-import { UserResponse } from '@/types/auth';
+import { useChartDrilldownModal } from '@/hooks/useChartDrilldownModal';
 import { toast } from 'sonner';
-
 import {
   exportEnterpriseReportToCSV,
   printEnterpriseReportDocument,
@@ -35,37 +31,28 @@ export const TIME_RANGE_OPTIONS: { label: string; value: TimeRangePreset }[] = [
 ];
 
 export const REPORT_TABS: { key: ReportTabType; label: string; iconName: string }[] = [
-  { key: 'overview', label: 'Doanh Thu & Dòng Tiền', iconName: 'DollarSign' },
-  { key: 'staff', label: 'Hiệu Suất Nhân Viên', iconName: 'Users' },
-  { key: 'warehouse', label: 'Kho Vận & Tồn Kho', iconName: 'Warehouse' },
-  { key: 'merchandise', label: 'Sản Phẩm & Danh Mục', iconName: 'Package' },
+  { key: 'overview', label: 'Doanh Thu & Đơn Hàng', iconName: 'DollarSign' },
 ];
 
+/**
+ * Custom Hook quản lý trang Báo Cáo Doanh Thu & Đơn Hàng (/admin/reports) của Admin,
+ * tích hợp điều khiển Modal Bảng Chi Tiết Đơn Hàng khi click vào bất kỳ nút giao biểu đồ nào.
+ */
 export function useAdminReports(options?: { enabled?: boolean }) {
   const enabled = options?.enabled ?? true;
-  const [activeTab, setActiveTab] = useState<ReportTabType>('overview');
+  const drilldown = useChartDrilldownModal();
+
   const [timeRange, setTimeRange] = useState<TimeRangePreset>('LAST_30_DAYS');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
-  const [staffId, setStaffId] = useState<number | null>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
   const [overviewData, setOverviewData] = useState<RevenueOverviewReportResponse | null>(null);
-  const [staffPerformance, setStaffPerformance] = useState<StaffPerformanceReportResponse[]>([]);
-  const [merchandiseData, setMerchandiseData] = useState<TopMerchandiseReportResponse | null>(null);
-  const [warehouseData, setWarehouseData] = useState<WarehouseReportResponse | null>(null);
-  const [staffList, setStaffList] = useState<UserResponse[]>([]);
 
-  // State tìm kiếm và lọc nhân viên (chuyển từ component ra hook)
-  const [staffSearchTerm, setStaffSearchTerm] = useState<string>('');
-
-  // State hover tooltip của biểu đồ chuỗi thời gian doanh thu
+  // State hover tooltip của 2 biểu đồ chuỗi thời gian
   const [revenueHoveredPoint, setRevenueHoveredPoint] = useState<TimeSeriesPointResponse | null>(null);
   const [revenueHoverPos, setRevenueHoverPos] = useState<{ x: number; y: number } | null>(null);
-
-  // State hover tooltip của biểu đồ sản lượng đơn hàng
   const [volumeHoveredPoint, setVolumeHoveredPoint] = useState<TimeSeriesPointResponse | null>(null);
 
   const filterParams: ReportFilterParams = useMemo(() => {
@@ -73,189 +60,171 @@ export function useAdminReports(options?: { enabled?: boolean }) {
       timeRange,
       startDate: timeRange === 'CUSTOM' ? startDate : undefined,
       endDate: timeRange === 'CUSTOM' ? endDate : undefined,
-      staffId: staffId !== null ? staffId : undefined,
     };
-  }, [timeRange, startDate, endDate, staffId]);
-
-  // Load danh sách nhân viên để phục vụ dropdown
-  useEffect(() => {
-    if (!enabled) return;
-    let isMounted = true;
-    reportController
-      .getStaffDropdownList()
-      .then((res) => {
-        if (isMounted && res.data) {
-          setStaffList(res.data);
-        }
-      })
-      .catch((err) => {
-        console.error('Không thể nạp danh sách nhân viên:', err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [enabled]);
+  }, [timeRange, startDate, endDate]);
 
   const loadReportData = useCallback(async () => {
     if (!enabled) return;
     try {
       setLoading(true);
       setError(null);
-
-      // Gọi song song theo tab để tối ưu hiệu năng
-      if (activeTab === 'overview') {
-        const res = await reportController.getRevenueOverview(filterParams);
-        if (res.data) setOverviewData(res.data);
-      } else if (activeTab === 'staff') {
-        const res = await reportController.getStaffPerformance(filterParams);
-        if (res.data) setStaffPerformance(res.data);
-      } else if (activeTab === 'warehouse') {
-        const res = await reportController.getWarehouseReport(filterParams);
-        if (res.data) setWarehouseData(res.data);
-      } else if (activeTab === 'merchandise') {
-        const res = await reportController.getTopMerchandise(filterParams);
-        if (res.data) setMerchandiseData(res.data);
-      }
+      const res = await reportController.getRevenueOverview(filterParams);
+      if (res.data) setOverviewData(res.data);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Lỗi tải dữ liệu báo cáo thống kê';
+      const msg = err instanceof Error ? err.message : 'Lỗi tải dữ liệu báo cáo doanh thu';
       setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, filterParams]);
+  }, [enabled, filterParams]);
 
   useEffect(() => {
     loadReportData();
   }, [loadReportData]);
 
-  // Danh sách nhân viên sau khi tìm kiếm (tính toán thuần trong hook)
-  const filteredStaffPerformance = useMemo(() => {
-    if (!staffSearchTerm.trim()) return staffPerformance;
-    const q = staffSearchTerm.toLowerCase();
-    return staffPerformance.filter(
-      (s) =>
-        s.staffName.toLowerCase().includes(q) ||
-        s.staffEmail.toLowerCase().includes(q) ||
-        (s.employeeCode && s.employeeCode.toLowerCase().includes(q))
-    );
-  }, [staffPerformance, staffSearchTerm]);
-
-  // Thống kê tổng hợp hiệu suất nhân viên (cho các card KPI phụ)
-  const staffSummaryKpis = useMemo(() => {
-    const totalStaff = staffPerformance.length;
-    const topPerformer = staffPerformance.length > 0 ? staffPerformance[0] : null;
-    const totalCommissionPaid = staffPerformance.reduce(
-      (sum, s) => sum + (Number(s.estimatedCommission) || 0),
-      0
-    );
-    const avgSuccessRate =
-      totalStaff > 0
-        ? Math.round(
-            staffPerformance.reduce((sum, s) => sum + (Number(s.successRate) || 0), 0) /
-              totalStaff
-          )
-        : 0;
-
-    return {
-      totalStaff,
-      topPerformer,
-      totalCommissionPaid,
-      avgSuccessRate,
-    };
-  }, [staffPerformance]);
-
-  const handleTabChange = (tab: ReportTabType) => {
-    setActiveTab(tab);
-  };
-
-  const handlePresetChange = (preset: TimeRangePreset) => {
+  const handlePresetChange = useCallback((preset: TimeRangePreset) => {
     setTimeRange(preset);
-  };
+  }, []);
 
-  const handleCustomDateChange = (start: string, end: string) => {
+  const handleCustomDateChange = useCallback((start: string, end: string) => {
     setStartDate(start);
     setEndDate(end);
     setTimeRange('CUSTOM');
-  };
+  }, []);
 
-  const handleStaffChange = (id: number | null) => {
-    setStaffId(id);
-  };
-
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     loadReportData();
-    toast.success('Đã làm mới dữ liệu báo cáo');
-  };
+    toast.success('Đã làm mới dữ liệu báo cáo doanh thu');
+  }, [loadReportData]);
 
-  const handleExportCSV = () => {
+  // 1. Click điểm nút trên Biểu đồ Xu hướng Doanh thu
+  const handleSelectRevenuePoint = useCallback(
+    (point: TimeSeriesPointResponse) => {
+      drilldown.openDrilldown({
+        mode: 'ORDERS',
+        title: `Bảng Đơn Hàng Hoàn Tất Doanh Thu — Ngày ${point.label || point.date}`,
+        subtitle: `Danh sách chi tiết đơn hàng giao thành công / hoàn tất tạo nên doanh thu ngày ${point.date}`,
+        specificDate: point.date,
+        statusGroup: 'COMPLETED',
+      });
+    },
+    [drilldown]
+  );
+
+  // 2. Click cột trên Biểu đồ Sản lượng & Trạng thái Đơn
+  const handleSelectVolumeBar = useCallback(
+    (point: TimeSeriesPointResponse, statusGroup: 'ALL' | 'COMPLETED' | 'CANCELLED') => {
+      const groupTitle =
+        statusGroup === 'COMPLETED'
+          ? 'Đơn Giao Thành Công'
+          : statusGroup === 'CANCELLED'
+          ? 'Đơn Đã Hủy'
+          : 'Tổng Đơn Phát Sinh';
+      drilldown.openDrilldown({
+        mode: 'ORDERS',
+        title: `Bảng Chi Tiết ${groupTitle} — Ngày ${point.label || point.date}`,
+        subtitle: `Danh sách đơn hàng, khách mua và sản phẩm biến thể phát sinh trong ngày ${point.date}`,
+        specificDate: point.date,
+        statusGroup,
+      });
+    },
+    [drilldown]
+  );
+
+  // 3. Click lát cắt / thẻ trên Biểu đồ Cơ cấu Thanh toán (COD vs VNPay)
+  const handleSelectPaymentMethod = useCallback(
+    (method: 'CASH' | 'VNPAY', label: string) => {
+      drilldown.openDrilldown({
+        mode: 'ORDERS',
+        title: `Bảng Đơn Hàng Hoàn Tất — ${label}`,
+        subtitle: 'Các đơn hàng hoàn tất thu tiền theo phương thức thanh toán trong kỳ báo cáo đang chọn',
+        timeRange,
+        startDate: timeRange === 'CUSTOM' ? startDate : undefined,
+        endDate: timeRange === 'CUSTOM' ? endDate : undefined,
+        statusGroup: 'COMPLETED',
+        paymentMethod: method,
+      });
+    },
+    [drilldown, timeRange, startDate, endDate]
+  );
+
+  // 4. Click lát cắt / thẻ trên Biểu đồ Phân bổ Trạng thái Đơn hàng
+  const handleSelectStatusGroup = useCallback(
+    (statusGroup: 'COMPLETED' | 'DELIVERING' | 'CANCELLED' | 'RETURNED', label: string) => {
+      drilldown.openDrilldown({
+        mode: 'ORDERS',
+        title: `Bảng Chi Tiết — ${label}`,
+        subtitle: 'Danh sách đơn hàng thuộc nhóm trạng thái vừa chọn trong kỳ báo cáo hiện hành',
+        timeRange,
+        startDate: timeRange === 'CUSTOM' ? startDate : undefined,
+        endDate: timeRange === 'CUSTOM' ? endDate : undefined,
+        statusGroup,
+      });
+    },
+    [drilldown, timeRange, startDate, endDate]
+  );
+
+  const handleExportCSV = useCallback(() => {
     try {
       exportEnterpriseReportToCSV({
-        activeTab,
+        activeTab: 'overview',
         timeRange,
         startDate,
         endDate,
         overviewData,
-        staffPerformance,
-        warehouseData,
-        merchandiseData,
+        staffPerformance: [],
+        warehouseData: null,
+        merchandiseData: null,
         currentUserName: 'Quản trị viên',
       });
-      toast.success('Đã xuất file báo cáo CSV thành công (chuẩn UTF-8)');
+      toast.success('Đã xuất file báo cáo doanh thu CSV thành công (chuẩn UTF-8)');
     } catch (err) {
       console.error('Lỗi khi xuất file CSV:', err);
       toast.error('Không thể xuất file báo cáo CSV');
     }
-  };
+  }, [timeRange, startDate, endDate, overviewData]);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     try {
       printEnterpriseReportDocument({
-        activeTab,
+        activeTab: 'overview',
         timeRange,
         startDate,
         endDate,
         overviewData,
-        staffPerformance,
-        warehouseData,
-        merchandiseData,
+        staffPerformance: [],
+        warehouseData: null,
+        merchandiseData: null,
         currentUserName: 'Quản trị viên',
       });
     } catch (err) {
-      console.error('Lỗi khi chuẩn bị bản in:', err);
-      toast.error('Không thể khởi tạo bản in báo cáo');
+      console.error('Lỗi khi mở trình in:', err);
+      toast.error('Không thể khởi tạo bản in');
     }
-  };
+  }, [timeRange, startDate, endDate, overviewData]);
 
   return {
-    activeTab,
     timeRange,
     startDate,
     endDate,
-    staffId,
-    staffList,
     loading,
     error,
     overviewData,
-    staffPerformance,
-    filteredStaffPerformance,
-    staffSummaryKpis,
-    staffSearchTerm,
-    setStaffSearchTerm,
     revenueHoveredPoint,
     revenueHoverPos,
     setRevenueHoveredPoint,
     setRevenueHoverPos,
     volumeHoveredPoint,
     setVolumeHoveredPoint,
-    merchandiseData,
-    warehouseData,
-    handleTabChange,
     handlePresetChange,
     handleCustomDateChange,
-    handleStaffChange,
     handleRefresh,
+    handleSelectRevenuePoint,
+    handleSelectVolumeBar,
+    handleSelectPaymentMethod,
+    handleSelectStatusGroup,
     handleExportCSV,
     handlePrint,
+    drilldown,
   };
 }

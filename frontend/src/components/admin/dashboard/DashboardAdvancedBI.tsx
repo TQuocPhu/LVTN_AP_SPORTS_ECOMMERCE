@@ -12,6 +12,7 @@ interface DashboardAdvancedBIProps {
   topFootballProducts?: FootballTopProduct[];
   inventoryRunoutMatrix?: InventoryRunoutAnalysis[];
   loading: boolean;
+  onSelectFootballProduct?: (productId: number, productName: string) => void;
 }
 
 /**
@@ -22,12 +23,12 @@ interface DashboardAdvancedBIProps {
  * - STAFF: Tập trung xem Top 10 Bóng Đá để tư vấn khách hàng.
  */
 export function DashboardAdvancedBI({
-  isAdmin,
   isStaff,
   isWarehouse,
   topFootballProducts,
   inventoryRunoutMatrix,
   loading,
+  onSelectFootballProduct,
 }: DashboardAdvancedBIProps) {
   // Nếu là quản lý kho: chỉ hiển thị ma trận tồn kho
   if (isWarehouse) {
@@ -48,6 +49,7 @@ export function DashboardAdvancedBI({
         <FootballCategorySalesChart
           products={topFootballProducts}
           loading={loading}
+          onSelectProduct={onSelectFootballProduct}
         />
       </div>
     );
@@ -60,6 +62,7 @@ export function DashboardAdvancedBI({
       <FootballCategorySalesChart
         products={topFootballProducts}
         loading={loading}
+        onSelectProduct={onSelectFootballProduct}
       />
 
       {/* Phân hệ 2: Ma Trận Phân Tích Tồn Kho Runout Days & Đề Xuất Nhập Hàng */}

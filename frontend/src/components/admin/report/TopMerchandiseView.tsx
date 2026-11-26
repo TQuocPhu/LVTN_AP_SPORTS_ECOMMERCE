@@ -1,7 +1,11 @@
 'use client';
 
 import React from 'react';
-import { TopMerchandiseReportResponse } from '@/types/report';
+import {
+  CategoryRevenueItemResponse,
+  TopMerchandiseReportResponse,
+  TopProductItemResponse,
+} from '@/types/report';
 import { formatCurrency } from '@/utils/formatters';
 import { Package, FolderTree, Trophy, Flame } from 'lucide-react';
 import Image from 'next/image';
@@ -9,9 +13,16 @@ import Image from 'next/image';
 interface TopMerchandiseViewProps {
   data: TopMerchandiseReportResponse | null;
   loading?: boolean;
+  onSelectProduct?: (product: TopProductItemResponse) => void;
+  onSelectCategory?: (category: CategoryRevenueItemResponse) => void;
 }
 
-export function TopMerchandiseView({ data, loading }: TopMerchandiseViewProps) {
+export function TopMerchandiseView({
+  data,
+  loading,
+  onSelectProduct,
+  onSelectCategory,
+}: TopMerchandiseViewProps) {
   if (loading && !data) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -66,7 +77,9 @@ export function TopMerchandiseView({ data, loading }: TopMerchandiseViewProps) {
                   topProducts.map((p, idx) => (
                     <tr
                       key={p.productId}
-                      className="hover:bg-slate-50/80 transition-colors"
+                      onClick={() => onSelectProduct?.(p)}
+                      title="Nhấp để xem bảng chi tiết các đơn hàng đã mua sản phẩm này"
+                      className="hover:bg-orange-50/60 transition-colors cursor-pointer"
                     >
                       <td className="py-2.5 px-4 font-black text-slate-400 text-xs">
                         {idx < 3 ? (
@@ -154,7 +167,12 @@ export function TopMerchandiseView({ data, loading }: TopMerchandiseViewProps) {
                 const grad = colors[idx % colors.length];
 
                 return (
-                  <div key={cat.categoryId} className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <div
+                    key={cat.categoryId}
+                    onClick={() => onSelectCategory?.(cat)}
+                    title="Nhấp để xem bảng chi tiết đơn hàng & biến thể thuộc danh mục này"
+                    className="space-y-1.5 p-3 rounded-xl bg-slate-50 hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 transition-all cursor-pointer"
+                  >
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span className="text-slate-800">
                         {cat.categoryName}

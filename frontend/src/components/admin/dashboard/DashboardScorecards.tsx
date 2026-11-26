@@ -150,59 +150,68 @@ export function DashboardScorecards({
     );
   }
 
-  // 2. GIAO DIỆN SCORECARDS DÀNH CHO NHÂN VIÊN (STAFF)
+  // 2. GIAO DIỆN SCORECARDS DÀNH CHO NHÂN VIÊN (STAFF) — Đã ẩn hoàn toàn Hoa hồng & Thưởng KPI
   if (isStaff && staffData) {
+    const totalManagedOrders = (staffData.completedOrders || 0) + (staffData.deliveringOrders || 0);
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Doanh Số Phụ Trách</span>
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Đơn Đang Quản Lý</span>
             <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
+              <ShoppingCart className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-slate-900">{formatCurrency(staffData.handledRevenue)}</div>
-            <div className="text-xs text-slate-700 mt-1">Đơn giao hoàn tất thành công</div>
+            <div className="text-2xl font-black text-slate-900">
+              {totalManagedOrders} <span className="text-xs font-medium text-slate-700">đơn</span>
+            </div>
+            <div className="text-xs text-slate-700 mt-1">Đơn hàng bạn đã xác nhận & theo dõi</div>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Đơn Hàng Thành Công</span>
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Đang Giao Hàng GHN</span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Truck className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-black text-indigo-700">
+              {staffData.deliveringOrders} <span className="text-xs font-medium text-slate-700">đơn</span>
+            </div>
+            <div className="text-xs text-slate-700 mt-1">Đang đóng gói & luân chuyển</div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Đơn Giao Thành Công</span>
             <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <PackageCheck className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-slate-900">{staffData.completedOrders} <span className="text-xs font-medium text-slate-700">đơn</span></div>
-            <div className="text-xs text-slate-700 mt-1">Đang giao: {staffData.deliveringOrders} đơn</div>
+            <div className="text-2xl font-black text-emerald-700">
+              {staffData.completedOrders} <span className="text-xs font-medium text-slate-700">đơn</span>
+            </div>
+            <div className="text-xs text-emerald-700 font-bold mt-1">
+              Tỷ lệ giao hoàn tất: {staffData.successRate}%
+            </div>
           </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Tỷ Lệ Chốt Thành Công</span>
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <Award className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Giá Trị Đơn Thành Công</span>
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-black text-slate-900">{staffData.successRate}%</div>
-            <div className="text-xs text-emerald-700 font-bold mt-1">Hiệu suất vận hành đạt chuẩn</div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between bg-gradient-to-br from-white to-amber-50/40">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">Thu Nhập & Hoa Hồng</span>
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <Receipt className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-amber-700">{formatCurrency(staffData.estimatedEarnings)}</div>
-            <div className="text-xs text-amber-900 mt-1 font-semibold">Hoa hồng 2% + Thưởng KPI</div>
+            <div className="text-2xl font-black text-slate-900">{formatCurrency(staffData.handledRevenue)}</div>
+            <div className="text-xs text-slate-700 mt-1">Tổng giá trị đơn giao hoàn tất</div>
           </div>
         </div>
       </div>

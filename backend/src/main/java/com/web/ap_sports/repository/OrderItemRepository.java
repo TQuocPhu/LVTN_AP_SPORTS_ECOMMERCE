@@ -17,6 +17,17 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     List<OrderItem> findByOrderId(Long orderId);
 
     /**
+     * Nạp hàng loạt (Batch Fetch) toàn bộ OrderItem kèm Product và ProductVariant cho danh sách orderIds,
+     * phục vụ Modal Bảng Chi Tiết Biểu Đồ mà không gây lỗi N+1 query.
+     */
+    @Query("SELECT oi FROM OrderItem oi " +
+           "LEFT JOIN FETCH oi.product p " +
+           "LEFT JOIN FETCH oi.variant v " +
+           "WHERE oi.order.id IN :orderIds " +
+           "ORDER BY oi.id ASC")
+    List<OrderItem> findByOrderIdInWithDetails(@Param("orderIds") java.util.Collection<Long> orderIds);
+
+    /**
      * Truy vấn mục đơn hàng (OrderItem) kết hợp kiểm tra chặt chẽ chủ sở hữu đơn hàng (userId) ngay tại tầng Repository.
      * Ngăn chặn triệt để việc người dùng truyền ID mục đơn hàng của khách hàng khác (Chống lỗ hổng IDOR).
      */

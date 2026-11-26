@@ -8,6 +8,7 @@ import { DashboardBiCharts } from './DashboardBiCharts';
 import { DashboardSystemAnalytics } from './DashboardSystemAnalytics';
 import { DashboardAdvancedBI } from './DashboardAdvancedBI';
 import { DashboardQuickWidgets } from './DashboardQuickWidgets';
+import { AdminChartDrilldownModal } from '@/components/admin/report/AdminChartDrilldownModal';
 import { AlertCircle } from 'lucide-react';
 
 export function AdminDashboardUI() {
@@ -22,6 +23,14 @@ export function AdminDashboardUI() {
     refreshing,
     error,
     handleRefresh,
+    handleSelectKpiDay,
+    handleSelectFunnelStep,
+    handleSelectWeeklyBar,
+    handleSelectCategorySlice,
+    handleSelectWarehouseDayBar,
+    handleSelectStaffStatusSlice,
+    handleSelectFootballProduct,
+    drilldown,
   } = useAdminDashboard();
 
   return (
@@ -65,9 +74,11 @@ export function AdminDashboardUI() {
         funnelData={data?.salesFunnel}
         cohortData={data?.cohortRetention}
         loading={loading}
+        onSelectKpiDay={handleSelectKpiDay}
+        onSelectFunnelStep={handleSelectFunnelStep}
       />
 
-      {/* 4. TẦNG THỐNG KÊ HỆ THỐNG: 2 BIỂU ĐỒ CỘT & TRÒN THEO CHIỀU NGANG CÓ HOVER TƯƠNG TÁC */}
+      {/* 4. TẦNG THỐNG KÊ HỆ THỐNG: 2 BIỂU ĐỒ CỘT & TRÒN THEO CHIỀU NGANG CÓ HOVER & CLICK TƯƠNG TÁC */}
       <DashboardSystemAnalytics
         isAdmin={isAdmin}
         isStaff={isStaff}
@@ -78,6 +89,10 @@ export function AdminDashboardUI() {
         warehouseActivityTrend={data?.warehouseActivityTrend}
         staffOrderStatusShare={data?.staffOrderStatusShare}
         loading={loading}
+        onSelectWeeklyBar={handleSelectWeeklyBar}
+        onSelectCategorySlice={handleSelectCategorySlice}
+        onSelectWarehouseDayBar={handleSelectWarehouseDayBar}
+        onSelectStaffStatusSlice={handleSelectStaffStatusSlice}
       />
 
       {/* 5. TẦNG 4: BI NÂNG CAO - THỐNG KÊ TOP 10 BÓNG ĐÁ & MA TRẬN TỒN KHO RUNOUT DAYS */}
@@ -88,6 +103,7 @@ export function AdminDashboardUI() {
         topFootballProducts={data?.topFootballProducts}
         inventoryRunoutMatrix={data?.inventoryRunoutMatrix}
         loading={loading}
+        onSelectFootballProduct={handleSelectFootballProduct}
       />
 
       {/* 6. TẦNG 3: CÁC WIDGET TOP 5 DÒNG KÈM LINK CHUYỂN TRANG THEO RBAC */}
@@ -100,6 +116,21 @@ export function AdminDashboardUI() {
         lowStockAlerts={data?.lowStockAlerts}
         recentReviews={data?.recentReviews}
         loading={loading}
+      />
+
+      {/* 7. MODAL BẢNG THỐNG KÊ CHI TIẾT KHI CLICK VÀO BẤT KỲ BIỂU ĐỒ NÀO TRÊN DASHBOARD */}
+      <AdminChartDrilldownModal
+        isOpen={drilldown.isOpen}
+        loading={drilldown.loading}
+        activeRequest={drilldown.activeRequest}
+        page={drilldown.page}
+        totalElements={drilldown.totalElements}
+        totalPages={drilldown.totalPages}
+        orders={drilldown.orders}
+        stocks={drilldown.stocks}
+        transactions={drilldown.transactions}
+        onPageChange={drilldown.handlePageChange}
+        onClose={drilldown.closeDrilldown}
       />
     </div>
   );

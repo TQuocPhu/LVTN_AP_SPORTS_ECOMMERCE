@@ -207,6 +207,13 @@ export function useAdminSidebar() {
             allowedRoles: ['ADMIN', 'STAFF', 'WAREHOUSE_MANAGER'],
           },
           {
+            title: 'Thống Kê Sản Phẩm',
+            href: '/admin/products/reports',
+            icon: BarChart3,
+            permission: 'MANAGE_PRODUCTS',
+            allowedRoles: ['ADMIN', 'STAFF'],
+          },
+          {
             title: 'Quản Lý Danh Mục',
             href: '/admin/categories',
             icon: FolderTree,
@@ -250,6 +257,13 @@ export function useAdminSidebar() {
             permission: 'MANAGE_INVENTORY',
             allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'],
           },
+          {
+            title: 'Báo Cáo Kho Hàng',
+            href: '/admin/inventory/reports',
+            icon: BarChart3,
+            permission: 'MANAGE_INVENTORY',
+            allowedRoles: ['ADMIN', 'WAREHOUSE_MANAGER'],
+          },
         ],
       },
       {
@@ -290,8 +304,7 @@ export function useAdminSidebar() {
             title: 'Báo Cáo & Thống Kê',
             href: '/admin/reports',
             icon: BarChart3,
-            permission: 'VIEW_REPORTS',
-            allowedRoles: ['ADMIN', 'STAFF', 'WAREHOUSE_MANAGER'],
+            allowedRoles: ['ADMIN', 'STAFF'],
           },
           {
             title: 'Quản Lý Người Dùng',
@@ -313,11 +326,11 @@ export function useAdminSidebar() {
       if (user.roleName === 'ADMIN') return true;
       if (!item.permission && !item.allowedRoles) return true;
 
-      if (item.permission && user.permissions && user.permissions.includes(item.permission)) {
-        return true;
+      if (item.allowedRoles && item.allowedRoles.length > 0) {
+        return item.allowedRoles.includes(user.roleName);
       }
 
-      if (item.allowedRoles && item.allowedRoles.includes(user.roleName)) {
+      if (item.permission && user.permissions && user.permissions.includes(item.permission)) {
         return true;
       }
 

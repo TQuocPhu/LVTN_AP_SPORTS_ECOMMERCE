@@ -11,6 +11,7 @@ interface RevenueTimeSeriesChartProps {
   hoveredPoint: TimeSeriesPointResponse | null;
   hoverPos: { x: number; y: number } | null;
   onHoverPoint: (point: TimeSeriesPointResponse | null, pos: { x: number; y: number } | null) => void;
+  onSelectPoint?: (point: TimeSeriesPointResponse) => void;
 }
 
 export function RevenueTimeSeriesChart({
@@ -19,6 +20,7 @@ export function RevenueTimeSeriesChart({
   hoveredPoint,
   hoverPos,
   onHoverPoint,
+  onSelectPoint,
 }: RevenueTimeSeriesChartProps) {
   const points = useMemo(() => {
     return data && data.length > 0 ? data : [];
@@ -110,7 +112,7 @@ export function RevenueTimeSeriesChart({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Biến động doanh thu hoàn thành theo từng mốc thời gian
+              Biến động doanh thu hoàn thành theo mốc thời gian (Nhấp vào điểm nút để xem bảng đơn hàng)
             </p>
           </div>
 
@@ -183,11 +185,15 @@ export function RevenueTimeSeriesChart({
             {chartCoords.map((c, idx) => {
               const isHovered = hoveredPoint?.date === c.point.date;
               return (
-                <g key={idx} className="cursor-pointer">
+                <g
+                  key={idx}
+                  className="cursor-pointer"
+                  onClick={() => onSelectPoint?.(c.point)}
+                >
                   <circle
                     cx={c.x}
                     cy={c.y}
-                    r="15"
+                    r="16"
                     fill="transparent"
                     onMouseEnter={() => {
                       onHoverPoint(c.point, { x: c.x, y: c.y });
@@ -199,7 +205,7 @@ export function RevenueTimeSeriesChart({
                   <circle
                     cx={c.x}
                     cy={c.y}
-                    r={isHovered ? '6' : '3.5'}
+                    r={isHovered ? '6.5' : '4'}
                     fill={isHovered ? '#ea580c' : '#ffffff'}
                     stroke="#ea580c"
                     strokeWidth={isHovered ? '3' : '2'}

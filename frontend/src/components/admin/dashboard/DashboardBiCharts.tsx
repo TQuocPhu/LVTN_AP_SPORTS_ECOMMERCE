@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Target,
   Filter,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/utils/formatters';
 import { KpiTargetTrend, SalesFunnel, CohortRetentionItem } from '@/types/dashboard';
+import { useDashboardBiCharts } from '@/hooks/useDashboardBiCharts';
 
 interface DashboardBiChartsProps {
   isAdmin: boolean;
@@ -25,6 +26,8 @@ interface DashboardBiChartsProps {
   funnelData?: SalesFunnel;
   cohortData?: CohortRetentionItem[];
   loading: boolean;
+  onSelectKpiDay?: (dateIso: string, label?: string) => void;
+  onSelectFunnelStep?: (step: number, title: string) => void;
 }
 
 export function DashboardBiCharts({
@@ -35,11 +38,10 @@ export function DashboardBiCharts({
   funnelData,
   cohortData,
   loading,
+  onSelectKpiDay,
+  onSelectFunnelStep,
 }: DashboardBiChartsProps) {
-  // Tab mặc định theo vai trò: Admin xem KPI, Staff xem Funnel, Warehouse ẩn tầng BI nếu không có quyền
-  const [activeTab, setActiveTab] = useState<'KPI' | 'FUNNEL' | 'COHORT'>(
-    isStaff ? 'FUNNEL' : 'KPI'
-  );
+  const { activeTab, setActiveTab } = useDashboardBiCharts(isStaff);
 
   if (loading) {
     return (
@@ -114,8 +116,10 @@ export function DashboardBiCharts({
     const lastX = lastActualPoint ? getPointX(lastActualPoint.dayOfMonth) : 0;
     const lastY = lastActualPoint ? getPointY(lastActualPoint.actualCumulative || 0) : 0;
 
-    const rawTickDays = [1, 5, 10, currentDayNumber, 20, 25, points.length];
-    const tickDays = Array.from(new Set(rawTickDays))
+    // Loại bỏ các mốc tĩnh quá gần ngày hiện tại (< 3 ngày) để nhãn "Hôm nay (dd/mm)" không bị đè lên nhãn trục X kế bên
+    const rawTickDays = [1, 5, 10, 15, 20, 25, points.length]
+      .filter((d) => Math.abs(d - currentDayNumber) >= 3);
+    const tickDays = Array.from(new Set([...rawTickDays, currentDayNumber]))
       .filter((d) => d >= 1 && d <= points.length)
       .sort((a, b) => a - b);
 
@@ -207,8 +211,49 @@ export function DashboardBiCharts({
               <path d={actualPath} fill="none" stroke="#0284c7" strokeWidth="3.5" strokeLinecap="round" />
             )}
 
+            {/* Chỉ đặt điểm nút tại những ngày THỰC SỰ có biến thiên doanh thu (dailyRevenue > 0), bỏ các ngày phẳng ở giữa */}
+            {validActualPoints
+              .filter((pt) => (pt.dailyRevenue || 0) > 0)
+              .map((pt) => {
+                const px = getPointX(pt.dayOfMonth);
+                const py = getPointY(pt.actualCumulative || 0);
+                const dayStr = `${String(pt.dayOfMonth).padStart(2, '0')}/${currentMonth}/${currentYear}`;
+                const isoDate =
+                  pt.date ||
+                  `${currentYear}-${currentMonth}-${String(pt.dayOfMonth).padStart(2, '0')}`;
+                return (
+                  <g
+                    key={pt.dayOfMonth}
+                    onClick={() => onSelectKpiDay?.(isoDate, `Ngày ${dayStr}`)}
+                    className="cursor-pointer"
+                  >
+                    <title>{`${dayStr}: +${formatCurrency(pt.dailyRevenue)} (nhấp để xem đơn hàng)`}</title>
+                    <circle cx={px} cy={py} r="10" fill="transparent" />
+                    <circle
+                      cx={px}
+                      cy={py}
+                      r="4"
+                      fill="#ffffff"
+                      stroke="#0284c7"
+                      strokeWidth="2.5"
+                    />
+                  </g>
+                );
+              })}
+
             {lastActualPoint && (
-              <g>
+              <g
+                onClick={() => {
+                  // Chỉ mở bảng đơn khi chính ngày này có phát sinh doanh thu, tránh mở bảng rỗng
+                  if ((lastActualPoint.dailyRevenue || 0) <= 0) return;
+                  onSelectKpiDay?.(
+                    lastActualPoint.date ||
+                      `${currentYear}-${currentMonth}-${String(lastActualPoint.dayOfMonth).padStart(2, '0')}`,
+                    `Hôm nay (${String(lastActualPoint.dayOfMonth).padStart(2, '0')}/${currentMonth}/${currentYear})`
+                  );
+                }}
+                className={(lastActualPoint.dailyRevenue || 0) > 0 ? 'cursor-pointer' : ''}
+              >
                 <circle cx={lastX} cy={lastY} r="6" fill="#0284c7" stroke="#ffffff" strokeWidth="2.5" className="filter drop-shadow-sm" />
                 <rect x={lastX - 44} y={lastY - 26} width="88" height="20" rx="6" fill="#0284c7" className="filter drop-shadow-sm" />
                 <text x={lastX} y={lastY - 13} textAnchor="middle" fill="#ffffff" fontSize="10" fontWeight="bold">
@@ -316,7 +361,12 @@ export function DashboardBiCharts({
 
         <div className="space-y-3">
           {steps.map((st) => (
-            <div key={st.step} className="p-4 rounded-xl border border-slate-200 bg-white">
+            <div
+              key={st.step}
+              onClick={() => onSelectFunnelStep?.(st.step, st.title)}
+              title="Nhấp để mở bảng đối soát chi tiết của bước phễu này"
+              className="p-4 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50/30 bg-white transition-all cursor-pointer"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-lg border flex items-center justify-center font-bold ${st.color}`}>

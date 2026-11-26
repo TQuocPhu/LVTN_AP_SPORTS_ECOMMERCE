@@ -66,6 +66,52 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
     Page<Order> findByProcessedByStaffIdOrderByCreatedAtDesc(Long staffId, Pageable pageable);
 
     /**
+     * Truy vấn danh sách đơn hàng do đúng một nhân viên bán hàng xác nhận & phụ trách, lọc theo tập trạng thái.
+     */
+    Page<Order> findByProcessedByStaffIdAndStatusInOrderByCreatedAtDesc(
+            Long staffId,
+            List<OrderStatus> statuses,
+            Pageable pageable
+    );
+
+    /**
+     * Truy vấn danh sách các đơn hàng đã áp dụng một mã giảm giá (Coupon) cụ thể để hiển thị trong Modal chi tiết Voucher.
+     */
+    @Query("SELECT o FROM Order o " +
+           "LEFT JOIN FETCH o.user " +
+           "LEFT JOIN FETCH o.shippingAddress " +
+           "WHERE o.coupon IS NOT NULL AND o.coupon.id = :couponId " +
+           "ORDER BY o.createdAt DESC")
+    List<Order> findOrdersByCouponIdWithCustomer(
+            @org.springframework.data.repository.query.Param("couponId") Long couponId,
+            Pageable pageable
+    );
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.coupon IS NOT NULL AND o.coupon.id = :couponId AND o.status NOT IN :excludedStatuses")
+    long countValidOrdersByCouponId(
+            @org.springframework.data.repository.query.Param("couponId") Long couponId,
+            @org.springframework.data.repository.query.Param("excludedStatuses") List<OrderStatus> excludedStatuses
+    );
+
+    @Query("SELECT COALESCE(SUM(o.discountAmount), 0) FROM Order o WHERE o.coupon IS NOT NULL AND o.coupon.id = :couponId AND o.status NOT IN :excludedStatuses")
+    BigDecimal sumDiscountByCouponId(
+            @org.springframework.data.repository.query.Param("couponId") Long couponId,
+            @org.springframework.data.repository.query.Param("excludedStatuses") List<OrderStatus> excludedStatuses
+    );
+
+    @Query("SELECT COALESCE(SUM(o.finalAmount), 0) FROM Order o WHERE o.coupon IS NOT NULL AND o.coupon.id = :couponId AND o.status IN :completedStatuses")
+    BigDecimal sumCompletedRevenueByCouponId(
+            @org.springframework.data.repository.query.Param("couponId") Long couponId,
+            @org.springframework.data.repository.query.Param("completedStatuses") List<OrderStatus> completedStatuses
+    );
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.coupon IS NOT NULL AND o.coupon.id = :couponId AND o.status IN :completedStatuses")
+    long countCompletedOrdersByCouponId(
+            @org.springframework.data.repository.query.Param("couponId") Long couponId,
+            @org.springframework.data.repository.query.Param("completedStatuses") List<OrderStatus> completedStatuses
+    );
+
+    /**
      * Tìm ID các đơn hàng VNPay còn ở trạng thái pending quá thời hạn thanh toán (15 phút)
      * để Scheduler tự động chuyển sang payment_failed và hoàn trả tồn kho.
      */
