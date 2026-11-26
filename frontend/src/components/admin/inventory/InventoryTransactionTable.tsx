@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { VietnameseDateInput } from '@/components/common/VietnameseDateInput';
 import {
   InventoryTransaction,
   TransactionType,
@@ -179,26 +180,27 @@ export function InventoryTransactionTable({
           </div>
         </div>
 
-        {/* Date Range Inputs */}
+        {/* Bộ lọc Khoảng Ngày chuẩn Việt Nam (dd/mm/yyyy) */}
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 text-xs font-semibold text-slate-600">
           <div className="flex items-center gap-2">
             <Calendar className="w-3.5 h-3.5 text-slate-400" />
             <span>Từ ngày:</span>
-            <input
-              type="date"
+            <VietnameseDateInput
               value={fromDate}
-              onChange={(e) => onFromDateChange(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50 text-slate-800 text-xs focus:outline-none focus:border-orange-500"
+              onChange={onFromDateChange}
+              themeVariant="admin"
+              sizeVariant="compact"
             />
           </div>
 
           <div className="flex items-center gap-2">
             <span>Đến ngày:</span>
-            <input
-              type="date"
+            <VietnameseDateInput
               value={toDate}
-              onChange={(e) => onToDateChange(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-50 text-slate-800 text-xs focus:outline-none focus:border-orange-500"
+              onChange={onToDateChange}
+              min={fromDate || undefined}
+              themeVariant="admin"
+              sizeVariant="compact"
             />
           </div>
         </div>

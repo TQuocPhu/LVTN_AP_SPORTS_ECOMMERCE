@@ -200,6 +200,22 @@ export function useWarehouseInventory() {
   const [ticketToViewDetails, setTicketToViewDetails] =
     useState<InventoryTransaction | null>(null);
 
+  // Quản lý tab đang mở và các modal trên trang Quản lý kho (đưa toàn bộ useState về Hook chuẩn kiến trúc 7 tầng)
+  const [activeTab, setActiveTab] = useState<'transactions' | 'low-stock' | 'packing'>('transactions');
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [importModalLowStockItems, setImportModalLowStockItems] = useState<LowStockItem[] | undefined>(undefined);
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState<boolean>(false);
+
+  const handleOpenImportModal = useCallback((initialItems?: LowStockItem[]) => {
+    setImportModalLowStockItems(initialItems);
+    setIsImportModalOpen(true);
+  }, []);
+
+  const handleCloseImportModal = useCallback(() => {
+    setIsImportModalOpen(false);
+  }, []);
+
   const handleOpenDetailsModal = useCallback(
     async (tx: InventoryTransaction) => {
       try {
@@ -339,6 +355,16 @@ export function useWarehouseInventory() {
     createImport: handleCreateImport,
     createExport: handleCreateExport,
     adjustStock: handleAdjustStock,
+    activeTab,
+    setActiveTab,
+    isImportModalOpen,
+    openImportModal: handleOpenImportModal,
+    closeImportModal: handleCloseImportModal,
+    importModalLowStockItems,
+    isExportModalOpen,
+    setIsExportModalOpen,
+    isAdjustModalOpen,
+    setIsAdjustModalOpen,
   };
 }
 
