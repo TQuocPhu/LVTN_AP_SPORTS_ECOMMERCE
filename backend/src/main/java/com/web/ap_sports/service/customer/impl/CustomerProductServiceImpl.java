@@ -1,6 +1,7 @@
 package com.web.ap_sports.service.customer.impl;
 
 import com.web.ap_sports.dto.request.common.ProductFilterRequest;
+import com.web.ap_sports.dto.response.common.AvailableVariantSizeResponse;
 import com.web.ap_sports.dto.response.common.CategoryResponse;
 import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
@@ -83,6 +84,76 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         List<ProductResponse> responses = mapToProductResponseList(productPage.getContent(), null);
 
         return new PageImpl<>(responses, pageable, productPage.getTotalElements());
+    }
+
+    /**
+     * Trích xuất động toàn bộ kích thước / quy cách biến thể từ chính các sản phẩm thuộc phạm vi lọc hiện tại.
+     * - Không bó cứng vào trang phục hay 3 nhóm tĩnh; hỗ trợ mọi kiểu kích cỡ (XS..3XL, 38..44, 8oz, 190, 4U, Số 5...).
+     * - Truy vấn Projection trực tiếp trên Database (không qua Redis) để dữ liệu luôn chính xác tuyệt đối.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public AvailableVariantSizeResponse getAvailableVariantSizes(Long categoryId, String keyword) {
+        String keywordPattern = StringUtils.hasText(keyword)
+                ? "%" + keyword.trim().toLowerCase() + "%"
+                : null;
+
+        List<Object[]> rawRows;
+        boolean hasCategoryFilter = categoryId != null;
+        if (hasCategoryFilter) {
+            List<Long> expandedCategoryIds = expandCategoryAndDescendantIds(categoryId);
+            if (expandedCategoryIds.isEmpty()) {
+                expandedCategoryIds = List.of(categoryId);
+            }
+            rawRows = variantRepository.findActiveVariantFacetsByCategories(expandedCategoryIds, keywordPattern);
+        } else {
+            rawRows = variantRepository.findActiveVariantFacetsAll(keywordPattern);
+        }
+
+        if (rawRows == null || rawRows.isEmpty()) {
+            return AvailableVariantSizeResponse.builder()
+                    .options(Collections.emptyList())
+                    .totalDistinctOptions(0)
+                    .build();
+        }
+
+        // Map khử trùng lặp theo khóa chữ thường chuẩn hóa -> Bộ tích lũy (nhãn hiển thị, nhóm thuộc tính, tập productId)
+        Map<String, VariantFacetAccumulator> accumulatorMap = new LinkedHashMap<>();
+
+        for (Object[] row : rawRows) {
+            if (row == null) continue;
+            // Với query có categoryIds: row = [variantId, productId, size, attributes]
+            // Với query toàn sàn: row = [productId, size, attributes]
+            int offset = hasCategoryFilter ? 1 : 0;
+            Long productId = row[offset] != null ? ((Number) row[offset]).longValue() : null;
+            String rawSize = row[offset + 1] != null ? row[offset + 1].toString() : null;
+            String rawAttributes = row[offset + 2] != null ? row[offset + 2].toString() : null;
+            if (productId == null) continue;
+
+            // 1. Thu nhận từ cột size trực tiếp nếu có
+            if (StringUtils.hasText(rawSize)) {
+                registerFacetToken(accumulatorMap, rawSize.trim(), "Kích thước / Size", productId);
+            }
+
+            // 2. Thu nhận từ chuỗi JSON hoặc chuỗi phân cách trong cột attributes (bỏ qua thuộc tính màu sắc)
+            if (StringUtils.hasText(rawAttributes)) {
+                extractNonColorAttributes(rawAttributes.trim(), accumulatorMap, productId);
+            }
+        }
+
+        List<AvailableVariantSizeResponse.VariantSizeOption> sortedOptions = accumulatorMap.values().stream()
+                .map(acc -> AvailableVariantSizeResponse.VariantSizeOption.builder()
+                        .value(acc.displayValue)
+                        .dimensionLabel(acc.dimensionLabel)
+                        .productCount(acc.productIds.size())
+                        .build())
+                .sorted(CustomerProductServiceImpl::compareVariantSizeOptionsNaturally)
+                .collect(Collectors.toList());
+
+        return AvailableVariantSizeResponse.builder()
+                .options(sortedOptions)
+                .totalDistinctOptions(sortedOptions.size())
+                .build();
     }
 
     @Override
@@ -539,5 +610,199 @@ public class CustomerProductServiceImpl implements CustomerProductService {
         } catch (Exception e) {
             return new HashMap<>();
         }
+    }
+
+    // =========================================================================
+    // CÁC HÀM HỖ TRỢ TRÍCH XUẤT & SẮP XẾP TỰ NHIÊN BỘ LỌC KÍCH THƯỚC BIẾN THỂ
+    // =========================================================================
+
+    private static final Map<String, Integer> STANDARD_LETTER_SIZE_RANK = Map.ofEntries(
+            Map.entry("xxs", 1),
+            Map.entry("xs", 2),
+            Map.entry("s", 3),
+            Map.entry("m", 4),
+            Map.entry("l", 5),
+            Map.entry("xl", 6),
+            Map.entry("xxl", 7),
+            Map.entry("2xl", 7),
+            Map.entry("xxxl", 8),
+            Map.entry("3xl", 8),
+            Map.entry("4xl", 9),
+            Map.entry("5xl", 10),
+            Map.entry("freesize", 11),
+            Map.entry("free size", 11),
+            Map.entry("one size", 11)
+    );
+
+    private static final java.util.regex.Pattern PURE_NUMBER_PATTERN =
+            java.util.regex.Pattern.compile("^(\\d+(?:[.,]\\d+)?)$");
+
+    private static final java.util.regex.Pattern NUMBER_WITH_UNIT_PATTERN =
+            java.util.regex.Pattern.compile("^([a-zA-ZÀ-ỹ\\s]*?)(\\d+(?:[.,]\\d+)?)\\s*([a-zA-ZÀ-ỹ%\"']*)$");
+
+    private static class VariantFacetAccumulator {
+        String displayValue;
+        String dimensionLabel;
+        final Set<Long> productIds = new HashSet<>();
+
+        VariantFacetAccumulator(String displayValue, String dimensionLabel) {
+            this.displayValue = displayValue;
+            this.dimensionLabel = dimensionLabel;
+        }
+    }
+
+    /**
+     * Kiểm tra khóa thuộc tính có phải là Màu sắc hay không để loại khỏi bộ lọc Kích thước / Quy cách.
+     */
+    private boolean isColorAttributeKey(String key) {
+        if (!StringUtils.hasText(key)) return false;
+        String lower = key.trim().toLowerCase();
+        return lower.contains("màu") || lower.contains("mau sac") || lower.equals("mau") || lower.contains("color") || lower.contains("colour");
+    }
+
+    /**
+     * Chuẩn hóa tên nhóm thuộc tính để các cách đặt tên tương đương gom về cùng một nhãn gọn gàng.
+     */
+    private String normalizeDimensionLabel(String rawKey) {
+        if (!StringUtils.hasText(rawKey)) return "Kích thước / Quy cách";
+        String trimmed = rawKey.trim();
+        String lower = trimmed.toLowerCase();
+        if (lower.contains("size") || lower.contains("kích thước") || lower.contains("kích cỡ") || lower.equals("cỡ")) {
+            return "Kích thước / Size";
+        }
+        return trimmed;
+    }
+
+    /**
+     * Ghi nhận một giá trị kích thước / quy cách biến thể vào bộ tích lũy khử trùng lặp không phân biệt hoa thường.
+     */
+    private void registerFacetToken(
+            Map<String, VariantFacetAccumulator> accumulatorMap,
+            String rawValue,
+            String rawDimensionLabel,
+            Long productId
+    ) {
+        if (!StringUtils.hasText(rawValue) || productId == null) return;
+        String cleaned = rawValue.trim().replaceAll("\\s+", " ");
+        if (cleaned.isEmpty() || cleaned.length() > 40) return;
+
+        String normalizedKey = cleaned.toLowerCase();
+        String normalizedLabel = normalizeDimensionLabel(rawDimensionLabel);
+
+        VariantFacetAccumulator acc = accumulatorMap.computeIfAbsent(
+                normalizedKey,
+                k -> new VariantFacetAccumulator(cleaned, normalizedLabel)
+        );
+        // Ưu tiên giữ chữ in hoa đẹp hơn nếu gặp biến thể viết thường trước đó (VD: "xl" -> "XL")
+        if (acc.displayValue.equals(acc.displayValue.toLowerCase()) && !cleaned.equals(cleaned.toLowerCase())) {
+            acc.displayValue = cleaned;
+        }
+        // Nếu trước đó chỉ lấy từ cột size mặc định mà sau có nhãn cụ thể hơn (VD: "Trọng lượng"), giữ nhãn rõ nghĩa
+        if ("Kích thước / Size".equals(acc.dimensionLabel) && !"Kích thước / Size".equals(normalizedLabel)) {
+            acc.dimensionLabel = normalizedLabel;
+        }
+        acc.productIds.add(productId);
+    }
+
+    /**
+     * Phân giải chuỗi JSON hoặc chuỗi ngăn cách trong cột attributes để lấy toàn bộ quy cách (trừ màu sắc).
+     */
+    private void extractNonColorAttributes(
+            String rawAttributes,
+            Map<String, VariantFacetAccumulator> accumulatorMap,
+            Long productId
+    ) {
+        if (rawAttributes.startsWith("{")) {
+            try {
+                Map<String, Object> parsed = objectMapper.readValue(
+                        rawAttributes,
+                        new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+                );
+                if (parsed != null) {
+                    for (Map.Entry<String, Object> entry : parsed.entrySet()) {
+                        String key = entry.getKey();
+                        Object val = entry.getValue();
+                        if (key == null || val == null || isColorAttributeKey(key)) continue;
+                        String valStr = String.valueOf(val).trim();
+                        if (!valStr.isEmpty()) {
+                            registerFacetToken(accumulatorMap, valStr, key, productId);
+                        }
+                    }
+                    return;
+                }
+            } catch (Exception ignored) {
+                // Nếu JSON không hợp lệ thì fallback xuống bóc tách chuỗi phân cách bên dưới
+            }
+        }
+
+        // Hỗ trợ định dạng chuỗi "Trọng lượng: 4U | Độ căng: 11kg"
+        String delimiter = rawAttributes.contains("|") ? "\\|" : rawAttributes.contains(";") ? ";" : null;
+        String[] parts = delimiter != null ? rawAttributes.split(delimiter) : new String[]{rawAttributes};
+        for (String part : parts) {
+            String trimmed = part.trim();
+            int colonIdx = trimmed.indexOf(':');
+            if (colonIdx > 0) {
+                String key = trimmed.substring(0, colonIdx).trim();
+                String val = trimmed.substring(colonIdx + 1).trim();
+                if (!isColorAttributeKey(key) && !val.isEmpty()) {
+                    registerFacetToken(accumulatorMap, val, key, productId);
+                }
+            }
+        }
+    }
+
+    /**
+     * So sánh sắp xếp tự nhiên đa định dạng (Smart Alphanumeric Natural Sort):
+     * 1. Size chữ quốc tế (XXS -> 5XL, Freesize) theo đúng thứ tự độ lớn.
+     * 2. Số thuần túy (4, 5, 38..44, 150..190) theo giá trị số tăng dần (4 < 38 < 190).
+     * 3. Số kèm đơn vị thể thao (8oz < 10oz < 12oz, 3U < 4U, Số 4 < Số 5, 2kg < 5kg < 10kg).
+     * 4. Các quy cách chữ khác sắp xếp chuẩn bảng chữ cái.
+     */
+    private static int compareVariantSizeOptionsNaturally(
+            AvailableVariantSizeResponse.VariantSizeOption a,
+            AvailableVariantSizeResponse.VariantSizeOption b
+    ) {
+        String va = a.getValue() != null ? a.getValue().trim() : "";
+        String vb = b.getValue() != null ? b.getValue().trim() : "";
+        String la = va.toLowerCase();
+        String lb = vb.toLowerCase();
+
+        Integer rankA = STANDARD_LETTER_SIZE_RANK.get(la);
+        Integer rankB = STANDARD_LETTER_SIZE_RANK.get(lb);
+        if (rankA != null && rankB != null) {
+            return Integer.compare(rankA, rankB);
+        }
+        if (rankA != null) return -1;
+        if (rankB != null) return 1;
+
+        java.util.regex.Matcher pureNumA = PURE_NUMBER_PATTERN.matcher(la);
+        java.util.regex.Matcher pureNumB = PURE_NUMBER_PATTERN.matcher(lb);
+        boolean isPureA = pureNumA.matches();
+        boolean isPureB = pureNumB.matches();
+        if (isPureA && isPureB) {
+            double na = Double.parseDouble(pureNumA.group(1).replace(',', '.'));
+            double nb = Double.parseDouble(pureNumB.group(1).replace(',', '.'));
+            return Double.compare(na, nb);
+        }
+        if (isPureA) return -1;
+        if (isPureB) return 1;
+
+        java.util.regex.Matcher unitA = NUMBER_WITH_UNIT_PATTERN.matcher(la);
+        java.util.regex.Matcher unitB = NUMBER_WITH_UNIT_PATTERN.matcher(lb);
+        boolean isUnitA = unitA.matches();
+        boolean isUnitB = unitB.matches();
+        if (isUnitA && isUnitB) {
+            String groupUnitA = (unitA.group(1).trim() + "_" + unitA.group(3).trim()).toLowerCase();
+            String groupUnitB = (unitB.group(1).trim() + "_" + unitB.group(3).trim()).toLowerCase();
+            int unitCmp = groupUnitA.compareTo(groupUnitB);
+            if (unitCmp != 0) return unitCmp;
+            double na = Double.parseDouble(unitA.group(2).replace(',', '.'));
+            double nb = Double.parseDouble(unitB.group(2).replace(',', '.'));
+            return Double.compare(na, nb);
+        }
+        if (isUnitA) return -1;
+        if (isUnitB) return 1;
+
+        return va.compareToIgnoreCase(vb);
     }
 }

@@ -2,6 +2,7 @@ package com.web.ap_sports.controller.customer;
 
 import com.web.ap_sports.dto.request.common.ProductFilterRequest;
 import com.web.ap_sports.dto.response.ApiResponse;
+import com.web.ap_sports.dto.response.common.AvailableVariantSizeResponse;
 import com.web.ap_sports.dto.response.common.ProductDetailResponse;
 import com.web.ap_sports.dto.response.common.ProductResponse;
 import com.web.ap_sports.service.customer.CustomerProductService;
@@ -24,6 +25,18 @@ public class CustomerProductController {
             @ModelAttribute ProductFilterRequest filterRequest) {
         Page<ProductResponse> page = customerProductService.getPublicProducts(filterRequest);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm công khai thành công.", page));
+    }
+
+    /**
+     * Lấy danh sách các kích thước / quy cách biến thể thực tế đang có trên các sản phẩm
+     * thuộc danh mục hoặc từ khóa tìm kiếm hiện tại (truy vấn trực tiếp từ DB không qua Redis).
+     */
+    @GetMapping("/available-sizes")
+    public ResponseEntity<ApiResponse<AvailableVariantSizeResponse>> getAvailableVariantSizes(
+            @RequestParam(value = "categoryId", required = false) Long categoryId,
+            @RequestParam(value = "keyword", required = false) String keyword) {
+        AvailableVariantSizeResponse response = customerProductService.getAvailableVariantSizes(categoryId, keyword);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách kích thước biến thể khả dụng thành công.", response));
     }
 
     /**

@@ -5,6 +5,7 @@ import {
   ProductDetail,
   ProductFilterParams,
   PaginatedResponse,
+  AvailableVariantSizeResponse,
 } from '@/types/product';
 
 export const productController = {
@@ -29,6 +30,28 @@ export const productController = {
     const queryString = searchParams.toString();
     const url = `/products${queryString ? `?${queryString}` : ''}`;
     return apiClient.get<ApiResponse<PaginatedResponse<Product>>>(url, { suppressErrorToast: true, ...options });
+  },
+
+  /**
+   * Lấy danh sách kích thước / quy cách biến thể khả dụng theo ngữ cảnh danh mục và từ khóa hiện tại.
+   */
+  async getAvailableVariantSizes(
+    categoryId?: number | null,
+    keyword?: string,
+    options?: ApiClientOptions
+  ): Promise<ApiResponse<AvailableVariantSizeResponse>> {
+    const searchParams = new URLSearchParams();
+    if (categoryId !== undefined && categoryId !== null) {
+      searchParams.append('categoryId', categoryId.toString());
+    }
+    if (keyword && keyword.trim()) {
+      searchParams.append('keyword', keyword.trim());
+    }
+    const qs = searchParams.toString();
+    return apiClient.get<ApiResponse<AvailableVariantSizeResponse>>(
+      `/products/available-sizes${qs ? `?${qs}` : ''}`,
+      { suppressErrorToast: true, ...options }
+    );
   },
 
   /**

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Product, ProductFilterParams } from '@/types/product';
+import { Product, ProductFilterParams, VariantSizeOption } from '@/types/product';
 import { CategoryResponse } from '@/types/category';
 import { productController } from '@/controllers/product-controller';
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch';
@@ -34,6 +34,8 @@ export function useCustomerProducts(
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [topRatedProducts, setTopRatedProducts] = useState<Product[]>([]);
+  const [availableSizeOptions, setAvailableSizeOptions] = useState<VariantSizeOption[]>([]);
+  const [loadingSizes, setLoadingSizes] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -204,6 +206,44 @@ export function useCustomerProducts(
     };
   }, []);
 
+  // Nạp động danh sách kích thước / quy cách biến thể thực tế theo Danh mục và Từ khóa tìm kiếm hiện tại
+  useEffect(() => {
+    const sizeAbort = new AbortController();
+    setLoadingSizes(true);
+
+    productController
+      .getAvailableVariantSizes(selectedCategoryId, debouncedKeyword, {
+        signal: sizeAbort.signal,
+      })
+      .then((res) => {
+        if (sizeAbort.signal.aborted) return;
+        const nextOptions = res.data?.options || [];
+        setAvailableSizeOptions(nextOptions);
+
+        // Nếu người dùng đổi sang danh mục mới mà kích thước cũ không còn tồn tại trong danh mục đó -> tự động dọn sạch size không hợp lệ
+        if (nextOptions.length > 0) {
+          const validLowerSet = new Set(nextOptions.map((o) => o.value.toLowerCase()));
+          setSelectedSizes((prev) => {
+            const filtered = prev.filter((s) => validLowerSet.has(s.toLowerCase()));
+            return filtered.length === prev.length ? prev : filtered;
+          });
+        }
+      })
+      .catch((err: unknown) => {
+        if (sizeAbort.signal.aborted) return;
+        console.error('Lỗi khi nạp kích thước biến thể khả dụng:', err);
+      })
+      .finally(() => {
+        if (!sizeAbort.signal.aborted) {
+          setLoadingSizes(false);
+        }
+      });
+
+    return () => {
+      sizeAbort.abort();
+    };
+  }, [selectedCategoryId, debouncedKeyword]);
+
   const hasActiveFilters =
     Boolean(keyword) ||
     selectedCategoryId !== null ||
@@ -215,6 +255,8 @@ export function useCustomerProducts(
     return {
     products,
     topRatedProducts,
+    availableSizeOptions,
+    loadingSizes,
     loading,
     page,
     pageSize,

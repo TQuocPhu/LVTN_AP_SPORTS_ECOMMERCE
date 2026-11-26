@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { CategoryResponse } from '@/types/category';
-import { Product } from '@/types/product';
+import { Product, VariantSizeOption } from '@/types/product';
 import { formatCurrency } from '@/utils/formatters';
 import { CategoryDirectoryTree } from './CategoryDirectoryTree';
 import { useProductFilterSidebar } from '@/hooks/useProductFilterSidebar';
@@ -14,11 +14,16 @@ import {
   Check,
   Sparkles,
   Trophy,
+  Search,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface ProductFilterSidebarProps {
   categoryTree: CategoryResponse[];
   topRatedProducts?: Product[];
+  availableSizeOptions?: VariantSizeOption[];
+  loadingSizes?: boolean;
   selectedCategoryId: number | null;
   selectedCategoryName: string | null;
   minPrice: number | null;
@@ -32,8 +37,6 @@ interface ProductFilterSidebarProps {
   onSetRating: (rating: number | null) => void;
   onResetFilters: () => void;
 }
-
-const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
 const PRICE_PRESETS = [
   { label: 'Dưới 500k', min: 0, max: 500000 },
@@ -51,6 +54,8 @@ const PRICE_PRESETS = [
 export function ProductFilterSidebar({
   categoryTree,
   topRatedProducts = [],
+  availableSizeOptions = [],
+  loadingSizes = false,
   selectedCategoryId,
   selectedCategoryName,
   minPrice,
@@ -72,9 +77,17 @@ export function ProductFilterSidebar({
     handleApplyPriceInputs,
     collapsedCategoryIds,
     handleToggleCategoryExpand,
+    sizeSearchTerm,
+    setSizeSearchTerm,
+    showAllSizes,
+    handleToggleShowAllSizes,
+    groupedSizeSections,
+    hiddenSizesCount,
   } = useProductFilterSidebar({
     minPrice,
     maxPrice,
+    availableSizeOptions,
+    selectedSizes,
     onSetPriceRange,
   });
 
@@ -250,35 +263,111 @@ export function ProductFilterSidebar({
         </div>
       </div>
 
-      {/* Khối 4: Lọc theo Kích thước (Size Chips - Multi-select) */}
+      {/* Khối 4: Bộ lọc Kích thước & Quy cách Biến thể Động theo Sản phẩm (Hỗ trợ mọi loại biến thể 8oz, 190, 42, XL, 4U...) */}
       <div className="bg-slate-50/70 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Kích Thước (Size)
+            Kích Thước & Quy Cách
           </h4>
           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-            (Chọn nhiều size)
+            ({availableSizeOptions.length} phân loại)
           </span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {AVAILABLE_SIZES.map((size) => {
-            const isSelected = selectedSizes.includes(size);
-            return (
-              <button
-                key={size}
-                type="button"
-                onClick={() => onToggleSize(size)}
-                className={`w-10 h-10 rounded-xl text-xs font-bold border transition-all flex items-center justify-center ${
-                  isSelected
-                    ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20 scale-105'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-orange-500/60 hover:text-orange-600'
-                }`}
-              >
-                {size}
-              </button>
-            );
-          })}
-        </div>
+
+        {/* Ô tìm nhanh kích thước khi số lượng phân loại biến thể lớn (> 10) */}
+        {availableSizeOptions.length > 10 && (
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={sizeSearchTerm}
+              onChange={(e) => setSizeSearchTerm(e.target.value)}
+              placeholder="Tìm kích cỡ (VD: 42, 8oz, 190...)"
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-orange-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            />
+          </div>
+        )}
+
+        {loadingSizes && availableSizeOptions.length === 0 ? (
+          <div className="flex flex-wrap gap-2 py-1">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="h-8 w-14 rounded-xl bg-slate-200 dark:bg-slate-800 animate-pulse"
+              />
+            ))}
+          </div>
+        ) : groupedSizeSections.length === 0 ? (
+          <p className="text-xs text-slate-400 dark:text-slate-500 italic py-1">
+            {sizeSearchTerm
+              ? 'Không tìm thấy kích cỡ khớp từ khóa.'
+              : 'Chưa có biến thể kích thước cho bộ lọc này.'}
+          </p>
+        ) : (
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+            {groupedSizeSections.map((section) => (
+              <div key={section.label} className="space-y-1.5">
+                {groupedSizeSections.length > 1 && (
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    {section.label}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {section.items.map((opt) => {
+                    const isSelected = selectedSizes.some(
+                      (s) => s.toLowerCase() === opt.value.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={`${section.label}-${opt.value}`}
+                        type="button"
+                        onClick={() => onToggleSize(opt.value)}
+                        title={`${opt.dimensionLabel}: ${opt.value} (${opt.productCount} sản phẩm)`}
+                        className={`min-w-[2.75rem] h-8 px-2.5 rounded-xl text-xs font-bold border transition-all inline-flex items-center justify-center gap-1 cursor-pointer ${
+                          isSelected
+                            ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-orange-500/60 hover:text-orange-600 dark:hover:text-orange-400'
+                        }`}
+                      >
+                        <span>{opt.value}</span>
+                        <span
+                          className={`text-[10px] font-medium ${
+                            isSelected
+                              ? 'text-orange-100'
+                              : 'text-slate-400 dark:text-slate-500'
+                          }`}
+                        >
+                          ({opt.productCount})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Nút Xem thêm / Thu gọn khi có nhiều hơn 12 loại biến thể */}
+        {!sizeSearchTerm.trim() && (hiddenSizesCount > 0 || showAllSizes) && availableSizeOptions.length > 12 && (
+          <button
+            type="button"
+            onClick={handleToggleShowAllSizes}
+            className="w-full pt-1.5 border-t border-slate-200/60 dark:border-slate-800 text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline flex items-center justify-center gap-1 cursor-pointer"
+          >
+            {showAllSizes ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Thu gọn danh sách</span>
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span>Xem thêm (+{hiddenSizesCount} phân loại khác)</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Khối 5: Sản phẩm đánh giá cao tiêu biểu (Dữ liệu thật từ Backend) */}

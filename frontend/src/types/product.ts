@@ -108,3 +108,17 @@ export interface PaginatedResponse<T> {
   first?: boolean;
   last?: boolean;
 }
+
+/**
+ * Một tùy chọn kích thước / quy cách biến thể thực tế trích xuất từ tập sản phẩm đang hiển thị.
+ */
+export interface VariantSizeOption {
+  value: string;
+  dimensionLabel: string;
+  productCount: number;
+}
+
+export interface AvailableVariantSizeResponse {
+  options: VariantSizeOption[];
+  totalDistinctOptions: number;
+}

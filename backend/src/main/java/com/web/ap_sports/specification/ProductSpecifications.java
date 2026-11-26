@@ -5,6 +5,7 @@ import com.web.ap_sports.entity.Category;
 import com.web.ap_sports.entity.Product;
 import com.web.ap_sports.entity.ProductVariant;
 import com.web.ap_sports.entity.Review;
+import com.web.ap_sports.enums.ProductVariantStatus;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -67,7 +68,9 @@ public class ProductSpecifications {
                 predicates.add(cb.equal(cb.lower(root.get("unit")), filter.getUnit().trim().toLowerCase()));
             }
 
-            // Variant Size Filter (Supports multi-select comma separated: "S,M,L")
+            // Bộ lọc Kích thước & Quy cách Biến thể động (Hỗ trợ chọn nhiều giá trị cách nhau dấu phẩy: "42,XL,8oz,190,4U")
+            // Kiểm tra khớp chính xác trên cả cột v.size VÀ cặp giá trị JSON trong v.attributes của biến thể ACTIVE,
+            // chống khớp nhầm chuỗi con (VD: lọc "5" tuyệt đối không khớp nhầm "15" hay "50").
             if (StringUtils.hasText(filter.getVariantSize())) {
                 List<String> sizes = List.of(filter.getVariantSize().split(","))
                         .stream()
@@ -78,8 +81,23 @@ public class ProductSpecifications {
                 if (!sizes.isEmpty()) {
                     Subquery<Long> sizeSubquery = query.subquery(Long.class);
                     Root<ProductVariant> variantRoot = sizeSubquery.from(ProductVariant.class);
+
+                    List<Predicate> sizeOrPredicates = new ArrayList<>();
+                    Expression<String> lowerTrimmedSize = cb.lower(cb.trim(variantRoot.get("size")));
+                    Expression<String> lowerAttributes = cb.lower(variantRoot.get("attributes"));
+
+                    sizeOrPredicates.add(lowerTrimmedSize.in(sizes));
+
+                    for (String token : sizes) {
+                        String safeToken = token.replace("%", "\\%").replace("_", "\\_");
+                        // Khớp chính xác giá trị chuỗi trong JSON: {"Kích thước":"8oz"} hoặc {"Trọng lượng": "4U"}
+                        sizeOrPredicates.add(cb.like(lowerAttributes, "%:\"" + safeToken + "\"%", '\\'));
+                        sizeOrPredicates.add(cb.like(lowerAttributes, "%: \"" + safeToken + "\"%", '\\'));
+                    }
+
+                    Predicate activeVariantPred = cb.equal(variantRoot.get("status"), ProductVariantStatus.ACTIVE);
                     sizeSubquery.select(variantRoot.get("product").get("id"))
-                            .where(cb.lower(variantRoot.get("size")).in(sizes));
+                            .where(cb.and(activeVariantPred, cb.or(sizeOrPredicates.toArray(new Predicate[0]))));
 
                     predicates.add(cb.in(root.get("id")).value(sizeSubquery));
                 }

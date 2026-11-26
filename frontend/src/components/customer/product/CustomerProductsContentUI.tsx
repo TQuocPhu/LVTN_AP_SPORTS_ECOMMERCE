@@ -42,6 +42,8 @@ export function CustomerProductsContentUI() {
             <ProductFilterSidebar
               categoryTree={categoryTree}
               topRatedProducts={store.topRatedProducts}
+              availableSizeOptions={store.availableSizeOptions}
+              loadingSizes={store.loadingSizes}
               selectedCategoryId={store.selectedCategoryId}
               selectedCategoryName={store.selectedCategoryName}
               minPrice={store.minPrice}
@@ -146,6 +148,8 @@ export function CustomerProductsContentUI() {
             <ProductFilterSidebar
               categoryTree={categoryTree}
               topRatedProducts={store.topRatedProducts}
+              availableSizeOptions={store.availableSizeOptions}
+              loadingSizes={store.loadingSizes}
               selectedCategoryId={store.selectedCategoryId}
               selectedCategoryName={store.selectedCategoryName}
               minPrice={store.minPrice}

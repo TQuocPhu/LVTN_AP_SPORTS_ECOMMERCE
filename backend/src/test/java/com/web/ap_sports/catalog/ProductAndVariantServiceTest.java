@@ -693,7 +693,7 @@ class ProductAndVariantServiceTest {
 
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
             assertTrue(ex.getMessage().contains("đã phát sinh trong đơn hàng của khách, không thể xóa bỏ"));
-            verify(variantRepository, never()).delete(any());
+            verify(variantRepository, never()).delete(any(ProductVariant.class));
         }
 
         @Test
@@ -716,7 +716,7 @@ class ProductAndVariantServiceTest {
 
             assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
             assertTrue(ex.getMessage().contains("đã phát sinh phiếu nhập/xuất kho, không thể xóa bỏ"));
-            verify(variantRepository, never()).delete(any());
+            verify(variantRepository, never()).delete(any(ProductVariant.class));
         }
 
         @Test
