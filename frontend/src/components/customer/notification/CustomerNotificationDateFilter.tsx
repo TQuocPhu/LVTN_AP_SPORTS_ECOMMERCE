@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Calendar, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { VietnameseDateInput } from '@/components/common/VietnameseDateInput';
 
 interface CustomerNotificationDateFilterProps {
   startDate: string;
@@ -35,25 +36,26 @@ export const CustomerNotificationDateFilter: React.FC<CustomerNotificationDateFi
           <span>Khoảng thời gian:</span>
         </span>
 
-        {/* Start Date */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200">
+        {/* Từ ngày chuẩn Việt Nam (dd/mm/yyyy - hỗ trợ Dark/Light mode) */}
+        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200">
           <span className="text-xs text-slate-400">Từ:</span>
-          <input
-            type="date"
+          <VietnameseDateInput
             value={startDate}
-            onChange={(e) => onStartDateChange(e.target.value)}
-            className="bg-transparent border-none outline-none text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            onChange={onStartDateChange}
+            themeVariant="customer"
+            sizeVariant="bare"
           />
         </div>
 
-        {/* End Date */}
-        <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200">
+        {/* Đến ngày chuẩn Việt Nam (dd/mm/yyyy - hỗ trợ Dark/Light mode) */}
+        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-700 dark:text-slate-200">
           <span className="text-xs text-slate-400">Đến:</span>
-          <input
-            type="date"
+          <VietnameseDateInput
             value={endDate}
-            onChange={(e) => onEndDateChange(e.target.value)}
-            className="bg-transparent border-none outline-none text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+            onChange={onEndDateChange}
+            min={startDate || undefined}
+            themeVariant="customer"
+            sizeVariant="bare"
           />
         </div>
 

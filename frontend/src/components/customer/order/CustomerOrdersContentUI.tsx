@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { VietnameseDateInput } from "@/components/common/VietnameseDateInput";
 import {
   ShoppingBag,
   Search,
@@ -293,36 +294,34 @@ export function CustomerOrdersContentUI() {
               <span>Lọc:</span>
             </div>
 
-            {/* Bộ lọc đơn hàng theo thời gian cụ thể */}
+            {/* Bộ lọc đơn hàng theo thời gian cụ thể chuẩn Việt Nam (dd/mm/yyyy) */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Từ:</span>
-                <input
-                  type="date"
+                <VietnameseDateInput
                   value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
+                  onChange={(val) => {
+                    setStartDate(val);
                     setPage(0);
                   }}
-                  className="bg-transparent text-xs text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer"
-                  title="Lọc đơn hàng từ ngày"
+                  themeVariant="customer"
+                  sizeVariant="bare"
+                  title="Lọc đơn hàng từ ngày (dd/mm/yyyy)"
                 />
               </div>
 
               <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">Đến:</span>
-                <input
-                  type="date"
+                <VietnameseDateInput
                   value={endDate}
                   min={startDate || undefined}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
+                  onChange={(val) => {
+                    setEndDate(val);
                     setPage(0);
                   }}
-                  className="bg-transparent text-xs text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer"
-                  title="Lọc đơn hàng đến ngày"
+                  themeVariant="customer"
+                  sizeVariant="bare"
+                  title="Lọc đơn hàng đến ngày (dd/mm/yyyy)"
                 />
               </div>
 

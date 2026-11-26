@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { VietnameseDateInput } from '@/components/common/VietnameseDateInput';
 import { Search, Filter, RotateCcw, Calendar, DollarSign, ArrowUpDown } from 'lucide-react';
 import { AdminOrderFilterParams } from '@/types/admin-order';
 import {
@@ -110,27 +111,26 @@ export function AdminOrderFilterBar({
           ))}
         </select>
 
-        {/* Start Date */}
+        {/* Từ ngày chuẩn Việt Nam (dd/mm/yyyy) */}
         <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700">
-          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className="text-xs text-slate-400">Từ:</span>
-          <input
-            type="date"
+          <VietnameseDateInput
             value={filters.startDate || ''}
-            onChange={(e) => onFilterChange('startDate', e.target.value)}
-            className="bg-transparent border-none outline-none text-xs font-medium text-slate-700"
+            onChange={(val) => onFilterChange('startDate', val)}
+            themeVariant="admin"
+            sizeVariant="bare"
           />
         </div>
 
-        {/* End Date */}
+        {/* Đến ngày chuẩn Việt Nam (dd/mm/yyyy) */}
         <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700">
-          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className="text-xs text-slate-400">Đến:</span>
-          <input
-            type="date"
+          <VietnameseDateInput
             value={filters.endDate || ''}
-            onChange={(e) => onFilterChange('endDate', e.target.value)}
-            className="bg-transparent border-none outline-none text-xs font-medium text-slate-700"
+            onChange={(val) => onFilterChange('endDate', val)}
+            min={filters.startDate || undefined}
+            themeVariant="admin"
+            sizeVariant="bare"
           />
         </div>
 

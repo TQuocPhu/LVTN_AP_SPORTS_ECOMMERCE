@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Spacing, BorderRadius, Typography } from '../../config/theme';
 import { Order } from '../../types';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { formatDateVi } from '../../utils/formatDate';
 import { useTheme } from '../../context/ThemeContext';
 
 interface OrderCardProps {
@@ -40,7 +41,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({ order, badge, onPress }) =
       <View style={styles.body}>
         <Text style={[styles.countText, { color: colors.textMuted }]}>
           {order.items?.length || 1} sản phẩm • Ngày đặt:{' '}
-          {new Date(order.createdAt).toLocaleDateString('vi-VN')}
+          {formatDateVi(order.createdAt)}
         </Text>
         {order.trackingCode && (
           <Text style={[styles.trackingText, { color: colors.secondary }]}>

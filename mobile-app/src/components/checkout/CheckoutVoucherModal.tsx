@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Spacing, BorderRadius, Typography } from '../../config/theme';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { formatDateVi } from '../../utils/formatDate';
 import {
   CheckoutVoucherTab,
   CheckoutEligibleVoucher,
@@ -63,11 +64,7 @@ export const CheckoutVoucherModal: React.FC<CheckoutVoucherModalProps> = ({
 
   const formatExpiry = (dateStr?: string) => {
     if (!dateStr) return 'Không giới hạn';
-    return new Date(dateStr).toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    return formatDateVi(dateStr, 'Không giới hạn');
   };
 
   return (

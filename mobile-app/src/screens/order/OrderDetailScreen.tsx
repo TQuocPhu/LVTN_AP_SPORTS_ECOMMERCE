@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/types';
 import { Colors, Spacing, BorderRadius, Typography } from '../../config/theme';
 import { formatCurrency } from '../../utils/formatCurrency';
+import { formatDateTimeVi } from '../../utils/formatDate';
 import { Header } from '../../components/common/Header';
 import { useOrderDetail } from '../../hooks/useOrderDetail';
 import { OrderDetailItems } from '../../components/order/OrderDetailItems';
@@ -68,6 +69,11 @@ export const OrderDetailScreen: React.FC = () => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.statusCode, { color: colors.text }]}>#{order.orderCode}</Text>
+                {order.createdAt ? (
+                  <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                    Ngày đặt: {formatDateTimeVi(order.createdAt)}
+                  </Text>
+                ) : null}
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                   <View style={{ backgroundColor: orderStatusBadge.bg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
                     <Text style={{ color: orderStatusBadge.text, fontSize: 12, fontWeight: '700' }}>

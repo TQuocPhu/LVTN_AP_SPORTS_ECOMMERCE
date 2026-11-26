@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Spacing, BorderRadius, Typography } from '../../config/theme';
+import { formatDateVi } from '../../utils/formatDate';
 
 interface ReviewItemData {
   id: number;
@@ -182,7 +183,7 @@ export const ProductReviewsSection: React.FC<ProductReviewsSectionProps> = ({
                   </View>
 
                   <Text style={[styles.dateText, { color: colors.textMuted }]}>
-                    {new Date(item.createdAt).toLocaleDateString('vi-VN')}
+                    {formatDateVi(item.createdAt)}
                   </Text>
                 </View>
 

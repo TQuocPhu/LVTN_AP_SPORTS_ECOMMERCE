@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Calendar, ArrowUpDown, RotateCcw } from 'lucide-react';
+import { VietnameseDateInput } from '@/components/common/VietnameseDateInput';
 
 interface AdminNotificationDateFilterProps {
   startDate: string;
@@ -35,25 +36,26 @@ export const AdminNotificationDateFilter: React.FC<AdminNotificationDateFilterPr
           <span>Khoảng thời gian:</span>
         </span>
 
-        {/* Start Date */}
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700">
+        {/* Từ ngày (dd/mm/yyyy) */}
+        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700">
           <span className="text-xs text-slate-400">Từ:</span>
-          <input
-            type="date"
+          <VietnameseDateInput
             value={startDate}
-            onChange={(e) => onStartDateChange(e.target.value)}
-            className="bg-transparent border-none outline-none text-xs font-medium text-slate-700 cursor-pointer"
+            onChange={onStartDateChange}
+            themeVariant="admin"
+            sizeVariant="bare"
           />
         </div>
 
-        {/* End Date */}
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700">
+        {/* Đến ngày (dd/mm/yyyy) */}
+        <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700">
           <span className="text-xs text-slate-400">Đến:</span>
-          <input
-            type="date"
+          <VietnameseDateInput
             value={endDate}
-            onChange={(e) => onEndDateChange(e.target.value)}
-            className="bg-transparent border-none outline-none text-xs font-medium text-slate-700 cursor-pointer"
+            onChange={onEndDateChange}
+            min={startDate || undefined}
+            themeVariant="admin"
+            sizeVariant="bare"
           />
         </div>
 
