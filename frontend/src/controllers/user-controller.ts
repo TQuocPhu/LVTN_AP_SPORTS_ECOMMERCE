@@ -35,6 +35,23 @@ export const userController = {
   },
 
   /**
+   * Xuất toàn bộ tài khoản người dùng khớp bộ lọc hiện tại (không phân trang, chỉ ADMIN).
+   */
+  async exportAdminUsers(params: UserFilterParams): Promise<ApiResponse<UserAccount[]>> {
+    const queryParams = new URLSearchParams();
+    if (params.keyword) queryParams.append('keyword', params.keyword);
+    if (params.role) queryParams.append('role', params.role);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortDir) queryParams.append('sortDir', params.sortDir);
+
+    return apiClient.get<ApiResponse<UserAccount[]>>(
+      `/admin/users/export?${queryParams.toString()}`,
+      { suppressErrorToast: true }
+    );
+  },
+
+  /**
    * Lấy thông tin chi tiết cá nhân và danh sách địa chỉ giao hàng của tài khoản.
    */
   async getAdminUserDetail(id: number): Promise<ApiResponse<UserAccount>> {

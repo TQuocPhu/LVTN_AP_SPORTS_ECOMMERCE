@@ -7,6 +7,7 @@ import { UserFilterBar } from './UserFilterBar';
 import { UserTable } from './UserTable';
 import { UserDetailModal } from './UserDetailModal';
 import { CreateStaffModal } from './CreateStaffModal';
+import { AdminExportExcelButton } from '@/components/admin/common/AdminExportExcelButton';
 
 export function AdminUsersContentUI() {
   const {
@@ -18,6 +19,8 @@ export function AdminUsersContentUI() {
     isCreateStaffModalOpen,
     selectedUser,
     detailLoading,
+    isExporting,
+    handleExportExcel,
     handleKeywordChange,
     handleRoleChange,
     handleStatusChange,
@@ -59,6 +62,12 @@ export function AdminUsersContentUI() {
             <ShieldCheck className="w-4 h-4 text-amber-600" />
             <span>Tổng số tài khoản: <strong>{pageData.totalElements || 0}</strong></span>
           </div>
+
+          <AdminExportExcelButton
+            onClick={handleExportExcel}
+            isExporting={isExporting}
+            disabled={isLoading}
+          />
 
           <button
             onClick={() => refresh()}

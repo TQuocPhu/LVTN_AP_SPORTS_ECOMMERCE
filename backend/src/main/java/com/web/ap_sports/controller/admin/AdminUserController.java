@@ -22,6 +22,8 @@ public class AdminUserController {
 
     private final AdminUserService adminUserService;
 
+    private static final int MAX_EXPORT_ROWS = 5000;
+
     /**
      * Lấy danh sách tài khoản người dùng có phân trang, tìm kiếm từ khóa và lọc đa tiêu chí.
      * Tài khoản ADMIN luôn đứng ở vị trí đầu tiên.
@@ -38,6 +40,23 @@ public class AdminUserController {
     ) {
         Page<UserAdminResponse> userPage = adminUserService.getUsers(keyword, role, status, sortBy, sortDir, page, size);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tài khoản người dùng thành công!", userPage));
+    }
+
+    /**
+     * API xuất toàn bộ tài khoản người dùng khớp bộ lọc (không phân trang, tối đa 5.000 dòng, chỉ ADMIN).
+     */
+    @GetMapping("/export")
+    public ResponseEntity<ApiResponse<java.util.List<UserAdminResponse>>> exportUsers(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "ALL") String role,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false, defaultValue = "DESC") String sortDir
+    ) {
+        java.util.List<UserAdminResponse> users = adminUserService
+                .getUsers(keyword, role, status, sortBy, sortDir, 0, MAX_EXPORT_ROWS)
+                .getContent();
+        return ResponseEntity.ok(ApiResponse.success("Xuất danh sách tài khoản thành công!", users));
     }
 
     /**

@@ -11,6 +11,8 @@ import {
 } from "@/types/inventory";
 import { warehouseInventoryController } from "@/controllers/warehouse-inventory-controller";
 import { toast } from "sonner";
+import { useExcelExport } from "@/hooks/useExcelExport";
+import { downloadStyledExcelWorkbook } from "@/utils/excelExportBuilder";
 
 export function useWarehouseInventory() {
   const [stats, setStats] = useState<InventoryOverviewStats | null>(null);
@@ -323,6 +325,55 @@ export function useWarehouseInventory() {
     }
   };
 
+  const { isExporting, runExport } = useExcelExport();
+
+  /**
+   * Xuất toàn bộ lịch sử giao dịch kho khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng) ra file Excel (.xlsx).
+   */
+  const handleExportTransactionsExcel = useCallback(() => {
+    runExport(async () => {
+      const res = await warehouseInventoryController.exportTransactions(
+        typeFilter,
+        supplierFilter,
+        keyword || undefined,
+        fromDate || undefined,
+        toDate || undefined
+      );
+      const rows = res.data || [];
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadStyledExcelWorkbook(`Lich_Su_Giao_Dich_Kho_${dateStr}.xlsx`, [
+        {
+          sheetName: 'Giao dich kho',
+          title: 'LỊCH SỬ GIAO DỊCH NHẬP - XUẤT - KIỂM KÊ KHO',
+          filterSummary: `Loại: ${typeFilter || 'Tất cả'} | Từ: ${fromDate || '---'} đến ${toDate || '---'}`,
+          columns: [
+            { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+            { header: 'Mã phiếu', key: 'transactionCode', type: 'text', valueGetter: (t) => t.transactionCode || `TX-${t.id}` },
+            { header: 'Loại phiếu', key: 'type', type: 'text' },
+            { header: 'Ngày tạo', key: 'createdAt', type: 'datetime' },
+            { header: 'Người thực hiện', key: 'createdByName', type: 'text', valueGetter: (t) => t.createdByName || '---' },
+            { header: 'Nhà cung cấp', key: 'supplierName', type: 'text', valueGetter: (t) => t.supplierName || '---' },
+            {
+              header: 'Chi tiết biến thể & SL',
+              key: 'itemsSummary',
+              type: 'text',
+              width: 42,
+              valueGetter: (t) =>
+                t.items && t.items.length > 0
+                  ? t.items.map((i: any) => `${i.variantSku || i.productName} x${i.quantity}`).join('; ')
+                  : `${t.variantSku || t.productName || '---'} x${t.quantity || 0}`,
+            },
+            { header: 'Tổng SL', key: 'quantity', type: 'number' },
+            { header: 'Tổng giá trị', key: 'totalAmount', type: 'currency' },
+            { header: 'Ghi chú', key: 'note', type: 'text', valueGetter: (t) => t.note || '---' },
+          ],
+          rows,
+        },
+      ]);
+      return rows.length;
+    });
+  }, [typeFilter, supplierFilter, keyword, fromDate, toDate, runExport]);
+
   return {
     stats,
     transactions,
@@ -365,6 +416,8 @@ export function useWarehouseInventory() {
     setIsExportModalOpen,
     isAdjustModalOpen,
     setIsAdjustModalOpen,
+    isExporting,
+    handleExportTransactionsExcel,
   };
 }
 

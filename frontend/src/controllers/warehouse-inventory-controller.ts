@@ -48,6 +48,33 @@ export const warehouseInventoryController = {
     );
   },
 
+  /**
+   * Xuất toàn bộ lịch sử giao dịch kho khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng)
+   */
+  async exportTransactions(
+    type?: TransactionType,
+    supplierId?: number,
+    keyword?: string,
+    fromDate?: string,
+    toDate?: string,
+    sortBy = 'createdAt',
+    sortDir: 'ASC' | 'DESC' = 'DESC'
+  ): Promise<ApiResponse<InventoryTransaction[]>> {
+    const searchParams = new URLSearchParams();
+    if (type) searchParams.append('type', type);
+    if (supplierId) searchParams.append('supplierId', supplierId.toString());
+    if (keyword) searchParams.append('keyword', keyword);
+    if (fromDate) searchParams.append('fromDate', fromDate);
+    if (toDate) searchParams.append('toDate', toDate);
+    searchParams.append('sortBy', sortBy);
+    searchParams.append('sortDir', sortDir);
+
+    return apiClient.get<ApiResponse<InventoryTransaction[]>>(
+      `/warehouse/inventory/transactions/export?${searchParams.toString()}`,
+      { suppressErrorToast: true }
+    );
+  },
+
   async getTransactionById(id: number): Promise<ApiResponse<InventoryTransaction>> {
     return apiClient.get<ApiResponse<InventoryTransaction>>(`/warehouse/inventory/transactions/${id}`);
   },

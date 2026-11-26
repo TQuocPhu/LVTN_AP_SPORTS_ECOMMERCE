@@ -8,6 +8,7 @@ import {
 } from '@/types/report';
 import { AdminOrderDetail } from '@/types/admin-order';
 import { formatCurrency, formatDate } from '@/utils/formatters';
+import { downloadStyledExcelWorkbook, ExcelSheetConfig } from '@/utils/excelExportBuilder';
 
 export interface EnterpriseReportExportParams {
   activeTab: ReportTabType;
@@ -104,9 +105,9 @@ function downloadCsvWithBom(csvContent: string, fileName: string): void {
 }
 
 // ============================================================================
-// 1. XUẤT CSV BÁO CÁO QUẢN TRỊ ADMIN (ĐẦY ĐỦ THÔNG SỐ VÀ KHÔNG LỖI FONT TIẾNG VIỆT)
+// 1. XUẤT EXCEL (.XLSX) BÁO CÁO QUẢN TRỊ ADMIN ĐA SHEET CHUYÊN NGHIỆP
 // ============================================================================
-export function exportEnterpriseReportToCSV({
+export async function exportEnterpriseReportToCSV({
   activeTab,
   timeRange,
   startDate,
@@ -116,280 +117,192 @@ export function exportEnterpriseReportToCSV({
   warehouseData,
   merchandiseData,
   currentUserName = 'Quản trị viên',
-}: EnterpriseReportExportParams): void {
+}: EnterpriseReportExportParams): Promise<void> {
   const now = new Date();
   const timeRangeText = getFriendlyTimeRangeLabel(timeRange, startDate, endDate);
   const title = getReportTabTitle(activeTab);
-  const exportDateStr = formatDate(now);
-
-  const lines: string[] = [];
-
-  // Metadata Header chung
-  lines.push('CÔNG TY TNHH THỂ THAO AP SPORTS - HỆ THỐNG QUẢN TRỊ DOANH NGHIỆP');
-  lines.push(title);
-  lines.push(`Kỳ báo cáo:,${escapeCsv(timeRangeText)}`);
-  lines.push(`Thời gian trích xuất:,${escapeCsv(exportDateStr)}`);
-  lines.push(`Người lập báo cáo:,${escapeCsv(currentUserName)}`);
-  lines.push(''); // Dòng trống
+  const sheets: ExcelSheetConfig[] = [];
 
   if (activeTab === 'overview' && overviewData) {
-    // 1. Khối KPI cốt lõi
-    lines.push('--- I. BẢNG TỔNG HỢP CHỈ SỐ DOANH THU & DÒNG TIỀN ---');
-    lines.push(`Tổng doanh thu hoàn thành (VND):,${overviewData.totalDeliveredRevenue}`);
-    lines.push(`Tổng doanh thu gộp (VND):,${overviewData.totalGrossRevenue}`);
-    lines.push(`Doanh thu thuần (Trừ Voucher - VND):,${overviewData.totalNetRevenue}`);
-    lines.push(`Tổng giá trị Voucher giảm giá (VND):,${overviewData.totalDiscountAmount}`);
-    lines.push(`Tổng phí vận chuyển thu hộ (VND):,${overviewData.totalShippingFee}`);
-    lines.push(`Tổng số đơn hàng phát sinh:,${overviewData.totalOrders}`);
-    lines.push(`Số đơn hàng hoàn thành thành công:,${overviewData.completedOrders}`);
-    lines.push(`Số đơn hàng đang trên đường giao:,${overviewData.deliveringOrders}`);
-    lines.push(`Số đơn hàng đã bị hủy:,${overviewData.cancelledOrders}`);
-    lines.push(`Số đơn hàng trả hàng/hoàn tiền:,${overviewData.returnedOrders}`);
-    lines.push(`Tỷ lệ giao hàng thành công:,${overviewData.successRate}%`);
-    lines.push(`Tỷ lệ hủy đơn hàng:,${overviewData.cancellationRate}%`);
-    lines.push(`Giá trị đơn hàng trung bình (AOV - VND):,${overviewData.averageOrderValue}`);
-    lines.push(`Dòng tiền mặt thu hộ (COD - VND):,${overviewData.cashPaymentRevenue}`);
-    lines.push(`Dòng tiền trực tuyến cổng VNPay (VND):,${overviewData.vnpayPaymentRevenue}`);
-    lines.push('');
-
-    // 2. Bảng chuỗi thời gian chi tiết
-    lines.push('--- II. BẢNG CHI TIẾT THEO CHUỖI THỜI GIAN ---');
-    lines.push('STT,Ngày,Nhãn Thời Gian,Doanh Thu Hoàn Thành (VND),Tổng Đơn Phát Sinh,Đơn Hoàn Thành,Đơn Bị Hủy');
-
-    let sumRevenue = 0;
-    let sumTotalOrders = 0;
-    let sumCompleted = 0;
-    let sumCancelled = 0;
-
-    (overviewData.timeSeries || []).forEach((pt, idx) => {
-      sumRevenue += pt.revenue || 0;
-      sumTotalOrders += pt.orderCount || 0;
-      sumCompleted += pt.completedCount || 0;
-      sumCancelled += pt.cancelledCount || 0;
-
-      lines.push(
-        [
-          idx + 1,
-          escapeCsv(pt.date),
-          escapeCsv(pt.label),
-          pt.revenue || 0,
-          pt.orderCount || 0,
-          pt.completedCount || 0,
-          pt.cancelledCount || 0,
-        ].join(',')
-      );
+    sheets.push({
+      sheetName: 'Doanh thu theo thoi gian',
+      title,
+      filterSummary: timeRangeText,
+      exportedBy: currentUserName,
+      summaryRows: [
+        { label: 'Tổng doanh thu hoàn thành', value: overviewData.totalDeliveredRevenue || 0, type: 'currency' },
+        { label: 'Tổng doanh thu gộp', value: overviewData.totalGrossRevenue || 0, type: 'currency' },
+        { label: 'Doanh thu thuần (trừ Voucher)', value: overviewData.totalNetRevenue || 0, type: 'currency' },
+        { label: 'Tổng giá trị Voucher giảm giá', value: overviewData.totalDiscountAmount || 0, type: 'currency' },
+        { label: 'Tổng phí vận chuyển thu hộ', value: overviewData.totalShippingFee || 0, type: 'currency' },
+        { label: 'Tổng số đơn phát sinh', value: overviewData.totalOrders || 0, type: 'number' },
+        { label: 'Đơn hoàn thành', value: overviewData.completedOrders || 0, type: 'number' },
+        { label: 'Đơn đang giao', value: overviewData.deliveringOrders || 0, type: 'number' },
+        { label: 'Đơn bị hủy', value: overviewData.cancelledOrders || 0, type: 'number' },
+        { label: 'Đơn trả hàng/hoàn tiền', value: overviewData.returnedOrders || 0, type: 'number' },
+        { label: 'Tỷ lệ giao hàng thành công', value: overviewData.successRate || 0, type: 'percent' },
+        { label: 'Tỷ lệ hủy đơn', value: overviewData.cancellationRate || 0, type: 'percent' },
+        { label: 'Giá trị đơn trung bình (AOV)', value: overviewData.averageOrderValue || 0, type: 'currency' },
+        { label: 'Doanh thu COD', value: overviewData.cashPaymentRevenue || 0, type: 'currency' },
+        { label: 'Doanh thu VNPay', value: overviewData.vnpayPaymentRevenue || 0, type: 'currency' },
+      ],
+      columns: [
+        { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+        { header: 'Ngày', key: 'date', type: 'text', width: 16 },
+        { header: 'Nhãn thời gian', key: 'label', type: 'text', width: 20 },
+        { header: 'Doanh thu hoàn thành', key: 'revenue', type: 'currency' },
+        { header: 'Tổng đơn phát sinh', key: 'orderCount', type: 'number' },
+        { header: 'Đơn hoàn thành', key: 'completedCount', type: 'number' },
+        { header: 'Đơn bị hủy', key: 'cancelledCount', type: 'number' },
+      ],
+      rows: overviewData.timeSeries || [],
     });
-
-    lines.push(`TỔNG CỘNG,---,---,${sumRevenue},${sumTotalOrders},${sumCompleted},${sumCancelled}`);
   } else if (activeTab === 'staff') {
-    lines.push('--- I. BẢNG XẾP HẠNG DOANH SỐ & HIỆU SUẤT NHÂN VIÊN ---');
-    lines.push(
-      'Thứ Hạng,Mã Nhân Viên,Họ Và Tên,Email,Vai Trò,Đơn Tiếp Nhận,Đơn Thành Công,Đơn Đang Giao,Đơn Bị Hủy,Tỷ Lệ Thành Công (%),Tỷ Lệ Hủy (%),Doanh Thu Mang Lại (VND),AOV (VND),Tỷ Lệ Hoa Hồng (%),Hoa Hồng Ước Tính (VND),Thưởng KPI (VND),Tổng Thu Nhập Dự Kiến (VND),Xếp Loại Năng Lực'
-    );
-
-    let totalHandledAll = 0;
-    let totalCompletedAll = 0;
-    let totalDeliveredRevenueAll = 0;
-    let totalCommissionAll = 0;
-    let totalKpiBonusAll = 0;
-    let totalEarningsAll = 0;
-
-    staffPerformance.forEach((s, idx) => {
-      totalHandledAll += s.totalHandledOrders || 0;
-      totalCompletedAll += s.completedOrders || 0;
-      totalDeliveredRevenueAll += s.deliveredRevenue || 0;
-      totalCommissionAll += s.estimatedCommission || 0;
-      totalKpiBonusAll += s.kpiBonus || 0;
-      totalEarningsAll += s.totalEstimatedEarnings || 0;
-
-      lines.push(
-        [
-          idx + 1,
-          escapeCsv(s.employeeCode),
-          escapeCsv(s.staffName),
-          escapeCsv(s.staffEmail),
-          escapeCsv(s.staffRole),
-          s.totalHandledOrders || 0,
-          s.completedOrders || 0,
-          s.deliveringOrders || 0,
-          s.cancelledOrders || 0,
-          `${s.successRate || 0}%`,
-          `${s.cancellationRate || 0}%`,
-          s.deliveredRevenue || 0,
-          s.averageOrderValue || 0,
-          `${s.commissionRate || 0}%`,
-          s.estimatedCommission || 0,
-          s.kpiBonus || 0,
-          s.totalEstimatedEarnings || 0,
-          escapeCsv(s.performanceBadge || 'STANDARD'),
-        ].join(',')
-      );
+    sheets.push({
+      sheetName: 'Don hang nhan vien',
+      title,
+      filterSummary: timeRangeText,
+      exportedBy: currentUserName,
+      columns: [
+        { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+        { header: 'Mã NV', key: 'employeeCode', type: 'text' },
+        { header: 'Họ và tên', key: 'staffName', type: 'text' },
+        { header: 'Email', key: 'staffEmail', type: 'text' },
+        { header: 'Đơn tiếp nhận', key: 'totalHandledOrders', type: 'number' },
+        { header: 'Đơn thành công', key: 'completedOrders', type: 'number' },
+        { header: 'Đơn đang giao', key: 'deliveringOrders', type: 'number' },
+        { header: 'Đơn bị hủy', key: 'cancelledOrders', type: 'number' },
+        { header: 'Tỷ lệ thành công', key: 'successRate', type: 'percent' },
+        { header: 'Doanh thu mang lại', key: 'deliveredRevenue', type: 'currency' },
+      ],
+      rows: staffPerformance || [],
     });
-
-    lines.push(
-      `TỔNG CỘNG,---,${staffPerformance.length} Nhân viên,---,---,${totalHandledAll},${totalCompletedAll},---,---,---,---,${totalDeliveredRevenueAll},---,---,${totalCommissionAll},${totalKpiBonusAll},${totalEarningsAll},---`
-    );
   } else if (activeTab === 'warehouse' && warehouseData) {
-    // 1. Chỉ số tồn kho
-    lines.push('--- I. TỔNG QUAN TỒN KHO & GIÁ TRỊ VỐN ---');
-    lines.push(`Tổng giá trị vốn tồn kho (VND):,${warehouseData.totalInventoryValue || 0}`);
-    lines.push(`Tổng số lượng tồn kho (Sản phẩm):,${warehouseData.totalStockQuantity || 0}`);
-    lines.push(`Số biến thể sắp hết hàng (<10 cái):,${warehouseData.lowStockVariantCount || 0}`);
-    lines.push(`Số biến thể đã hết hàng (=0 cái):,${warehouseData.outOfStockVariantCount || 0}`);
-    lines.push('');
-
-    // 2. Cân đối xuất nhập
-    lines.push('--- II. CÂN ĐỐI LƯU THÔNG NHẬP - XUẤT KHO TRONG KỲ ---');
-    lines.push(`Tổng số lượng nhập kho (Phiếu PNK):,${warehouseData.inboundQuantityInPeriod || 0}`);
-    lines.push(`Tổng số lượng xuất kho toàn bộ:,${warehouseData.outboundQuantityInPeriod || 0}`);
-    lines.push(`Xuất bán đơn hàng (GHN Logistics):,${warehouseData.orderOutboundQuantity || 0}`);
-    lines.push(`Xuất nội bộ / Xuất kho thủ công (Phiếu PXK):,${warehouseData.manualOutboundQuantity || 0}`);
-    const netFlow =
-      (warehouseData.inboundQuantityInPeriod || 0) - (warehouseData.outboundQuantityInPeriod || 0);
-    lines.push(`Chênh lệch luân chuyển ròng (Nhập - Xuất):,${netFlow}`);
-    lines.push('');
-
-    // 3. Danh sách cảnh báo hàng tồn
-    lines.push('--- III. DANH SÁCH BIẾN THỂ CẦN BỔ SUNG GẤP (SẮP HẾT & HẾT HÀNG) ---');
-    lines.push('STT,Mã SKU,Tên Sản Phẩm,Kích Cỡ,Màu Sắc,Tồn Kho Hiện Tại,Giá Bán Niêm Yết (VND),Giá Vốn Nhập (VND),Tổng Giá Trị Vốn Tồn (VND),Tình Trạng');
-
-    (warehouseData.lowStockVariants || []).forEach((v, idx) => {
-      const variantCostTotal = (v.stockQuantity || 0) * (v.costPrice || 0);
-      const statusText = v.stockQuantity === 0 ? 'HẾT HÀNG' : 'SẮP HẾT HÀNG';
-      lines.push(
-        [
-          idx + 1,
-          escapeCsv(v.sku),
-          escapeCsv(v.productName),
-          escapeCsv(v.size || 'Mặc định'),
-          escapeCsv(v.color || 'Mặc định'),
-          v.stockQuantity || 0,
-          v.price || 0,
-          v.costPrice || 0,
-          variantCostTotal,
-          escapeCsv(statusText),
-        ].join(',')
-      );
+    const netFlow = (warehouseData.inboundQuantityInPeriod || 0) - (warehouseData.outboundQuantityInPeriod || 0);
+    sheets.push({
+      sheetName: 'Ton kho sap het',
+      title,
+      filterSummary: timeRangeText,
+      exportedBy: currentUserName,
+      summaryRows: [
+        { label: 'Tổng giá trị vốn tồn kho', value: warehouseData.totalInventoryValue || 0, type: 'currency' },
+        { label: 'Tổng số lượng tồn kho', value: warehouseData.totalStockQuantity || 0, type: 'number' },
+        { label: 'Biến thể sắp hết (<10 cái)', value: warehouseData.lowStockVariantCount || 0, type: 'number' },
+        { label: 'Biến thể hết hàng (=0 cái)', value: warehouseData.outOfStockVariantCount || 0, type: 'number' },
+        { label: 'Tổng SL nhập kho trong kỳ', value: warehouseData.inboundQuantityInPeriod || 0, type: 'number' },
+        { label: 'Tổng SL xuất kho trong kỳ', value: warehouseData.outboundQuantityInPeriod || 0, type: 'number' },
+        { label: 'Chênh lệch luân chuyển (Nhập - Xuất)', value: netFlow, type: 'number' },
+      ],
+      columns: [
+        { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+        { header: 'Mã SKU', key: 'sku', type: 'text' },
+        { header: 'Tên sản phẩm', key: 'productName', type: 'text' },
+        { header: 'Kích cỡ', key: 'size', type: 'text', valueGetter: (r) => r.size || 'Mặc định' },
+        { header: 'Màu sắc', key: 'color', type: 'text', valueGetter: (r) => r.color || 'Mặc định' },
+        { header: 'Tồn kho hiện tại', key: 'stockQuantity', type: 'number' },
+        { header: 'Giá bán niêm yết', key: 'price', type: 'currency' },
+        { header: 'Giá vốn nhập', key: 'costPrice', type: 'currency' },
+        {
+          header: 'Tổng giá trị vốn tồn',
+          key: 'variantCostTotal',
+          type: 'currency',
+          valueGetter: (r) => (r.stockQuantity || 0) * (r.costPrice || 0),
+        },
+        {
+          header: 'Tình trạng',
+          key: 'statusText',
+          type: 'text',
+          valueGetter: (r) => (r.stockQuantity === 0 ? 'HẾT HÀNG' : 'SẮP HẾT HÀNG'),
+        },
+      ],
+      rows: warehouseData.lowStockVariants || [],
     });
   } else if (activeTab === 'merchandise' && merchandiseData) {
-    // 1. Top sản phẩm
-    lines.push('--- I. TOP 10 SẢN PHẨM BÁN CHẠY NHẤT ---');
-    lines.push('Thứ Hạng,Mã SP,Tên Sản Phẩm,Đường Dẫn Slug,Số Lượng Bán (Cái),Doanh Thu Mang Lại (VND),Đơn Giá Bán Trung Bình (VND)');
-
-    let topSoldTotal = 0;
-    let topRevTotal = 0;
-
-    (merchandiseData.topProducts || []).forEach((p, idx) => {
-      topSoldTotal += p.totalQuantitySold || 0;
-      topRevTotal += p.totalRevenue || 0;
-      const avgPrice = p.totalQuantitySold > 0 ? Math.round(p.totalRevenue / p.totalQuantitySold) : 0;
-
-      lines.push(
-        [
-          idx + 1,
-          p.productId,
-          escapeCsv(p.productName),
-          escapeCsv(p.slug),
-          p.totalQuantitySold || 0,
-          p.totalRevenue || 0,
-          avgPrice,
-        ].join(',')
-      );
+    sheets.push({
+      sheetName: 'Top san pham ban chay',
+      title: 'TOP SẢN PHẨM BÁN CHẠY NHẤT',
+      filterSummary: timeRangeText,
+      exportedBy: currentUserName,
+      columns: [
+        { header: 'Thứ hạng', key: 'rank', type: 'number', width: 10, valueGetter: (_r, idx) => idx + 1 },
+        { header: 'Mã SP', key: 'productId', type: 'number', width: 10 },
+        { header: 'Tên sản phẩm', key: 'productName', type: 'text' },
+        { header: 'Slug', key: 'slug', type: 'text' },
+        { header: 'Số lượng bán', key: 'totalQuantitySold', type: 'number' },
+        { header: 'Doanh thu mang lại', key: 'totalRevenue', type: 'currency' },
+        {
+          header: 'Đơn giá bán TB',
+          key: 'avgPrice',
+          type: 'currency',
+          valueGetter: (p) => (p.totalQuantitySold > 0 ? Math.round(p.totalRevenue / p.totalQuantitySold) : 0),
+        },
+      ],
+      rows: merchandiseData.topProducts || [],
     });
 
-    lines.push(`TỔNG CỘNG TOP 10,---,---,---,${topSoldTotal},${topRevTotal},---`);
-    lines.push('');
-
-    // 2. Cơ cấu danh mục
-    lines.push('--- II. CƠ CẤU DOANH THU THEO DANH MỤC NGÀNH HÀNG ---');
-    lines.push('STT,Mã Danh Mục,Tên Ngành Hàng,Số Lượng Đã Bán (Cái),Doanh Thu (VND),Tỷ Trọng (%)');
-
-    let catSoldTotal = 0;
-    let catRevTotal = 0;
-
-    (merchandiseData.categoryBreakdown || []).forEach((c, idx) => {
-      catSoldTotal += c.totalQuantitySold || 0;
-      catRevTotal += c.totalRevenue || 0;
-
-      lines.push(
-        [
-          idx + 1,
-          c.categoryId,
-          escapeCsv(c.categoryName),
-          c.totalQuantitySold || 0,
-          c.totalRevenue || 0,
-          `${c.percentage || 0}%`,
-        ].join(',')
-      );
+    sheets.push({
+      sheetName: 'Co cau danh muc',
+      title: 'CƠ CẤU DOANH THU THEO DANH MỤC',
+      filterSummary: timeRangeText,
+      exportedBy: currentUserName,
+      columns: [
+        { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+        { header: 'Mã danh mục', key: 'categoryId', type: 'number', width: 14 },
+        { header: 'Tên ngành hàng', key: 'categoryName', type: 'text' },
+        { header: 'Số lượng đã bán', key: 'totalQuantitySold', type: 'number' },
+        { header: 'Doanh thu', key: 'totalRevenue', type: 'currency' },
+        { header: 'Tỷ trọng', key: 'percentage', type: 'percent' },
+      ],
+      rows: merchandiseData.categoryBreakdown || [],
     });
-
-    lines.push(`TỔNG CỘNG TẤT CẢ DANH MỤC,---,---,${catSoldTotal},${catRevTotal},100%`);
   }
 
-  const csvContent = lines.join('\r\n');
-  const fileName = `Bao_Cao_${activeTab.toUpperCase()}_${timeRange}_${now.toISOString().slice(0, 10)}.csv`;
-  downloadCsvWithBom(csvContent, fileName);
+  if (sheets.length === 0) return;
+  const fileName = `Bao_Cao_${activeTab.toUpperCase()}_${timeRange}_${now.toISOString().slice(0, 10)}.xlsx`;
+  await downloadStyledExcelWorkbook(fileName, sheets);
 }
 
 // ============================================================================
-// 2. XUẤT CSV BÁO CÁO CÁ NHÂN CHO NHÂN VIÊN BÁN HÀNG
+// 2. XUẤT EXCEL (.XLSX) BÁO CÁO ĐƠN HÀNG PHỤ TRÁCH CỦA NHÂN VIÊN (ĐÃ ẨN HOA HỒNG)
 // ============================================================================
-export function exportStaffPersonalReportToCSV({
+export async function exportStaffPersonalReportToCSV({
   timeRange,
   performance,
-  revenue,
   myOrders,
   staffName = 'Nhân viên kinh doanh',
-}: StaffPersonalExportParams): void {
+}: StaffPersonalExportParams): Promise<void> {
   const now = new Date();
   const timeRangeText = getFriendlyTimeRangeLabel(timeRange);
-  const exportDateStr = formatDate(now);
 
-  const lines: string[] = [];
-  lines.push('CÔNG TY TNHH THỂ THAO AP SPORTS');
-  lines.push('BẢNG KÊ THU NHẬP & HIỆU SUẤT BÁN HÀNG CÁ NHÂN');
-  lines.push(`Nhân viên:,${escapeCsv(staffName)} (${escapeCsv(performance?.employeeCode || 'NV')})`);
-  lines.push(`Kỳ báo cáo:,${escapeCsv(timeRangeText)}`);
-  lines.push(`Ngày trích xuất:,${escapeCsv(exportDateStr)}`);
-  lines.push('');
-
-  lines.push('--- I. THÔNG SỐ HIỆU SUẤT VÀ THU NHẬP DỰ KIẾN ---');
-  lines.push(`Tổng số đơn hàng tiếp nhận xử lý:,${performance?.totalHandledOrders || 0}`);
-  lines.push(`Số đơn hàng hoàn thành thành công:,${performance?.completedOrders || 0}`);
-  lines.push(`Số đơn hàng đang giao:,${performance?.deliveringOrders || 0}`);
-  lines.push(`Số đơn hàng bị hủy:,${performance?.cancelledOrders || 0}`);
-  lines.push(`Tỷ lệ giao hàng thành công:,${performance?.successRate || 0}%`);
-  lines.push(`Doanh thu hoàn thành mang lại (VND):,${performance?.deliveredRevenue || 0}`);
-  lines.push(`Giá trị đơn hàng trung bình (AOV - VND):,${performance?.averageOrderValue || 0}`);
-  lines.push(`Tỷ lệ hoa hồng cá nhân:,${performance?.commissionRate || 0}%`);
-  lines.push(`Hoa hồng ước tính (VND):,${performance?.estimatedCommission || 0}`);
-  lines.push(`Tiền thưởng KPI đạt chuẩn (VND):,${performance?.kpiBonus || 0}`);
-  lines.push(`TỔNG THU NHẬP DỰ KIẾN (VND):,${performance?.totalEstimatedEarnings || 0}`);
-  lines.push(`Xếp loại năng lực:,${escapeCsv(performance?.performanceBadge || 'STANDARD')}`);
-  lines.push('');
-
-  lines.push('--- II. DANH SÁCH ĐƠN HÀNG PHỤ TRÁCH GẦN NHẤT ---');
-  lines.push('STT,Mã Đơn Hàng,Khách Hàng,Số Điện Thoại,Phương Thức,Trạng Thái Đơn,Trạng Thái TT,Tổng Tiền (VND),Ngày Đặt');
-
-  myOrders.forEach((o, idx) => {
-    lines.push(
-      [
-        idx + 1,
-        escapeCsv(o.orderCode || o.id),
-        escapeCsv(o.customerName || 'Khách lẻ'),
-        escapeCsv(o.customerPhone || '---'),
-        escapeCsv(o.paymentMethod || 'COD'),
-        escapeCsv(o.status || '---'),
-        escapeCsv(o.paymentStatus || '---'),
-        o.finalAmount || 0,
-        escapeCsv(o.createdAt ? formatDate(o.createdAt) : '---'),
-      ].join(',')
-    );
-  });
-
-  const csvContent = lines.join('\r\n');
-  const fileName = `Bang_Ke_Thu_Nhap_Ca_Nhan_${performance?.employeeCode || 'Staff'}_${now.toISOString().slice(0, 10)}.csv`;
-  downloadCsvWithBom(csvContent, fileName);
+  const fileName = `Don_Hang_Nhan_Vien_${performance?.employeeCode || 'Staff'}_${now.toISOString().slice(0, 10)}.xlsx`;
+  await downloadStyledExcelWorkbook(fileName, [
+    {
+      sheetName: 'Don hang phu trach',
+      title: 'BÁO CÁO ĐƠN HÀNG PHỤ TRÁCH CÁ NHÂN',
+      filterSummary: `${timeRangeText} | Nhân viên: ${staffName}`,
+      exportedBy: staffName,
+      summaryRows: [
+        { label: 'Tổng đơn tiếp nhận xử lý', value: performance?.totalHandledOrders || 0, type: 'number' },
+        { label: 'Số đơn giao thành công', value: performance?.completedOrders || 0, type: 'number' },
+        { label: 'Số đơn đang giao', value: performance?.deliveringOrders || 0, type: 'number' },
+        { label: 'Số đơn bị hủy', value: performance?.cancelledOrders || 0, type: 'number' },
+        { label: 'Tỷ lệ giao hàng thành công', value: performance?.successRate || 0, type: 'percent' },
+        { label: 'Tổng doanh số đơn hoàn tất', value: performance?.deliveredRevenue || 0, type: 'currency' },
+      ],
+      columns: [
+        { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+        { header: 'Mã đơn hàng', key: 'orderCode', type: 'text', valueGetter: (o) => o.orderCode || o.id },
+        { header: 'Khách hàng', key: 'customerName', type: 'text', valueGetter: (o) => o.customerName || 'Khách lẻ' },
+        { header: 'Số điện thoại', key: 'customerPhone', type: 'text', valueGetter: (o) => o.customerPhone || '---' },
+        { header: 'Phương thức TT', key: 'paymentMethod', type: 'text', valueGetter: (o) => o.paymentMethod || 'COD' },
+        { header: 'Trạng thái đơn', key: 'status', type: 'text', valueGetter: (o) => o.status || '---' },
+        { header: 'Trạng thái TT', key: 'paymentStatus', type: 'text', valueGetter: (o) => o.paymentStatus || '---' },
+        { header: 'Tổng tiền', key: 'finalAmount', type: 'currency' },
+        { header: 'Ngày đặt', key: 'createdAt', type: 'date' },
+      ],
+      rows: myOrders || [],
+    },
+  ]);
 }
 
 // ============================================================================

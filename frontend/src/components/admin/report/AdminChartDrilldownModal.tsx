@@ -21,10 +21,12 @@ import {
 } from '@/types/report';
 import { ADMIN_ORDER_STATUS_MAP } from '@/constants/admin-order-status';
 import { formatCurrency } from '@/utils/formatters';
+import { AdminExportExcelButton } from '@/components/admin/common/AdminExportExcelButton';
 
 export interface AdminChartDrilldownModalProps {
   isOpen: boolean;
   loading: boolean;
+  isExporting?: boolean;
   activeRequest: ChartDrilldownRequest | null;
   page: number;
   totalElements: number;
@@ -33,6 +35,7 @@ export interface AdminChartDrilldownModalProps {
   stocks: WarehouseDrilldownStock[];
   transactions: WarehouseDrilldownTransaction[];
   onPageChange: (page: number) => void;
+  onExportExcel?: () => void;
   onClose: () => void;
 }
 
@@ -47,6 +50,7 @@ export interface AdminChartDrilldownModalProps {
 export const AdminChartDrilldownModal: React.FC<AdminChartDrilldownModalProps> = ({
   isOpen,
   loading,
+  isExporting = false,
   activeRequest,
   page,
   totalElements,
@@ -55,6 +59,7 @@ export const AdminChartDrilldownModal: React.FC<AdminChartDrilldownModalProps> =
   stocks,
   transactions,
   onPageChange,
+  onExportExcel,
   onClose,
 }) => {
   if (!isOpen || !activeRequest) return null;
@@ -103,13 +108,23 @@ export const AdminChartDrilldownModal: React.FC<AdminChartDrilldownModalProps> =
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onExportExcel && (
+              <AdminExportExcelButton
+                onClick={onExportExcel}
+                isExporting={isExporting}
+                disabled={loading || totalElements === 0}
+                label="Xuất Excel"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Thanh tóm tắt nhanh trang hiện tại cho bảng Đơn hàng */}

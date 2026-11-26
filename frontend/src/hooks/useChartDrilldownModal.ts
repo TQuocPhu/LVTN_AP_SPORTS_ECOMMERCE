@@ -8,6 +8,8 @@ import {
   WarehouseDrilldownStock,
   WarehouseDrilldownTransaction,
 } from '@/types/report';
+import { useExcelExport } from '@/hooks/useExcelExport';
+import { downloadStyledExcelWorkbook } from '@/utils/excelExportBuilder';
 
 /**
  * Custom Hook quản lý trạng thái, phân trang và gọi API cho Modal Bảng Thống Kê Chi Tiết
@@ -25,6 +27,7 @@ export function useChartDrilldownModal() {
   const [orders, setOrders] = useState<ReportDrilldownOrder[]>([]);
   const [stocks, setStocks] = useState<WarehouseDrilldownStock[]>([]);
   const [transactions, setTransactions] = useState<WarehouseDrilldownTransaction[]>([]);
+  const { isExporting, runExport } = useExcelExport();
 
   const fetchDrilldownPage = useCallback(
     async (req: ChartDrilldownRequest, targetPage: number) => {
@@ -90,9 +93,93 @@ export function useChartDrilldownModal() {
     setActiveRequest(null);
   }, []);
 
+  /**
+   * Xuất toàn bộ dữ liệu khớp điểm drill-down trên biểu đồ (tối đa 5.000 dòng, bỏ phân trang) ra file Excel (.xlsx).
+   */
+  const handleExportDrilldownExcel = useCallback(() => {
+    if (!activeRequest) return;
+    runExport(async () => {
+      const dateStr = new Date().toISOString().slice(0, 10);
+      if (activeRequest.mode === 'ORDERS') {
+        const res = await reportController.getDrilldownOrders(activeRequest, 0, 5000);
+        const rows = res.data?.content || [];
+        await downloadStyledExcelWorkbook(`Chi_Tiet_Bieu_Do_Don_Hang_${dateStr}.xlsx`, [
+          {
+            sheetName: 'Don hang chi tiet',
+            title: activeRequest.title,
+            filterSummary: activeRequest.subtitle,
+            columns: [
+              { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+              { header: 'Mã đơn hàng', key: 'orderCode', type: 'text' },
+              { header: 'Ngày đặt', key: 'createdAt', type: 'datetime' },
+              { header: 'Khách hàng', key: 'customerName', type: 'text' },
+              { header: 'Số điện thoại', key: 'customerPhone', type: 'text' },
+              { header: 'Sản phẩm & Biến thể', key: 'itemsSummary', type: 'text', width: 42 },
+              { header: 'Tổng SL', key: 'totalQuantity', type: 'number' },
+              { header: 'Giá trị đơn', key: 'finalAmount', type: 'currency' },
+              { header: 'Thanh toán', key: 'paymentMethod', type: 'text' },
+              { header: 'Trạng thái', key: 'status', type: 'text' },
+            ],
+            rows,
+          },
+        ]);
+        return rows.length;
+      } else if (activeRequest.mode === 'STOCKS') {
+        const res = await reportController.getDrilldownStocks(activeRequest, 0, 5000);
+        const rows = res.data?.content || [];
+        await downloadStyledExcelWorkbook(`Chi_Tiet_Ton_Kho_${dateStr}.xlsx`, [
+          {
+            sheetName: 'Ton kho bien the',
+            title: activeRequest.title,
+            filterSummary: activeRequest.subtitle,
+            columns: [
+              { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+              { header: 'SKU', key: 'sku', type: 'text' },
+              { header: 'Tên sản phẩm', key: 'productName', type: 'text' },
+              { header: 'Danh mục', key: 'categoryName', type: 'text' },
+              { header: 'Kích cỡ', key: 'size', type: 'text' },
+              { header: 'Màu sắc', key: 'color', type: 'text' },
+              { header: 'Tồn kho', key: 'stockQuantity', type: 'number' },
+              { header: 'Giá vốn', key: 'costPrice', type: 'currency' },
+              { header: 'Giá bán', key: 'sellingPrice', type: 'currency' },
+              { header: 'Tổng giá trị vốn', key: 'totalCostValue', type: 'currency' },
+            ],
+            rows,
+          },
+        ]);
+        return rows.length;
+      } else {
+        const res = await reportController.getDrilldownTransactions(activeRequest, 0, 5000);
+        const rows = res.data?.content || [];
+        await downloadStyledExcelWorkbook(`Chi_Tiet_Phieu_Kho_${dateStr}.xlsx`, [
+          {
+            sheetName: 'Phieu nhap xuat',
+            title: activeRequest.title,
+            filterSummary: activeRequest.subtitle,
+            columns: [
+              { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+              { header: 'Mã phiếu', key: 'transactionCode', type: 'text' },
+              { header: 'Loại', key: 'transactionType', type: 'text' },
+              { header: 'SKU', key: 'sku', type: 'text' },
+              { header: 'Sản phẩm', key: 'productName', type: 'text' },
+              { header: 'Số lượng', key: 'quantity', type: 'number' },
+              { header: 'Đơn giá', key: 'unitPrice', type: 'currency' },
+              { header: 'Thành tiền', key: 'totalPrice', type: 'currency' },
+              { header: 'Người tạo', key: 'createdBy', type: 'text' },
+              { header: 'Ngày tạo', key: 'createdAt', type: 'datetime' },
+            ],
+            rows,
+          },
+        ]);
+        return rows.length;
+      }
+    });
+  }, [activeRequest, runExport]);
+
   return {
     isOpen,
     loading,
+    isExporting,
     activeRequest,
     page,
     totalElements,
@@ -102,6 +189,7 @@ export function useChartDrilldownModal() {
     transactions,
     openDrilldown,
     handlePageChange,
+    handleExportDrilldownExcel,
     closeDrilldown,
   };
 }

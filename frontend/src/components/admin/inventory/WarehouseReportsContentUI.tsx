@@ -141,6 +141,7 @@ export function WarehouseReportsContentUI() {
       <AdminChartDrilldownModal
         isOpen={drilldown.isOpen}
         loading={drilldown.loading}
+        isExporting={drilldown.isExporting}
         activeRequest={drilldown.activeRequest}
         page={drilldown.page}
         totalElements={drilldown.totalElements}
@@ -149,6 +150,7 @@ export function WarehouseReportsContentUI() {
         stocks={drilldown.stocks}
         transactions={drilldown.transactions}
         onPageChange={drilldown.handlePageChange}
+        onExportExcel={drilldown.handleExportDrilldownExcel}
         onClose={drilldown.closeDrilldown}
       />
     </div>

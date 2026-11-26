@@ -25,12 +25,29 @@ public class AdminOrderController {
 
     private final AdminOrderService adminOrderService;
 
+    private static final int MAX_EXPORT_ROWS = 5000;
+
     @GetMapping
     public ResponseEntity<ApiResponse<Page<AdminOrderDetailResponse>>> getAdminOrders(
             @ModelAttribute AdminOrderFilterRequest filterRequest) {
         log.info("REST request truy vấn danh sách đơn hàng Admin/Staff: {}", filterRequest);
         Page<AdminOrderDetailResponse> response = adminOrderService.getAdminOrders(filterRequest);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn hàng quản trị thành công!", response));
+    }
+
+    /**
+     * API xuất toàn bộ danh sách đơn hàng khớp bộ lọc hiện tại (không phân trang, giới hạn tối đa 5.000 dòng) phục vụ xuất Excel.
+     */
+    @GetMapping("/export")
+    public ResponseEntity<ApiResponse<java.util.List<AdminOrderDetailResponse>>> exportAdminOrders(
+            @ModelAttribute AdminOrderFilterRequest filterRequest,
+            Authentication authentication) {
+        String actor = authentication != null ? authentication.getName() : "unknown";
+        filterRequest.setPage(0);
+        filterRequest.setSize(MAX_EXPORT_ROWS);
+        java.util.List<AdminOrderDetailResponse> items = adminOrderService.getAdminOrders(filterRequest).getContent();
+        log.info("[AUDIT EXPORT] Tài khoản [{}] xuất {} đơn hàng theo bộ lọc: {}", actor, items.size(), filterRequest);
+        return ResponseEntity.ok(ApiResponse.success("Xuất dữ liệu đơn hàng theo bộ lọc thành công!", items));
     }
 
     @GetMapping("/summary")

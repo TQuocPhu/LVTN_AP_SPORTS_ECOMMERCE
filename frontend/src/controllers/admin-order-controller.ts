@@ -37,6 +37,30 @@ export const adminOrderController = {
   },
 
   /**
+   * Xuất toàn bộ danh sách đơn hàng khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng)
+   */
+  async exportOrders(
+    params: AdminOrderFilterParams
+  ): Promise<ApiResponse<AdminOrderDetail[]>> {
+    const queryParams = new URLSearchParams();
+    if (params.keyword) queryParams.append('keyword', params.keyword);
+    if (params.status && params.status !== 'ALL') queryParams.append('status', params.status);
+    if (params.paymentMethod && params.paymentMethod !== 'ALL') queryParams.append('paymentMethod', params.paymentMethod);
+    if (params.paymentStatus && params.paymentStatus !== 'ALL') queryParams.append('paymentStatus', params.paymentStatus);
+    if (params.minPrice !== undefined && params.minPrice !== null) queryParams.append('minPrice', params.minPrice.toString());
+    if (params.maxPrice !== undefined && params.maxPrice !== null) queryParams.append('maxPrice', params.maxPrice.toString());
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortDir) queryParams.append('sortDir', params.sortDir);
+
+    return apiClient.get<ApiResponse<AdminOrderDetail[]>>(
+      `/admin/orders/export?${queryParams.toString()}`,
+      { suppressErrorToast: true }
+    );
+  },
+
+  /**
    * Lấy báo cáo thống kê KPI tổng quan đơn hàng
    */
   async getOrderSummary(): Promise<ApiResponse<AdminOrderSummary>> {

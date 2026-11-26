@@ -35,11 +35,24 @@ public class AdminVoucherController {
      * @param filter DTO chứa các thông tin lọc, từ khóa và tham số phân trang, sắp xếp
      * @return Trang (Page) chứa danh sách các VoucherResponse bọc trong ApiResponse
      */
+    private static final int MAX_EXPORT_ROWS = 5000;
+
     @GetMapping
     public ResponseEntity<ApiResponse<Page<VoucherResponse>>> getVouchers(@Valid @ModelAttribute VoucherFilterRequest filter) {
         log.info("Admin truy vấn danh sách voucher với bộ lọc: {}", filter);
         Page<VoucherResponse> result = adminVoucherService.getVouchers(filter);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách mã giảm giá thành công", result));
+    }
+
+    /**
+     * API xuất toàn bộ danh sách voucher khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng).
+     */
+    @GetMapping("/export")
+    public ResponseEntity<ApiResponse<java.util.List<VoucherResponse>>> exportVouchers(@Valid @ModelAttribute VoucherFilterRequest filter) {
+        filter.setPage(0);
+        filter.setSize(MAX_EXPORT_ROWS);
+        java.util.List<VoucherResponse> items = adminVoucherService.getVouchers(filter).getContent();
+        return ResponseEntity.ok(ApiResponse.success("Xuất danh sách mã giảm giá thành công", items));
     }
 
     /**

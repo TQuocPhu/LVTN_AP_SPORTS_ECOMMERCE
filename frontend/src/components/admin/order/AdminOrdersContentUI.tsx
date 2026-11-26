@@ -12,6 +12,7 @@ import { AdminOrderUpdateStatusModal } from './AdminOrderUpdateStatusModal';
 
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { ShieldAlert } from 'lucide-react';
+import { AdminExportExcelButton } from '@/components/admin/common/AdminExportExcelButton';
 
 /**
  * Component AdminOrdersContentUI: Giao diện quản lý Đơn Hàng phía Admin (Giao diện chuẩn Admin thống nhất).
@@ -56,6 +57,8 @@ export const AdminOrdersContentUI: React.FC = () => {
     handleOpenUpdateStatusModal,
     handleCloseUpdateStatusModal,
     handleConfirmUpdateStatus,
+    isExporting,
+    handleExportExcel,
   } = useAdminOrders();
 
   // Chặn vai trò Quản lý kho (Warehouse Manager / Staff) không được truy cập Quản lý đơn hàng
@@ -102,6 +105,11 @@ export const AdminOrdersContentUI: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <AdminExportExcelButton
+            onClick={handleExportExcel}
+            isExporting={isExporting}
+            disabled={isLoading}
+          />
           <button
             type="button"
             onClick={handleRefreshAll}

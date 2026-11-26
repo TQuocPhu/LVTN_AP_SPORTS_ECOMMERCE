@@ -12,6 +12,7 @@ import { ProductPagination } from "@/components/admin/product/ProductPagination"
 import { ProductVariantDrawer } from "@/components/admin/product/ProductVariantDrawer";
 import { ProductDescriptionModal } from "@/components/admin/product/ProductDescriptionModal";
 import { ProductDeleteModal } from "@/components/admin/product/ProductDeleteModal";
+import { AdminExportExcelButton } from "@/components/admin/common/AdminExportExcelButton";
 import { Plus, RefreshCw, Package } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +23,8 @@ export default function AdminProductsPage() {
     filters,
     loading,
     actionLoading,
+    isExporting,
+    handleExportExcel,
     updateFilters,
     handlePageChange,
     toggleStatus,
@@ -121,6 +124,11 @@ export default function AdminProductsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <AdminExportExcelButton
+            onClick={handleExportExcel}
+            isExporting={isExporting}
+            disabled={loading}
+          />
           <button
             onClick={() => refetchProducts()}
             disabled={loading}

@@ -6,6 +6,7 @@ import { VoucherTable } from './VoucherTable';
 import { VoucherFormModal } from './VoucherFormModal';
 import { VoucherDeleteModal } from './VoucherDeleteModal';
 import { VoucherDetailModal } from './VoucherDetailModal';
+import { AdminExportExcelButton } from '@/components/admin/common/AdminExportExcelButton';
 
 /**
  * Component AdminVouchersContentUI: Giao diện quản lý Voucher phía Admin (Giao diện chuẩn Admin cố định).
@@ -39,6 +40,8 @@ export const AdminVouchersContentUI: React.FC = () => {
     handleSubmitForm,
     handleToggleStatus,
     handleDeleteConfirm,
+    isExporting,
+    handleExportExcel,
     refresh,
   } = useAdminVouchers();
 
@@ -61,6 +64,11 @@ export const AdminVouchersContentUI: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <AdminExportExcelButton
+            onClick={handleExportExcel}
+            isExporting={isExporting}
+            disabled={isLoading}
+          />
           <button
             onClick={() => refresh()}
             disabled={isLoading}

@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminProductController } from '@/controllers/admin-product-controller';
 import { Product, ProductFilterParams, PaginatedResponse } from '@/types/product';
 import { isApiError } from '@/services/api-client';
+import { useExcelExport } from '@/hooks/useExcelExport';
+import { downloadStyledExcelWorkbook } from '@/utils/excelExportBuilder';
 
 export function useAdminProducts(initialParams?: ProductFilterParams) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -147,6 +149,44 @@ export function useAdminProducts(initialParams?: ProductFilterParams) {
     }
   };
 
+  const { isExporting, runExport } = useExcelExport();
+
+  /**
+   * Xuất toàn bộ sản phẩm khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng) ra file Excel (.xlsx).
+   */
+  const handleExportExcel = useCallback(() => {
+    runExport(async () => {
+      const res = await adminProductController.exportProducts({
+        ...filters,
+        keyword: debouncedKeyword,
+      });
+      const rows = res.data || [];
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadStyledExcelWorkbook(`Danh_Sach_San_Pham_${dateStr}.xlsx`, [
+        {
+          sheetName: 'San pham',
+          title: 'DANH SÁCH SẢN PHẨM QUẢN TRỊ (THEO BỘ LỌC)',
+          filterSummary: `Từ khóa: ${debouncedKeyword || 'Tất cả'} | Trạng thái: ${filters.status || 'Tất cả'}`,
+          columns: [
+            { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+            { header: 'Mã SP', key: 'id', type: 'number', width: 10 },
+            { header: 'Tên sản phẩm', key: 'name', type: 'text', width: 34 },
+            { header: 'Slug', key: 'slug', type: 'text' },
+            { header: 'Danh mục', key: 'categoryName', type: 'text', valueGetter: (p) => p.categoryName || '---' },
+            { header: 'Đơn vị', key: 'unit', type: 'text', valueGetter: (p) => p.unit || 'Cái' },
+            { header: 'Giá niêm yết', key: 'price', type: 'currency' },
+            { header: 'Tổng tồn kho', key: 'totalStock', type: 'number', valueGetter: (p) => p.totalStock ?? 0 },
+            { header: 'Đã bán', key: 'soldCount', type: 'number', valueGetter: (p) => p.soldCount ?? 0 },
+            { header: 'Đánh giá TB', key: 'rating', type: 'number', valueGetter: (p) => p.rating ?? 0 },
+            { header: 'Trạng thái', key: 'status', type: 'text' },
+          ],
+          rows,
+        },
+      ]);
+      return rows.length;
+    });
+  }, [filters, debouncedKeyword, runExport]);
+
   return {
     products,
     pageInfo,
@@ -154,6 +194,8 @@ export function useAdminProducts(initialParams?: ProductFilterParams) {
     loading,
     actionLoading,
     error,
+    isExporting,
+    handleExportExcel,
     updateFilters,
     handlePageChange,
     toggleStatus,

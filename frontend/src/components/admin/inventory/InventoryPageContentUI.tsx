@@ -13,6 +13,7 @@ import { CreateExportModal } from './CreateExportModal';
 import { StockAdjustmentModal } from './StockAdjustmentModal';
 import { StockTicketPrintModal } from './StockTicketPrintModal';
 import { StockTicketDetailsModal } from './StockTicketDetailsModal';
+import { AdminExportExcelButton } from '@/components/admin/common/AdminExportExcelButton';
 import Link from 'next/link';
 import {
   Warehouse,
@@ -57,6 +58,12 @@ export function InventoryPageContentUI() {
           >
             <RotateCcw className="w-4 h-4" />
           </button>
+
+          <AdminExportExcelButton
+            onClick={() => inventoryHook.handleExportTransactionsExcel()}
+            isExporting={inventoryHook.isExporting}
+            label="Xuất Lịch Sử Kho"
+          />
 
           <Link
             href="/admin/suppliers"

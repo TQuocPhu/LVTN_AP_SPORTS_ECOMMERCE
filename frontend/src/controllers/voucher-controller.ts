@@ -47,6 +47,24 @@ export const voucherController = {
   },
 
   /**
+   * Xuất toàn bộ danh sách mã giảm giá khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng).
+   */
+  async exportAdminVouchers(params: VoucherFilterParams): Promise<ApiResponse<Voucher[]>> {
+    const queryParams = new URLSearchParams();
+    if (params.keyword) queryParams.append('keyword', params.keyword);
+    if (params.type) queryParams.append('type', params.type);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.categoryScope) queryParams.append('categoryScope', params.categoryScope);
+    if (params.sortBy) queryParams.append('sortBy', params.sortBy);
+    if (params.sortDir) queryParams.append('sortDir', params.sortDir);
+
+    return apiClient.get<ApiResponse<Voucher[]>>(
+      `/admin/vouchers/export?${queryParams.toString()}`,
+      { suppressErrorToast: true }
+    );
+  },
+
+  /**
    * Xem chi tiết thông tin voucher theo ID cho Admin.
    *
    * @param id ID của voucher cần xem

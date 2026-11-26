@@ -5,6 +5,8 @@ import {
   AdminOrderFilterParams,
   AdminOrderSummary,
 } from '@/types/admin-order';
+import { useExcelExport } from '@/hooks/useExcelExport';
+import { downloadStyledExcelWorkbook } from '@/utils/excelExportBuilder';
 
 export interface UseAdminOrdersReturn {
   // Filters State
@@ -55,6 +57,10 @@ export interface UseAdminOrdersReturn {
   handleOpenUpdateStatusModal: (order: AdminOrderDetail) => void;
   handleCloseUpdateStatusModal: () => void;
   handleConfirmUpdateStatus: () => Promise<void>;
+
+  // Export Excel State
+  isExporting: boolean;
+  handleExportExcel: () => void;
 }
 
 const DEFAULT_FILTERS: AdminOrderFilterParams = {
@@ -372,6 +378,57 @@ export function useAdminOrders(): UseAdminOrdersReturn {
     }
   };
 
+  const { isExporting, runExport } = useExcelExport();
+
+  /**
+   * Xuất toàn bộ danh sách đơn hàng khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng) ra file Excel (.xlsx).
+   */
+  const handleExportExcel = useCallback(() => {
+    runExport(async () => {
+      const res = await adminOrderController.exportOrders(filters);
+      const rows = res.data || [];
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadStyledExcelWorkbook(`Danh_Sach_Don_Hang_${dateStr}.xlsx`, [
+        {
+          sheetName: 'Don hang chi tiet',
+          title: 'DANH SÁCH ĐƠN HÀNG QUẢN TRỊ (THEO BỘ LỌC)',
+          filterSummary: `Trạng thái: ${filters.status || 'ALL'} | Thanh toán: ${filters.paymentMethod || 'ALL'} | Từ ngày: ${filters.startDate || '---'} đến ${filters.endDate || '---'}`,
+          columns: [
+            { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+            { header: 'Mã đơn', key: 'orderCode', type: 'text' },
+            { header: 'Ngày đặt', key: 'createdAt', type: 'datetime' },
+            { header: 'Khách hàng', key: 'customerName', type: 'text' },
+            { header: 'Số điện thoại', key: 'customerPhone', type: 'text' },
+            { header: 'Email', key: 'customerEmail', type: 'text' },
+            { header: 'Địa chỉ giao hàng', key: 'shippingAddress', type: 'text', width: 38 },
+            {
+              header: 'Sản phẩm & Biến thể',
+              key: 'itemsSummary',
+              type: 'text',
+              width: 42,
+              valueGetter: (o) =>
+                (o.items || [])
+                  .map((it: any) => `${it.productName}${it.variantInfo ? ` [${it.variantInfo}]` : ''} x${it.quantity}`)
+                  .join('; ') || '---',
+            },
+            { header: 'Tạm tính', key: 'totalAmount', type: 'currency' },
+            { header: 'Mã Voucher', key: 'voucherCode', type: 'text', valueGetter: (o) => o.voucherCode || '---' },
+            { header: 'Tiền giảm', key: 'discountAmount', type: 'currency' },
+            { header: 'Phí vận chuyển', key: 'shippingFee', type: 'currency' },
+            { header: 'Tổng thanh toán', key: 'finalAmount', type: 'currency' },
+            { header: 'Phương thức TT', key: 'paymentMethod', type: 'text' },
+            { header: 'Trạng thái TT', key: 'paymentStatus', type: 'text' },
+            { header: 'Trạng thái đơn', key: 'status', type: 'text' },
+            { header: 'Nhân viên xử lý', key: 'processedByName', type: 'text', valueGetter: (o) => o.processedByName || '---' },
+            { header: 'Ghi chú / Lý do hủy', key: 'note', type: 'text', valueGetter: (o) => o.cancelReason || o.note || '---' },
+          ],
+          rows,
+        },
+      ]);
+      return rows.length;
+    });
+  }, [filters, runExport]);
+
   return {
     filters,
     setFilters,
@@ -410,5 +467,7 @@ export function useAdminOrders(): UseAdminOrdersReturn {
     handleOpenUpdateStatusModal,
     handleCloseUpdateStatusModal,
     handleConfirmUpdateStatus,
+    isExporting,
+    handleExportExcel,
   };
 }

@@ -60,10 +60,10 @@ export function ReportHeader({
           type="button"
           onClick={onExportCSV}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-xs transition-all cursor-pointer"
-          title="Xuất bảng số liệu CSV / Excel"
+          title="Xuất bảng số liệu Excel (.xlsx)"
         >
           <Download className="w-3.5 h-3.5" />
-          <span>Xuất Excel/CSV</span>
+          <span>Xuất Excel (.xlsx)</span>
         </button>
       </div>
     </div>

@@ -24,11 +24,25 @@ public class AdminProductController {
 
     private final AdminProductService adminProductService;
 
+    private static final int MAX_EXPORT_ROWS = 5000;
+
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ProductResponse>>> getProducts(
             @ModelAttribute ProductFilterRequest filterRequest) {
         Page<ProductResponse> page = adminProductService.getProducts(filterRequest);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm thành công.", page));
+    }
+
+    /**
+     * API xuất toàn bộ sản phẩm khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng) phục vụ xuất Excel.
+     */
+    @GetMapping("/export")
+    public ResponseEntity<ApiResponse<java.util.List<ProductResponse>>> exportProducts(
+            @ModelAttribute ProductFilterRequest filterRequest) {
+        filterRequest.setPage(0);
+        filterRequest.setSize(MAX_EXPORT_ROWS);
+        java.util.List<ProductResponse> items = adminProductService.getProducts(filterRequest).getContent();
+        return ResponseEntity.ok(ApiResponse.success("Xuất danh sách sản phẩm thành công.", items));
     }
 
     @GetMapping("/{id}")

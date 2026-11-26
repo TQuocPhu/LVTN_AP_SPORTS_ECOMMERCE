@@ -38,6 +38,25 @@ export const adminProductController = {
   },
 
   /**
+   * Xuất toàn bộ danh sách sản phẩm khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng).
+   */
+  async exportProducts(params?: ProductFilterParams): Promise<ApiResponse<Product[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.keyword) searchParams.append('keyword', params.keyword);
+    if (params?.categoryId) searchParams.append('categoryId', params.categoryId.toString());
+    if (params?.status) searchParams.append('status', params.status);
+    if (params?.unit) searchParams.append('unit', params.unit);
+    if (params?.minPrice !== undefined) searchParams.append('minPrice', params.minPrice.toString());
+    if (params?.maxPrice !== undefined) searchParams.append('maxPrice', params.maxPrice.toString());
+    if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
+    if (params?.sortDir) searchParams.append('sortDir', params.sortDir);
+
+    const queryString = searchParams.toString();
+    const url = `/admin/products/export${queryString ? `?${queryString}` : ''}`;
+    return apiClient.get<ApiResponse<Product[]>>(url, { suppressErrorToast: true });
+  },
+
+  /**
    * Lấy chi tiết sản phẩm theo ID.
    */
   async getProductById(id: number): Promise<ApiResponse<ProductDetail>> {

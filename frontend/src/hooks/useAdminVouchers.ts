@@ -8,6 +8,8 @@ import {
   PageResponse,
 } from "@/types/voucher";
 import { toast } from "sonner";
+import { useExcelExport } from "@/hooks/useExcelExport";
+import { downloadStyledExcelWorkbook } from "@/utils/excelExportBuilder";
 
 /**
  * Custom Hook quản lý toàn bộ trạng thái, bộ lọc tìm kiếm, sắp xếp đa tiêu chí và các action CRUD cho Admin Voucher Management.
@@ -273,6 +275,42 @@ export function useAdminVouchers() {
     }
   };
 
+  const { isExporting, runExport } = useExcelExport();
+
+  /**
+   * Xuất toàn bộ mã giảm giá khớp bộ lọc hiện tại (không phân trang, tối đa 5.000 dòng) ra file Excel (.xlsx).
+   */
+  const handleExportExcel = useCallback(() => {
+    runExport(async () => {
+      const res = await voucherController.exportAdminVouchers(filters);
+      const rows = res.data || [];
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadStyledExcelWorkbook(`Danh_Sach_Ma_Giam_Gia_${dateStr}.xlsx`, [
+        {
+          sheetName: 'Ma giam gia',
+          title: 'DANH SÁCH MÃ GIẢM GIÁ / VOUCHER (THEO BỘ LỌC)',
+          filterSummary: `Loại: ${filters.type || 'Tất cả'} | Trạng thái: ${filters.status || 'Tất cả'} | Từ khóa: ${filters.keyword || 'Tất cả'}`,
+          columns: [
+            { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+            { header: 'Mã Voucher', key: 'code', type: 'text' },
+            { header: 'Mô tả', key: 'description', type: 'text', width: 32 },
+            { header: 'Loại giảm', key: 'discountType', type: 'text' },
+            { header: 'Giá trị giảm', key: 'discountValue', type: 'number' },
+            { header: 'Giảm tối đa', key: 'maxDiscountAmount', type: 'currency' },
+            { header: 'Đơn tối thiểu', key: 'minOrderValue', type: 'currency' },
+            { header: 'Đã dùng', key: 'usedCount', type: 'number' },
+            { header: 'Giới hạn lượt', key: 'usageLimit', type: 'number' },
+            { header: 'Ngày bắt đầu', key: 'startDate', type: 'date' },
+            { header: 'Ngày kết thúc', key: 'endDate', type: 'date' },
+            { header: 'Kích hoạt', key: 'isActive', type: 'text', valueGetter: (v) => (v.isActive ? 'Đang bật' : 'Đã tắt') },
+          ],
+          rows,
+        },
+      ]);
+      return rows.length;
+    });
+  }, [filters, runExport]);
+
   return {
     filters,
     pageData,
@@ -300,6 +338,8 @@ export function useAdminVouchers() {
     handleSubmitForm,
     handleToggleStatus,
     handleDeleteConfirm,
+    isExporting,
+    handleExportExcel,
     refresh: fetchVouchers,
   };
 }

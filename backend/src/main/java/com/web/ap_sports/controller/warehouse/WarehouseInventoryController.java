@@ -36,6 +36,8 @@ public class WarehouseInventoryController {
         return ResponseEntity.ok(ApiResponse.success("Lấy báo cáo tổng quan kho thành công.", stats));
     }
 
+    private static final int MAX_EXPORT_ROWS = 5000;
+
     @GetMapping("/transactions")
     public ResponseEntity<ApiResponse<Page<InventoryTransactionResponse>>> searchTransactions(
             @RequestParam(required = false) TransactionType type,
@@ -51,6 +53,26 @@ public class WarehouseInventoryController {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<InventoryTransactionResponse> result = inventoryService.searchTransactions(type, supplierId, keyword, fromDate, toDate, pageable);
         return ResponseEntity.ok(ApiResponse.success("Lấy nhật ký giao dịch kho thành công.", result));
+    }
+
+    /**
+     * API xuất toàn bộ lịch sử giao dịch kho khớp bộ lọc (không phân trang, tối đa 5.000 dòng) phục vụ xuất Excel.
+     */
+    @GetMapping("/transactions/export")
+    public ResponseEntity<ApiResponse<java.util.List<InventoryTransactionResponse>>> exportTransactions(
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) Long supplierId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDir) {
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(0, MAX_EXPORT_ROWS, sort);
+        java.util.List<InventoryTransactionResponse> result = inventoryService
+                .searchTransactions(type, supplierId, keyword, fromDate, toDate, pageable)
+                .getContent();
+        return ResponseEntity.ok(ApiResponse.success("Xuất dữ liệu lịch sử giao dịch kho thành công.", result));
     }
 
     @GetMapping("/transactions/{id}")

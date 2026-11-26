@@ -7,6 +7,8 @@ import {
   UserPageResponse,
   UserStatus,
 } from '@/types/user-management';
+import { useExcelExport } from '@/hooks/useExcelExport';
+import { downloadStyledExcelWorkbook } from '@/utils/excelExportBuilder';
 
 /**
  * Custom Hook quản lý toàn bộ trạng thái, bộ lọc tìm kiếm, sắp xếp và các action CRUD cho Admin User Management.
@@ -209,6 +211,38 @@ export function useAdminUsers() {
     }
   };
 
+  const { isExporting, runExport } = useExcelExport();
+
+  /**
+   * Xuất toàn bộ tài khoản người dùng khớp bộ lọc hiện tại (chỉ ADMIN, không có password/token) ra file Excel (.xlsx).
+   */
+  const handleExportExcel = useCallback(() => {
+    runExport(async () => {
+      const res = await userController.exportAdminUsers(filters);
+      const rows = res.data || [];
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await downloadStyledExcelWorkbook(`Danh_Sach_Nguoi_Dung_${dateStr}.xlsx`, [
+        {
+          sheetName: 'Tai khoan',
+          title: 'DANH SÁCH TÀI KHOẢN NGƯỜI DÙNG (THEO BỘ LỌC)',
+          filterSummary: `Vai trò: ${filters.role || 'ALL'} | Trạng thái: ${filters.status || 'ALL'} | Từ khóa: ${filters.keyword || 'Tất cả'}`,
+          columns: [
+            { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
+            { header: 'ID', key: 'id', type: 'number', width: 8 },
+            { header: 'Họ và tên', key: 'fullName', type: 'text', valueGetter: (u) => u.fullName || u.name || '---' },
+            { header: 'Email', key: 'email', type: 'text' },
+            { header: 'Số điện thoại', key: 'phone', type: 'text', valueGetter: (u) => u.phone || '---' },
+            { header: 'Vai trò', key: 'role', type: 'text' },
+            { header: 'Trạng thái', key: 'status', type: 'text' },
+            { header: 'Ngày tạo', key: 'createdAt', type: 'datetime' },
+          ],
+          rows,
+        },
+      ]);
+      return rows.length;
+    });
+  }, [filters, runExport]);
+
   return {
     filters,
     pageData,
@@ -218,6 +252,8 @@ export function useAdminUsers() {
     isCreateStaffModalOpen,
     selectedUser,
     detailLoading,
+    isExporting,
+    handleExportExcel,
     handleKeywordChange,
     handleRoleChange,
     handleStatusChange,
