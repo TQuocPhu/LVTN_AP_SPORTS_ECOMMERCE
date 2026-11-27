@@ -70,6 +70,7 @@ export default function Footer() {
           <ul className="space-y-2.5 text-xs">
             {[
               { href: '/vouchers', label: 'Kho Voucher Ưu Đãi' },
+              { href: '/services', label: 'Dịch vụ hệ thống AP Sports' },
               { href: '/faq', label: 'Câu hỏi thường gặp (FAQ)' },
               { href: '/shipping-policy', label: 'Chính sách giao hàng' },
               { href: '/return-policy', label: 'Chính sách đổi trả 30 ngày' },

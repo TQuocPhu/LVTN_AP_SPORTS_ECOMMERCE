@@ -186,6 +186,15 @@ export default function Navbar() {
                     </Link>
 
                     <Link
+                      href="/services"
+                      onClick={closeAboutDropdown}
+                      className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium border border-transparent transition-all group"
+                    >
+                      <Sparkles className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-orange-400 transition-colors" />
+                      <span>Dịch Vụ Hệ Thống</span>
+                    </Link>
+
+                    <Link
                       href="/vouchers"
                       onClick={closeAboutDropdown}
                       className="nav-dropdown-item flex items-center space-x-2.5 px-3 py-2.5 rounded-xl text-sm font-medium border border-transparent transition-all group"
@@ -562,6 +571,7 @@ export default function Navbar() {
               { href: "/", label: "Trang Chủ", icon: Home },
               { href: "/products", label: "Sản Phẩm Thể Thao", icon: ShoppingBag },
               { href: "/about", label: "Giới Thiệu AP Sports", icon: Info },
+              { href: "/services", label: "Dịch Vụ Hệ Thống", icon: Sparkles },
               { href: "/vouchers", label: "Chương Trình Khuyến Mãi", icon: Gift, badge: "Ưu Đãi" },
               { href: "/contact", label: "Liên Hệ Hỗ Trợ", icon: Headphones },
             ].map((link) => {
