@@ -24,7 +24,9 @@ const BASE_WS_URL = BASE_URL.replace('/api/v1', '/ws');
  */
 function playNotificationSound() {
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
     const osc = ctx.createOscillator();
@@ -832,8 +834,8 @@ export function useStaffSupportChat() {
     // Phê duyệt Báo cáo vi phạm dành cho Admin & Chặn spam báo cáo
     isAdmin:
       user?.roleName === 'ADMIN' ||
-      user?.role === 'ADMIN' ||
-      (user as any)?.roleName === 'ROLE_ADMIN',
+      (user as { role?: string } | null)?.role === 'ADMIN' ||
+      (user as { roleName?: string } | null)?.roleName === 'ROLE_ADMIN',
     reportedMessageIds,
     isAdminReviewModalOpen,
     isProcessingReport,
