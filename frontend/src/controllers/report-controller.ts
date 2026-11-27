@@ -9,6 +9,7 @@ import {
   WarehouseDrilldownStock,
   WarehouseDrilldownTransaction,
   ChartDrilldownRequest,
+  FinancialReconciliationResponse,
 } from '@/types/report';
 import { UserResponse } from '@/types/auth';
 import { AdminOrderDetail } from '@/types/admin-order';
@@ -124,6 +125,21 @@ export const reportController = {
     const q = buildReportQueryParams(params);
     return apiClient.get<ApiResponse<WarehouseReportResponse>>(
       `/warehouse/reports/inventory?${q.toString()}`,
+      { suppressErrorToast: true }
+    );
+  },
+
+  /**
+   * Lấy Bảng Đối Soát Tài Chính & Sổ Cái Dòng Tiền Theo Ngày / Kênh Thanh Toán (COD vs VNPay).
+   */
+  async getFinancialReconciliation(
+    params: ReportFilterParams,
+    paymentMethod: 'ALL' | 'COD' | 'VNPAY' = 'ALL'
+  ): Promise<ApiResponse<FinancialReconciliationResponse>> {
+    const q = buildReportQueryParams(params);
+    q.append('paymentMethod', paymentMethod);
+    return apiClient.get<ApiResponse<FinancialReconciliationResponse>>(
+      `/admin/reports/reconciliation?${q.toString()}`,
       { suppressErrorToast: true }
     );
   },

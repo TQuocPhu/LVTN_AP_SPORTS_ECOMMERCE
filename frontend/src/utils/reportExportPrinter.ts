@@ -1,4 +1,5 @@
 import {
+  FinancialReconciliationResponse,
   ReportTabType,
   RevenueOverviewReportResponse,
   StaffPerformanceReportResponse,
@@ -19,6 +20,7 @@ export interface EnterpriseReportExportParams {
   staffPerformance: StaffPerformanceReportResponse[];
   warehouseData: WarehouseReportResponse | null;
   merchandiseData: TopMerchandiseReportResponse | null;
+  reconciliationData?: FinancialReconciliationResponse | null;
   currentUserName?: string;
 }
 
@@ -116,6 +118,7 @@ export async function exportEnterpriseReportToCSV({
   staffPerformance,
   warehouseData,
   merchandiseData,
+  reconciliationData,
   currentUserName = 'Quản trị viên',
 }: EnterpriseReportExportParams): Promise<void> {
   const now = new Date();
@@ -132,7 +135,10 @@ export async function exportEnterpriseReportToCSV({
       summaryRows: [
         { label: 'Tổng doanh thu hoàn thành', value: overviewData.totalDeliveredRevenue || 0, type: 'currency' },
         { label: 'Tổng doanh thu gộp', value: overviewData.totalGrossRevenue || 0, type: 'currency' },
-        { label: 'Doanh thu thuần (trừ Voucher)', value: overviewData.totalNetRevenue || 0, type: 'currency' },
+        { label: 'Doanh thu thuần (trừ ship)', value: overviewData.totalNetRevenue || 0, type: 'currency' },
+        { label: 'Tổng giá vốn hàng bán (COGS)', value: overviewData.totalCostOfGoodsSold || 0, type: 'currency' },
+        { label: 'Lợi nhuận gộp ước tính', value: overviewData.grossProfit || 0, type: 'currency' },
+        { label: 'Biên lợi nhuận gộp', value: overviewData.grossMarginPercent || 0, type: 'percent' },
         { label: 'Tổng giá trị Voucher giảm giá', value: overviewData.totalDiscountAmount || 0, type: 'currency' },
         { label: 'Tổng phí vận chuyển thu hộ', value: overviewData.totalShippingFee || 0, type: 'currency' },
         { label: 'Tổng số đơn phát sinh', value: overviewData.totalOrders || 0, type: 'number' },
@@ -157,6 +163,66 @@ export async function exportEnterpriseReportToCSV({
       ],
       rows: overviewData.timeSeries || [],
     });
+
+    if (reconciliationData) {
+      sheets.push({
+        sheetName: 'Doi soat dong tien',
+        title: 'BẢNG ĐỐI SOÁT DÒNG TIỀN THEO NGÀY & KÊNH THANH TOÁN',
+        filterSummary: timeRangeText,
+        exportedBy: currentUserName,
+        summaryRows: [
+          { label: 'Tổng phát sinh gộp', value: reconciliationData.grossRevenue || 0, type: 'currency' },
+          { label: 'Thực thu VNPay', value: reconciliationData.vnpayCollectedRevenue || 0, type: 'currency' },
+          { label: 'Thực thu COD', value: reconciliationData.codCollectedRevenue || 0, type: 'currency' },
+          { label: 'Tổng thực thu (Đã giao)', value: reconciliationData.netCollectedRevenue || 0, type: 'currency' },
+          { label: 'Tạm thu VNPay (Chờ giao)', value: reconciliationData.vnpayPrepaidPendingRevenue || 0, type: 'currency' },
+          { label: 'Chờ thu COD (Chờ đối soát)', value: reconciliationData.pendingReconciliationRevenue || 0, type: 'currency' },
+          { label: 'Hủy chưa thu / Lỗi TT', value: (reconciliationData.cancelledUnpaidRevenue || 0) + (reconciliationData.paymentFailedRevenue || 0), type: 'currency' },
+          { label: 'Cần hoàn tiền thủ công (VNPay)', value: reconciliationData.pendingRefundRevenue || 0, type: 'currency' },
+          { label: 'Đã hoàn tiền', value: reconciliationData.refundedRevenue || 0, type: 'currency' },
+          { label: 'Tỷ lệ thực thu toàn kỳ', value: reconciliationData.collectionRate || 0, type: 'percent' },
+        ],
+        columns: [
+          { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+          { header: 'Ngày', key: 'label', type: 'text', width: 14 },
+          { header: 'Số đơn', key: 'orderCount', type: 'number' },
+          { header: 'Doanh thu gộp', key: 'grossRevenue', type: 'currency' },
+          { header: 'Giảm Voucher', key: 'discountAmount', type: 'currency' },
+          { header: 'Phí Ship', key: 'shippingFee', type: 'currency' },
+          { header: 'Thực thu VNPay', key: 'vnpayCollectedRevenue', type: 'currency' },
+          { header: 'Thực thu COD', key: 'codCollectedRevenue', type: 'currency' },
+          { header: 'Thực thu (Đã giao)', key: 'netCollectedRevenue', type: 'currency' },
+          { header: 'Tạm thu VNPay (Chờ giao)', key: 'vnpayPrepaidPendingRevenue', type: 'currency' },
+          { header: 'Chờ thu COD', key: 'pendingReconciliationRevenue', type: 'currency' },
+          { header: 'Hủy / Lỗi TT', key: 'cancelledUnpaidRevenue', type: 'currency' },
+          { header: 'Cần hoàn tiền', key: 'pendingRefundRevenue', type: 'currency' },
+          { header: 'Đã hoàn tiền', key: 'refundedRevenue', type: 'currency' },
+          { header: 'Tỷ lệ thực thu', key: 'collectionRate', type: 'percent' },
+        ],
+        rows: reconciliationData.dailyRows || [],
+      });
+
+      if (reconciliationData.exceptions && reconciliationData.exceptions.length > 0) {
+        sheets.push({
+          sheetName: 'Canh bao chenh lech',
+          title: 'DANH SÁCH ĐƠN HÀNG CẢNH BÁO CHÊNH LỆCH ĐỐI SOÁT',
+          filterSummary: timeRangeText,
+          exportedBy: currentUserName,
+          columns: [
+            { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+            { header: 'Mã đơn', key: 'orderCode', type: 'text' },
+            { header: 'Khách hàng', key: 'customerName', type: 'text' },
+            { header: 'Phương thức TT', key: 'paymentMethod', type: 'text' },
+            { header: 'Trạng thái TT', key: 'paymentStatus', type: 'text' },
+            { header: 'Trạng thái đơn', key: 'orderStatus', type: 'text' },
+            { header: 'Giá trị đơn', key: 'amount', type: 'currency' },
+            { header: 'Vấn đề cần đối soát', key: 'issueDescription', type: 'text', width: 45 },
+            { header: 'Ngày đặt', key: 'createdAt', type: 'datetime' },
+          ],
+          rows: reconciliationData.exceptions,
+        });
+      }
+    }
   } else if (activeTab === 'staff') {
     sheets.push({
       sheetName: 'Don hang nhan vien',
@@ -218,15 +284,42 @@ export async function exportEnterpriseReportToCSV({
       rows: warehouseData.lowStockVariants || [],
     });
   } else if (activeTab === 'merchandise' && merchandiseData) {
+    const rootCats =
+      merchandiseData.rootCategoryBreakdown && merchandiseData.rootCategoryBreakdown.length > 0
+        ? merchandiseData.rootCategoryBreakdown
+        : merchandiseData.categoryBreakdown || [];
+    const totalSoldAll = rootCats.reduce((s, c) => s + (c.totalQuantitySold || 0), 0);
+    const totalRevAll = rootCats.reduce((s, c) => s + (c.totalRevenue || 0), 0);
+    const footballRoot = rootCats.find((c) => {
+      const lower = (c.categoryName || '').toLowerCase();
+      return lower.includes('bóng đá') || lower.includes('bong da') || lower.includes('football');
+    });
+
     sheets.push({
       sheetName: 'Top san pham ban chay',
       title: 'TOP SẢN PHẨM BÁN CHẠY NHẤT',
       filterSummary: timeRangeText,
       exportedBy: currentUserName,
+      summaryRows: [
+        { label: 'Tổng sản lượng tiêu thụ trong kỳ', value: totalSoldAll, type: 'number' },
+        { label: 'Tổng doanh thu hàng hóa trong kỳ', value: totalRevAll, type: 'currency' },
+        {
+          label: 'Ngành chủ chốt Bóng Đá (Tỷ trọng)',
+          value: footballRoot ? footballRoot.percentage : 0,
+          type: 'percent',
+        },
+        {
+          label: 'Ngành chủ chốt Bóng Đá (Doanh thu)',
+          value: footballRoot ? footballRoot.totalRevenue : 0,
+          type: 'currency',
+        },
+      ],
       columns: [
         { header: 'Thứ hạng', key: 'rank', type: 'number', width: 10, valueGetter: (_r, idx) => idx + 1 },
         { header: 'Mã SP', key: 'productId', type: 'number', width: 10 },
-        { header: 'Tên sản phẩm', key: 'productName', type: 'text' },
+        { header: 'Tên sản phẩm', key: 'productName', type: 'text', width: 34 },
+        { header: 'Danh mục chi tiết', key: 'categoryName', type: 'text', valueGetter: (p) => p.categoryName || '' },
+        { header: 'Nhóm ngành cha', key: 'rootCategoryName', type: 'text', valueGetter: (p) => p.rootCategoryName || '' },
         { header: 'Slug', key: 'slug', type: 'text' },
         { header: 'Số lượng bán', key: 'totalQuantitySold', type: 'number' },
         { header: 'Doanh thu mang lại', key: 'totalRevenue', type: 'currency' },
@@ -242,19 +335,63 @@ export async function exportEnterpriseReportToCSV({
 
     sheets.push({
       sheetName: 'Co cau danh muc',
-      title: 'CƠ CẤU DOANH THU THEO DANH MỤC',
+      title: 'CƠ CẤU DOANH THU THEO NHÁNH DANH MỤC',
       filterSummary: timeRangeText,
       exportedBy: currentUserName,
       columns: [
         { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
         { header: 'Mã danh mục', key: 'categoryId', type: 'number', width: 14 },
-        { header: 'Tên ngành hàng', key: 'categoryName', type: 'text' },
+        { header: 'Tên nhánh danh mục', key: 'categoryName', type: 'text' },
         { header: 'Số lượng đã bán', key: 'totalQuantitySold', type: 'number' },
         { header: 'Doanh thu', key: 'totalRevenue', type: 'currency' },
         { header: 'Tỷ trọng', key: 'percentage', type: 'percent' },
       ],
       rows: merchandiseData.categoryBreakdown || [],
     });
+
+    if (merchandiseData.rootCategoryBreakdown && merchandiseData.rootCategoryBreakdown.length > 0) {
+      sheets.push({
+        sheetName: 'Nhom danh muc cha',
+        title: 'ĐỐI CHIẾU HIỆU QUẢ THEO NHÓM DANH MỤC CHA (BÓNG ĐÁ VS NGÀNH KHÁC)',
+        filterSummary: timeRangeText,
+        exportedBy: currentUserName,
+        columns: [
+          { header: 'Hạng', key: 'rank', type: 'number', width: 8, valueGetter: (_r, idx) => idx + 1 },
+          { header: 'Nhóm danh mục cha', key: 'categoryName', type: 'text' },
+          { header: 'Sản lượng bán', key: 'totalQuantitySold', type: 'number' },
+          {
+            header: 'Tỷ trọng SL (%)',
+            key: 'volumePct',
+            type: 'percent',
+            valueGetter: (rc) =>
+              totalSoldAll > 0 ? Math.round(((rc.totalQuantitySold || 0) / totalSoldAll) * 1000) / 10 : 0,
+          },
+          {
+            header: 'Đơn giá TB',
+            key: 'avgUnitRev',
+            type: 'currency',
+            valueGetter: (rc) => (rc.totalQuantitySold > 0 ? Math.round((rc.totalRevenue || 0) / rc.totalQuantitySold) : 0),
+          },
+          { header: 'Doanh thu', key: 'totalRevenue', type: 'currency' },
+          { header: 'Tỷ trọng DT (%)', key: 'percentage', type: 'percent' },
+          {
+            header: 'So với Bóng Đá',
+            key: 'vsFootball',
+            type: 'text',
+            valueGetter: (rc) => {
+              const lower = (rc.categoryName || '').toLowerCase();
+              if (lower.includes('bóng đá') || lower.includes('bong da') || lower.includes('football')) {
+                return 'Ngành chủ chốt (Mốc chuẩn)';
+              }
+              if (!footballRoot) return 'Chưa có Bóng đá';
+              const diff = Number(((rc.percentage || 0) - (footballRoot.percentage || 0)).toFixed(1));
+              return diff > 0 ? `Cao hơn +${diff}%` : diff < 0 ? `Thấp hơn ${diff}%` : 'Ngang bằng (0%)';
+            },
+          },
+        ],
+        rows: merchandiseData.rootCategoryBreakdown,
+      });
+    }
   }
 
   if (sheets.length === 0) return;
@@ -320,6 +457,7 @@ export function printEnterpriseReportDocument(params: EnterpriseReportExportPara
     staffPerformance,
     warehouseData,
     merchandiseData,
+    reconciliationData,
     currentUserName = 'Quản trị viên',
   } = params;
 
@@ -349,31 +487,146 @@ export function printEnterpriseReportDocument(params: EnterpriseReportExportPara
       )
       .join('');
 
+    const reconRowsHtml = (reconciliationData?.dailyRows || [])
+      .map(
+        (r) => `
+        <tr>
+          <td style="font-weight: 700;">${r.label}</td>
+          <td style="text-align: right;">${r.orderCount}</td>
+          <td style="text-align: right; font-weight: 600;">${formatCurrency(r.grossRevenue)}</td>
+          <td style="text-align: right;">${formatCurrency(r.discountAmount)}</td>
+          <td style="text-align: right; color: #1d4ed8;">${formatCurrency(r.vnpayCollectedRevenue)}</td>
+          <td style="text-align: right;">${formatCurrency(r.codCollectedRevenue)}</td>
+          <td style="text-align: right; font-weight: bold; color: #15803d;">${formatCurrency(r.netCollectedRevenue)}</td>
+          <td style="text-align: right; color: #0e7490;">${formatCurrency(r.vnpayPrepaidPendingRevenue)}</td>
+          <td style="text-align: right; color: #b45309;">${formatCurrency(r.pendingReconciliationRevenue)}</td>
+          <td style="text-align: right;">${formatCurrency(r.cancelledUnpaidRevenue)}</td>
+          <td style="text-align: right; color: #be123c; font-weight: 600;">${formatCurrency(r.pendingRefundRevenue)}</td>
+          <td style="text-align: right; color: #4338ca;">${formatCurrency(r.refundedRevenue)}</td>
+          <td style="text-align: right; font-weight: 700;">${r.collectionRate.toFixed(1)}%</td>
+        </tr>
+      `
+      )
+      .join('');
+
+    const reconExceptionsHtml =
+      reconciliationData?.exceptions && reconciliationData.exceptions.length > 0
+        ? `
+      <div class="section-title" style="color: #be123c; margin-top: 18px;">Đơn Cần Hoàn Tiền & Chênh Lệch Đối Soát (${reconciliationData.exceptions.length} đơn)</div>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>Mã đơn</th>
+            <th>Khách hàng</th>
+            <th>Kênh / TT</th>
+            <th>Trạng thái đơn</th>
+            <th style="text-align: right;">Số tiền</th>
+            <th>Nội dung chênh lệch</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reconciliationData.exceptions
+            .map(
+              (ex) => `
+            <tr>
+              <td style="font-weight: 700;">${ex.orderCode}</td>
+              <td>${ex.customerName}</td>
+              <td>${ex.paymentMethod} (${ex.paymentStatus})</td>
+              <td>${ex.orderStatus}</td>
+              <td style="text-align: right; font-weight: 700; color: #be123c;">${formatCurrency(ex.amount)}</td>
+              <td>${ex.issueDescription}</td>
+            </tr>
+          `
+            )
+            .join('')}
+        </tbody>
+      </table>
+    `
+        : '';
+
     contentHtml = `
-      <div class="kpi-grid">
+      <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
         <div class="kpi-card">
-          <div class="kpi-label">Doanh Thu Hoàn Thành</div>
-          <div class="kpi-value text-primary">${formatCurrency(overviewData.totalDeliveredRevenue)}</div>
-          <div class="kpi-sub">Doanh thu thuần: ${formatCurrency(overviewData.totalNetRevenue)}</div>
+          <div class="kpi-label">Doanh Thu Phát Sinh Gộp</div>
+          <div class="kpi-value">${formatCurrency(reconciliationData?.grossRevenue ?? overviewData.totalGrossRevenue)}</div>
+          <div class="kpi-sub">Voucher: ${formatCurrency(reconciliationData?.totalDiscountAmount ?? overviewData.totalDiscountAmount)} | Ship: ${formatCurrency(reconciliationData?.totalShippingFee ?? overviewData.totalShippingFee)}</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Tổng Số Đơn Hàng</div>
-          <div class="kpi-value">${overviewData.totalOrders.toLocaleString('vi-VN')} đơn</div>
-          <div class="kpi-sub">Giao thành công: ${overviewData.completedOrders} đơn (${overviewData.successRate}%)</div>
+          <div class="kpi-label">Thực Thu Đã Chốt (${reconciliationData?.collectionRate ?? 0}%)</div>
+          <div class="kpi-value text-success">${formatCurrency(reconciliationData?.netCollectedRevenue ?? overviewData.totalDeliveredRevenue)}</div>
+          <div class="kpi-sub">VNPay: ${formatCurrency(reconciliationData?.vnpayCollectedRevenue ?? overviewData.vnpayPaymentRevenue)} | COD: ${formatCurrency(reconciliationData?.codCollectedRevenue ?? overviewData.cashPaymentRevenue)}</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Giá Trị Đơn TB (AOV)</div>
-          <div class="kpi-value">${formatCurrency(overviewData.averageOrderValue)}</div>
-          <div class="kpi-sub">Tỷ lệ hủy: ${overviewData.cancellationRate}%</div>
+          <div class="kpi-label">Chờ Đối Soát & Tạm Thu</div>
+          <div class="kpi-value" style="color: #b45309;">${formatCurrency((reconciliationData?.vnpayPrepaidPendingRevenue ?? 0) + (reconciliationData?.pendingReconciliationRevenue ?? 0))}</div>
+          <div class="kpi-sub">Tạm thu VNPay: ${formatCurrency(reconciliationData?.vnpayPrepaidPendingRevenue ?? 0)} | Chờ COD: ${formatCurrency(reconciliationData?.pendingReconciliationRevenue ?? 0)}</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label">Cơ Cấu Dòng Tiền</div>
-          <div class="kpi-value text-success">${formatCurrency(overviewData.cashPaymentRevenue)} <span style="font-size:10px; color:#64748b;">(COD)</span></div>
-          <div class="kpi-sub">VNPay trực tuyến: ${formatCurrency(overviewData.vnpayPaymentRevenue)}</div>
+          <div class="kpi-label">Hủy / Lỗi TT & Hoàn Tiền</div>
+          <div class="kpi-value" style="color: #be123c;">${formatCurrency(reconciliationData?.lostCancelledRevenue ?? 0)}</div>
+          <div class="kpi-sub">Cần hoàn (${reconciliationData?.pendingRefundCount ?? 0}): ${formatCurrency(reconciliationData?.pendingRefundRevenue ?? 0)} | Đã hoàn (${reconciliationData?.refundedCount ?? 0}): ${formatCurrency(reconciliationData?.refundedRevenue ?? 0)}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Đơn Thành Công & Tỷ Lệ</div>
+          <div class="kpi-value">${overviewData.completedOrders} / ${reconciliationData?.totalOrders ?? overviewData.totalOrders} đơn</div>
+          <div class="kpi-sub">Thành công: ${overviewData.successRate}% | Hủy đơn: ${overviewData.cancellationRate}%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Lãi Gộp (${overviewData.grossMarginPercent ?? 0}%) & AOV</div>
+          <div class="kpi-value text-primary">${formatCurrency(overviewData.grossProfit ?? 0)}</div>
+          <div class="kpi-sub">Giá vốn: ${formatCurrency(overviewData.totalCostOfGoodsSold ?? 0)} | AOV: ${formatCurrency(overviewData.averageOrderValue)}</div>
         </div>
       </div>
 
-      <div class="section-title">Chi Tiết Biến Động Doanh Thu & Đơn Hàng Theo Thời Gian</div>
+      ${
+        reconciliationData
+          ? `
+      <div class="section-title">Bảng Đối Soát Dòng Tiền Theo Ngày & Kênh Thanh Toán</div>
+      <table class="report-table" style="font-size: 9.5px;">
+        <thead>
+          <tr>
+            <th>Ngày</th>
+            <th style="text-align: right;">Đơn</th>
+            <th style="text-align: right;">DT Gộp</th>
+            <th style="text-align: right;">Voucher</th>
+            <th style="text-align: right;">TT VNPay</th>
+            <th style="text-align: right;">TT COD</th>
+            <th style="text-align: right;">Thực Thu</th>
+            <th style="text-align: right;">Tạm thu VNPay</th>
+            <th style="text-align: right;">Chờ COD</th>
+            <th style="text-align: right;">Hủy/Lỗi</th>
+            <th style="text-align: right;">Cần hoàn</th>
+            <th style="text-align: right;">Đã hoàn</th>
+            <th style="text-align: right;">Tỷ lệ</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${reconRowsHtml || '<tr><td colspan="13" style="text-align: center;">Không có giao dịch trong kỳ</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr style="background: #f1f5f9; font-weight: bold;">
+            <td>TỔNG CỘNG</td>
+            <td style="text-align: right;">${reconciliationData.totalOrders}</td>
+            <td style="text-align: right;">${formatCurrency(reconciliationData.grossRevenue)}</td>
+            <td style="text-align: right;">${formatCurrency(reconciliationData.totalDiscountAmount)}</td>
+            <td style="text-align: right; color: #1d4ed8;">${formatCurrency(reconciliationData.vnpayCollectedRevenue)}</td>
+            <td style="text-align: right;">${formatCurrency(reconciliationData.codCollectedRevenue)}</td>
+            <td style="text-align: right; color: #15803d;">${formatCurrency(reconciliationData.netCollectedRevenue)}</td>
+            <td style="text-align: right; color: #0e7490;">${formatCurrency(reconciliationData.vnpayPrepaidPendingRevenue)}</td>
+            <td style="text-align: right; color: #b45309;">${formatCurrency(reconciliationData.pendingReconciliationRevenue)}</td>
+            <td style="text-align: right;">${formatCurrency((reconciliationData.cancelledUnpaidRevenue || 0) + (reconciliationData.paymentFailedRevenue || 0))}</td>
+            <td style="text-align: right; color: #be123c;">${formatCurrency(reconciliationData.pendingRefundRevenue)}</td>
+            <td style="text-align: right; color: #4338ca;">${formatCurrency(reconciliationData.refundedRevenue)}</td>
+            <td style="text-align: right;">${reconciliationData.collectionRate.toFixed(1)}%</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${reconExceptionsHtml}
+      `
+          : ''
+      }
+
+      <div class="section-title" style="margin-top: 18px;">Chi Tiết Biến Động Doanh Thu & Đơn Hàng Theo Thời Gian</div>
       <table class="report-table">
         <thead>
           <tr>

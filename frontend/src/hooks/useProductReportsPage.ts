@@ -10,6 +10,9 @@ import {
 } from '@/types/report';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useChartDrilldownModal } from '@/hooks/useChartDrilldownModal';
+import { useRealtimeReportSync } from '@/hooks/useRealtimeReportSync';
+import { useExcelExport } from '@/hooks/useExcelExport';
+import { exportEnterpriseReportToCSV } from '@/utils/reportExportPrinter';
 import { toast } from 'sonner';
 
 /**
@@ -25,6 +28,7 @@ export function useProductReportsPage() {
   const [endDate, setEndDate] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [merchandiseData, setMerchandiseData] = useState<TopMerchandiseReportResponse | null>(null);
+  const { isExporting, runExport } = useExcelExport();
 
   const roleName = user?.roleName?.toUpperCase() || '';
   const hasAccess = roleName === 'ADMIN' || roleName === 'STAFF';
@@ -38,24 +42,26 @@ export function useProductReportsPage() {
     [timeRange, startDate, endDate]
   );
 
-  const loadMerchandiseReport = useCallback(async () => {
+  const loadMerchandiseReport = useCallback(async (silent = false) => {
     if (authLoading || !hasAccess) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await reportController.getTopMerchandise(filterParams, 15);
       if (res.data) {
         setMerchandiseData(res.data);
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tải dữ liệu thống kê sản phẩm');
+      if (!silent) toast.error(err?.message || 'Không thể tải dữ liệu thống kê sản phẩm');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [authLoading, hasAccess, filterParams]);
 
   useEffect(() => {
     loadMerchandiseReport();
   }, [loadMerchandiseReport]);
+
+  useRealtimeReportSync(() => loadMerchandiseReport(true), { enabled: !authLoading && hasAccess });
 
   const handlePresetChange = useCallback((preset: TimeRangePreset) => {
     setTimeRange(preset);
@@ -101,6 +107,23 @@ export function useProductReportsPage() {
     [drilldown, timeRange, startDate, endDate]
   );
 
+  const handleExportExcel = useCallback(() => {
+    if (!merchandiseData) return;
+    runExport(async () => {
+      await exportEnterpriseReportToCSV({
+        activeTab: 'merchandise',
+        timeRange,
+        startDate,
+        endDate,
+        overviewData: null,
+        staffPerformance: [],
+        warehouseData: null,
+        merchandiseData,
+        currentUserName: user?.name || 'Quản trị viên',
+      });
+    }, 'Đã xuất báo cáo Thống kê Sản phẩm (.xlsx) thành công!');
+  }, [merchandiseData, timeRange, startDate, endDate, user?.name, runExport]);
+
   return {
     user,
     authLoading,
@@ -109,10 +132,12 @@ export function useProductReportsPage() {
     startDate,
     endDate,
     loading,
+    isExporting,
     merchandiseData,
     handlePresetChange,
     handleCustomDateChange,
-    handleRefresh: loadMerchandiseReport,
+    handleRefresh: () => loadMerchandiseReport(false),
+    handleExportExcel,
     handleSelectProduct,
     handleSelectCategory,
     drilldown,

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { reportController } from '@/controllers/report-controller';
 import {
+  DailyReconciliationRow,
+  FinancialReconciliationResponse,
   ReportFilterParams,
   ReportTabType,
   RevenueOverviewReportResponse,
@@ -10,11 +12,14 @@ import {
   TimeSeriesPointResponse,
 } from '@/types/report';
 import { useChartDrilldownModal } from '@/hooks/useChartDrilldownModal';
+import { useRealtimeReportSync } from '@/hooks/useRealtimeReportSync';
 import { toast } from 'sonner';
 import {
   exportEnterpriseReportToCSV,
   printEnterpriseReportDocument,
 } from '@/utils/reportExportPrinter';
+
+const RECONCILIATION_PAGE_SIZE = 10;
 
 // ==========================================
 // CÁC HẰNG SỐ CẤU HÌNH BỘ LỌC BÁO CÁO ADMIN
@@ -49,6 +54,10 @@ export function useAdminReports(options?: { enabled?: boolean }) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [overviewData, setOverviewData] = useState<RevenueOverviewReportResponse | null>(null);
+  const [reconciliationData, setReconciliationData] = useState<FinancialReconciliationResponse | null>(null);
+  const [reconciliationLoading, setReconciliationLoading] = useState<boolean>(false);
+  const [reconciliationMethod, setReconciliationMethod] = useState<'ALL' | 'COD' | 'VNPAY'>('ALL');
+  const [reconciliationPage, setReconciliationPage] = useState<number>(0);
 
   // State hover tooltip của 2 biểu đồ chuỗi thời gian
   const [revenueHoveredPoint, setRevenueHoveredPoint] = useState<TimeSeriesPointResponse | null>(null);
@@ -63,24 +72,39 @@ export function useAdminReports(options?: { enabled?: boolean }) {
     };
   }, [timeRange, startDate, endDate]);
 
-  const loadReportData = useCallback(async () => {
+  const loadReportData = useCallback(async (silent = false) => {
     if (!enabled) return;
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+        setReconciliationLoading(true);
+      }
       setError(null);
-      const res = await reportController.getRevenueOverview(filterParams);
-      if (res.data) setOverviewData(res.data);
+      const [overviewRes, reconRes] = await Promise.all([
+        reportController.getRevenueOverview(filterParams),
+        reportController.getFinancialReconciliation(filterParams, reconciliationMethod),
+      ]);
+      if (overviewRes.data) setOverviewData(overviewRes.data);
+      if (reconRes.data) {
+        setReconciliationData(reconRes.data);
+        if (!silent) setReconciliationPage(0);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi tải dữ liệu báo cáo doanh thu';
       setError(msg);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+        setReconciliationLoading(false);
+      }
     }
-  }, [enabled, filterParams]);
+  }, [enabled, filterParams, reconciliationMethod]);
 
   useEffect(() => {
     loadReportData();
   }, [loadReportData]);
+
+  useRealtimeReportSync(() => loadReportData(true), { enabled });
 
   const handlePresetChange = useCallback((preset: TimeRangePreset) => {
     setTimeRange(preset);
@@ -164,9 +188,24 @@ export function useAdminReports(options?: { enabled?: boolean }) {
     [drilldown, timeRange, startDate, endDate]
   );
 
-  const handleExportCSV = useCallback(() => {
+  // 5. Click vào 1 dòng ngày trong Bảng Đối Soát Dòng Tiền → mở Modal chi tiết đơn của ngày đó
+  const handleSelectReconciliationRow = useCallback(
+    (row: DailyReconciliationRow) => {
+      drilldown.openDrilldown({
+        mode: 'ORDERS',
+        title: `Đối Soát Đơn Hàng — Ngày ${row.label}`,
+        subtitle: `Chi tiết các đơn hàng phát sinh trong ngày ${row.label} (Kênh: ${reconciliationMethod === 'ALL' ? 'Tất cả' : reconciliationMethod})`,
+        specificDate: row.date,
+        statusGroup: 'ALL',
+        paymentMethod: reconciliationMethod === 'COD' ? 'CASH' : reconciliationMethod === 'VNPAY' ? 'VNPAY' : undefined,
+      });
+    },
+    [drilldown, reconciliationMethod]
+  );
+
+  const handleExportCSV = useCallback(async () => {
     try {
-      exportEnterpriseReportToCSV({
+      await exportEnterpriseReportToCSV({
         activeTab: 'overview',
         timeRange,
         startDate,
@@ -175,14 +214,15 @@ export function useAdminReports(options?: { enabled?: boolean }) {
         staffPerformance: [],
         warehouseData: null,
         merchandiseData: null,
+        reconciliationData,
         currentUserName: 'Quản trị viên',
       });
-      toast.success('Đã xuất file báo cáo doanh thu CSV thành công (chuẩn UTF-8)');
+      toast.success('Đã xuất file báo cáo doanh thu & đối soát Excel (.xlsx) thành công');
     } catch (err) {
-      console.error('Lỗi khi xuất file CSV:', err);
-      toast.error('Không thể xuất file báo cáo CSV');
+      console.error('Lỗi khi xuất file Excel:', err);
+      toast.error('Không thể xuất file báo cáo Excel');
     }
-  }, [timeRange, startDate, endDate, overviewData]);
+  }, [timeRange, startDate, endDate, overviewData, reconciliationData]);
 
   const handlePrint = useCallback(() => {
     try {
@@ -195,13 +235,22 @@ export function useAdminReports(options?: { enabled?: boolean }) {
         staffPerformance: [],
         warehouseData: null,
         merchandiseData: null,
+        reconciliationData,
         currentUserName: 'Quản trị viên',
       });
     } catch (err) {
       console.error('Lỗi khi mở trình in:', err);
       toast.error('Không thể khởi tạo bản in');
     }
-  }, [timeRange, startDate, endDate, overviewData]);
+  }, [timeRange, startDate, endDate, overviewData, reconciliationData]);
+
+  const reconciliationRows = reconciliationData?.dailyRows || [];
+  const reconciliationTotalPages = Math.max(1, Math.ceil(reconciliationRows.length / RECONCILIATION_PAGE_SIZE));
+  const paginatedReconciliationRows = useMemo(() => {
+    const safePage = Math.min(reconciliationPage, Math.max(0, reconciliationTotalPages - 1));
+    const startIdx = safePage * RECONCILIATION_PAGE_SIZE;
+    return reconciliationRows.slice(startIdx, startIdx + RECONCILIATION_PAGE_SIZE);
+  }, [reconciliationRows, reconciliationPage, reconciliationTotalPages]);
 
   return {
     timeRange,
@@ -210,6 +259,14 @@ export function useAdminReports(options?: { enabled?: boolean }) {
     loading,
     error,
     overviewData,
+    reconciliationData,
+    reconciliationLoading,
+    reconciliationMethod,
+    setReconciliationMethod,
+    reconciliationPage,
+    reconciliationTotalPages,
+    paginatedReconciliationRows,
+    setReconciliationPage,
     revenueHoveredPoint,
     revenueHoverPos,
     setRevenueHoveredPoint,
@@ -223,6 +280,7 @@ export function useAdminReports(options?: { enabled?: boolean }) {
     handleSelectVolumeBar,
     handleSelectPaymentMethod,
     handleSelectStatusGroup,
+    handleSelectReconciliationRow,
     handleExportCSV,
     handlePrint,
     drilldown,

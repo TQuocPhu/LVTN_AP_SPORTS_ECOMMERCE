@@ -32,6 +32,12 @@ export interface RevenueOverviewReportResponse {
   totalDeliveredRevenue: number;
   totalDiscountAmount: number;
   totalShippingFee: number;
+  totalCostOfGoodsSold?: number;
+  grossProfit?: number;
+  grossMarginPercent?: number;
+  revenueGrowthPercent?: number | null;
+  ordersGrowthPercent?: number | null;
+  aovGrowthPercent?: number | null;
   totalOrders: number;
   completedOrders: number;
   deliveringOrders: number;
@@ -71,6 +77,8 @@ export interface TopProductItemResponse {
   productId: number;
   productName: string;
   slug: string;
+  categoryName?: string;
+  rootCategoryName?: string;
   image?: string;
   totalQuantitySold: number;
   totalRevenue: number;
@@ -87,6 +95,7 @@ export interface CategoryRevenueItemResponse {
 export interface TopMerchandiseReportResponse {
   topProducts: TopProductItemResponse[];
   categoryBreakdown: CategoryRevenueItemResponse[];
+  rootCategoryBreakdown?: CategoryRevenueItemResponse[];
 }
 
 export interface LowStockVariantItemResponse {
@@ -202,4 +211,57 @@ export interface ChartDrilldownRequest {
   useAdminStocksEndpoint?: boolean;
   // Bộ lọc chuyên biệt cho TRANSACTIONS
   txFilter?: 'ALL' | 'IMPORT' | 'EXPORT' | 'ORDER_EXPORT' | 'MANUAL_EXPORT' | string;
+}
+
+export interface DailyReconciliationRow {
+  date: string;
+  label: string;
+  orderCount: number;
+  grossRevenue: number;
+  discountAmount: number;
+  shippingFee: number;
+  vnpayCollectedRevenue: number;
+  codCollectedRevenue: number;
+  netCollectedRevenue: number;
+  vnpayPrepaidPendingRevenue: number;
+  pendingReconciliationRevenue: number;
+  cancelledUnpaidRevenue: number;
+  pendingRefundRevenue: number;
+  refundedRevenue: number;
+  lostCancelledRevenue: number;
+  collectionRate: number;
+}
+
+export interface ReconciliationExceptionItem {
+  orderId: number;
+  orderCode: string;
+  customerName: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderStatus: string;
+  amount: number;
+  issueDescription: string;
+  createdAt: string;
+}
+
+export interface FinancialReconciliationResponse {
+  totalOrders: number;
+  grossRevenue: number;
+  totalDiscountAmount: number;
+  totalShippingFee: number;
+  vnpayCollectedRevenue: number;
+  codCollectedRevenue: number;
+  netCollectedRevenue: number;
+  vnpayPrepaidPendingRevenue: number;
+  pendingReconciliationRevenue: number;
+  lostCancelledRevenue: number;
+  cancelledUnpaidRevenue: number;
+  paymentFailedRevenue: number;
+  pendingRefundRevenue: number;
+  pendingRefundCount: number;
+  refundedRevenue: number;
+  refundedCount: number;
+  collectionRate: number;
+  dailyRows: DailyReconciliationRow[];
+  exceptions: ReconciliationExceptionItem[];
 }

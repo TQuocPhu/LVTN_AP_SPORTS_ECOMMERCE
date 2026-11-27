@@ -14,6 +14,7 @@ import { PaymentMethodPieChart } from './PaymentMethodPieChart';
 import { OrderStatusDistributionChart } from './OrderStatusDistributionChart';
 import { StaffPersonalReportView } from './StaffPersonalReportView';
 import { AdminChartDrilldownModal } from './AdminChartDrilldownModal';
+import { OrderFinancialReconciliationPanel } from './OrderFinancialReconciliationPanel';
 import { UserCheck, Warehouse, ArrowRight } from 'lucide-react';
 
 /**
@@ -73,6 +74,14 @@ function AdminRevenueReportsView() {
     endDate,
     loading,
     overviewData,
+    reconciliationData,
+    reconciliationLoading,
+    reconciliationMethod,
+    setReconciliationMethod,
+    reconciliationPage,
+    reconciliationTotalPages,
+    paginatedReconciliationRows,
+    setReconciliationPage,
     revenueHoveredPoint,
     revenueHoverPos,
     setRevenueHoveredPoint,
@@ -86,6 +95,7 @@ function AdminRevenueReportsView() {
     handleSelectVolumeBar,
     handleSelectPaymentMethod,
     handleSelectStatusGroup,
+    handleSelectReconciliationRow,
     handleExportCSV,
     handlePrint,
     drilldown,
@@ -110,10 +120,28 @@ function AdminRevenueReportsView() {
         onCustomDateChange={handleCustomDateChange}
       />
 
-      {/* 3. KPI Cards & 4 Biểu Đồ Tương Tác Click Mở Modal Bảng Chi Tiết */}
+      {/* 3. 6 Thẻ KPI Tổng Hợp & Cân Đối Tài Chính (2 hàng x 3 thẻ) */}
       <div className="space-y-6">
-        <ReportKpiCards data={overviewData} loading={loading} />
+        <ReportKpiCards
+          data={overviewData}
+          reconciliationData={reconciliationData}
+          loading={loading || reconciliationLoading}
+        />
 
+        {/* 4. Bảng Sổ Cái Đối Soát Dòng Tiền Theo Ngày & Kênh Thanh Toán (Đặt ngay dưới bộ lọc để đối chiếu trực tiếp) */}
+        <OrderFinancialReconciliationPanel
+          data={reconciliationData}
+          paginatedRows={paginatedReconciliationRows}
+          page={reconciliationPage}
+          totalPages={reconciliationTotalPages}
+          loading={reconciliationLoading}
+          paymentMethodFilter={reconciliationMethod}
+          onChangePaymentMethod={setReconciliationMethod}
+          onPageChange={setReconciliationPage}
+          onSelectDailyRow={handleSelectReconciliationRow}
+        />
+
+        {/* 5. 4 Biểu Đồ Tương Tác Click Mở Modal Bảng Chi Tiết */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           <RevenueTimeSeriesChart
             data={overviewData?.timeSeries || []}

@@ -200,6 +200,13 @@ export function useAdminSidebar() {
             allowedRoles: ['ADMIN', 'STAFF'],
           },
           {
+            title: 'Báo Cáo Doanh Thu',
+            href: '/admin/orders/reports',
+            icon: BarChart3,
+            permission: 'MANAGE_ORDERS',
+            allowedRoles: ['ADMIN', 'STAFF'],
+          },
+          {
             title: 'Quản Lý Sản Phẩm',
             href: '/admin/products',
             icon: Package,
@@ -296,16 +303,10 @@ export function useAdminSidebar() {
         ],
       },
       {
-        id: 'analytics',
-        title: 'Hệ Thống & Báo Cáo',
-        icon: BarChart3,
+        id: 'system',
+        title: 'Quản Trị Hệ Thống',
+        icon: Users,
         items: [
-          {
-            title: 'Báo Cáo & Thống Kê',
-            href: '/admin/reports',
-            icon: BarChart3,
-            allowedRoles: ['ADMIN', 'STAFF'],
-          },
           {
             title: 'Quản Lý Người Dùng',
             href: '/admin/users',

@@ -377,7 +377,7 @@ export function DashboardSystemAnalytics({
           </div>
 
           <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
-            {categoryShares.length} danh mục • {totalProducts} SKU
+            {categoryShares.length} danh mục • {totalProducts} sản phẩm
           </span>
         </div>
 
@@ -388,6 +388,7 @@ export function DashboardSystemAnalytics({
             <div className="relative w-52 h-52">
               <svg viewBox="0 0 300 300" className="w-full h-full select-none">
                 {slices.map((slice) => {
+                  if (slice.endAngle <= slice.startAngle) return null;
                   const isHovered = hoveredCategory?.categoryId === slice.categoryId;
                   const rOut = isHovered ? 122 : 110;
                   const rIn = isHovered ? 68 : 72;

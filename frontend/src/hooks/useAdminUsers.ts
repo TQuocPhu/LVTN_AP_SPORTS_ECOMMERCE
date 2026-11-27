@@ -229,9 +229,10 @@ export function useAdminUsers() {
           columns: [
             { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
             { header: 'ID', key: 'id', type: 'number', width: 8 },
-            { header: 'Họ và tên', key: 'fullName', type: 'text', valueGetter: (u) => u.fullName || u.name || '---' },
+            { header: 'Họ và tên', key: 'name', type: 'text', valueGetter: (u: any) => u.name || u.fullName || '' },
             { header: 'Email', key: 'email', type: 'text' },
-            { header: 'Số điện thoại', key: 'phone', type: 'text', valueGetter: (u) => u.phone || '---' },
+            { header: 'Số điện thoại', key: 'phoneNumber', type: 'text', valueGetter: (u: any) => u.phoneNumber || u.phone || '' },
+            { header: 'Mã nhân viên', key: 'employeeCode', type: 'text', valueGetter: (u: any) => u.employeeCode || '' },
             { header: 'Vai trò', key: 'role', type: 'text' },
             { header: 'Trạng thái', key: 'status', type: 'text' },
             { header: 'Ngày tạo', key: 'createdAt', type: 'datetime' },

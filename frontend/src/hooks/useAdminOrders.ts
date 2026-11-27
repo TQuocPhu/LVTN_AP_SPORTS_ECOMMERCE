@@ -397,30 +397,53 @@ export function useAdminOrders(): UseAdminOrdersReturn {
             { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
             { header: 'Mã đơn', key: 'orderCode', type: 'text' },
             { header: 'Ngày đặt', key: 'createdAt', type: 'datetime' },
-            { header: 'Khách hàng', key: 'customerName', type: 'text' },
-            { header: 'Số điện thoại', key: 'customerPhone', type: 'text' },
-            { header: 'Email', key: 'customerEmail', type: 'text' },
-            { header: 'Địa chỉ giao hàng', key: 'shippingAddress', type: 'text', width: 38 },
+            { header: 'Khách hàng', key: 'customerName', type: 'text', valueGetter: (o: any) => o.customerName || o.shippingAddress?.fullName || 'Khách lẻ' },
+            { header: 'Số điện thoại', key: 'customerPhone', type: 'text', valueGetter: (o: any) => o.customerPhone || o.shippingAddress?.phone || '' },
+            { header: 'Email', key: 'customerEmail', type: 'text', valueGetter: (o: any) => o.customerEmail || '' },
+            {
+              header: 'Địa chỉ giao hàng',
+              key: 'shippingAddress',
+              type: 'text',
+              width: 38,
+              valueGetter: (o: any) => {
+                if (!o.shippingAddress) return '';
+                if (typeof o.shippingAddress === 'string') return o.shippingAddress;
+                return [o.shippingAddress.address, o.shippingAddress.city].filter(Boolean).join(', ');
+              },
+            },
             {
               header: 'Sản phẩm & Biến thể',
               key: 'itemsSummary',
               type: 'text',
               width: 42,
-              valueGetter: (o) =>
+              valueGetter: (o: any) =>
                 (o.items || [])
-                  .map((it: any) => `${it.productName}${it.variantInfo ? ` [${it.variantInfo}]` : ''} x${it.quantity}`)
-                  .join('; ') || '---',
+                  .map((it: any) => {
+                    const variant = it.variantSummary || [it.size, it.color].filter(Boolean).join(' / ');
+                    return `${it.productName}${variant ? ` [${variant}]` : ''} x${it.quantity}`;
+                  })
+                  .join('; '),
             },
-            { header: 'Tạm tính', key: 'totalAmount', type: 'currency' },
-            { header: 'Mã Voucher', key: 'voucherCode', type: 'text', valueGetter: (o) => o.voucherCode || '---' },
+            { header: 'Tạm tính', key: 'totalPrice', type: 'currency' },
+            { header: 'Mã Voucher', key: 'couponCode', type: 'text', valueGetter: (o: any) => o.couponCode || '' },
             { header: 'Tiền giảm', key: 'discountAmount', type: 'currency' },
             { header: 'Phí vận chuyển', key: 'shippingFee', type: 'currency' },
             { header: 'Tổng thanh toán', key: 'finalAmount', type: 'currency' },
             { header: 'Phương thức TT', key: 'paymentMethod', type: 'text' },
             { header: 'Trạng thái TT', key: 'paymentStatus', type: 'text' },
             { header: 'Trạng thái đơn', key: 'status', type: 'text' },
-            { header: 'Nhân viên xử lý', key: 'processedByName', type: 'text', valueGetter: (o) => o.processedByName || '---' },
-            { header: 'Ghi chú / Lý do hủy', key: 'note', type: 'text', valueGetter: (o) => o.cancelReason || o.note || '---' },
+            {
+              header: 'Nhân viên xử lý',
+              key: 'processedByStaff',
+              type: 'text',
+              valueGetter: (o: any) => o.processedByStaff?.name || o.processedByStaff?.email || '',
+            },
+            {
+              header: 'Ghi chú',
+              key: 'note',
+              type: 'text',
+              valueGetter: (o: any) => o.note || '',
+            },
           ],
           rows,
         },

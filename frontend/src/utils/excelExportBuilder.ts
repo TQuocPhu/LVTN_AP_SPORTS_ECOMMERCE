@@ -41,12 +41,17 @@ export interface ExcelSheetConfig<T = any> {
 
 /**
  * Chuẩn hóa chuỗi đầu vào để chống lỗ hổng Excel/CSV Formula Injection (CWE-1236).
- * Nếu chuỗi bắt đầu bằng =, +, -, @, tab hoặc CR, thêm dấu nháy đơn phía trước để Excel luôn hiểu là văn bản thuần.
+ * Bỏ qua các chuỗi giữ chỗ an toàn ('---', '--', '—') và số âm thuần túy để không bị biến thành "'---",
+ * chỉ thêm dấu nháy đơn phía trước khi chuỗi thực sự có nguy cơ thực thi công thức (=, +, @, tab, CR, hoặc - theo sau bởi ký tự không phải số/dấu gạch).
  */
 export function sanitizeExcelText(value: unknown): string {
   if (value === null || value === undefined) return '';
   const str = String(value);
-  if (/^[=+\-@\t\r]/.test(str)) {
+  const trimmed = str.trim();
+  if (trimmed === '---' || trimmed === '--' || trimmed === '—' || /^-?\d+([.,]\d+)?$/.test(trimmed)) {
+    return str;
+  }
+  if (/^[=+@\t\r]/.test(str) || /^-[^\d\-]/.test(str)) {
     return `'${str}`;
   }
   return str;
@@ -192,8 +197,13 @@ export async function downloadStyledExcelWorkbook(
         };
       });
 
-      // Cố định dòng tiêu đề & bật AutoFilter trên bảng dữ liệu
-      worksheet.views = [{ state: 'frozen', ySplit: headerRowNumber }];
+      // Chỉ cố định dòng tiêu đề (Freeze Panes) khi phía trên không có khối KPI dài (<= 8 dòng),
+      // tránh tình trạng khóa cứng quá nhiều dòng khiến màn hình nhỏ khó cuộn xem bảng bên dưới.
+      if (headerRowNumber <= 8) {
+        worksheet.views = [{ state: 'frozen', ySplit: headerRowNumber }];
+      } else {
+        worksheet.views = [{ state: 'normal' }];
+      }
       worksheet.autoFilter = {
         from: { row: headerRowNumber, column: 1 },
         to: { row: headerRowNumber, column: sheetCfg.columns.length },

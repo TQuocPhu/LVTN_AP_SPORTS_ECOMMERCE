@@ -29,7 +29,7 @@ export function ReportFilterBar({
   return (
     <div className="space-y-3.5 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
       {/* Tiêu đề phân hệ Báo cáo Doanh thu & Đơn hàng */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
+      {/* <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-orange-600 text-white text-xs font-bold shadow-2xs">
           <DollarSign className="w-4 h-4" />
           <span>Báo Cáo Doanh Thu & Đơn Hàng</span>
@@ -37,7 +37,7 @@ export function ReportFilterBar({
         <span className="text-[11px] font-medium text-slate-500">
           Mẹo: Nhấp vào bất kỳ điểm nút, cột hoặc lát cắt trên biểu đồ để mở bảng đối soát chi tiết đơn hàng.
         </span>
-      </div>
+      </div> */}
 
       {/* Các nút chọn nhanh Kỳ Báo Cáo & Tùy chọn ngày dd/mm/yyyy */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

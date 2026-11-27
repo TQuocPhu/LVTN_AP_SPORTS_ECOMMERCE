@@ -9,6 +9,7 @@ import {
   TimeRangePreset,
 } from '@/types/report';
 import { AdminOrderDetail } from '@/types/admin-order';
+import { useRealtimeReportSync } from '@/hooks/useRealtimeReportSync';
 import { toast } from 'sonner';
 import {
   exportStaffPersonalReportToCSV,
@@ -48,10 +49,10 @@ export function useStaffReports(options?: { enabled?: boolean }) {
     return { timeRange };
   }, [timeRange]);
 
-  const loadStaffData = useCallback(async () => {
+  const loadStaffData = useCallback(async (silent = false) => {
     if (!enabled) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
 
       const [perfRes, revRes, ordersRes] = await Promise.all([
@@ -69,15 +70,17 @@ export function useStaffReports(options?: { enabled?: boolean }) {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi tải thống kê đơn hàng phụ trách';
-      setError(msg);
+      if (!silent) setError(msg);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [enabled, filterParams, ordersPage, statusFilter]);
 
   useEffect(() => {
     loadStaffData();
   }, [loadStaffData]);
+
+  useRealtimeReportSync(() => loadStaffData(true), { enabled });
 
   const handlePresetChange = useCallback((preset: TimeRangePreset) => {
     setTimeRange(preset);

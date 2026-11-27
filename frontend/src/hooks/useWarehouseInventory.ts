@@ -348,24 +348,24 @@ export function useWarehouseInventory() {
           filterSummary: `Loại: ${typeFilter || 'Tất cả'} | Từ: ${fromDate || '---'} đến ${toDate || '---'}`,
           columns: [
             { header: 'STT', key: 'stt', type: 'number', width: 8, valueGetter: (_r, i) => i + 1 },
-            { header: 'Mã phiếu', key: 'transactionCode', type: 'text', valueGetter: (t) => t.transactionCode || `TX-${t.id}` },
+            { header: 'Mã phiếu', key: 'ticketNumber', type: 'text', valueGetter: (t: any) => t.ticketNumber || t.code || `TX-${t.id}` },
             { header: 'Loại phiếu', key: 'type', type: 'text' },
             { header: 'Ngày tạo', key: 'createdAt', type: 'datetime' },
-            { header: 'Người thực hiện', key: 'createdByName', type: 'text', valueGetter: (t) => t.createdByName || '---' },
-            { header: 'Nhà cung cấp', key: 'supplierName', type: 'text', valueGetter: (t) => t.supplierName || '---' },
+            { header: 'Người thực hiện', key: 'createdByUserName', type: 'text', valueGetter: (t: any) => t.createdByUserName || '' },
+            { header: 'Nhà cung cấp', key: 'supplierName', type: 'text', valueGetter: (t: any) => t.supplierName || '' },
             {
               header: 'Chi tiết biến thể & SL',
               key: 'itemsSummary',
               type: 'text',
               width: 42,
-              valueGetter: (t) =>
+              valueGetter: (t: any) =>
                 t.items && t.items.length > 0
                   ? t.items.map((i: any) => `${i.variantSku || i.productName} x${i.quantity}`).join('; ')
-                  : `${t.variantSku || t.productName || '---'} x${t.quantity || 0}`,
+                  : `${t.variantSku || t.productName || ''} x${t.quantity || 0}`,
             },
             { header: 'Tổng SL', key: 'quantity', type: 'number' },
             { header: 'Tổng giá trị', key: 'totalAmount', type: 'currency' },
-            { header: 'Ghi chú', key: 'note', type: 'text', valueGetter: (t) => t.note || '---' },
+            { header: 'Ghi chú', key: 'note', type: 'text', valueGetter: (t: any) => t.note || '' },
           ],
           rows,
         },

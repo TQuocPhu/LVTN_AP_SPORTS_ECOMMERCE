@@ -1,11 +1,8 @@
-import { Metadata } from 'next';
-import { AdminReportsUI } from '@/components/admin/report/AdminReportsUI';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Báo Cáo & Thống Kê Enterprise - AP SPORTS Admin',
-  description: 'Trung tâm phân tích chuyên sâu doanh thu, hiệu suất bán hàng nhân viên và tồn kho vận hành AP SPORTS',
-};
-
-export default function AdminReportsPage() {
-  return <AdminReportsUI />;
+/**
+ * Chuyển hướng đường dẫn báo cáo cũ sang phân hệ Quản Lý Đơn Hàng (/admin/orders/reports).
+ */
+export default function AdminReportsRedirectPage() {
+  redirect('/admin/orders/reports');
 }

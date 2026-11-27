@@ -5,6 +5,7 @@ import { reportController } from '@/controllers/report-controller';
 import { TimeRangePreset, WarehouseReportResponse } from '@/types/report';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useChartDrilldownModal } from '@/hooks/useChartDrilldownModal';
+import { useRealtimeReportSync } from '@/hooks/useRealtimeReportSync';
 import { toast } from 'sonner';
 
 /**
@@ -33,10 +34,10 @@ export function useWarehouseReportsPage() {
     [timeRange, startDate, endDate]
   );
 
-  const loadWarehouseReport = useCallback(async () => {
+  const loadWarehouseReport = useCallback(async (silent = false) => {
     if (authLoading || !hasAccess) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res =
         roleName === 'ADMIN'
           ? await reportController.getWarehouseReport(filterParams)
@@ -45,15 +46,17 @@ export function useWarehouseReportsPage() {
         setWarehouseData(res.data);
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tải dữ liệu báo cáo kho hàng');
+      if (!silent) toast.error(err?.message || 'Không thể tải dữ liệu báo cáo kho hàng');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [authLoading, hasAccess, roleName, filterParams]);
 
   useEffect(() => {
     loadWarehouseReport();
   }, [loadWarehouseReport]);
+
+  useRealtimeReportSync(() => loadWarehouseReport(true), { enabled: !authLoading && hasAccess });
 
   const handlePresetChange = useCallback((preset: TimeRangePreset) => {
     setTimeRange(preset);
@@ -105,7 +108,7 @@ export function useWarehouseReportsPage() {
     warehouseData,
     handlePresetChange,
     handleCustomDateChange,
-    handleRefresh: loadWarehouseReport,
+    handleRefresh: () => loadWarehouseReport(false),
     handleSelectStockStatus,
     handleSelectTransactionFlow,
     drilldown,

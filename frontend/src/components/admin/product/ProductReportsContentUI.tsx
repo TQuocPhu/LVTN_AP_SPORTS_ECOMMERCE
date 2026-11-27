@@ -7,6 +7,7 @@ import { TIME_RANGE_OPTIONS } from '@/hooks/useAdminReports';
 import { VietnameseDateInput } from '@/components/common/VietnameseDateInput';
 import { TopMerchandiseView } from '@/components/admin/report/TopMerchandiseView';
 import { AdminChartDrilldownModal } from '@/components/admin/report/AdminChartDrilldownModal';
+import { AdminExportExcelButton } from '@/components/admin/common/AdminExportExcelButton';
 
 /**
  * Giao diện Thống Kê Sản Phẩm & Danh Mục (/admin/products/reports) thuộc cụm Bán Hàng & Sản Phẩm.
@@ -21,10 +22,12 @@ export function ProductReportsContentUI() {
     startDate,
     endDate,
     loading,
+    isExporting,
     merchandiseData,
     handlePresetChange,
     handleCustomDateChange,
     handleRefresh,
+    handleExportExcel,
     handleSelectProduct,
     handleSelectCategory,
     drilldown,
@@ -74,15 +77,22 @@ export function ProductReportsContentUI() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-orange-500' : ''}`} />
-          <span>Làm mới số liệu</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <AdminExportExcelButton
+            onClick={handleExportExcel}
+            isExporting={isExporting}
+            disabled={loading || !merchandiseData}
+          />
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-orange-500' : ''}`} />
+            <span>Làm mới số liệu</span>
+          </button>
+        </div>
       </div>
 
       {/* Thanh Bộ Lọc Kỳ Thống Kê */}

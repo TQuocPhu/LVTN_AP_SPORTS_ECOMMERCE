@@ -5,6 +5,7 @@ import { dashboardController } from '@/controllers/dashboard-controller';
 import { AdminDashboardData } from '@/types/dashboard';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { useChartDrilldownModal } from '@/hooks/useChartDrilldownModal';
+import { useRealtimeReportSync } from '@/hooks/useRealtimeReportSync';
 import { toast } from 'sonner';
 
 // =========================================================================
@@ -72,6 +73,9 @@ export function useAdminDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  // Tự động đồng bộ real-time khi có thông báo WebSocket mới, biến động đơn/kho hoặc chuyển tab
+  useRealtimeReportSync(() => loadDashboardData(true), { enabled: Boolean(user) });
 
   const handleRefresh = () => {
     loadDashboardData(true);
