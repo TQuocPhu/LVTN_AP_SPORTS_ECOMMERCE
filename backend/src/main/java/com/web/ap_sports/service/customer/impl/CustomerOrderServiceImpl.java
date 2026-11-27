@@ -3,6 +3,7 @@ package com.web.ap_sports.service.customer.impl;
 import com.web.ap_sports.config.VNPayConfig;
 import com.web.ap_sports.constant.StoreLocationConstants;
 import com.web.ap_sports.dto.request.customer.CreateOrderRequest;
+import com.web.ap_sports.dto.response.customer.DeliveryReviewResponse;
 import com.web.ap_sports.dto.response.customer.OrderItemResponse;
 import com.web.ap_sports.dto.response.customer.OrderResponse;
 import com.web.ap_sports.dto.response.customer.ShippingAddressResponse;
@@ -75,6 +76,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
     private final EmailService emailService;
     private final ShippingAddressService shippingAddressService;
     private final GeocodingCascadeService geocodingCascadeService;
+    private final DeliveryReviewRepository deliveryReviewRepository;
     private final com.web.ap_sports.service.common.OrderRealtimePublisher orderRealtimePublisher;
     private final ApplicationEventPublisher eventPublisher;
     private final InventoryAlertService inventoryAlertService;
@@ -1227,6 +1229,10 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
             shipperPhone = order.getAssignedShipper().getPhoneNumber();
         }
 
+        DeliveryReviewResponse deliveryReviewResp = deliveryReviewRepository.findByOrderId(order.getId())
+                .map(CustomerDeliveryReviewServiceImpl::toCustomerResponse)
+                .orElse(null);
+
         return OrderResponse.builder()
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
@@ -1256,6 +1262,7 @@ public class CustomerOrderServiceImpl implements CustomerOrderService {
                 .shipperPhone(shipperPhone)
                 .note(order.getNote())
                 .packVerified(Boolean.TRUE.equals(order.getPackVerified()))
+                .deliveryReview(deliveryReviewResp)
                 .items(itemResps)
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
