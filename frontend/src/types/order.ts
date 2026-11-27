@@ -1,4 +1,5 @@
 import { ShippingAddress } from './address';
+import { DeliveryReview } from './delivery-review';
 
 export interface CreateOrderRequest {
   shippingAddressId: number;
@@ -76,6 +77,7 @@ export interface OrderResponse {
   packVerified?: boolean;
   packedByName?: string;
   packedAt?: string;
+  deliveryReview?: DeliveryReview | null;
   items: OrderItem[];
   createdAt: string;
   updatedAt: string;

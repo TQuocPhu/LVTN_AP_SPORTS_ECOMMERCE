@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { orderController } from '@/controllers/order-controller';
 import { customerOrderController } from '@/controllers/customer-order-controller';
 import { OrderResponse } from '@/types/order';
+import { DeliveryReview } from '@/types/delivery-review';
 import { calculateRealTimeProgress } from '@/utils/logistics-sync';
 import { calculateOrderDistanceKm } from '@/utils/geo-distance';
 
@@ -12,6 +13,7 @@ export function useCustomerOrderTracking(orderCode: string) {
   const [retryingVNPay, setRetryingVNPay] = useState<boolean>(false);
   const [completing, setCompleting] = useState<boolean>(false);
   const [simProgress, setSimProgress] = useState<number>(0);
+  const [isDeliveryReviewModalOpen, setIsDeliveryReviewModalOpen] = useState<boolean>(false);
 
   const fetchOrder = useCallback(async () => {
     if (!orderCode) return;
@@ -102,6 +104,10 @@ export function useCustomerOrderTracking(orderCode: string) {
       const res = await customerOrderController.completeMyOrder(orderCode);
       if (res && res.data) {
         setOrder(res.data);
+        // Ngay khi khách xác nhận đã nhận được hàng, mở Modal mời đánh giá giao hàng / shipper
+        if (!res.data.deliveryReview) {
+          setIsDeliveryReviewModalOpen(true);
+        }
       }
     } catch (err: any) {
       console.error('Lỗi khi xác nhận hoàn tất đơn hàng:', err);
@@ -129,6 +135,10 @@ export function useCustomerOrderTracking(orderCode: string) {
     });
   }, []);
 
+  const handleDeliveryReviewSubmitted = useCallback((review: DeliveryReview) => {
+    setOrder((prev) => (prev ? { ...prev, deliveryReview: review } : prev));
+  }, []);
+
   return {
     order,
     loading,
@@ -137,6 +147,9 @@ export function useCustomerOrderTracking(orderCode: string) {
     completing,
     simProgress,
     setSimProgress,
+    isDeliveryReviewModalOpen,
+    setIsDeliveryReviewModalOpen,
+    handleDeliveryReviewSubmitted,
     refetch: fetchOrder,
     handleRetryVNPay,
     handleCompleteOrder,

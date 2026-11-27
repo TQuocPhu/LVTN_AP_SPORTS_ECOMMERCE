@@ -21,9 +21,12 @@ import {
   FileText,
   XCircle,
   RotateCcw,
+  Star,
+  MessageSquare,
 } from 'lucide-react';
 import { STORE_LOCATION_CONSTANTS } from '@/constants/location-constants';
 import { LogisticsMapWrapper } from '@/components/common/map/LogisticsMapWrapper';
+import { DeliveryReviewModal } from '@/components/customer/order/DeliveryReviewModal';
 import { useCustomerOrderTracking } from '@/hooks/useCustomerOrderTracking';
 import { canRetryVNPayOrder } from '@/utils/vnpay-retry';
 import { getCustomerOrderStatusMeta } from '@/constants/customer-order-status';
@@ -42,6 +45,9 @@ export function CustomerOrderTrackingContentUI({
     retryingVNPay,
     completing,
     simProgress,
+    isDeliveryReviewModalOpen,
+    setIsDeliveryReviewModalOpen,
+    handleDeliveryReviewSubmitted,
     handleRetryVNPay,
     handleCompleteOrder,
     formatCurrency,
@@ -436,9 +442,82 @@ export function CustomerOrderTrackingContentUI({
                 <span>{completing ? 'Đang Xử Lý...' : 'Xác Nhận Đã Nhận Được Hàng'}</span>
               </button>
             )}
+
+            {order.status?.toLowerCase() === 'completed' && !order.deliveryReview && (
+              <button
+                type="button"
+                onClick={() => setIsDeliveryReviewModalOpen(true)}
+                className="w-full mt-3 py-3 px-4 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Star className="w-4 h-4" />
+                <span>Đánh Giá Giao Hàng & Shipper</span>
+              </button>
+            )}
+
+            {order.deliveryReview && (
+              <div className="mt-4 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/60 dark:bg-amber-950/20 p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-orange-600" />
+                    Đánh Giá Giao Hàng Của Bạn
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`w-3.5 h-3.5 ${
+                          s <= (order.deliveryReview?.rating || 0)
+                            ? 'fill-amber-400 text-amber-400'
+                            : 'text-slate-300 dark:text-slate-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {order.deliveryReview.tags && order.deliveryReview.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {order.deliveryReview.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white dark:bg-slate-800 border border-amber-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {order.deliveryReview.comment && (
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                    “{order.deliveryReview.comment}”
+                  </p>
+                )}
+                {order.deliveryReview.adminReply && (
+                  <div className="mt-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 text-xs">
+                    <div className="font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1 mb-0.5">
+                      <MessageSquare className="w-3 h-3" />
+                      <span>
+                        Phản hồi từ CSKH ({order.deliveryReview.repliedByName || 'AP Sports'})
+                      </span>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300">
+                      {order.deliveryReview.adminReply}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <DeliveryReviewModal
+        isOpen={isDeliveryReviewModalOpen}
+        orderCode={order.orderCode}
+        shipperName={order.shipperName}
+        shippingProvider={order.shippingProvider}
+        onClose={() => setIsDeliveryReviewModalOpen(false)}
+        onSuccess={handleDeliveryReviewSubmitted}
+      />
     </div>
   );
 }

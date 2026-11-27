@@ -23,6 +23,7 @@ import {
   ShoppingBag,
   Boxes,
   ClipboardList,
+  Truck,
 } from 'lucide-react';
 
 export interface MenuItem {
@@ -291,6 +292,13 @@ export function useAdminSidebar() {
             href: '/admin/reviews',
             icon: MessageSquare,
             permission: 'MANAGE_PRODUCTS',
+            allowedRoles: ['ADMIN', 'STAFF'],
+          },
+          {
+            title: 'Đánh Giá Giao Hàng',
+            href: '/admin/delivery-reviews',
+            icon: Truck,
+            permission: 'MANAGE_ORDERS',
             allowedRoles: ['ADMIN', 'STAFF'],
           },
           {
