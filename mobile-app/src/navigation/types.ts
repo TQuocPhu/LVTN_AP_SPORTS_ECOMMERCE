@@ -24,4 +24,5 @@ export type RootStackParamList = {
     variantSummary?: string;
   };
   SupportChat: undefined;
+  ProfileManagement: undefined;
 };

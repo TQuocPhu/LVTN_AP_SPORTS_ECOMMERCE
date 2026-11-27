@@ -35,7 +35,7 @@ export const CatalogCategoryPills: React.FC<CatalogCategoryPillsProps> = ({
         <TouchableOpacity
           style={[
             styles.pill,
-            { backgroundColor: selectedCategory === 'all' ? colors.primary : colors.slate100 },
+            { backgroundColor: selectedCategory === 'all' ? colors.primary : colors.surface2 },
           ]}
           onPress={() => onSelectCategory('all')}
           activeOpacity={0.8}
@@ -57,7 +57,7 @@ export const CatalogCategoryPills: React.FC<CatalogCategoryPillsProps> = ({
               key={cat.id}
               style={[
                 styles.pill,
-                { backgroundColor: isActive ? colors.primary : colors.slate100 },
+                { backgroundColor: isActive ? colors.primary : colors.surface2 },
               ]}
               onPress={() => onSelectCategory(cat.slug)}
               activeOpacity={0.8}

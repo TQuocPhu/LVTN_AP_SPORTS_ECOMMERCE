@@ -8,6 +8,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,8 +63,12 @@ export const LoginScreen: React.FC = () => {
 
         {/* Brand Header */}
         <View style={styles.header}>
-          <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
-            <Text style={styles.logoText}>AP</Text>
+          <View style={[styles.logoCircle, { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1 }]}>
+            <Image
+              source={require('../../../assets/ap-sports_logo_no-back.png')}
+              style={{ width: 48, height: 48 }}
+              resizeMode="contain"
+            />
           </View>
           <Text style={[styles.title, { color: colors.text }]}>Đăng Nhập Khách Hàng</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>

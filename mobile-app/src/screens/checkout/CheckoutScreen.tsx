@@ -32,9 +32,12 @@ export const CheckoutScreen: React.FC = () => {
     items,
     totalAmount,
     shippingFee,
+    loadingShippingFee,
     discountAmount,
     finalTotal,
+    addresses,
     selectedAddress,
+    setSelectedAddress,
     paymentMethod,
     setPaymentMethod,
     couponCode,
@@ -69,18 +72,37 @@ export const CheckoutScreen: React.FC = () => {
     setNewPhone,
     newAddressText,
     setNewAddressText,
-    newCity,
-    setNewCity,
+    provinces,
+    districts,
+    wards,
+    selectedProvinceId,
+    selectedDistrictId,
+    selectedWardCode,
+    loadingProvinces,
+    loadingDistricts,
+    loadingWards,
+    handleSelectProvince,
+    handleSelectDistrict,
+    setSelectedWardCode,
     isAddingAddress,
     handleCreateNewAddress,
     handleConfirmOrder,
+    scrollRef,
+    keyboardHeight,
+    scrollToEndOnFocus,
   } = useCheckout();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       <Header title="Xác Nhận Đặt Hàng" showBack onBack={() => navigation.goBack()} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Địa chỉ giao hàng */}
         <AddressSection
           selectedAddress={selectedAddress}
@@ -102,6 +124,7 @@ export const CheckoutScreen: React.FC = () => {
           itemCount={items.length}
           totalAmount={totalAmount}
           shippingFee={shippingFee}
+          loadingShippingFee={loadingShippingFee}
           discountAmount={discountAmount}
           finalTotal={finalTotal}
           couponCode={couponCode}
@@ -114,6 +137,7 @@ export const CheckoutScreen: React.FC = () => {
           onOpenVoucherModal={handleOpenVoucherModal}
           note={note}
           onChangeNote={setNote}
+          onInputFocus={scrollToEndOnFocus}
         />
       </ScrollView>
 
@@ -124,7 +148,7 @@ export const CheckoutScreen: React.FC = () => {
           {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : Spacing.md),
+            paddingBottom: Platform.OS === 'android' ? Spacing.md : Math.max(insets.bottom, Spacing.md),
           },
         ]}
       >
@@ -149,18 +173,33 @@ export const CheckoutScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Modal Thêm Địa Chỉ */}
+      </View>
+
+      {/* Modal Thêm / Chọn Địa Chỉ */}
       <NewAddressModal
         visible={isAddressModalVisible}
         onClose={() => setIsAddressModalVisible(false)}
+        addresses={addresses}
+        selectedAddress={selectedAddress}
+        onSelectSavedAddress={setSelectedAddress}
         fullName={newFullName}
         onChangeFullName={setNewFullName}
         phone={newPhone}
         onChangePhone={setNewPhone}
         addressText={newAddressText}
         onChangeAddressText={setNewAddressText}
-        city={newCity}
-        onChangeCity={setNewCity}
+        provinces={provinces}
+        districts={districts}
+        wards={wards}
+        selectedProvinceId={selectedProvinceId}
+        selectedDistrictId={selectedDistrictId}
+        selectedWardCode={selectedWardCode}
+        loadingProvinces={loadingProvinces}
+        loadingDistricts={loadingDistricts}
+        loadingWards={loadingWards}
+        onSelectProvince={handleSelectProvince}
+        onSelectDistrict={handleSelectDistrict}
+        onSelectWard={setSelectedWardCode}
         isAdding={isAddingAddress}
         onSubmit={handleCreateNewAddress}
       />

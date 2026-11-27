@@ -9,6 +9,7 @@ interface OrderPriceBreakdownProps {
   itemCount: number;
   totalAmount: number;
   shippingFee: number;
+  loadingShippingFee?: boolean;
   discountAmount?: number;
   finalTotal: number;
   couponCode: string;
@@ -21,12 +22,14 @@ interface OrderPriceBreakdownProps {
   onOpenVoucherModal?: () => void;
   note: string;
   onChangeNote: (text: string) => void;
+  onInputFocus?: () => void;
 }
 
 export const OrderPriceBreakdown: React.FC<OrderPriceBreakdownProps> = ({
   itemCount,
   totalAmount,
   shippingFee,
+  loadingShippingFee = false,
   discountAmount = 0,
   finalTotal,
   couponCode,
@@ -39,6 +42,7 @@ export const OrderPriceBreakdown: React.FC<OrderPriceBreakdownProps> = ({
   onOpenVoucherModal,
   note,
   onChangeNote,
+  onInputFocus,
 }) => {
   const { colors } = useTheme();
 
@@ -88,6 +92,7 @@ export const OrderPriceBreakdown: React.FC<OrderPriceBreakdownProps> = ({
               value={couponCode}
               onChangeText={(t) => onChangeCouponCode(t.toUpperCase())}
               autoCapitalize="characters"
+              onFocus={onInputFocus}
             />
             <TouchableOpacity
               style={[styles.btnApplyCoupon, { backgroundColor: colors.primary }]}
@@ -117,6 +122,7 @@ export const OrderPriceBreakdown: React.FC<OrderPriceBreakdownProps> = ({
           placeholderTextColor={colors.textFaint}
           value={note}
           onChangeText={onChangeNote}
+          onFocus={onInputFocus}
           multiline
           numberOfLines={2}
         />
@@ -130,14 +136,20 @@ export const OrderPriceBreakdown: React.FC<OrderPriceBreakdownProps> = ({
           <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totalAmount)}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Phí giao hàng:</Text>
-          <Text style={[styles.summaryValue, shippingFee === 0 ? { color: '#16a34a' } : { color: colors.text }]}>
-            {shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee)}
-          </Text>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Phí giao hàng (GHN):</Text>
+          {loadingShippingFee ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.summaryValue, { color: colors.textMuted, fontSize: 12 }]}>
+                Đang tính...
+              </Text>
+            </View>
+          ) : (
+            <Text style={[styles.summaryValue, shippingFee === 0 ? { color: '#16a34a' } : { color: colors.text }]}>
+              {shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee)}
+            </Text>
+          )}
         </View>
-        {shippingFee === 0 && (
-          <Text style={styles.freeShipNote}>🎉 Đơn hàng trên 500k được miễn phí vận chuyển!</Text>
-        )}
 
         {discountAmount > 0 && (
           <View style={styles.summaryRow}>

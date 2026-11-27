@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Alert } from 'react-native';
+import { appAlert } from '../context/AlertContext';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { authController } from '../controllers/auth-controller';
@@ -41,21 +41,21 @@ export const useLoginForm = () => {
 
   const handleLogin = useCallback(async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ email và mật khẩu.');
+      appAlert('Thiếu thông tin', 'Vui lòng nhập đầy đủ email và mật khẩu.');
       return;
     }
 
     try {
       setIsSubmitting(true);
       await login(email.trim(), password);
-      Alert.alert('Thành công', 'Đăng nhập thành công vào AP Sports!', [
+      appAlert('Thành công', 'Đăng nhập thành công vào AP Sports!', [
         {
           text: 'Tiếp tục',
           onPress: () => navigation.goBack(),
         },
       ]);
     } catch (err: any) {
-      Alert.alert(
+      appAlert(
         'Đăng nhập thất bại',
         err?.response?.data?.message || err?.message || 'Email hoặc mật khẩu không chính xác.'
       );
@@ -129,7 +129,7 @@ export const useLoginForm = () => {
           isHandlingCodeRef.current = true;
           setIsGoogleModalVisible(false);
           setGoogleAuthUrl(null);
-          Alert.alert('Đã hủy', 'Quá trình đăng nhập bằng Google đã bị hủy.');
+          appAlert('Đã hủy', 'Quá trình đăng nhập bằng Google đã bị hủy.');
           return true;
         }
 
@@ -149,14 +149,14 @@ export const useLoginForm = () => {
               code,
               redirectUri: GOOGLE_OAUTH_REDIRECT_URI,
             });
-            Alert.alert('Thành công', 'Đăng nhập bằng Google thành công!', [
+            appAlert('Thành công', 'Đăng nhập bằng Google thành công!', [
               {
                 text: 'Tiếp tục',
                 onPress: () => navigation.goBack(),
               },
             ]);
           } catch (err: any) {
-            Alert.alert(
+            appAlert(
               'Đăng nhập Google thất bại',
               err?.response?.data?.message ||
                 err?.message ||

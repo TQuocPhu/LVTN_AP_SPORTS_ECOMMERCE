@@ -23,6 +23,24 @@ export const cartController = {
   },
 
   /**
+   * Cập nhật số lượng sản phẩm trong giỏ hàng
+   */
+  async updateCartItem(cartItemId: number, quantity: number): Promise<ApiResponse<any>> {
+    const res = await apiClient.put<ApiResponse<any>>(`/customer/cart/items/${cartItemId}`, {
+      quantity,
+    });
+    return res.data;
+  },
+
+  /**
+   * Xóa một sản phẩm khỏi giỏ hàng
+   */
+  async removeCartItem(cartItemId: number): Promise<ApiResponse<void>> {
+    const res = await apiClient.delete<ApiResponse<void>>(`/customer/cart/items/${cartItemId}`);
+    return res.data;
+  },
+
+  /**
    * Xóa toàn bộ giỏ hàng trên server
    */
   async clearCart(): Promise<ApiResponse<void>> {

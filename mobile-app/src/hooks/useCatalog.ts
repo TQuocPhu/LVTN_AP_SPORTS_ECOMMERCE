@@ -22,6 +22,19 @@ export const useCatalog = (initialCategorySlug?: string, initialKeyword?: string
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
+  // Đồng bộ lại bộ lọc khi điều hướng từ Trang chủ (HomeCategoryRow) sang Tab Sản phẩm
+  useEffect(() => {
+    if (initialCategorySlug !== undefined) {
+      setSelectedCategory(initialCategorySlug || 'all');
+    }
+  }, [initialCategorySlug]);
+
+  useEffect(() => {
+    if (initialKeyword !== undefined) {
+      setKeyword(initialKeyword || '');
+    }
+  }, [initialKeyword]);
+
   // Nạp danh mục
   useEffect(() => {
     productController

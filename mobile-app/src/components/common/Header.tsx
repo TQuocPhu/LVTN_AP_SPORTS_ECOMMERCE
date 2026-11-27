@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography } from '../../config/theme';
+import { Spacing, Typography } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
 
 interface HeaderProps {
@@ -27,6 +27,13 @@ export const Header: React.FC<HeaderProps> = ({
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
         )}
+        <View style={[styles.brandBadge, { borderColor: colors.border, backgroundColor: colors.surface2 }]}>
+          <Image
+            source={require('../../../assets/ap-sports_logo_no-back.png')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+        </View>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
           {title}
         </Text>
@@ -51,11 +58,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    marginRight: Spacing.md,
+    marginRight: Spacing.sm,
     padding: Spacing.xs,
   },
+  brandBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 2,
+    marginRight: Spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  brandLogo: {
+    width: '100%',
+    height: '100%',
+  },
   title: {
-    fontSize: Typography.sizes.lg,
+    flex: 1,
+    fontSize: Typography.sizes.md,
     fontWeight: Typography.weights.bold,
   },
   right: {

@@ -36,6 +36,7 @@ export const orderService = {
     paymentMethod: 'COD' | 'VNPAY';
     couponCode?: string;
     note?: string;
+    shippingFee?: number;
   }): Promise<Order> {
     // 1. Dọn dẹp giỏ hàng cũ trên server và thêm sản phẩm hiện tại
     try {
@@ -62,7 +63,7 @@ export const orderService = {
       paymentMethod: data.paymentMethod,
       couponCode: data.couponCode || null,
       note: data.note || null,
-      shippingFee: 30000,
+      shippingFee: data.shippingFee ?? 30000,
     });
     return res.data.data;
   },

@@ -38,8 +38,8 @@ export const BottomTabNavigator: React.FC = () => {
   const { colors } = useTheme();
   const { totalItems } = useCart();
 
-  // Đảm bảo khoảng đệm an toàn dưới đáy cho phím điều hướng hệ thống (3 nút ảo của Android ~48dp)
-  const safeBottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 16);
+  // Phần đáy cho 3 nút điều hướng Android đã được xử lý đồng bộ ở App.tsx
+  const safeBottomPadding = Platform.OS === 'android' ? 8 : Math.max(insets.bottom, 16);
   const tabHeight = 56 + safeBottomPadding;
 
   return (

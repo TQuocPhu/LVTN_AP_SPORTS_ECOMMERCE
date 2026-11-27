@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { OrderListTabs } from '../../components/order/OrderListTabs';
 import { OrderCard } from '../../components/order/OrderCard';
 import { RequireLoginView } from '../../components/common/RequireLoginView';
+import { HomeHeader } from '../../components/home/HomeHeader';
 
 export const OrderListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -45,9 +46,7 @@ export const OrderListScreen: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Đơn Hàng Của Tôi</Text>
-        </View>
+        <HomeHeader />
         <RequireLoginView
           icon="receipt-outline"
           title="Đơn Hàng Của Bạn"
@@ -60,6 +59,7 @@ export const OrderListScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <HomeHeader />
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Đơn Hàng Của Tôi</Text>
       </View>

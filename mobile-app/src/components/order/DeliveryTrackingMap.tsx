@@ -12,6 +12,8 @@ interface DeliveryTrackingMapProps {
   destLng?: number | null;
   destAddress?: string;
   height?: number;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 export const DeliveryTrackingMap: React.FC<DeliveryTrackingMapProps> = ({
@@ -21,6 +23,8 @@ export const DeliveryTrackingMap: React.FC<DeliveryTrackingMapProps> = ({
   destLng,
   destAddress,
   height = 320,
+  onInteractionStart,
+  onInteractionEnd,
 }) => {
   // Điểm xuất phát chuẩn xác từ frontend: Kho hàng AP Sports Central (Đại học Cần Thơ)
   const originLat = STORE_LOCATION_CONSTANTS.STORE_GPS_LATITUDE; // 10.0299337
@@ -229,12 +233,19 @@ export const DeliveryTrackingMap: React.FC<DeliveryTrackingMapProps> = ({
       </View>
 
       {/* Bản đồ xe chạy */}
-      <View style={[styles.mapWrapper, { height }]}>
+      <View
+        style={[styles.mapWrapper, { height }]}
+        onTouchStart={onInteractionStart}
+        onTouchEnd={onInteractionEnd}
+        onTouchCancel={onInteractionEnd}
+      >
         <WebView
           originWhitelist={['*']}
           source={{ html: htmlContent }}
           style={styles.webview}
           scrollEnabled={false}
+          nestedScrollEnabled
+          overScrollMode="never"
           renderLoading={() => (
             <View style={styles.loadingBox}>
               <ActivityIndicator size="small" color={Colors.primary} />

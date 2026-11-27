@@ -207,7 +207,7 @@ export const ProductDetailScreen: React.FC = () => {
           {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : Spacing.md),
+            paddingBottom: Platform.OS === 'android' ? Spacing.md : Math.max(insets.bottom, Spacing.md),
           },
         ]}
       >

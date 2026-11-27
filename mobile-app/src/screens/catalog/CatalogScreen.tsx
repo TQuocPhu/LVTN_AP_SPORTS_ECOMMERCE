@@ -17,6 +17,7 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useTheme } from '../../context/ThemeContext';
 import { CatalogSearchBar } from '../../components/catalog/CatalogSearchBar';
 import { CatalogCategoryPills } from '../../components/catalog/CatalogCategoryPills';
+import { HomeHeader } from '../../components/home/HomeHeader';
 import { ProductCard } from '../../components/product/ProductCard';
 
 export const CatalogScreen: React.FC = () => {
@@ -40,6 +41,8 @@ export const CatalogScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <HomeHeader />
+
       {/* Search Bar */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <CatalogSearchBar

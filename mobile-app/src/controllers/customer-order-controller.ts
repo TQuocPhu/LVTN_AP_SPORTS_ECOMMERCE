@@ -42,6 +42,7 @@ export const customerOrderController = {
     paymentMethod: 'COD' | 'VNPAY';
     couponCode?: string;
     note?: string;
+    shippingFee?: number;
   }): Promise<ApiResponse<Order>> {
     // 1. Dọn giỏ hàng cũ & thêm sản phẩm mới vào backend cart
     try {
@@ -68,7 +69,7 @@ export const customerOrderController = {
       paymentMethod: data.paymentMethod,
       couponCode: data.couponCode || null,
       note: data.note || null,
-      shippingFee: 30000,
+      shippingFee: data.shippingFee ?? 30000,
     });
     return res.data;
   },

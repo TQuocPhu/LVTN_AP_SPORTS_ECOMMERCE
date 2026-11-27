@@ -32,6 +32,8 @@ export const OrderDetailScreen: React.FC = () => {
     order,
     loading,
     actionLoading,
+    isMapInteracting,
+    setIsMapInteracting,
     canReview,
     canComplete,
     canCancel,
@@ -60,7 +62,11 @@ export const OrderDetailScreen: React.FC = () => {
           <Text style={styles.errorText}>Không tìm thấy thông tin đơn hàng</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={!isMapInteracting}
+        >
           {/* Status highlight */}
           <View style={[styles.statusCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.statusRow}>
@@ -92,27 +98,63 @@ export const OrderDetailScreen: React.FC = () => {
           </View>
 
           {/* Bản đồ giao hàng trực quan với xe đang chạy */}
-          <DeliveryTrackingMap
-            orderStatus={order.status}
-            trackingCode={order.trackingCode}
-            destAddress={order.shippingAddress}
-            height={280}
-          />
+          {(() => {
+            const addrObj =
+              order.shippingAddress && typeof order.shippingAddress === 'object'
+                ? order.shippingAddress
+                : null;
+            const formattedAddr = addrObj
+              ? [addrObj.address, addrObj.city].filter(Boolean).join(', ')
+              : (typeof order.shippingAddress === 'string' && order.shippingAddress) ||
+                'Địa chỉ tiêu chuẩn';
+            const showTrackingMap = [
+              'confirmed',
+              'processing',
+              'shipped',
+              'shipping',
+              'delivered',
+              'completed',
+            ].includes((order.status || '').toLowerCase());
+            return (
+              <>
+                {showTrackingMap && (
+                  <DeliveryTrackingMap
+                    orderStatus={order.status}
+                    trackingCode={order.trackingCode}
+                    destLat={addrObj?.latitude}
+                    destLng={addrObj?.longitude}
+                    destAddress={formattedAddr}
+                    height={280}
+                    onInteractionStart={() => setIsMapInteracting(true)}
+                    onInteractionEnd={() => setIsMapInteracting(false)}
+                  />
+                )}
 
-          {/* Delivery Info */}
-          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>ĐỊA CHỈ NHẬN HÀNG</Text>
+                {/* Delivery Info */}
+                <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>ĐỊA CHỈ NHẬN HÀNG</Text>
 
-            <Text style={[styles.customerName, { color: colors.text }]}>{order.customerName || 'Khách hàng AP Sports'}</Text>
-            {order.customerPhone && <Text style={[styles.customerPhone, { color: colors.textMuted }]}>{order.customerPhone}</Text>}
-            <Text style={[styles.addressText, { color: colors.textSecondary }]}>{order.shippingAddress || 'Địa chỉ tiêu chuẩn'}</Text>
-            {order.trackingCode && (
-              <View style={[styles.trackingBox, { backgroundColor: colors.surface2, borderColor: colors.border }]}>
-                <Text style={[styles.trackingLabel, { color: colors.textMuted }]}>Mã vận đơn GHN:</Text>
-                <Text style={[styles.trackingCode, { color: colors.primary }]}>{order.trackingCode}</Text>
-              </View>
-            )}
-          </View>
+                  <Text style={[styles.customerName, { color: colors.text }]}>
+                    {addrObj?.fullName || order.customerName || 'Khách hàng AP Sports'}
+                  </Text>
+                  {(addrObj?.phone || order.customerPhone) && (
+                    <Text style={[styles.customerPhone, { color: colors.textMuted }]}>
+                      {addrObj?.phone || order.customerPhone}
+                    </Text>
+                  )}
+                  <Text style={[styles.addressText, { color: colors.textSecondary }]}>
+                    {formattedAddr}
+                  </Text>
+                  {order.trackingCode && (
+                    <View style={[styles.trackingBox, { backgroundColor: colors.surface2, borderColor: colors.border }]}>
+                      <Text style={[styles.trackingLabel, { color: colors.textMuted }]}>Mã vận đơn GHN:</Text>
+                      <Text style={[styles.trackingCode, { color: colors.primary }]}>{order.trackingCode}</Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            );
+          })()}
 
           {/* Product Items */}
           <OrderDetailItems

@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { appAlert } from '../context/AlertContext';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { addressController } from '../controllers/address-controller';
 import { customerOrderController } from '../controllers/customer-order-controller';
 import { voucherController } from '../controllers/voucher-controller';
+import { locationController } from '../controllers/location-controller';
 import {
   ShippingAddress,
+  GhnProvince,
+  GhnDistrict,
+  GhnWard,
   Voucher,
   VoucherApplyResult,
   CheckoutVoucherTab,
@@ -15,10 +19,12 @@ import {
   CheckoutIneligibleVoucher,
 } from '../types';
 import { useCart } from '../context/CartContext';
+import { useKeyboardOffset } from './useKeyboardOffset';
 
 export const useCheckout = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { items, totalAmount, clearCart } = useCart();
+  const { scrollRef, keyboardHeight, scrollToEndOnFocus } = useKeyboardOffset();
 
   const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<ShippingAddress | null>(null);
@@ -43,13 +49,159 @@ export const useCheckout = () => {
   const [newFullName, setNewFullName] = useState<string>('');
   const [newPhone, setNewPhone] = useState<string>('');
   const [newAddressText, setNewAddressText] = useState<string>('');
-  const [newCity, setNewCity] = useState<string>('Hồ Chí Minh');
+  const [newCity, setNewCity] = useState<string>('');
   const [isAddingAddress, setIsAddingAddress] = useState<boolean>(false);
 
-  // Phí vận chuyển (Miễn phí nếu đơn >= 500,000 VND)
-  const shippingFee = totalAmount >= 500000 ? 0 : 30000;
+  // Dữ liệu địa giới hành chính GHN cho Modal thêm địa chỉ
+  const [provinces, setProvinces] = useState<GhnProvince[]>([]);
+  const [districts, setDistricts] = useState<GhnDistrict[]>([]);
+  const [wards, setWards] = useState<GhnWard[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<number | null>(null);
+  const [selectedDistrictId, setSelectedDistrictId] = useState<number | null>(null);
+  const [selectedWardCode, setSelectedWardCode] = useState<string | null>(null);
+  const [loadingProvinces, setLoadingProvinces] = useState<boolean>(false);
+  const [loadingDistricts, setLoadingDistricts] = useState<boolean>(false);
+  const [loadingWards, setLoadingWards] = useState<boolean>(false);
+
+  // Phí vận chuyển thực tế tính từ GHN API
+  const [shippingFee, setShippingFee] = useState<number>(30000);
+  const [loadingShippingFee, setLoadingShippingFee] = useState<boolean>(false);
   const discountAmount = appliedVoucher?.discountAmount || 0;
   const finalTotal = Math.max(0, totalAmount + shippingFee - discountAmount);
+
+  // Tải danh sách Tỉnh/Thành phố GHN khi mở Modal thêm địa chỉ
+  useEffect(() => {
+    if (!isAddressModalVisible || provinces.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingProvinces(true);
+        const res = await locationController.getProvinces();
+        if (!cancelled) setProvinces(Array.isArray(res?.data) ? res.data : []);
+      } catch {
+        if (!cancelled) setProvinces([]);
+      } finally {
+        if (!cancelled) setLoadingProvinces(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAddressModalVisible, provinces.length]);
+
+  // Tải Quận/Huyện GHN khi chọn Tỉnh/Thành
+  useEffect(() => {
+    if (!selectedProvinceId) {
+      setDistricts([]);
+      setWards([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingDistricts(true);
+        const res = await locationController.getDistricts(selectedProvinceId);
+        if (!cancelled) setDistricts(Array.isArray(res?.data) ? res.data : []);
+      } catch {
+        if (!cancelled) setDistricts([]);
+      } finally {
+        if (!cancelled) setLoadingDistricts(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProvinceId]);
+
+  // Tải Phường/Xã GHN khi chọn Quận/Huyện
+  useEffect(() => {
+    if (!selectedDistrictId) {
+      setWards([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingWards(true);
+        const res = await locationController.getWards(selectedDistrictId);
+        if (!cancelled) setWards(Array.isArray(res?.data) ? res.data : []);
+      } catch {
+        if (!cancelled) setWards([]);
+      } finally {
+        if (!cancelled) setLoadingWards(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDistrictId]);
+
+  // Tự động tính phí giao hàng GHN khi selectedAddress hoặc totalAmount thay đổi (giống Web)
+  useEffect(() => {
+    if (!selectedAddress) {
+      setShippingFee(30000);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoadingShippingFee(true);
+      try {
+        let targetDistrictId = selectedAddress.districtId;
+        let targetWardCode = selectedAddress.wardCode;
+
+        if (!targetDistrictId || !targetWardCode) {
+          const provRes = await locationController.getProvinces();
+          const provList = Array.isArray(provRes?.data) ? provRes.data : [];
+          const cityLower = (selectedAddress.city || '').toLowerCase();
+          const matchedProv = provList.find((p) =>
+            cityLower.includes(p.ProvinceName.toLowerCase().replace(/tỉnh |thành phố /gi, '').trim())
+          );
+          if (matchedProv) {
+            const distRes = await locationController.getDistricts(matchedProv.ProvinceID);
+            const distList = Array.isArray(distRes?.data) ? distRes.data : [];
+            const matchedDist = distList.find((d) =>
+              cityLower.includes(d.DistrictName.toLowerCase().replace(/quận |huyện |thị xã |thành phố /gi, '').trim())
+            );
+            if (matchedDist) {
+              targetDistrictId = matchedDist.DistrictID;
+              const wardRes = await locationController.getWards(matchedDist.DistrictID);
+              const wardList = Array.isArray(wardRes?.data) ? wardRes.data : [];
+              const matchedWard = wardList.find((w) =>
+                cityLower.includes(w.WardName.toLowerCase().replace(/phường |xã |thị trấn /gi, '').trim())
+              );
+              targetWardCode = matchedWard?.WardCode || wardList[0]?.WardCode;
+            }
+          }
+        }
+
+        if (targetDistrictId && targetWardCode) {
+          const totalWeight = Math.max(
+            500,
+            items.reduce((sum, it) => sum + 500 * it.quantity, 0)
+          );
+          const feeRes = await locationController.calculateShippingFee(
+            targetDistrictId,
+            targetWardCode,
+            totalWeight,
+            totalAmount
+          );
+          const fee = feeRes?.data?.shippingFee;
+          if (!cancelled && typeof fee === 'number') {
+            setShippingFee(fee);
+            return;
+          }
+        }
+        if (!cancelled) setShippingFee(30000);
+      } catch {
+        if (!cancelled) setShippingFee(30000);
+      } finally {
+        if (!cancelled) setLoadingShippingFee(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAddress, items, totalAmount]);
 
   const loadAddresses = useCallback(async () => {
     try {
@@ -72,11 +224,36 @@ export const useCheckout = () => {
     loadAddresses();
   }, [loadAddresses]);
 
+  const handleSelectProvince = useCallback((provinceId: number) => {
+    setSelectedProvinceId(provinceId);
+    setSelectedDistrictId(null);
+    setSelectedWardCode(null);
+  }, []);
+
+  const handleSelectDistrict = useCallback((districtId: number) => {
+    setSelectedDistrictId(districtId);
+    setSelectedWardCode(null);
+  }, []);
+
   const handleCreateNewAddress = useCallback(async () => {
     if (!newFullName.trim() || !newPhone.trim() || !newAddressText.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ giao hàng.');
+      appAlert('Thiếu thông tin', 'Vui lòng nhập đầy đủ họ tên, số điện thoại và địa chỉ chi tiết.');
       return;
     }
+
+    const provinceObj = provinces.find((p) => p.ProvinceID === selectedProvinceId);
+    const districtObj = districts.find((d) => d.DistrictID === selectedDistrictId);
+    const wardObj = wards.find((w) => w.WardCode === selectedWardCode);
+
+    if (!provinceObj || !districtObj || !wardObj) {
+      appAlert(
+        'Thiếu địa giới GHN',
+        'Vui lòng chọn đầy đủ Tỉnh/Thành phố, Quận/Huyện và Phường/Xã để hệ thống tính phí giao hàng GHN.'
+      );
+      return;
+    }
+
+    const composedCity = `${wardObj.WardName}, ${districtObj.DistrictName}, ${provinceObj.ProvinceName}`;
 
     try {
       setIsAddingAddress(true);
@@ -84,7 +261,10 @@ export const useCheckout = () => {
         fullName: newFullName.trim(),
         phone: newPhone.trim(),
         address: newAddressText.trim(),
-        city: newCity,
+        city: composedCity,
+        provinceId: provinceObj.ProvinceID,
+        districtId: districtObj.DistrictID,
+        wardCode: wardObj.WardCode,
         isDefault: true,
       });
 
@@ -95,13 +275,27 @@ export const useCheckout = () => {
       setNewFullName('');
       setNewPhone('');
       setNewAddressText('');
-      Alert.alert('Thành công', 'Đã lưu địa chỉ giao hàng mới.');
+      setNewCity('');
+      setSelectedProvinceId(null);
+      setSelectedDistrictId(null);
+      setSelectedWardCode(null);
+      appAlert('Thành công', 'Đã lưu địa chỉ giao hàng mới và cập nhật phí GHN.');
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể tạo địa chỉ, vui lòng thử lại.');
+      appAlert('Lỗi', err?.response?.data?.message || 'Không thể tạo địa chỉ, vui lòng thử lại.');
     } finally {
       setIsAddingAddress(false);
     }
-  }, [newFullName, newPhone, newAddressText, newCity]);
+  }, [
+    newFullName,
+    newPhone,
+    newAddressText,
+    provinces,
+    districts,
+    wards,
+    selectedProvinceId,
+    selectedDistrictId,
+    selectedWardCode,
+  ]);
 
   // Lazy-load danh sách voucher khi người dùng mở Modal chọn Voucher
   const loadAvailableVouchers = useCallback(
@@ -301,12 +495,12 @@ export const useCheckout = () => {
 
   const handleConfirmOrder = useCallback(async () => {
     if (!selectedAddress) {
-      Alert.alert('Chưa có địa chỉ', 'Vui lòng chọn hoặc thêm địa chỉ nhận hàng để tiếp tục.');
+      appAlert('Chưa có địa chỉ', 'Vui lòng chọn hoặc thêm địa chỉ nhận hàng để tiếp tục.');
       return;
     }
 
     if (items.length === 0) {
-      Alert.alert('Giỏ hàng trống', 'Vui lòng chọn sản phẩm trước khi thanh toán.');
+      appAlert('Giỏ hàng trống', 'Vui lòng chọn sản phẩm trước khi thanh toán.');
       return;
     }
 
@@ -318,12 +512,13 @@ export const useCheckout = () => {
         paymentMethod,
         couponCode: couponCode.trim() || undefined,
         note: note.trim() || undefined,
+        shippingFee,
       });
 
       const order = res.data;
       clearCart();
 
-      Alert.alert(
+      appAlert(
         'Đặt hàng thành công! 🎉',
         `Mã đơn hàng: #${order.orderCode}\nAP Sports sẽ xử lý và giao hàng sớm nhất cho bạn.`,
         [
@@ -339,16 +534,17 @@ export const useCheckout = () => {
         ]
       );
     } catch (err: any) {
-      Alert.alert('Đặt hàng thất bại', err?.response?.data?.message || err?.message || 'Vui lòng thử lại sau.');
+      appAlert('Đặt hàng thất bại', err?.response?.data?.message || err?.message || 'Vui lòng thử lại sau.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedAddress, items, paymentMethod, couponCode, note, clearCart, navigation]);
+  }, [selectedAddress, items, paymentMethod, couponCode, note, shippingFee, clearCart, navigation]);
 
   return {
     items,
     totalAmount,
     shippingFee,
+    loadingShippingFee,
     discountAmount,
     finalTotal,
     addresses,
@@ -390,8 +586,23 @@ export const useCheckout = () => {
     setNewAddressText,
     newCity,
     setNewCity,
+    provinces,
+    districts,
+    wards,
+    selectedProvinceId,
+    selectedDistrictId,
+    selectedWardCode,
+    loadingProvinces,
+    loadingDistricts,
+    loadingWards,
+    handleSelectProvince,
+    handleSelectDistrict,
+    setSelectedWardCode,
     isAddingAddress,
     handleCreateNewAddress,
     handleConfirmOrder,
+    scrollRef,
+    keyboardHeight,
+    scrollToEndOnFocus,
   };
 };

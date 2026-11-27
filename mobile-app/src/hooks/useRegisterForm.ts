@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { appAlert } from '../context/AlertContext';
 import { authController } from '../controllers/auth-controller';
 
 export const useRegisterForm = (onSuccess?: () => void) => {
@@ -57,7 +57,7 @@ export const useRegisterForm = (onSuccess?: () => void) => {
           ? (res as any).message
           : 'Đăng ký tài khoản thành công! Vui lòng kiểm tra email kích hoạt tài khoản hoặc đăng nhập ngay.';
 
-      Alert.alert('Thành Công', message, [
+      appAlert('Thành Công', message, [
         {
           text: 'Đăng Nhập Ngay',
           onPress: () => {

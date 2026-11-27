@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { appAlert } from '../context/AlertContext';
 import { customerOrderController } from '../controllers/customer-order-controller';
 import { Order } from '../types';
 import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
@@ -13,6 +13,7 @@ export const useOrderDetail = (orderIdentifier: string) => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [isMapInteracting, setIsMapInteracting] = useState<boolean>(false);
 
   const fetchOrderDetail = useCallback(() => {
     setLoading(true);
@@ -51,7 +52,7 @@ export const useOrderDetail = (orderIdentifier: string) => {
 
   const handleCompleteOrder = useCallback(() => {
     if (!order) return;
-    Alert.alert(
+    appAlert(
       'Xác nhận đã nhận hàng',
       'Bạn đã nhận được toàn bộ kiện hàng và hài lòng với chất lượng sản phẩm?',
       [
@@ -63,9 +64,9 @@ export const useOrderDetail = (orderIdentifier: string) => {
               setActionLoading(true);
               const res = await customerOrderController.completeOrder(order.orderCode);
               setOrder(res.data);
-              Alert.alert('Thành công', 'Đơn hàng đã được xác nhận hoàn tất!');
+              appAlert('Thành công', 'Đơn hàng đã được xác nhận hoàn tất!');
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể cập nhật đơn hàng.');
+              appAlert('Lỗi', err?.response?.data?.message || 'Không thể cập nhật đơn hàng.');
             } finally {
               setActionLoading(false);
             }
@@ -77,7 +78,7 @@ export const useOrderDetail = (orderIdentifier: string) => {
 
   const handleCancelOrder = useCallback(() => {
     if (!order) return;
-    Alert.alert(
+    appAlert(
       'Hủy đơn hàng',
       'Bạn có chắc chắn muốn hủy đơn hàng này không?',
       [
@@ -93,9 +94,9 @@ export const useOrderDetail = (orderIdentifier: string) => {
                 'Khách hàng yêu cầu hủy trên mobile'
               );
               setOrder(res.data);
-              Alert.alert('Đã hủy', 'Đơn hàng đã được hủy thành công.');
+              appAlert('Đã hủy', 'Đơn hàng đã được hủy thành công.');
             } catch (err: any) {
-              Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể hủy đơn hàng.');
+              appAlert('Lỗi', err?.response?.data?.message || 'Không thể hủy đơn hàng.');
             } finally {
               setActionLoading(false);
             }
@@ -116,6 +117,8 @@ export const useOrderDetail = (orderIdentifier: string) => {
     order,
     loading,
     actionLoading,
+    isMapInteracting,
+    setIsMapInteracting,
     canReview,
     canComplete,
     canCancel,

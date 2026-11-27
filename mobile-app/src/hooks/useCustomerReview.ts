@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { appAlert } from '../context/AlertContext';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { reviewController } from '../controllers/review-controller';
@@ -14,13 +14,13 @@ export const useCustomerReview = (productId: number, orderItemId: number) => {
   // Mở máy ảnh chụp trực tiếp giày/bóng thực tế
   const handleTakePhoto = useCallback(async () => {
     if (photos.length >= 5) {
-      Alert.alert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 5 hình ảnh thực tế.');
+      appAlert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 5 hình ảnh thực tế.');
       return;
     }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền máy ảnh trong cài đặt để chụp ảnh sản phẩm.');
+      appAlert('Cần quyền truy cập', 'Vui lòng cấp quyền máy ảnh trong cài đặt để chụp ảnh sản phẩm.');
       return;
     }
 
@@ -41,13 +41,13 @@ export const useCustomerReview = (productId: number, orderItemId: number) => {
   // Chọn ảnh từ thư viện
   const handlePickFromLibrary = useCallback(async () => {
     if (photos.length >= 5) {
-      Alert.alert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 5 hình ảnh thực tế.');
+      appAlert('Giới hạn ảnh', 'Bạn chỉ có thể đính kèm tối đa 5 hình ảnh thực tế.');
       return;
     }
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh trong cài đặt.');
+      appAlert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh trong cài đặt.');
       return;
     }
 
@@ -71,7 +71,7 @@ export const useCustomerReview = (productId: number, orderItemId: number) => {
 
   const submitReview = useCallback(async () => {
     if (comment.trim().length < 10) {
-      Alert.alert('Nhận xét quá ngắn', 'Vui lòng chia sẻ cảm nhận ít nhất 10 ký tự về chất lượng giày/dụng cụ.');
+      appAlert('Nhận xét quá ngắn', 'Vui lòng chia sẻ cảm nhận ít nhất 10 ký tự về chất lượng giày/dụng cụ.');
       return;
     }
 
@@ -85,7 +85,7 @@ export const useCustomerReview = (productId: number, orderItemId: number) => {
         imageUrls: photos,
       });
 
-      Alert.alert(
+      appAlert(
         'Đánh giá thành công! 🌟',
         'Cảm ơn bạn đã đóng góp đánh giá và hình ảnh thực tế cho cộng đồng thể thao AP Sports.',
         [
@@ -96,7 +96,7 @@ export const useCustomerReview = (productId: number, orderItemId: number) => {
         ]
       );
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể gửi đánh giá, vui lòng thử lại.');
+      appAlert('Lỗi', err?.response?.data?.message || err?.message || 'Không thể gửi đánh giá, vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }

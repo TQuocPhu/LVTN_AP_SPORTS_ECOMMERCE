@@ -87,7 +87,8 @@ export interface Product {
 }
 
 export interface CartItem {
-  id: string; // unique item key: `${productId}-${variantId}`
+  id: string; // unique item key: `${productId}-${variantId}` hoặc String(cartItemId)
+  cartItemId?: number;
   productId: number;
   productName: string;
   productSlug: string;
@@ -99,6 +100,8 @@ export interface CartItem {
   price: number;
   quantity: number;
   stockQuantity: number;
+  isDiscontinued?: boolean;
+  inStock?: boolean;
 }
 
 export interface OrderItem {
@@ -138,7 +141,7 @@ export interface Order {
   trackingCode?: string;
   customerName?: string;
   customerPhone?: string;
-  shippingAddress?: string;
+  shippingAddress?: string | ShippingAddress;
   note?: string;
   createdAt: string;
   updatedAt?: string;
@@ -167,7 +170,26 @@ export interface ShippingAddress {
   provinceId?: number;
   districtId?: number;
   wardCode?: string;
+  latitude?: number;
+  longitude?: number;
   isDefault: boolean;
+}
+
+export interface GhnProvince {
+  ProvinceID: number;
+  ProvinceName: string;
+}
+
+export interface GhnDistrict {
+  DistrictID: number;
+  ProvinceID?: number;
+  DistrictName: string;
+}
+
+export interface GhnWard {
+  WardCode: string;
+  DistrictID?: number;
+  WardName: string;
 }
 
 export interface UserSession {
@@ -185,7 +207,7 @@ export type VoucherType = 'FIXED' | 'PERCENT' | 'FREESHIP';
 
 export type VoucherStatus = 'active' | 'scheduled' | 'expired' | 'disabled';
 
-export type CategoryScope = 'ALL' | 'FREESHIP' | 'FASHION' | 'APPAREL' | 'SHOES' | string;
+export type CategoryScope = 'ALL' | 'FREESHIP' | string;
 
 export interface Voucher {
   id: number;

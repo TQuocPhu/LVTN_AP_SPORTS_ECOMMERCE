@@ -1,13 +1,17 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Typography } from '../../config/theme';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/types';
+import { Spacing, Typography } from '../../config/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useCart } from '../../context/CartContext';
 
 interface HomeHeaderProps {
-  cartItemCount: number;
-  onCartPress: () => void;
-  onChatPress: () => void;
+  cartItemCount?: number;
+  onCartPress?: () => void;
+  onChatPress?: () => void;
 }
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
@@ -15,13 +19,24 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   onCartPress,
   onChatPress,
 }) => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isDarkMode, toggleTheme, colors } = useTheme();
+  const { totalItems } = useCart();
+
+  const resolvedCartCount = cartItemCount ?? totalItems;
+  const handleCartPress =
+    onCartPress ?? (() => navigation.navigate('MainTabs', { screen: 'CartTab' }));
+  const handleChatPress = onChatPress ?? (() => navigation.navigate('SupportChat'));
 
   return (
     <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
       <View style={styles.brandRow}>
-        <View style={[styles.logoBadge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.logoBadgeText}>AP</Text>
+        <View style={[styles.logoBadge, { backgroundColor: isDarkMode ? '#1e293b' : '#ffffff', borderColor: colors.border }]}>
+          <Image
+            source={require('../../../assets/ap-sports_logo_no-back.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
         <View>
           <Text style={[styles.brandTitle, { color: colors.text }]}>AP SPORTS</Text>
@@ -42,16 +57,18 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         </TouchableOpacity>
 
         {/* Nút Chatbot & Live Support */}
-        <TouchableOpacity style={styles.iconBtn} onPress={onChatPress} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress} activeOpacity={0.8}>
           <Ionicons name="chatbubbles-outline" size={22} color={colors.text} />
         </TouchableOpacity>
 
         {/* Nút Giỏ Hàng */}
-        <TouchableOpacity style={styles.cartIconBtn} onPress={onCartPress} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.cartIconBtn} onPress={handleCartPress} activeOpacity={0.8}>
           <Ionicons name="cart-outline" size={24} color={colors.text} />
-          {cartItemCount > 0 && (
+          {resolvedCartCount > 0 && (
             <View style={[styles.cartBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.cartBadgeText}>{cartItemCount > 99 ? '99+' : cartItemCount}</Text>
+              <Text style={styles.cartBadgeText}>
+                {resolvedCartCount > 99 ? '99+' : resolvedCartCount}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -75,16 +92,18 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    padding: 3,
   },
-  logoBadgeText: {
-    color: '#ffffff',
-    fontWeight: Typography.weights.black,
-    fontSize: Typography.sizes.sm,
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   brandTitle: {
     fontSize: Typography.sizes.md,

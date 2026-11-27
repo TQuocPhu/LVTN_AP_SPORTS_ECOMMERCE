@@ -6,9 +6,9 @@ import {
   FlatList,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Platform,
 } from 'react-native';
+import { appAlert } from '../../context/AlertContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +20,7 @@ import { formatCurrency } from '../../utils/formatCurrency';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { RequireLoginView } from '../../components/common/RequireLoginView';
+import { HomeHeader } from '../../components/home/HomeHeader';
 
 export const CartScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -30,7 +31,7 @@ export const CartScreen: React.FC = () => {
 
   const handleCheckout = () => {
     if (!isAuthenticated) {
-      Alert.alert(
+      appAlert(
         'Yêu cầu đăng nhập',
         'Vui lòng đăng nhập để tiến hành đặt hàng và nhận ưu đãi thành viên.',
         [
@@ -46,9 +47,7 @@ export const CartScreen: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Giỏ Hàng Của Bạn</Text>
-        </View>
+        <HomeHeader />
         <RequireLoginView
           icon="cart-outline"
           title="Giỏ Hàng Mua Sắm"
@@ -61,6 +60,7 @@ export const CartScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <HomeHeader />
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Giỏ Hàng Của Bạn</Text>
@@ -162,7 +162,7 @@ export const CartScreen: React.FC = () => {
               {
                 backgroundColor: colors.card,
                 borderTopColor: colors.border,
-                paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : Spacing.md),
+                paddingBottom: Platform.OS === 'android' ? Spacing.md : Math.max(insets.bottom, Spacing.md),
               },
             ]}
           >

@@ -3,12 +3,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { CartItem } from '../types';
 import { API_CONFIG } from '../config/api.config';
+import { useAuth } from './AuthContext';
+import { appAlert } from './AlertContext';
+import { cartController } from '../controllers/cart-controller';
 
 interface CartContextType {
   items: CartItem[];
   totalItems: number;
   totalAmount: number;
-  addToCart: (item: CartItem) => Promise<void>;
+  loadingCart: boolean;
+  refreshCart: () => Promise<void>;
+  addToCart: (item: CartItem) => Promise<boolean>;
   removeFromCart: (itemId: string) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -16,26 +21,32 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType>({} as CartContextType);
 
+function mapServerCartItem(r: any): CartItem {
+  return {
+    id: r.id != null ? String(r.id) : `${r.productId}-${r.variantId || 0}`,
+    cartItemId: r.id,
+    productId: r.productId,
+    productName: r.productName,
+    productSlug: r.productSlug,
+    productImage: r.mainImage,
+    variantId: r.variantId,
+    variantSku: r.sku,
+    variantColor: r.color,
+    variantSize: r.size,
+    price: Number(r.price || 0),
+    quantity: Number(r.quantity || 1),
+    stockQuantity: r.stockQuantity != null ? Number(r.stockQuantity) : 99,
+    isDiscontinued: Boolean(r.isDiscontinued),
+    inStock: r.inStock !== false,
+  };
+}
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [loadingCart, setLoadingCart] = useState<boolean>(false);
 
-  // Tải giỏ hàng từ AsyncStorage khi mở app
-  useEffect(() => {
-    const loadCart = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(API_CONFIG.STORAGE_KEYS.CART_DATA);
-        if (stored) {
-          setItems(JSON.parse(stored));
-        }
-      } catch {
-        // Bỏ qua lỗi đọc cache
-      }
-    };
-    loadCart();
-  }, []);
-
-  const saveCart = async (newItems: CartItem[]) => {
-    setItems(newItems);
+  const saveCache = useCallback(async (newItems: CartItem[]) => {
     try {
       await AsyncStorage.setItem(
         API_CONFIG.STORAGE_KEYS.CART_DATA,
@@ -44,77 +55,137 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // Bỏ qua lỗi ghi cache
     }
-  };
-
-  const addToCart = useCallback(async (newItem: CartItem) => {
-    try {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch {}
-
-    setItems((prev) => {
-      const existingIdx = prev.findIndex((i) => i.id === newItem.id);
-      let updated: CartItem[];
-      if (existingIdx > -1) {
-        updated = [...prev];
-        const newQty = Math.min(
-          updated[existingIdx].quantity + newItem.quantity,
-          newItem.stockQuantity || 99
-        );
-        updated[existingIdx] = { ...updated[existingIdx], quantity: newQty };
-      } else {
-        updated = [newItem, ...prev];
-      }
-      AsyncStorage.setItem(API_CONFIG.STORAGE_KEYS.CART_DATA, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
   }, []);
 
-  const removeFromCart = useCallback(async (itemId: string) => {
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch {}
-
-    setItems((prev) => {
-      const updated = prev.filter((i) => i.id !== itemId);
-      AsyncStorage.setItem(API_CONFIG.STORAGE_KEYS.CART_DATA, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, []);
-
-  const updateQuantity = useCallback(async (itemId: string, qty: number) => {
-    if (qty <= 0) {
-      removeFromCart(itemId);
+  const refreshCart = useCallback(async () => {
+    if (!isAuthenticated) {
+      setItems([]);
+      AsyncStorage.removeItem(API_CONFIG.STORAGE_KEYS.CART_DATA).catch(() => {});
       return;
     }
 
     try {
-      await Haptics.selectionAsync();
-    } catch {}
+      setLoadingCart(true);
+      const res = await cartController.getCart();
+      const serverItems = Array.isArray(res.data?.items)
+        ? res.data.items.map(mapServerCartItem)
+        : [];
+      setItems(serverItems);
+      await saveCache(serverItems);
+    } catch {
+      // Fallback cache cục bộ nếu mạng chập chờn khi đã đăng nhập
+      try {
+        const stored = await AsyncStorage.getItem(API_CONFIG.STORAGE_KEYS.CART_DATA);
+        if (stored) setItems(JSON.parse(stored));
+      } catch {}
+    } finally {
+      setLoadingCart(false);
+    }
+  }, [isAuthenticated, saveCache]);
 
-    setItems((prev) => {
-      const updated = prev.map((item) => {
-        if (item.id === itemId) {
-          const finalQty = Math.min(qty, item.stockQuantity || 99);
-          return { ...item, quantity: finalQty };
+  // Đồng bộ giỏ hàng theo trạng thái đăng nhập (giống Web)
+  useEffect(() => {
+    if (authLoading) return;
+    refreshCart();
+  }, [authLoading, isAuthenticated, refreshCart]);
+
+  const addToCart = useCallback(
+    async (newItem: CartItem): Promise<boolean> => {
+      if (!isAuthenticated) {
+        return false;
+      }
+
+      try {
+        await cartController.addToCart(newItem.productId, newItem.variantId, newItem.quantity);
+        try {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch {}
+        await refreshCart();
+        return true;
+      } catch (err: any) {
+        const msg =
+          err?.response?.data?.message || 'Không thể thêm sản phẩm vào giỏ hàng';
+        appAlert('Không thể thêm vào giỏ', msg);
+        return false;
+      }
+    },
+    [isAuthenticated, refreshCart]
+  );
+
+  const removeFromCart = useCallback(
+    async (itemId: string) => {
+      try {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch {}
+
+      const target = items.find((i) => i.id === itemId);
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+
+      if (isAuthenticated && target?.cartItemId) {
+        try {
+          await cartController.removeCartItem(target.cartItemId);
+          await refreshCart();
+        } catch (err: any) {
+          const msg = err?.response?.data?.message || 'Không thể xóa sản phẩm khỏi giỏ hàng';
+          appAlert('Lỗi', msg);
+          await refreshCart();
         }
-        return item;
-      });
-      AsyncStorage.setItem(API_CONFIG.STORAGE_KEYS.CART_DATA, JSON.stringify(updated)).catch(() => {});
-      return updated;
-    });
-  }, [removeFromCart]);
+      }
+    },
+    [items, isAuthenticated, refreshCart]
+  );
+
+  const updateQuantity = useCallback(
+    async (itemId: string, qty: number) => {
+      if (qty <= 0) {
+        await removeFromCart(itemId);
+        return;
+      }
+
+      try {
+        await Haptics.selectionAsync();
+      } catch {}
+
+      const target = items.find((i) => i.id === itemId);
+      const finalQty = Math.min(qty, target?.stockQuantity || 99);
+
+      setItems((prev) =>
+        prev.map((item) => (item.id === itemId ? { ...item, quantity: finalQty } : item))
+      );
+
+      if (isAuthenticated && target?.cartItemId) {
+        try {
+          await cartController.updateCartItem(target.cartItemId, finalQty);
+          await refreshCart();
+        } catch (err: any) {
+          const msg = err?.response?.data?.message || 'Không thể cập nhật số lượng';
+          appAlert('Lỗi', msg);
+          await refreshCart();
+        }
+      }
+    },
+    [items, isAuthenticated, removeFromCart, refreshCart]
+  );
 
   const clearCart = useCallback(async () => {
-    await saveCart([]);
-  }, []);
+    setItems([]);
+    AsyncStorage.removeItem(API_CONFIG.STORAGE_KEYS.CART_DATA).catch(() => {});
+    if (isAuthenticated) {
+      try {
+        await cartController.clearCart();
+      } catch {}
+    }
+  }, [isAuthenticated]);
 
-  const totalItems = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.quantity, 0);
-  }, [items]);
+  const totalItems = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items]
+  );
 
-  const totalAmount = useMemo(() => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  }, [items]);
+  const totalAmount = useMemo(
+    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+    [items]
+  );
 
   return (
     <CartContext.Provider
@@ -122,6 +193,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items,
         totalItems,
         totalAmount,
+        loadingCart,
+        refreshCart,
         addToCart,
         removeFromCart,
         updateQuantity,

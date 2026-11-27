@@ -6,8 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
+import { appAlert } from '../../context/AlertContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +16,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { Colors, Spacing, BorderRadius, Typography } from '../../config/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { HomeHeader } from '../../components/home/HomeHeader';
 
 export const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -24,7 +25,7 @@ export const ProfileScreen: React.FC = () => {
   const { isDarkMode, toggleTheme, colors } = useTheme();
 
   const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
+    appAlert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản?', [
       { text: 'Hủy', style: 'cancel' },
       {
         text: 'Đăng xuất',
@@ -38,6 +39,7 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <HomeHeader />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* User Card Header */}
         <View style={[styles.userHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
@@ -101,6 +103,27 @@ export const ProfileScreen: React.FC = () => {
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
+            onPress={() =>
+              isAuthenticated
+                ? navigation.navigate('ProfileManagement')
+                : navigation.navigate('Login')
+            }
+          >
+            <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? 'rgba(16,185,129,0.18)' : '#dcfce7' }]}>
+              <Ionicons name="person-circle-outline" size={20} color="#16a34a" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuText, { color: colors.text }]}>Quản lý thông tin cá nhân</Text>
+              <Text style={{ fontSize: 10, color: colors.textMuted }}>
+                Hồ sơ, ảnh đại diện, sổ địa chỉ GHN & đổi mật khẩu
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
+            activeOpacity={0.7}
             onPress={() => navigation.navigate('MainTabs', { screen: 'OrdersTab' })}
           >
             <View style={[styles.menuIcon, { backgroundColor: '#ffedd5' }]}>
@@ -153,54 +176,54 @@ export const ProfileScreen: React.FC = () => {
 
           {/* Live Chat & AI Bot */}
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
             onPress={() => navigation.navigate('SupportChat')}
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#ffedd5' }]}>
-              <Ionicons name="chatbubbles" size={20} color={Colors.primary} />
+            <View style={[styles.menuIcon, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22, 0.18)' : '#ffedd5' }]}>
+              <Ionicons name="chatbubbles" size={20} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.menuText}>Tư vấn trực tiếp & Trợ lý AI</Text>
-              <Text style={{ fontSize: 10, color: Colors.slate500 }}>
+              <Text style={[styles.menuText, { color: colors.text }]}>Tư vấn trực tiếp & Trợ lý AI</Text>
+              <Text style={{ fontSize: 10, color: colors.textMuted }}>
                 Nhắn tin với nhân viên CSKH hoặc AI Bot
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.slate400} />
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomColor: colors.border }]}
             activeOpacity={0.7}
             onPress={() =>
-              Alert.alert(
+              appAlert(
                 'Về AP Sports',
                 'Hệ thống thương mại điện tử chuyên cung cấp dụng cụ, giày đá bóng, trang phục thể thao chính hãng hàng đầu Việt Nam.'
               )
             }
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#f1f5f9' }]}>
-              <Ionicons name="information-circle-outline" size={20} color={Colors.slate700} />
+            <View style={[styles.menuIcon, { backgroundColor: colors.surface2 }]}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.textSecondary} />
             </View>
-            <Text style={styles.menuText}>Về thương hiệu AP Sports</Text>
-            <Ionicons name="chevron-forward" size={18} color={Colors.slate400} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Về thương hiệu AP Sports</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.menuItem}
+            style={[styles.menuItem, { borderBottomWidth: 0 }]}
             activeOpacity={0.7}
             onPress={() =>
-              Alert.alert(
+              appAlert(
                 'Chính sách đổi trả',
                 'Hỗ trợ đổi size và đổi trả hàng trong vòng 30 ngày kể từ ngày nhận hàng với sản phẩm còn nguyên tem mác.'
               )
             }
           >
-            <View style={[styles.menuIcon, { backgroundColor: '#f1f5f9' }]}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={Colors.slate700} />
+            <View style={[styles.menuIcon, { backgroundColor: colors.surface2 }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textSecondary} />
             </View>
-            <Text style={styles.menuText}>Chính sách bảo hành & đổi trả</Text>
-            <Ionicons name="chevron-forward" size={18} color={Colors.slate400} />
+            <Text style={[styles.menuText, { color: colors.text }]}>Chính sách bảo hành & đổi trả</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -209,17 +232,23 @@ export const ProfileScreen: React.FC = () => {
         {isAuthenticated && (
           <View style={styles.logoutWrapper}>
             <TouchableOpacity
-              style={styles.btnLogout}
+              style={[
+                styles.btnLogout,
+                {
+                  backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                  borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.45)' : '#fca5a5',
+                },
+              ]}
               activeOpacity={0.85}
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-              <Text style={styles.btnLogoutText}>Đăng Xuất</Text>
+              <Ionicons name="log-out-outline" size={20} color={colors.error} />
+              <Text style={[styles.btnLogoutText, { color: colors.error }]}>Đăng Xuất</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <Text style={styles.versionText}>AP Sports Mobile v1.0.0 (Build 2026)</Text>
+        <Text style={[styles.versionText, { color: colors.textMuted }]}>AP Sports Mobile v1.0.0 (Build 2026)</Text>
       </ScrollView>
     </View>
   );

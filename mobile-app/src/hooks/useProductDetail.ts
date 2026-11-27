@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { appAlert } from '../context/AlertContext';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 import { productController } from '../controllers/product-controller';
 import { reviewController } from '../controllers/review-controller';
 import { Product, ProductVariant } from '../types';
@@ -7,8 +10,9 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
 export const useProductDetail = (slug: string, initialProduct?: Product) => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { addToCart } = useCart();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(initialProduct || null);
   const [loading, setLoading] = useState<boolean>(!initialProduct);
@@ -131,15 +135,26 @@ export const useProductDetail = (slug: string, initialProduct?: Product) => {
   const currentOriginalPrice = currentVariant?.originalPrice || product?.originalPrice;
   const isOutOfStock = currentStock <= 0;
 
-  // Thêm vào giỏ hàng
+  // Thêm vào giỏ hàng (Bắt buộc đăng nhập & đồng bộ với Backend giống Web)
   const handleAddToCart = useCallback(async () => {
     if (!product) return;
+    if (!isAuthenticated) {
+      appAlert(
+        'Yêu cầu đăng nhập',
+        'Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.',
+        [
+          { text: 'Hủy', style: 'cancel' },
+          { text: 'Đăng nhập', onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
     if (isOutOfStock) {
       setIsRestockModalVisible(true);
       return;
     }
 
-    await addToCart({
+    const ok = await addToCart({
       id: `${product.id}-${currentVariant?.id || 0}`,
       productId: product.id,
       productName: product.name,
@@ -153,14 +168,16 @@ export const useProductDetail = (slug: string, initialProduct?: Product) => {
       quantity: 1,
       stockQuantity: currentStock,
     });
-    Alert.alert('Thành công', `Đã thêm "${product.name}" vào giỏ hàng!`);
-  }, [product, currentVariant, isOutOfStock, currentPrice, currentStock, addToCart]);
+    if (ok) {
+      appAlert('Thành công', `Đã thêm "${product.name}" vào giỏ hàng!`);
+    }
+  }, [product, isAuthenticated, isOutOfStock, currentVariant, currentPrice, currentStock, addToCart, navigation]);
 
 
   // Đăng ký báo hết hàng
   const handleSubscribeRestock = useCallback(async () => {
     if (!restockEmail.trim() || !restockEmail.includes('@')) {
-      Alert.alert('Email không hợp lệ', 'Vui lòng nhập địa chỉ email hợp lệ để nhận thông báo.');
+      appAlert('Email không hợp lệ', 'Vui lòng nhập địa chỉ email hợp lệ để nhận thông báo.');
       return;
     }
 
@@ -169,13 +186,13 @@ export const useProductDetail = (slug: string, initialProduct?: Product) => {
       const variantId = currentVariant?.id || (product?.variants && product.variants[0]?.id) || 0;
       await productController.subscribeRestock(variantId, restockEmail.trim());
 
-      Alert.alert(
+      appAlert(
         'Đăng ký thành công! 🔔',
         `AP Sports sẽ tự động gửi email thông báo tới ${restockEmail} ngay khi sản phẩm này được nhập hàng về kho.`
       );
       setIsRestockModalVisible(false);
     } catch (err: any) {
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể đăng ký lúc này, vui lòng thử lại.');
+      appAlert('Lỗi', err?.response?.data?.message || 'Không thể đăng ký lúc này, vui lòng thử lại.');
     } finally {
       setSubscribingRestock(false);
     }
