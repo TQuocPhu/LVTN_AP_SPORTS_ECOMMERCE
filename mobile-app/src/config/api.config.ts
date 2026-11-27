@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
  * - Khi đổi mạng Wi-Fi: Bạn chỉ cần sửa IP trong mobile-app/.env cực kỳ tiện lợi.
  */
 const TUNNEL_URL = process.env.EXPO_PUBLIC_TUNNEL_URL || '';
-const LOCAL_IP = process.env.EXPO_PUBLIC_LOCAL_IP || '10.127.179.146';
+const LOCAL_IP = process.env.EXPO_PUBLIC_LOCAL_IP || '10.69.130.146';
 const BACKEND_PORT = process.env.EXPO_PUBLIC_BACKEND_PORT || '8080';
 
 export const API_CONFIG = {

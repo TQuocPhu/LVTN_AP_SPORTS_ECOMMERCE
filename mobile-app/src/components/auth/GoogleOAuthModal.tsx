@@ -73,7 +73,7 @@ export const GoogleOAuthModal: React.FC<GoogleOAuthModalProps> = ({
               const intercepted = onInterceptRedirect(request.url);
               return !intercepted;
             }}
-            onNavigationStateChange={(navState: WebViewNavigation) => {
+            onNavigationStateChange={(navState: WebViewNavigation): void => {
               if (navState?.url) {
                 onInterceptRedirect(navState.url);
               }

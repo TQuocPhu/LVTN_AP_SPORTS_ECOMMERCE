@@ -97,7 +97,7 @@ export const AiSportsAdvisorModal: React.FC<AiSportsAdvisorModalProps> = ({
                 <ActivityIndicator size="small" color="#2563eb" />
                 <Text style={styles.loadingText}>AI đang phân tích thông số...</Text>
               </View>
-            ) : null
+            ) : undefined
           }
         />
 
