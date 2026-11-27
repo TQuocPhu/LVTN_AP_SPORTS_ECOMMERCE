@@ -142,11 +142,32 @@ export interface Order {
   customerName?: string;
   customerPhone?: string;
   shippingAddress?: string | ShippingAddress;
+  shipperName?: string;
+  shippingProvider?: string;
+  deliveryReview?: DeliveryReview | null;
   note?: string;
   createdAt: string;
   updatedAt?: string;
   packVerified?: boolean;
   items?: OrderItem[];
+}
+
+export interface DeliveryReview {
+  id: number;
+  orderId: number;
+  orderCode: string;
+  shipperName?: string | null;
+  shipperPhone?: string | null;
+  shippingProvider?: string | null;
+  trackingCode?: string | null;
+  rating: number;
+  tags: string[];
+  comment?: string | null;
+  adminReply?: string | null;
+  repliedByName?: string | null;
+  repliedAt?: string | null;
+  status: string;
+  createdAt: string;
 }
 
 export interface Review {

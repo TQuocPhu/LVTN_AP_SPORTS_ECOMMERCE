@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { appAlert } from '../context/AlertContext';
 import { customerOrderController } from '../controllers/customer-order-controller';
-import { Order } from '../types';
+import { DeliveryReview, Order } from '../types';
 import { subscribeOrderRealtime } from '../services/orderRealtimeSocket';
 import {
   getMobileOrderStatusBadge,
@@ -14,6 +14,7 @@ export const useOrderDetail = (orderIdentifier: string) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [isMapInteracting, setIsMapInteracting] = useState<boolean>(false);
+  const [isDeliveryReviewModalOpen, setIsDeliveryReviewModalOpen] = useState<boolean>(false);
 
   const fetchOrderDetail = useCallback(() => {
     setLoading(true);
@@ -64,7 +65,11 @@ export const useOrderDetail = (orderIdentifier: string) => {
               setActionLoading(true);
               const res = await customerOrderController.completeOrder(order.orderCode);
               setOrder(res.data);
-              appAlert('Thành công', 'Đơn hàng đã được xác nhận hoàn tất!');
+              if (!res.data?.deliveryReview) {
+                setIsDeliveryReviewModalOpen(true);
+              } else {
+                appAlert('Thành công', 'Đơn hàng đã được xác nhận hoàn tất!');
+              }
             } catch (err: any) {
               appAlert('Lỗi', err?.response?.data?.message || 'Không thể cập nhật đơn hàng.');
             } finally {
@@ -113,12 +118,19 @@ export const useOrderDetail = (orderIdentifier: string) => {
   const paymentStatusBadge = getMobilePaymentStatusBadge(order?.paymentStatus);
   const paymentMethodLabel = getMobilePaymentMethodLabel(order?.paymentMethod);
 
+  const handleDeliveryReviewSubmitted = useCallback((review: DeliveryReview) => {
+    setOrder((prev) => (prev ? { ...prev, deliveryReview: review } : prev));
+  }, []);
+
   return {
     order,
     loading,
     actionLoading,
     isMapInteracting,
     setIsMapInteracting,
+    isDeliveryReviewModalOpen,
+    setIsDeliveryReviewModalOpen,
+    handleDeliveryReviewSubmitted,
     canReview,
     canComplete,
     canCancel,

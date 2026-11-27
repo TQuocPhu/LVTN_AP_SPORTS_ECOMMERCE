@@ -19,6 +19,7 @@ import { Header } from '../../components/common/Header';
 import { useOrderDetail } from '../../hooks/useOrderDetail';
 import { OrderDetailItems } from '../../components/order/OrderDetailItems';
 import { DeliveryTrackingMap } from '../../components/order/DeliveryTrackingMap';
+import { DeliveryReviewModal } from '../../components/order/DeliveryReviewModal';
 import { useTheme } from '../../context/ThemeContext';
 
 export const OrderDetailScreen: React.FC = () => {
@@ -34,6 +35,9 @@ export const OrderDetailScreen: React.FC = () => {
     actionLoading,
     isMapInteracting,
     setIsMapInteracting,
+    isDeliveryReviewModalOpen,
+    setIsDeliveryReviewModalOpen,
+    handleDeliveryReviewSubmitted,
     canReview,
     canComplete,
     canCancel,
@@ -235,7 +239,94 @@ export const OrderDetailScreen: React.FC = () => {
               <Text style={styles.btnCancelText}>Hủy Đơn Hàng Này</Text>
             </TouchableOpacity>
           )}
+
+          {order.status === 'completed' && !order.deliveryReview && (
+            <TouchableOpacity
+              style={[styles.btnComplete, { backgroundColor: colors.primary }]}
+              onPress={() => setIsDeliveryReviewModalOpen(true)}
+            >
+              <Ionicons name="star" size={18} color="#ffffff" />
+              <Text style={styles.btnCompleteText}>Đánh Giá Giao Hàng & Shipper</Text>
+            </TouchableOpacity>
+          )}
+
+          {order.deliveryReview && (
+            <View
+              style={[
+                styles.sectionCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={[styles.sectionTitle, { color: colors.textMuted, marginBottom: 0 }]}>
+                  ĐÁNH GIÁ GIAO HÀNG CỦA BẠN
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 2 }}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Ionicons
+                      key={s}
+                      name={s <= (order.deliveryReview?.rating || 0) ? 'star' : 'star-outline'}
+                      size={14}
+                      color={s <= (order.deliveryReview?.rating || 0) ? '#f59e0b' : colors.textFaint}
+                    />
+                  ))}
+                </View>
+              </View>
+              {order.deliveryReview.tags && order.deliveryReview.tags.length > 0 && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                  {order.deliveryReview.tags.map((t) => (
+                    <View
+                      key={t}
+                      style={{
+                        backgroundColor: colors.primaryMuted,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 999,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {order.deliveryReview.comment ? (
+                <Text style={{ fontSize: 12, color: colors.textSecondary, lineHeight: 18 }}>
+                  “{order.deliveryReview.comment}”
+                </Text>
+              ) : null}
+              {order.deliveryReview.adminReply ? (
+                <View
+                  style={{
+                    marginTop: 8,
+                    padding: 10,
+                    borderRadius: 10,
+                    backgroundColor: colors.surface2,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary, marginBottom: 2 }}>
+                    Phản hồi CSKH ({order.deliveryReview.repliedByName || 'AP Sports'}):
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+                    {order.deliveryReview.adminReply}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
         </ScrollView>
+      )}
+
+      {order && (
+        <DeliveryReviewModal
+          visible={isDeliveryReviewModalOpen}
+          orderCode={order.orderCode}
+          shipperName={order.shipperName}
+          shippingProvider={order.shippingProvider}
+          onClose={() => setIsDeliveryReviewModalOpen(false)}
+          onSuccess={handleDeliveryReviewSubmitted}
+        />
       )}
     </View>
   );
