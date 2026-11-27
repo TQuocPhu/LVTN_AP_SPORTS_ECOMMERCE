@@ -182,4 +182,34 @@ public class AdminReportController {
         );
         return ResponseEntity.ok(ApiResponse.success("Lấy bảng chi tiết biến thể tồn kho thành công!", res));
     }
+
+    /**
+     * API lấy Bảng Đối Soát Tài Chính & Sổ Cái Dòng Tiền Theo Ngày (COD vs VNPay, Thực thu vs Chờ đối soát vs Hủy/Hoàn).
+     * STAFF chỉ được đối soát trên các đơn hàng thuộc phạm vi xử lý của mình.
+     */
+    @GetMapping("/reconciliation")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<ApiResponse<com.web.ap_sports.dto.response.report.FinancialReconciliationResponse>> getFinancialReconciliation(
+            @RequestParam(required = false, defaultValue = "LAST_30_DAYS") String timeRange,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false, defaultValue = "ALL") String paymentMethod,
+            Authentication authentication
+    ) {
+        LocalDateTime[] range = ReportDateUtil.parseDateRange(timeRange, startDate, endDate);
+        Long enforcedStaffId = null;
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        if (!isAdmin && authentication != null) {
+            enforcedStaffId = userRepository.findByEmail(authentication.getName())
+                    .map(User::getId)
+                    .orElse(-1L);
+        }
+
+        log.info("Truy vấn sổ cái đối soát tài chính: timeRange={}, paymentMethod={}, enforcedStaffId={}",
+                timeRange, paymentMethod, enforcedStaffId);
+        com.web.ap_sports.dto.response.report.FinancialReconciliationResponse res =
+                adminReportService.getFinancialReconciliation(range[0], range[1], paymentMethod, enforcedStaffId);
+        return ResponseEntity.ok(ApiResponse.success("Lấy dữ liệu đối soát tài chính thành công!", res));
+    }
 }

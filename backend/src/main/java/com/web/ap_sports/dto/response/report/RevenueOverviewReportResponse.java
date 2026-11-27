@@ -19,6 +19,16 @@ public class RevenueOverviewReportResponse {
     private BigDecimal totalDiscountAmount;
     private BigDecimal totalShippingFee;
 
+    // Giá vốn & Lợi nhuận gộp
+    private BigDecimal totalCostOfGoodsSold;
+    private BigDecimal grossProfit;
+    private double grossMarginPercent;
+
+    // Tăng trưởng so với kỳ liền trước (null nếu lọc Toàn bộ thời gian)
+    private Double revenueGrowthPercent;
+    private Double ordersGrowthPercent;
+    private Double aovGrowthPercent;
+
     private long totalOrders;
     private long completedOrders;
     private long deliveringOrders;

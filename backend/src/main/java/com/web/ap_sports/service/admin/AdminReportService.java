@@ -57,4 +57,15 @@ public interface AdminReportService {
             LocalDateTime toDate,
             Pageable pageable
     );
+
+    /**
+     * Truy vấn sổ cái đối soát dòng tiền theo ngày và kênh thanh toán (VNPay vs COD),
+     * đồng thời phát hiện các đơn có chênh lệch trạng thái thanh toán cần kế toán xử lý.
+     */
+    com.web.ap_sports.dto.response.report.FinancialReconciliationResponse getFinancialReconciliation(
+            LocalDateTime fromDate,
+            LocalDateTime toDate,
+            String paymentMethod,
+            Long staffId
+    );
 }

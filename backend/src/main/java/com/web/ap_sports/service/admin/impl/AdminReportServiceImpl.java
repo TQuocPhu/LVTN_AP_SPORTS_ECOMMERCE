@@ -63,6 +63,7 @@ public class AdminReportServiceImpl implements AdminReportService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
     private final ProductImageRepository productImageRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
@@ -159,6 +160,60 @@ public class AdminReportServiceImpl implements AdminReportService {
         if (totalNetRevenue.compareTo(BigDecimal.ZERO) < 0)
             totalNetRevenue = BigDecimal.ZERO;
 
+        // Tính Giá vốn hàng bán (COGS) & Lợi nhuận gộp từ các đơn hoàn tất (batch load tránh N+1)
+        List<Long> completedOrderIds = orders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.delivered || o.getStatus() == OrderStatus.completed)
+                .map(Order::getId)
+                .toList();
+        BigDecimal totalCogs = BigDecimal.ZERO;
+        if (!completedOrderIds.isEmpty()) {
+            List<OrderItem> completedItems = orderItemRepository.findByOrderIdInWithDetails(completedOrderIds);
+            for (OrderItem oi : completedItems) {
+                BigDecimal unitCost = oi.getCostPrice();
+                if (unitCost == null && oi.getVariant() != null) {
+                    unitCost = oi.getVariant().getCostPrice();
+                }
+                if (unitCost != null && oi.getQuantity() != null && oi.getQuantity() > 0) {
+                    totalCogs = totalCogs.add(unitCost.multiply(BigDecimal.valueOf(oi.getQuantity())));
+                }
+            }
+        }
+        BigDecimal grossProfit = totalNetRevenue.subtract(totalCogs);
+        double grossMarginPercent = totalNetRevenue.compareTo(BigDecimal.ZERO) > 0
+                ? grossProfit.multiply(BigDecimal.valueOf(100))
+                        .divide(totalNetRevenue, 1, RoundingMode.HALF_UP)
+                        .doubleValue()
+                : 0.0;
+
+        // Tính % tăng trưởng so với kỳ liền trước khi có khoảng thời gian xác định
+        Double revenueGrowthPercent = null;
+        Double ordersGrowthPercent = null;
+        Double aovGrowthPercent = null;
+        if (fromDate != null && toDate != null) {
+            java.time.Duration duration = java.time.Duration.between(fromDate, toDate);
+            if (duration.toSeconds() > 0) {
+                LocalDateTime prevTo = fromDate.minusNanos(1);
+                LocalDateTime prevFrom = prevTo.minus(duration);
+                List<Order> prevOrders = orderRepository.findOrdersForReport(prevFrom, prevTo, staffId);
+
+                BigDecimal prevDeliveredRev = BigDecimal.ZERO;
+                long prevCompletedCount = 0;
+                for (Order po : prevOrders) {
+                    if (po.getStatus() == OrderStatus.delivered || po.getStatus() == OrderStatus.completed) {
+                        prevCompletedCount++;
+                        prevDeliveredRev = prevDeliveredRev.add(po.getFinalAmount() != null ? po.getFinalAmount() : BigDecimal.ZERO);
+                    }
+                }
+                BigDecimal prevAov = prevCompletedCount > 0
+                        ? prevDeliveredRev.divide(BigDecimal.valueOf(prevCompletedCount), 0, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+
+                revenueGrowthPercent = calcGrowthPercent(totalDeliveredRevenue, prevDeliveredRev);
+                ordersGrowthPercent = calcGrowthPercent(BigDecimal.valueOf(totalOrders), BigDecimal.valueOf(prevOrders.size()));
+                aovGrowthPercent = calcGrowthPercent(aov, prevAov);
+            }
+        }
+
         return RevenueOverviewReportResponse.builder()
                 .totalGrossRevenue(
                         totalGrossRevenue.compareTo(BigDecimal.ZERO) > 0 ? totalGrossRevenue : totalDeliveredRevenue)
@@ -166,6 +221,12 @@ public class AdminReportServiceImpl implements AdminReportService {
                 .totalDeliveredRevenue(totalDeliveredRevenue)
                 .totalDiscountAmount(totalDiscountAmount)
                 .totalShippingFee(totalShippingFee)
+                .totalCostOfGoodsSold(totalCogs)
+                .grossProfit(grossProfit)
+                .grossMarginPercent(grossMarginPercent)
+                .revenueGrowthPercent(revenueGrowthPercent)
+                .ordersGrowthPercent(ordersGrowthPercent)
+                .aovGrowthPercent(aovGrowthPercent)
                 .totalOrders(totalOrders)
                 .completedOrders(completedOrders)
                 .deliveringOrders(deliveringOrders)
@@ -178,6 +239,16 @@ public class AdminReportServiceImpl implements AdminReportService {
                 .vnpayPaymentRevenue(vnpayPaymentRevenue)
                 .timeSeries(new ArrayList<>(timeSeriesMap.values()))
                 .build();
+    }
+
+    private double calcGrowthPercent(BigDecimal current, BigDecimal previous) {
+        if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
+            return (current != null && current.compareTo(BigDecimal.ZERO) > 0) ? 100.0 : 0.0;
+        }
+        return current.subtract(previous)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(previous, 1, RoundingMode.HALF_UP)
+                .doubleValue();
     }
 
     @Override
@@ -272,16 +343,41 @@ public class AdminReportServiceImpl implements AdminReportService {
     public TopMerchandiseReportResponse getTopMerchandise(LocalDateTime fromDate, LocalDateTime toDate, Integer limit) {
         int finalLimit = (limit != null && limit > 0) ? limit : DEFAULT_TOP_LIMIT;
 
+        // Nạp cây danh mục một lần để phân giải cả Top SP lẫn Cơ cấu danh mục cha gốc từ bảng trung gian product_categories
+        Map<Long, Category> allCatMap = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::getId, c -> c, (a, b) -> a));
+
         List<Object[]> topProductRows = orderItemRepository.findTopSellingProducts(fromDate, toDate,
                 PageRequest.of(0, finalLimit));
-        List<TopProductItemResponse> topProducts = new ArrayList<>();
+        List<Object[]> deliveredProductSales = orderItemRepository.findDeliveredSalesGroupedByProduct(fromDate, toDate);
 
+        Set<Long> allSoldProductIds = new HashSet<>();
         for (Object[] row : topProductRows) {
-            Long productId = (Long) row[0];
+            if (row[0] != null) allSoldProductIds.add(((Number) row[0]).longValue());
+        }
+        for (Object[] row : deliveredProductSales) {
+            if (row[0] != null) allSoldProductIds.add(((Number) row[0]).longValue());
+        }
+
+        Map<Long, Product> soldProductMap = allSoldProductIds.isEmpty()
+                ? Collections.emptyMap()
+                : productRepository.findAllWithCategoriesByIdIn(allSoldProductIds).stream()
+                        .collect(Collectors.toMap(Product::getId, p -> p, (a, b) -> a));
+
+        List<TopProductItemResponse> topProducts = new ArrayList<>();
+        for (Object[] row : topProductRows) {
+            Long productId = ((Number) row[0]).longValue();
             String name = (String) row[1];
             String slug = (String) row[2];
             long qty = row[3] != null ? ((Number) row[3]).longValue() : 0L;
             BigDecimal rev = row[4] != null ? (BigDecimal) row[4] : BigDecimal.ZERO;
+
+            Product prod = soldProductMap.get(productId);
+            Category leafCat = resolvePrimaryLeafCategory(prod, allCatMap);
+            Category rootCat = resolveRootCategory(leafCat, allCatMap);
+
+            String leafCatName = leafCat != null ? leafCat.getName() : "Chưa phân loại";
+            String rootCatName = rootCat != null ? rootCat.getName() : leafCatName;
 
             String image = productImageRepository.findFirstByProductIdAndIsPrimaryTrue(productId)
                     .map(ProductImage::getImagePath)
@@ -292,44 +388,127 @@ public class AdminReportServiceImpl implements AdminReportService {
                     .productId(productId)
                     .productName(name)
                     .slug(slug)
+                    .categoryName(leafCatName)
+                    .rootCategoryName(rootCatName)
                     .image(image)
                     .totalQuantitySold(qty)
                     .totalRevenue(rev)
                     .build());
         }
 
-        List<Object[]> catRows = orderItemRepository.findCategoryRevenueBreakdown(fromDate, toDate);
-        List<CategoryRevenueItemResponse> catList = new ArrayList<>();
+        // Tổng hợp doanh thu & sản lượng theo Nhánh danh mục (leaf) và Nhóm danh mục cha (root) từ bảng trung gian product_categories
         BigDecimal totalCatRevenue = BigDecimal.ZERO;
+        Map<Long, String> leafNameMap = new HashMap<>();
+        Map<Long, Long> leafQtyMap = new HashMap<>();
+        Map<Long, BigDecimal> leafRevMap = new HashMap<>();
 
-        for (Object[] row : catRows) {
-            BigDecimal rev = row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO;
+        Map<Long, String> rootNameMap = new HashMap<>();
+        Map<Long, Long> rootQtyMap = new HashMap<>();
+        Map<Long, BigDecimal> rootRevMap = new HashMap<>();
+
+        for (Object[] row : deliveredProductSales) {
+            Long productId = ((Number) row[0]).longValue();
+            long qty = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+            BigDecimal rev = row[2] != null ? (BigDecimal) row[2] : BigDecimal.ZERO;
             totalCatRevenue = totalCatRevenue.add(rev);
+
+            Product prod = soldProductMap.get(productId);
+            Category leafCat = resolvePrimaryLeafCategory(prod, allCatMap);
+            Category rootCat = resolveRootCategory(leafCat, allCatMap);
+
+            Long leafId = leafCat != null ? leafCat.getId() : -1L;
+            String leafName = leafCat != null ? leafCat.getName() : "Chưa phân loại";
+            leafNameMap.put(leafId, leafName);
+            leafQtyMap.merge(leafId, qty, Long::sum);
+            leafRevMap.merge(leafId, rev, BigDecimal::add);
+
+            Long rootId = rootCat != null ? rootCat.getId() : leafId;
+            String rootName = rootCat != null ? rootCat.getName() : leafName;
+            rootNameMap.put(rootId, rootName);
+            rootQtyMap.merge(rootId, qty, Long::sum);
+            rootRevMap.merge(rootId, rev, BigDecimal::add);
         }
 
-        for (Object[] row : catRows) {
-            Long catId = (Long) row[0];
-            String catName = (String) row[1];
-            long qty = row[2] != null ? ((Number) row[2]).longValue() : 0L;
-            BigDecimal rev = row[3] != null ? (BigDecimal) row[3] : BigDecimal.ZERO;
+        List<CategoryRevenueItemResponse> catList = buildCategoryBreakdownList(leafNameMap, leafQtyMap, leafRevMap, totalCatRevenue);
+        List<CategoryRevenueItemResponse> rootCatList = buildCategoryBreakdownList(rootNameMap, rootQtyMap, rootRevMap, totalCatRevenue);
 
-            double pct = totalCatRevenue.compareTo(BigDecimal.ZERO) > 0
-                    ? rev.divide(totalCatRevenue, 4, RoundingMode.HALF_UP).doubleValue() * 100.0
+        return TopMerchandiseReportResponse.builder()
+                .topProducts(topProducts)
+                .categoryBreakdown(catList)
+                .rootCategoryBreakdown(rootCatList)
+                .build();
+    }
+
+    /**
+     * Chọn danh mục cụ thể nhất (sâu nhất trong cây danh mục) của sản phẩm từ bảng trung gian `product_categories`,
+     * fallback sang `product.getCategory()` nếu bảng trung gian chưa có bản ghi.
+     */
+    private Category resolvePrimaryLeafCategory(Product product, Map<Long, Category> allCatMap) {
+        if (product == null) return null;
+        Set<Category> linked = product.getCategories();
+        if (linked != null && !linked.isEmpty()) {
+            Category best = null;
+            int bestDepth = -1;
+            for (Category c : linked) {
+                Category managed = allCatMap.getOrDefault(c.getId(), c);
+                int depth = getCategoryDepth(managed, allCatMap);
+                if (depth > bestDepth) {
+                    bestDepth = depth;
+                    best = managed;
+                }
+            }
+            if (best != null) return best;
+        }
+        return product.getCategory() != null ? allCatMap.getOrDefault(product.getCategory().getId(), product.getCategory()) : null;
+    }
+
+    private int getCategoryDepth(Category category, Map<Long, Category> allCatMap) {
+        int depth = 0;
+        Category curr = category;
+        Set<Long> visited = new HashSet<>();
+        while (curr != null && curr.getParent() != null && visited.add(curr.getId())) {
+            curr = allCatMap.get(curr.getParent().getId());
+            depth++;
+        }
+        return depth;
+    }
+
+    private Category resolveRootCategory(Category category, Map<Long, Category> allCatMap) {
+        if (category == null) return null;
+        Category rootCat = allCatMap.getOrDefault(category.getId(), category);
+        Set<Long> visitedIds = new HashSet<>();
+        while (rootCat != null && rootCat.getParent() != null && visitedIds.add(rootCat.getId())) {
+            Category parent = allCatMap.get(rootCat.getParent().getId());
+            if (parent == null) break;
+            rootCat = parent;
+        }
+        return rootCat;
+    }
+
+    private List<CategoryRevenueItemResponse> buildCategoryBreakdownList(
+            Map<Long, String> nameMap,
+            Map<Long, Long> qtyMap,
+            Map<Long, BigDecimal> revMap,
+            BigDecimal totalRevenue
+    ) {
+        List<CategoryRevenueItemResponse> list = new ArrayList<>();
+        for (Map.Entry<Long, String> entry : nameMap.entrySet()) {
+            Long id = entry.getKey();
+            long qty = qtyMap.getOrDefault(id, 0L);
+            BigDecimal rev = revMap.getOrDefault(id, BigDecimal.ZERO);
+            double pct = totalRevenue.compareTo(BigDecimal.ZERO) > 0
+                    ? rev.divide(totalRevenue, 4, RoundingMode.HALF_UP).doubleValue() * 100.0
                     : 0.0;
-
-            catList.add(CategoryRevenueItemResponse.builder()
-                    .categoryId(catId)
-                    .categoryName(catName)
+            list.add(CategoryRevenueItemResponse.builder()
+                    .categoryId(id)
+                    .categoryName(entry.getValue())
                     .totalQuantitySold(qty)
                     .totalRevenue(rev)
                     .percentage(Math.round(pct * 10.0) / 10.0)
                     .build());
         }
-
-        return TopMerchandiseReportResponse.builder()
-                .topProducts(topProducts)
-                .categoryBreakdown(catList)
-                .build();
+        list.sort((a, b) -> b.getTotalRevenue().compareTo(a.getTotalRevenue()));
+        return list;
     }
 
     @Override
@@ -554,11 +733,21 @@ public class AdminReportServiceImpl implements AdminReportService {
                 BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(qty));
 
                 Long itemProdId = oi.getProduct() != null ? oi.getProduct().getId() : null;
-                Long itemPrimaryCatId = (oi.getProduct() != null && oi.getProduct().getCategory() != null)
-                        ? oi.getProduct().getCategory().getId()
-                        : null;
-                boolean matched = (productId != null && productId.equals(itemProdId))
-                        || (!expandedCategoryIds.isEmpty() && itemPrimaryCatId != null && expandedCategoryIds.contains(itemPrimaryCatId));
+                boolean catMatched = false;
+                if (!expandedCategoryIds.isEmpty() && oi.getProduct() != null) {
+                    if (oi.getProduct().getCategories() != null) {
+                        for (Category c : oi.getProduct().getCategories()) {
+                            if (c != null && expandedCategoryIds.contains(c.getId())) {
+                                catMatched = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!catMatched && oi.getProduct().getCategory() != null) {
+                        catMatched = expandedCategoryIds.contains(oi.getProduct().getCategory().getId());
+                    }
+                }
+                boolean matched = (productId != null && productId.equals(itemProdId)) || catMatched;
 
                 itemDtos.add(ReportDrilldownOrderResponse.DrilldownOrderItemDto.builder()
                         .productId(itemProdId)
@@ -643,6 +832,9 @@ public class AdminReportServiceImpl implements AdminReportService {
                 Sort.by(Sort.Direction.ASC, "stockQuantity").and(Sort.by(Sort.Direction.DESC, "id"))
         );
 
+        Map<Long, Category> allCatMapForStocks = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::getId, c -> c, (a, b) -> a));
+
         Page<ProductVariant> variantPage = productVariantRepository.findAll(spec, sortedPageable);
         List<WarehouseDrilldownStockResponse> dtos = variantPage.getContent().stream()
                 .map(v -> {
@@ -653,9 +845,8 @@ public class AdminReportServiceImpl implements AdminReportService {
                     BigDecimal invVal = qty > 0 ? unitVal.multiply(BigDecimal.valueOf(qty)) : BigDecimal.ZERO;
 
                     String stockStatus = qty == 0 ? "OUT" : (qty <= LOW_STOCK_THRESHOLD ? "LOW" : "SAFE");
-                    String catName = (v.getProduct() != null && v.getProduct().getCategory() != null)
-                            ? v.getProduct().getCategory().getName()
-                            : "Chưa phân loại";
+                    Category leafCat = resolvePrimaryLeafCategory(v.getProduct(), allCatMapForStocks);
+                    String catName = leafCat != null ? leafCat.getName() : "Chưa phân loại";
 
                     return WarehouseDrilldownStockResponse.builder()
                             .variantId(v.getId())
@@ -866,5 +1057,205 @@ public class AdminReportServiceImpl implements AdminReportService {
             parts.add("Màu: " + variant.getColor().trim());
         }
         return parts.isEmpty() ? "Tiêu chuẩn" : String.join(" | ", parts);
+    }
+
+    @Override
+    public FinancialReconciliationResponse getFinancialReconciliation(
+            LocalDateTime fromDate,
+            LocalDateTime toDate,
+            String paymentMethod,
+            Long staffId
+    ) {
+        List<Order> rawOrders = orderRepository.findOrdersForReport(fromDate, toDate, staffId);
+        List<Long> orderIds = rawOrders.stream().map(Order::getId).toList();
+        Map<Long, Payment> paymentMap = orderIds.isEmpty()
+                ? Collections.emptyMap()
+                : paymentRepository.findByOrderIdIn(orderIds).stream()
+                        .collect(Collectors.toMap(p -> p.getOrder().getId(), p -> p, (a, b) -> a));
+
+        String normalizedMethodFilter = StringUtils.hasText(paymentMethod) ? paymentMethod.trim().toUpperCase() : "ALL";
+        DateTimeFormatter fullViDateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        Map<String, FinancialReconciliationResponse.DailyReconciliationRow> dailyMap = new TreeMap<>(Comparator.reverseOrder());
+        List<FinancialReconciliationResponse.ReconciliationExceptionItem> exceptions = new ArrayList<>();
+
+        long totalOrders = 0;
+        BigDecimal totalGross = BigDecimal.ZERO;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+        BigDecimal totalShipping = BigDecimal.ZERO;
+        BigDecimal totalVnpay = BigDecimal.ZERO;
+        BigDecimal totalCod = BigDecimal.ZERO;
+        BigDecimal totalCollected = BigDecimal.ZERO;
+        BigDecimal totalVnpayPrepaidPending = BigDecimal.ZERO;
+        BigDecimal totalPending = BigDecimal.ZERO;
+        BigDecimal totalCancelledUnpaid = BigDecimal.ZERO;
+        BigDecimal totalPaymentFailed = BigDecimal.ZERO;
+        BigDecimal totalPendingRefund = BigDecimal.ZERO;
+        long pendingRefundCount = 0;
+        BigDecimal totalRefunded = BigDecimal.ZERO;
+        long refundedCount = 0;
+        BigDecimal totalLost = BigDecimal.ZERO;
+
+        for (Order o : rawOrders) {
+            Payment payment = paymentMap.get(o.getId());
+            boolean isVnpay = payment != null && payment.getPaymentMethod() == Payment.PaymentMethod.vnpay;
+            String methodLabel = isVnpay ? "VNPAY" : "COD";
+
+            if (!"ALL".equals(normalizedMethodFilter) && !normalizedMethodFilter.equals(methodLabel)) {
+                continue;
+            }
+
+            String dateKey = o.getCreatedAt() != null ? o.getCreatedAt().format(DATE_FORMATTER) : "0000-00-00";
+            String dateLabel = o.getCreatedAt() != null ? o.getCreatedAt().format(fullViDateFormatter) : "Không xác định";
+
+            FinancialReconciliationResponse.DailyReconciliationRow row = dailyMap.computeIfAbsent(
+                    dateKey,
+                    k -> FinancialReconciliationResponse.DailyReconciliationRow.builder()
+                            .date(dateKey)
+                            .label(dateLabel)
+                            .orderCount(0)
+                            .grossRevenue(BigDecimal.ZERO)
+                            .discountAmount(BigDecimal.ZERO)
+                            .shippingFee(BigDecimal.ZERO)
+                            .vnpayCollectedRevenue(BigDecimal.ZERO)
+                            .codCollectedRevenue(BigDecimal.ZERO)
+                            .netCollectedRevenue(BigDecimal.ZERO)
+                            .vnpayPrepaidPendingRevenue(BigDecimal.ZERO)
+                            .pendingReconciliationRevenue(BigDecimal.ZERO)
+                            .cancelledUnpaidRevenue(BigDecimal.ZERO)
+                            .pendingRefundRevenue(BigDecimal.ZERO)
+                            .refundedRevenue(BigDecimal.ZERO)
+                            .lostCancelledRevenue(BigDecimal.ZERO)
+                            .collectionRate(0.0)
+                            .build()
+            );
+
+            BigDecimal amount = o.getFinalAmount() != null ? o.getFinalAmount() : BigDecimal.ZERO;
+            BigDecimal discount = o.getDiscountAmount() != null ? o.getDiscountAmount() : BigDecimal.ZERO;
+            BigDecimal shipping = o.getShippingFee() != null ? o.getShippingFee() : BigDecimal.ZERO;
+
+            totalOrders++;
+            totalGross = totalGross.add(amount);
+            totalDiscount = totalDiscount.add(discount);
+            totalShipping = totalShipping.add(shipping);
+
+            row.setOrderCount(row.getOrderCount() + 1);
+            row.setGrossRevenue(row.getGrossRevenue().add(amount));
+            row.setDiscountAmount(row.getDiscountAmount().add(discount));
+            row.setShippingFee(row.getShippingFee().add(shipping));
+
+            OrderStatus status = o.getStatus();
+            Payment.PaymentStatus payStatus = payment != null ? payment.getStatus() : Payment.PaymentStatus.pending;
+
+            boolean isLost = (status == OrderStatus.cancelled || status == OrderStatus.returned || status == OrderStatus.payment_failed);
+            boolean isDelivered = (status == OrderStatus.delivered || status == OrderStatus.completed);
+            boolean isVnpayPaid = isVnpay && payStatus == Payment.PaymentStatus.completed;
+            boolean isRefunded = payStatus == Payment.PaymentStatus.refunded;
+
+            if (isLost || isRefunded) {
+                totalLost = totalLost.add(amount);
+                row.setLostCancelledRevenue(row.getLostCancelledRevenue().add(amount));
+
+                if (isRefunded) {
+                    totalRefunded = totalRefunded.add(amount);
+                    refundedCount++;
+                    row.setRefundedRevenue(row.getRefundedRevenue().add(amount));
+                } else if (isVnpayPaid && (status == OrderStatus.cancelled || status == OrderStatus.returned)) {
+                    totalPendingRefund = totalPendingRefund.add(amount);
+                    pendingRefundCount++;
+                    row.setPendingRefundRevenue(row.getPendingRefundRevenue().add(amount));
+
+                    exceptions.add(FinancialReconciliationResponse.ReconciliationExceptionItem.builder()
+                            .orderId(o.getId())
+                            .orderCode(o.getOrderCode())
+                            .customerName(o.getUser() != null ? o.getUser().getName() : "Khách lẻ")
+                            .paymentMethod(methodLabel)
+                            .paymentStatus(payStatus.name())
+                            .orderStatus(status.name())
+                            .amount(amount)
+                            .issueDescription("Chờ hoàn tiền thủ công: VNPay đã thu tiền nhưng đơn đã hủy/trả hàng")
+                            .createdAt(o.getCreatedAt())
+                            .build());
+                } else if (status == OrderStatus.payment_failed) {
+                    totalPaymentFailed = totalPaymentFailed.add(amount);
+                    row.setCancelledUnpaidRevenue(row.getCancelledUnpaidRevenue().add(amount));
+                } else {
+                    totalCancelledUnpaid = totalCancelledUnpaid.add(amount);
+                    row.setCancelledUnpaidRevenue(row.getCancelledUnpaidRevenue().add(amount));
+                }
+            } else if (isDelivered) {
+                totalCollected = totalCollected.add(amount);
+                row.setNetCollectedRevenue(row.getNetCollectedRevenue().add(amount));
+                if (isVnpay) {
+                    totalVnpay = totalVnpay.add(amount);
+                    row.setVnpayCollectedRevenue(row.getVnpayCollectedRevenue().add(amount));
+                } else {
+                    totalCod = totalCod.add(amount);
+                    row.setCodCollectedRevenue(row.getCodCollectedRevenue().add(amount));
+                }
+
+                if (payStatus != Payment.PaymentStatus.completed) {
+                    exceptions.add(FinancialReconciliationResponse.ReconciliationExceptionItem.builder()
+                            .orderId(o.getId())
+                            .orderCode(o.getOrderCode())
+                            .customerName(o.getUser() != null ? o.getUser().getName() : "Khách lẻ")
+                            .paymentMethod(methodLabel)
+                            .paymentStatus(payStatus != null ? payStatus.name() : "pending")
+                            .orderStatus(status.name())
+                            .amount(amount)
+                            .issueDescription("Đơn đã giao thành công nhưng trạng thái thanh toán chưa chốt completed")
+                            .createdAt(o.getCreatedAt())
+                            .build());
+                }
+            } else if (isVnpayPaid) {
+                // VNPay đã thanh toán trước tại cổng nhưng đơn đang xử lý/đang giao (chưa hoàn tất giao hàng)
+                totalVnpayPrepaidPending = totalVnpayPrepaidPending.add(amount);
+                row.setVnpayPrepaidPendingRevenue(row.getVnpayPrepaidPendingRevenue().add(amount));
+            } else {
+                totalPending = totalPending.add(amount);
+                row.setPendingReconciliationRevenue(row.getPendingReconciliationRevenue().add(amount));
+            }
+        }
+
+        List<FinancialReconciliationResponse.DailyReconciliationRow> rows = new ArrayList<>(dailyMap.values());
+        for (FinancialReconciliationResponse.DailyReconciliationRow r : rows) {
+            if (r.getGrossRevenue().compareTo(BigDecimal.ZERO) > 0) {
+                double rate = r.getNetCollectedRevenue()
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(r.getGrossRevenue(), 1, RoundingMode.HALF_UP)
+                        .doubleValue();
+                r.setCollectionRate(rate);
+            }
+        }
+
+        double overallRate = 0.0;
+        if (totalGross.compareTo(BigDecimal.ZERO) > 0) {
+            overallRate = totalCollected
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(totalGross, 1, RoundingMode.HALF_UP)
+                    .doubleValue();
+        }
+
+        return FinancialReconciliationResponse.builder()
+                .totalOrders(totalOrders)
+                .grossRevenue(totalGross)
+                .totalDiscountAmount(totalDiscount)
+                .totalShippingFee(totalShipping)
+                .vnpayCollectedRevenue(totalVnpay)
+                .codCollectedRevenue(totalCod)
+                .netCollectedRevenue(totalCollected)
+                .vnpayPrepaidPendingRevenue(totalVnpayPrepaidPending)
+                .pendingReconciliationRevenue(totalPending)
+                .lostCancelledRevenue(totalLost)
+                .cancelledUnpaidRevenue(totalCancelledUnpaid)
+                .paymentFailedRevenue(totalPaymentFailed)
+                .pendingRefundRevenue(totalPendingRefund)
+                .pendingRefundCount(pendingRefundCount)
+                .refundedRevenue(totalRefunded)
+                .refundedCount(refundedCount)
+                .collectionRate(overallRate)
+                .dailyRows(rows)
+                .exceptions(exceptions)
+                .build();
     }
 }

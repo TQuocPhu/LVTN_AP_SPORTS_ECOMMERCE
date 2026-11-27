@@ -51,6 +51,21 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
             Pageable pageable
     );
 
+    /**
+     * Tổng hợp sản lượng và doanh thu theo từng sản phẩm trong kỳ để Service ánh xạ qua bảng trung gian product_categories
+     * (tránh phụ thuộc cột category_id cũ trên bảng products và tránh nhân đôi doanh thu khi SP thuộc nhiều danh mục).
+     */
+    @Query("SELECT oi.product.id, SUM(oi.quantity), SUM(oi.price * oi.quantity) " +
+           "FROM OrderItem oi " +
+           "WHERE (oi.order.status = com.web.ap_sports.enums.OrderStatus.delivered OR oi.order.status = com.web.ap_sports.enums.OrderStatus.completed) " +
+           "AND (CAST(:fromDate AS java.time.LocalDateTime) IS NULL OR oi.order.createdAt >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.LocalDateTime) IS NULL OR oi.order.createdAt <= :toDate) " +
+           "GROUP BY oi.product.id")
+    List<Object[]> findDeliveredSalesGroupedByProduct(
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
+    );
+
     @Query("SELECT c.id, c.name, SUM(oi.quantity), SUM(oi.price * oi.quantity) " +
            "FROM OrderItem oi " +
            "JOIN oi.product p " +

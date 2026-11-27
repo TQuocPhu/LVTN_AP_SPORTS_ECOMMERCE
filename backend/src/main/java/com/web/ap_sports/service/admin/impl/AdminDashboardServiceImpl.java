@@ -553,8 +553,8 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         // Trả về danh sách Cohort thực tế (Nếu chưa có ai thì trả về danh sách rỗng, không fake số)
         responseBuilder.cohortRetention(realCohorts);
 
-        // 4. BIỂU ĐỒ TRÒN: CƠ CẤU DANH MỤC SẢN PHẨM & TỒN KHO (100% DỮ LIỆU THẬT)
-        List<com.web.ap_sports.entity.Product> allProducts = productRepository.findAll();
+        // 4. BIỂU ĐỒ TRÒN: CƠ CẤU DANH MỤC GỐC SẢN PHẨM & TỒN KHO (ĐỒNG BỘ TỪ PRODUCT_CATEGORIES)
+        List<com.web.ap_sports.entity.Product> allProducts = productRepository.findAllProductsWithCategories();
         List<ProductVariant> allVariants = productVariantRepository.findAll();
 
         Map<Long, Long> stockByProductId = new HashMap<>();
@@ -565,27 +565,66 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         }
 
         List<com.web.ap_sports.entity.Category> allCategories = categoryRepository.findAll();
+        Map<Long, com.web.ap_sports.entity.Category> catById = new HashMap<>();
         Map<Long, String> categoryNameMap = new HashMap<>();
         Map<Long, Long> productCountByCat = new HashMap<>();
         Map<Long, Long> stockQuantityByCat = new HashMap<>();
 
         for (com.web.ap_sports.entity.Category c : allCategories) {
+            catById.put(c.getId(), c);
             categoryNameMap.put(c.getId(), c.getName());
+            // Khởi tạo sẵn tất cả danh mục gốc (parent == null) để biểu đồ phản ánh đủ cơ cấu toàn hệ thống
+            if (c.getParent() == null) {
+                productCountByCat.putIfAbsent(c.getId(), 0L);
+                stockQuantityByCat.putIfAbsent(c.getId(), 0L);
+            }
         }
 
         for (com.web.ap_sports.entity.Product p : allProducts) {
-            if (p.getCategory() != null) {
-                Long cId = p.getCategory().getId();
+            List<com.web.ap_sports.entity.Category> assignedCats = new ArrayList<>();
+            if (p.getCategories() != null && !p.getCategories().isEmpty()) {
+                assignedCats.addAll(p.getCategories());
+            } else if (p.getCategory() != null) {
+                assignedCats.add(p.getCategory());
+            }
+
+            // Gom về tập các danh mục gốc (parent == null) không trùng lặp cho từng sản phẩm
+            Set<Long> rootCatIds = new LinkedHashSet<>();
+            for (com.web.ap_sports.entity.Category chosen : assignedCats) {
+                if (chosen == null) continue;
+                com.web.ap_sports.entity.Category rootCat = catById.getOrDefault(chosen.getId(), chosen);
+                Set<Long> visited = new HashSet<>();
+                while (rootCat != null && rootCat.getParent() != null && visited.add(rootCat.getId())) {
+                    com.web.ap_sports.entity.Category parent = catById.get(rootCat.getParent().getId());
+                    if (parent == null) break;
+                    rootCat = parent;
+                }
+                Long cId = rootCat != null ? rootCat.getId() : chosen.getId();
+                rootCatIds.add(cId);
+            }
+
+            Long st = stockByProductId.getOrDefault(p.getId(), 0L);
+            for (Long cId : rootCatIds) {
                 productCountByCat.merge(cId, 1L, Long::sum);
-                Long st = stockByProductId.getOrDefault(p.getId(), 0L);
                 stockQuantityByCat.merge(cId, st, Long::sum);
             }
         }
 
-        long totalCatalogProducts = allProducts.size();
-        String[] PALETTE = {"#0284c7", "#6366f1", "#f59e0b", "#10b981", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316"};
+        long totalCatalogProducts = productCountByCat.values().stream().mapToLong(Long::longValue).sum();
+        // Bảng màu tương phản cao, tách biệt hoàn toàn giữa các danh mục liền kề
+        String[] PALETTE = {
+                "#0284c7", // Sky Blue
+                "#f97316", // Orange
+                "#10b981", // Emerald
+                "#e11d48", // Rose
+                "#8b5cf6", // Violet
+                "#eab308", // Yellow
+                "#06b6d4", // Cyan
+                "#ec4899", // Pink
+                "#84cc16", // Lime
+                "#64748b"  // Slate
+        };
         List<CategoryShareDto> categoryShares = new ArrayList<>();
-        int colorIdx = 0;
 
         for (Map.Entry<Long, Long> entry : productCountByCat.entrySet()) {
             Long cId = entry.getKey();
@@ -602,11 +641,15 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                     .productCount(pCount)
                     .stockQuantity(sQty)
                     .percentage(pct)
-                    .color(PALETTE[colorIdx % PALETTE.length])
+                    .color("#0284c7")
                     .build());
-            colorIdx++;
         }
-        categoryShares.sort((a, b) -> Long.compare(b.getProductCount(), a.getProductCount()));
+        // Sắp xếp trước khi gán màu để các danh mục đứng đầu luôn nhận các màu tương phản nhất
+        categoryShares.sort(Comparator.comparingLong(CategoryShareDto::getProductCount).reversed()
+                .thenComparing(CategoryShareDto::getCategoryName, String.CASE_INSENSITIVE_ORDER));
+        for (int i = 0; i < categoryShares.size(); i++) {
+            categoryShares.get(i).setColor(PALETTE[i % PALETTE.length]);
+        }
         responseBuilder.categoryShares(categoryShares);
 
         // 5. BIỂU ĐỒ CỘT KÉP: SO SÁNH DOANH THU THEO TUẦN (HỖ TRỢ CHỌN THÁNG TÙY BIẾN)

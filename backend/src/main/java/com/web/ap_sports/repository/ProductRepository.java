@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,11 +57,23 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category LEFT JOIN FETCH p.categories WHERE p.status = 'in_stock'")
     List<Product> findAllInStockProductsWithCategories();
 
+    /**
+     * Nạp hàng loạt sản phẩm kèm danh mục từ bảng trung gian product_categories theo danh sách ID.
+     */
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category LEFT JOIN FETCH p.categories WHERE p.id IN :ids")
+    List<Product> findAllWithCategoriesByIdIn(@Param("ids") java.util.Collection<Long> ids);
+
+    /**
+     * Nạp toàn bộ sản phẩm kèm danh mục từ bảng trung gian product_categories phục vụ thống kê Dashboard.
+     */
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category LEFT JOIN FETCH p.categories")
+    List<Product> findAllProductsWithCategories();
+
     @Query(
         value = "SELECT DISTINCT p.*, " +
                 "((CASE WHEN LOWER(p.name) = LOWER(:keyword) THEN 100 ELSE 0 END) + " +
                 "(CASE WHEN LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) THEN 50 ELSE 0 END) + " +
-                "(CASE WHEN EXISTS (SELECT 1 FROM categories c WHERE c.id = p.category_id AND LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) THEN 30 ELSE 0 END) + " +
+                "(CASE WHEN (EXISTS (SELECT 1 FROM product_categories pc JOIN categories c2 ON c2.id = pc.category_id WHERE pc.product_id = p.id AND LOWER(c2.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) OR EXISTS (SELECT 1 FROM categories c WHERE c.id = p.category_id AND LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')))) THEN 30 ELSE 0 END) + " +
                 "(CASE WHEN EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND (LOWER(v.sku) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.color) LIKE LOWER(CONCAT('%', :keyword, '%')))) THEN 20 ELSE 0 END) + " +
                 "(CASE WHEN LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')) THEN 10 ELSE 0 END)) AS relevance_score " +
                 "FROM products p " +
@@ -68,6 +81,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
                 "WHERE p.status = 'in_stock' AND (" +
                 "LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                 "LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                "EXISTS (SELECT 1 FROM product_categories pc JOIN categories c2 ON c2.id = pc.category_id WHERE pc.product_id = p.id AND LOWER(c2.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) OR " +
                 "EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND (LOWER(v.sku) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.color) LIKE LOWER(CONCAT('%', :keyword, '%')))) OR " +
                 "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%'))" +
                 ") ORDER BY relevance_score DESC, p.id DESC",
@@ -76,6 +90,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
                      "WHERE p.status = 'in_stock' AND (" +
                      "LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
                      "LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                     "EXISTS (SELECT 1 FROM product_categories pc JOIN categories c2 ON c2.id = pc.category_id WHERE pc.product_id = p.id AND LOWER(c2.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) OR " +
                      "EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND (LOWER(v.sku) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.color) LIKE LOWER(CONCAT('%', :keyword, '%')))) OR " +
                      "LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%'))" +
                      ")",

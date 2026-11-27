@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.web.ap_sports.dto.response.admin.AdminDashboardResponse;
 import com.web.ap_sports.dto.response.ai.AiBusinessAdvisorResponse;
+import com.web.ap_sports.dto.response.report.FinancialReconciliationResponse;
+import com.web.ap_sports.dto.response.report.RevenueOverviewReportResponse;
 import com.web.ap_sports.entity.User;
 import com.web.ap_sports.service.admin.AdminDashboardService;
+import com.web.ap_sports.service.admin.AdminReportService;
 import com.web.ap_sports.service.ai.ExecutiveBiAiService;
 import com.web.ap_sports.service.ai.GeminiRestClient;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ExecutiveBiAiServiceImpl implements ExecutiveBiAiService {
 
     private final AdminDashboardService adminDashboardService;
+    private final AdminReportService adminReportService;
     private final GeminiRestClient geminiRestClient;
     private final ObjectMapper objectMapper;
 
@@ -47,17 +51,21 @@ public class ExecutiveBiAiServiceImpl implements ExecutiveBiAiService {
             return cached.data();
         }
 
-        // 2. Thu thập số liệu kinh doanh thực tế từ AdminDashboardService
+        // 2. Thu thập số liệu kinh doanh thực tế từ AdminDashboardService & Báo cáo Tài chính / Đối soát tháng hiện tại
         AdminDashboardResponse dashboardData = adminDashboardService.getDashboardData(currentUser);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        RevenueOverviewReportResponse monthlyReport = adminReportService.getRevenueOverview(monthStart, now, null);
+        FinancialReconciliationResponse reconciliation = adminReportService.getFinancialReconciliation(monthStart, now, "ALL", null);
 
-        // 3. Xây dựng ngữ cảnh số liệu tóm tắt
-        String summaryMetricsJson = buildMetricsJson(dashboardData);
+        // 3. Xây dựng ngữ cảnh số liệu tóm tắt (Dashboard + Giá vốn/Lãi gộp + Đối soát dòng tiền)
+        String summaryMetricsJson = buildMetricsJson(dashboardData, monthlyReport, reconciliation);
 
         // 4. System Instruction: Cố vấn tài chính & vận hành cấp cao
         String systemInstruction = """
                 Bạn là Cố Vấn Trưởng Chiến Lược Kinh Doanh & Vận Hành E-commerce (Chief Business Advisor) của Ban Giám Đốc AP Sports.
-                Dưới đây là số liệu kinh doanh thực tế từ hệ thống Dashboard thời gian thực.
-                Nhiệm vụ của bạn là đưa ra báo cáo cố vấn sắc bén, thực tế, dựa trên số liệu cụ thể (KHÔNG BỊA ĐẶT SỐ LIỆU).
+                Dưới đây là số liệu kinh doanh thực tế từ hệ thống Dashboard thời gian thực kết hợp Báo cáo Lợi nhuận gộp (Giá vốn vs Doanh thu thuần) và Sổ cái Đối soát dòng tiền (Thực thu VNPay/COD, Tạm thu VNPay chờ giao, Chờ thu COD, Đơn cần hoàn tiền).
+                Nhiệm vụ của bạn là đưa ra báo cáo cố vấn sắc bén, thực tế, dựa trên số liệu cụ thể (KHÔNG BỊA ĐẶT SỐ LIỆU), có nhận định rõ về biên lãi gộp, dòng tiền đối soát và các đơn cần hoàn tiền nếu có.
                 TUYỆT ĐỐI KHÔNG SỬ DỤNG KÝ TỰ SAO ĐÔI ** trong văn bản. Hãy viết văn tự nhiên, cô đọng, chuyên nghiệp.
 
                 YÊU CẦU ĐỊNH DẠNG OUTPUT:
@@ -89,7 +97,11 @@ public class ExecutiveBiAiServiceImpl implements ExecutiveBiAiService {
         return response;
     }
 
-    private String buildMetricsJson(AdminDashboardResponse dashboard) {
+    private String buildMetricsJson(
+            AdminDashboardResponse dashboard,
+            RevenueOverviewReportResponse monthlyReport,
+            FinancialReconciliationResponse reconciliation
+    ) {
         try {
             Map<String, Object> summary = new LinkedHashMap<>();
             if (dashboard != null) {
@@ -98,6 +110,30 @@ public class ExecutiveBiAiServiceImpl implements ExecutiveBiAiService {
                 summary.put("lowStockAlerts", dashboard.getLowStockAlerts());
                 summary.put("salesFunnel", dashboard.getSalesFunnel());
                 summary.put("categoryShares", dashboard.getCategoryShares());
+            }
+            if (monthlyReport != null) {
+                Map<String, Object> profitMetrics = new LinkedHashMap<>();
+                profitMetrics.put("totalDeliveredRevenue", monthlyReport.getTotalDeliveredRevenue());
+                profitMetrics.put("totalNetRevenue", monthlyReport.getTotalNetRevenue());
+                profitMetrics.put("totalCostOfGoodsSold", monthlyReport.getTotalCostOfGoodsSold());
+                profitMetrics.put("grossProfit", monthlyReport.getGrossProfit());
+                profitMetrics.put("grossMarginPercent", monthlyReport.getGrossMarginPercent());
+                profitMetrics.put("revenueGrowthPercent", monthlyReport.getRevenueGrowthPercent());
+                profitMetrics.put("cancellationRate", monthlyReport.getCancellationRate());
+                summary.put("monthlyProfitAndGrowth", profitMetrics);
+            }
+            if (reconciliation != null) {
+                Map<String, Object> reconMetrics = new LinkedHashMap<>();
+                reconMetrics.put("grossRevenue", reconciliation.getGrossRevenue());
+                reconMetrics.put("netCollectedRevenue", reconciliation.getNetCollectedRevenue());
+                reconMetrics.put("vnpayPrepaidPendingRevenue", reconciliation.getVnpayPrepaidPendingRevenue());
+                reconMetrics.put("pendingReconciliationRevenue", reconciliation.getPendingReconciliationRevenue());
+                reconMetrics.put("cancelledUnpaidRevenue", reconciliation.getCancelledUnpaidRevenue());
+                reconMetrics.put("pendingRefundCount", reconciliation.getPendingRefundCount());
+                reconMetrics.put("pendingRefundRevenue", reconciliation.getPendingRefundRevenue());
+                reconMetrics.put("refundedRevenue", reconciliation.getRefundedRevenue());
+                reconMetrics.put("collectionRate", reconciliation.getCollectionRate());
+                summary.put("monthlyFinancialReconciliation", reconMetrics);
             }
             return objectMapper.writeValueAsString(summary);
         } catch (Exception e) {

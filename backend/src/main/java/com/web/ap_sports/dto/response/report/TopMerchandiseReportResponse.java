@@ -14,4 +14,5 @@ import java.util.List;
 public class TopMerchandiseReportResponse {
     private List<TopProductItemResponse> topProducts;
     private List<CategoryRevenueItemResponse> categoryBreakdown;
+    private List<CategoryRevenueItemResponse> rootCategoryBreakdown;
 }
