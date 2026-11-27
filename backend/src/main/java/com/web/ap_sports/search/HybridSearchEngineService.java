@@ -167,36 +167,44 @@ public class HybridSearchEngineService {
             // Chứa trọn vẹn cụm từ tìm kiếm
             totalMatchedWeight += 80.0;
         } else {
-            // Tính tỷ lệ số từ trong truy vấn xuất hiện ở tên sản phẩm
+            // Tính tỷ lệ số từ trong truy vấn xuất hiện ở tên sản phẩm (+ đối soát từ đồng nghĩa đinh giày FG/TF/IC)
             long matchedTokensInName = queryTokens.stream().filter(normalizedName::contains).count();
-            if (matchedTokensInName > 0) {
-                double ratio = (double) matchedTokensInName / queryTokens.size();
-                totalMatchedWeight += (ratio * 60.0);
+            double ratio = (double) matchedTokensInName / queryTokens.size();
+            double synonymBonus = hasFootballSoleSynonymMatch(normalizedQuery, normalizedName) ? 25.0 : 0.0;
+            if (matchedTokensInName > 0 || synonymBonus > 0) {
+                totalMatchedWeight += Math.min(80.0, (ratio * 60.0) + synonymBonus);
             }
         }
 
-        // --- 2. Đánh giá Danh Mục Sản Phẩm (Tối đa 40 điểm) ---
-        boolean categoryMatched = false;
-        // Kiểm tra danh mục chính (Primary Category)
+        // --- 2. Đánh giá Danh Mục Sản Phẩm (Tối đa 40 điểm, tính theo tỷ lệ từ khóa khớp cao nhất) ---
+        double bestCategoryScore = 0.0;
         if (product.getCategory() != null) {
-            String normCat = VietnameseTokenizer.normalizeText(product.getCategory().getName());
-            if (normCat.contains(normalizedQuery) || queryTokens.stream().anyMatch(normCat::contains)) {
-                categoryMatched = true;
-            }
+            bestCategoryScore = Math.max(
+                    bestCategoryScore,
+                    calculateProportionalFieldScore(
+                            VietnameseTokenizer.normalizeText(product.getCategory().getName()),
+                            normalizedQuery,
+                            queryTokens,
+                            40.0
+                    )
+            );
         }
-        // Kiểm tra danh mục phụ (Secondary Categories)
-        if (!categoryMatched && product.getCategories() != null) {
+        if (product.getCategories() != null) {
             for (Category c : product.getCategories()) {
-                String normCat = VietnameseTokenizer.normalizeText(c.getName());
-                if (normCat.contains(normalizedQuery) || queryTokens.stream().anyMatch(normCat::contains)) {
-                    categoryMatched = true;
-                    break;
+                if (c != null && c.getName() != null) {
+                    bestCategoryScore = Math.max(
+                            bestCategoryScore,
+                            calculateProportionalFieldScore(
+                                    VietnameseTokenizer.normalizeText(c.getName()),
+                                    normalizedQuery,
+                                    queryTokens,
+                                    40.0
+                            )
+                    );
                 }
             }
         }
-        if (categoryMatched) {
-            totalMatchedWeight += 40.0;
-        }
+        totalMatchedWeight += bestCategoryScore;
 
         // --- 3. Đánh giá Thuộc tính Biến thể ProductVariant: SKU, Color, Size (Tối đa 30 điểm) ---
         if (variants != null && !variants.isEmpty()) {
@@ -237,16 +245,56 @@ public class HybridSearchEngineService {
             }
         }
 
-        // --- 4. Đánh giá Thông số Kỹ thuật Specifications (Tối đa 20 điểm) ---
+        // --- 4. Đánh giá Thông số Kỹ thuật Specifications (Tối đa 20 điểm, tính theo tỷ lệ từ khóa khớp) ---
         if (product.getSpecifications() != null && !product.getSpecifications().isBlank()) {
             String normSpecs = VietnameseTokenizer.normalizeText(product.getSpecifications());
-            if (queryTokens.stream().anyMatch(normSpecs::contains)) {
-                totalMatchedWeight += 20.0;
-            }
+            totalMatchedWeight += calculateProportionalFieldScore(normSpecs, normalizedQuery, queryTokens, 20.0);
         }
 
         // Chuẩn hóa tổng điểm về khoảng [0.0, 1.0]: AttributeScore = totalMatchedWeight / 190.0
         return Math.min(1.0, totalMatchedWeight / MAX_ATTR_WEIGHT);
+    }
+
+    /**
+     * Tính điểm khớp thuộc tính theo tỷ lệ số từ khóa xuất hiện (hoặc trọn điểm nếu chứa nguyên cụm tìm kiếm).
+     */
+    private double calculateProportionalFieldScore(
+            String normalizedField,
+            String normalizedQuery,
+            List<String> queryTokens,
+            double maxWeight) {
+        if (normalizedField == null || normalizedField.isBlank() || queryTokens.isEmpty()) {
+            return 0.0;
+        }
+        if (normalizedField.contains(normalizedQuery)) {
+            return maxWeight;
+        }
+        long matched = queryTokens.stream().filter(normalizedField::contains).count();
+        if (matched == 0) {
+            return 0.0;
+        }
+        return ((double) matched / queryTokens.size()) * maxWeight;
+    }
+
+    /**
+     * Đối soát từ đồng nghĩa chuyên ngành mặt sân bóng đá (FG ↔ cỏ tự nhiên, TF ↔ cỏ nhân tạo, IC ↔ futsal).
+     */
+    private boolean hasFootballSoleSynonymMatch(String normalizedQuery, String normalizedName) {
+        if (normalizedQuery == null || normalizedName == null) return false;
+        String paddedName = " " + normalizedName + " ";
+        if ((normalizedQuery.contains("co tu nhien") || normalizedQuery.contains("tu nhien"))
+                && paddedName.contains(" fg ")) {
+            return true;
+        }
+        if ((normalizedQuery.contains("co nhan tao") || normalizedQuery.contains("nhan tao"))
+                && paddedName.contains(" tf ")) {
+            return true;
+        }
+        if ((normalizedQuery.contains("futsal") || normalizedQuery.contains("trong nha"))
+                && (paddedName.contains(" ic ") || paddedName.contains(" futsal "))) {
+            return true;
+        }
+        return false;
     }
 
     /**
